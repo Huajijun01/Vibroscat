@@ -141,6 +141,17 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 // ==========================================================================
 // WATER — Water / epipolar
 // ==========================================================================
+
+// Opaque recursive screen-space indirect specular. This budget is separate
+// from the forward water/glass SSR path below.
+#define OPAQUE_SSR
+#define OPAQUE_SSR_STEPS 40
+#define OPAQUE_SSR_REFINE_STEPS 6
+#define OPAQUE_SSR_MAX_DISTANCE 96.0
+#define OPAQUE_SSR_THICKNESS 0.35
+#define OPAQUE_SSR_FILTER_RADIUS 6.0
+#define OPAQUE_SSR_RECURSION_DECAY 0.92
+
 #define WATER_SSR
 
 // Screen-space reflections march budget: samples along the full reflection

@@ -44,4 +44,29 @@ void main() {
     vec3 reflection_direction = OpaqueReflectionDirection(
         normal, V, rough_selector.x, tx, H);
     if (dot(geo_normal, reflection_direction) <= 1e-5) return;
+
+    vec3 view_pos = SceneToViewSpace(world_pos);
+    vec3 view_direction = normalize(
+        mat3(gbufferModelView) * reflection_direction);
+    vec3 trace_origin = view_pos
+        + geo_view_normal * 0.03
+        + view_direction * 0.05;
+    float trace_jitter = OpaqueSSRRandom2(tx).y;
+    OpaqueTraceHit hit = TraceOpaqueReflection(
+        trace_origin, view_direction, trace_jitter);
+    if (!hit.valid) return;
+
+    ivec2 hit_tx = clamp(
+        ivec2(hit.screen.xy * vec2(viewWidth, viewHeight)),
+        ivec2(0),
+        ivec2(viewWidth, viewHeight) - 1);
+    vec3 hit_geo_normal = DecodeOctahedralNormal(
+        texelFetch(colortex4, hit_tx, 0).xy);
+    float confidence;
+    float selected_mip;
+    vec3 history = SampleOpaqueHistory(
+        hit, hit_geo_normal, view_direction, rough_selector.x,
+        -view_pos.z, confidence, selected_mip);
+    out_reflection_radiance = history;
+    out_reflection_metadata = vec2(hit.path_length, confidence);
 }

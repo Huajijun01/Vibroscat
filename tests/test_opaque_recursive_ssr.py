@@ -102,6 +102,19 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, source)
         self.assertNotIn("texture(colortex5", source)
 
+    def test_opaque_trace_has_required_rejection_terms(self):
+        source = read("shaders/lib/raytrace/opaque_reflection.glsl")
+        for token in (
+            "TraceOpaqueReflection",
+            "OPAQUE_SSR_MAX_DISTANCE",
+            "OPAQUE_SSR_THICKNESS",
+            "ToPrevious",
+            "OpaqueHistoryMip",
+            "OpaqueHistoryConfidence",
+        ):
+            self.assertIn(token, source)
+        self.assertIn("depthtex1", source)
+
 
 class LabPBRReferenceTests(unittest.TestCase):
     def test_selector_boundaries(self):

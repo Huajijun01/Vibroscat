@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -130,6 +131,15 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, source)
         self.assertIn("const int FILTER_TAPS = 9", source)
 
+    def test_filter_avoids_glsl_reserved_packed_identifier(self):
+        source = read(
+            "shaders/program/deferred/opaque_reflection_filter.fragment"
+        )
+        self.assertNotRegex(
+            source,
+            r"\b(?:vec[234]|float|int|uint)\s+packed\b",
+        )
+
     def test_final_shading_owns_pbr_integration(self):
         source = read("shaders/program/deferred/deferred_shading.fragment")
         for token in (
@@ -180,12 +190,35 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, chinese)
         self.assertIn("不透明反射质量", chinese)
 
+    def test_zero_quality_disables_trace_and_filter_programs(self):
+        properties = read("shaders/shaders.properties")
+        condition = "#if OPAQUE_SSR_QUALITY > 0"
+        self.assertIn(condition, properties)
+        conditional_block = properties.split(condition, 1)[1].split("#endif", 1)[0]
+        enabled_block, disabled_block = conditional_block.split("#else", 1)
+        for world in ("world0", "world1", "world-1"):
+            for program in ("deferred2", "deferred3"):
+                self.assertRegex(
+                    enabled_block,
+                    rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*"
+                    r"true\b",
+                )
+                self.assertRegex(
+                    disabled_block,
+                    rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*"
+                    r"false\b",
+                )
+
     def test_debug_views_remain_internal(self):
         settings = read("shaders/lib/contract/settings.glsl")
         trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
         filt = read("shaders/program/deferred/opaque_reflection_filter.fragment")
         shade = read("shaders/program/deferred/deferred_shading.fragment")
-        self.assertIn("OPAQUE_SSR_DEBUG", settings)
+        self.assertRegex(
+            settings,
+            r"#define\s+OPAQUE_SSR_DEBUG\s+0\s*"
+            r"//\s*\[0 1 2 3 4 5 6 7 8\]",
+        )
         for debug_value in range(1, 9):
             token = f"OPAQUE_SSR_DEBUG == {debug_value}"
             self.assertTrue(

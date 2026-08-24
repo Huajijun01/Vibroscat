@@ -21,9 +21,9 @@ layout(location = 0) out vec3 out_reflection_radiance;
 layout(location = 1) out vec2 out_reflection_metadata;
 
 vec3 FilterShadingNormal(ivec2 tx) {
-    vec4 packed = texelFetch(colortex2, tx, 0);
-    vec2 nx_ao = Unpack2x8(packed.r);
-    vec2 ny_nz = Unpack2x8(packed.g);
+    vec4 packed_gbuffer = texelFetch(colortex2, tx, 0);
+    vec2 nx_ao = Unpack2x8(packed_gbuffer.r);
+    vec2 ny_nz = Unpack2x8(packed_gbuffer.g);
     return normalize(vec3(
         nx_ao.x * 2.0 - 1.0,
         ny_nz.x * 2.0 - 1.0,

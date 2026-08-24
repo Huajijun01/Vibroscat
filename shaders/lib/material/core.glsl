@@ -37,6 +37,60 @@ Material MaterialDefaults(int id, vec4 spec) {
     return m;
 }
 
+struct OpaqueMaterial {
+    float perceptual_roughness;
+    float specular_selector;
+    float emission;
+    float auxiliary;
+};
+
+struct PBRMaterial {
+    float perceptual_roughness;
+    float alpha;
+    vec3 f0;
+    float diffuse_weight;
+    float emission;
+    float auxiliary;
+};
+
+float LabPBREmission(float encoded) {
+    float value = floor(encoded * 255.0 + 0.5);
+    return value >= 255.0 ? 0.0 : value / 254.0;
+}
+
+OpaqueMaterial DecodeOpaqueMaterial(vec4 spec) {
+    OpaqueMaterial m;
+    m.perceptual_roughness = 1.0 - spec.r;
+    m.specular_selector = spec.g;
+#ifdef MC_TEXTURE_FORMAT_LAB_PBR
+    m.emission = LabPBREmission(spec.a);
+    m.auxiliary = spec.b;
+#else
+    m.emission = spec.b;
+    m.auxiliary = spec.a;
+#endif
+    return m;
+}
+
+PBRMaterial ResolveOpaquePBR(vec3 albedo, float roughness, float selector,
+        float emission, float auxiliary) {
+    PBRMaterial m;
+    float selector_byte = floor(selector * 255.0 + 0.5);
+    m.perceptual_roughness = roughness;
+    m.alpha = max(roughness * roughness, 0.002);
+#ifdef MC_TEXTURE_FORMAT_LAB_PBR
+    bool metal = selector_byte >= 230.0;
+    m.f0 = metal ? albedo : vec3(selector_byte / 255.0);
+    m.diffuse_weight = metal ? 0.0 : 1.0;
+#else
+    m.f0 = mix(vec3(0.04), albedo, selector);
+    m.diffuse_weight = 1.0 - selector;
+#endif
+    m.emission = emission;
+    m.auxiliary = auxiliary;
+    return m;
+}
+
 // Plant subsurface-scattering amount by materialID (see block.properties for
 // the 128-134 assignments). 0 = no transmission, 1 = strong translucency.
 float SSSAmountForId(int id) {

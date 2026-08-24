@@ -115,6 +115,21 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, source)
         self.assertIn("depthtex1", source)
 
+    def test_filter_uses_all_guidance_terms(self):
+        source = read(
+            "shaders/program/deferred/opaque_reflection_filter.fragment"
+        )
+        for token in (
+            "FILTER_TAPS",
+            "depth_weight",
+            "normal_weight",
+            "roughness_weight",
+            "distance_weight",
+            "confidence",
+        ):
+            self.assertIn(token, source)
+        self.assertIn("const int FILTER_TAPS = 9", source)
+
 
 class LabPBRReferenceTests(unittest.TestCase):
     def test_selector_boundaries(self):

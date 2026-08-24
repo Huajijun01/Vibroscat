@@ -1,6 +1,10 @@
 /* RENDERTARGETS: 3,11 */
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/packing.glsl"
+#include "/lib/raytrace/opaque_reflection.glsl"
 
 layout(location = 0) out vec3 out_reflection_radiance;
 layout(location = 1) out vec2 out_reflection_metadata;
@@ -8,4 +12,36 @@ layout(location = 1) out vec2 out_reflection_metadata;
 void main() {
     out_reflection_radiance = vec3(0.0);
     out_reflection_metadata = vec2(0.0);
+
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    float depth = texelFetch(depthtex0, tx, 0).r;
+    if (depth >= 1.0) return;
+
+    vec4 packed_surface = texelFetch(colortex2, tx, 0);
+    vec2 nx_ao = Unpack2x8(packed_surface.r);
+    vec2 ny_nz = Unpack2x8(packed_surface.g);
+    vec2 rough_selector = Unpack2x8(packed_surface.b);
+    vec3 normal = normalize(vec3(
+        nx_ao.x * 2.0 - 1.0,
+        ny_nz.x * 2.0 - 1.0,
+        ny_nz.y * 2.0 - 1.0));
+
+    vec4 geometry_data = texelFetch(colortex4, tx, 0);
+    vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
+    vec3 geo_normal = normalize(
+        mat3(gbufferModelViewInverse) * geo_view_normal);
+
+    vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+#ifdef TAA
+    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
+#else
+    vec3 world_pos = DepthToWorldPos(uv, depth);
+#endif
+    vec3 V = normalize(EyePositionSceneSpace() - world_pos);
+    if (dot(normal, V) <= 1e-5) return;
+
+    vec3 H;
+    vec3 reflection_direction = OpaqueReflectionDirection(
+        normal, V, rough_selector.x, tx, H);
+    if (dot(geo_normal, reflection_direction) <= 1e-5) return;
 }

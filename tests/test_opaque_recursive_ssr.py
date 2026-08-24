@@ -89,6 +89,19 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         ):
             self.assertIn(token, solid)
 
+    def test_opaque_sampler_contract(self):
+        path = "shaders/lib/raytrace/opaque_reflection.glsl"
+        self.assertTrue((ROOT / path).is_file(), f"missing sampler helper: {path}")
+        source = read(path)
+        for token in (
+            "OpaqueSSRRandom2",
+            "SampleVisibleGGX",
+            "OpaqueReflectionDirection",
+            "utex_stbn_scalar",
+        ):
+            self.assertIn(token, source)
+        self.assertNotIn("texture(colortex5", source)
+
 
 class LabPBRReferenceTests(unittest.TestCase):
     def test_selector_boundaries(self):

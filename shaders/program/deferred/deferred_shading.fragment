@@ -16,6 +16,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/contract/exposure_data.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -32,6 +33,7 @@
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 #include "/lib/material/core.glsl"
+#include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/shadow/pcss.glsl"
 
 const float COLOR_JITTER_SEED = 11.0;
@@ -39,6 +41,26 @@ const float COLOR_JITTER_SEED = 11.0;
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
+
+vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
+    if (dot(direction, direction) < 1e-8) return vec3(0.0);
+    return SkyLightFromLm(sky_light)
+        * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
+}
+
+vec3 SanitizeOpaqueHistory(vec3 history, float average_luminance) {
+    if (any(isnan(history)) || any(isinf(history))
+            || any(lessThan(history, vec3(0.0)))) {
+        return vec3(0.0);
+    }
+    if (isnan(average_luminance) || isinf(average_luminance)
+            || average_luminance < 0.0) {
+        average_luminance = 1.0;
+    }
+    float luminance = dot(history, vec3(0.2126, 0.7152, 0.0722));
+    float ceiling = max(16.0, average_luminance * 64.0);
+    return history * min(1.0, ceiling / max(luminance, 1e-5));
+}
 
 void main() {
     out_direct_brdf = vec3(0.0);
@@ -97,11 +119,14 @@ void main() {
     vec4 g2 = texelFetch(colortex2, tx, 0);
     vec2 nx_ao = Unpack2x8(g2.r);
     vec2 ny_nz = Unpack2x8(g2.g);
-    vec2 rough_metal = Unpack2x8(g2.b);
-    vec2 emiss_res = Unpack2x8(g2.a);
+    vec2 rough_selector = Unpack2x8(g2.b);
+    vec2 emission_aux = Unpack2x8(g2.a);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
 
     vec3 albedo   = ToLinear(g1.rgb);    // sRGB → linear
+    PBRMaterial material = ResolveOpaquePBR(
+        albedo, rough_selector.x, rough_selector.y,
+        emission_aux.x, emission_aux.y);
     vec3 normal   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
     float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
     // Screen-space AO: read the flipped deferred1 history (R); multibounce +
@@ -118,9 +143,6 @@ void main() {
     vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
     vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
-    float roughness = rough_metal.x;
-    float metalness = rough_metal.y;
-    float emission  = emiss_res.x * 0.0;
     // Plant translucency from the materialID stored in colortex1.a.
     float sss_amount = SSSAmountForId(int(g1.a * 255.0 + 0.5));
 
@@ -174,7 +196,10 @@ void main() {
     float vdoth = Max0(dot(V, H));
     float ldoth = Max0(dot(L, H));
     float geo_ndotl = dot(geo_normal, L);
-    vec3 direct_brdf = EvaluateDirectBRDF(albedo, roughness, metalness, ndotv, ndotl, ndoth, vdoth, ldoth);
+    vec3 direct_brdf = EvaluateDirectBRDF(
+        albedo, material.f0, material.diffuse_weight,
+        material.perceptual_roughness,
+        ndotv, ndotl, ndoth, vdoth, ldoth);
     vec3 direct_lighting = direct_brdf * ndotl;
 
     // ── Shadow ──
@@ -230,13 +255,45 @@ void main() {
     // Lambertian (no incident direction from SH/lightmap); metals have no
     // diffuse lobe. AO multiplies indirect terms only. Block light uses AO
     // cubed, blended toward 1 by falloff (occlusion visible in torchlit caves).
-    vec3 lambert_brdf = EvaluateLambertBRDF(albedo, metalness);
-    vec3 diffuse_reflectance = EvaluateDiffuseReflectance(albedo, metalness);
+    vec3 lambert_brdf = EvaluateLambertBRDF(
+        albedo, material.f0, material.diffuse_weight);
+    vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
+        albedo, material.f0, material.diffuse_weight);
     color += lambert_brdf * sky_ambient * ao_effective;
     color += diffuse_reflectance * block_color * torch_light * gtao_ao;
 
+    // ── Indirect specular ──
+    vec3 reflection_half;
+    vec3 reflection_direction = OpaqueReflectionDirection(
+        normal, V, material.perceptual_roughness, tx, reflection_half);
+    if (dot(geo_normal, reflection_direction) <= 1e-5) {
+        reflection_direction = vec3(0.0);
+    }
+    vec3 environment = SampleOpaqueEnvironment(reflection_direction, lm.g);
+    vec3 history = vec3(0.0);
+    float confidence = 0.0;
+#ifdef OPAQUE_SSR
+    history = SanitizeOpaqueHistory(
+        texelFetch(colortex3, tx, 0).rgb, smooth_lum);
+    confidence = clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0);
+#endif
+    float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
+    vec3 incident_radiance = mix(
+        environment, recursion_decay * history, confidence);
+    float reflection_ndotl = Max0(dot(normal, reflection_direction));
+    vec3 indirect_specular = incident_radiance * VisibleGGXThroughput(
+        material.f0,
+        Max0(dot(V, reflection_half)),
+        ndotv,
+        reflection_ndotl,
+        material.alpha);
+    float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
+    indirect_specular *= SpecularOcclusion(
+        ndotv, mean_ao, material.perceptual_roughness);
+    color += indirect_specular;
+
     // ── Emissive ──
-    color += albedo * emission * (1.0 + block_light);
+    color += albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 
     out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
 }

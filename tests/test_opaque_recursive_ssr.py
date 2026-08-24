@@ -130,6 +130,24 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, source)
         self.assertIn("const int FILTER_TAPS = 9", source)
 
+    def test_final_shading_owns_pbr_integration(self):
+        source = read("shaders/program/deferred/deferred_shading.fragment")
+        for token in (
+            "ResolveOpaquePBR",
+            "colortex3",
+            "colortex11",
+            "OpaqueReflectionDirection",
+            "VisibleGGXThroughput",
+            "OPAQUE_SSR_RECURSION_DECAY",
+        ):
+            self.assertIn(token, source)
+        self.assertNotIn("emiss_res.x * 0.0", source)
+
+    def test_brdf_consumes_rgb_f0(self):
+        source = read("shaders/lib/lighting/brdf.glsl")
+        self.assertIn("vec3 f0, float diffuse_weight", source)
+        self.assertIn("VisibleGGXThroughput", source)
+
 
 class LabPBRReferenceTests(unittest.TestCase):
     def test_selector_boundaries(self):

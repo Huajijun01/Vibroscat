@@ -35,28 +35,71 @@ vec3 BRDFF0(vec3 albedo, float metalness) {
     return mix(vec3(0.04), albedo, metalness);
 }
 
+vec3 EvaluateDiffuseReflectance(vec3 albedo, vec3 f0, float diffuse_weight) {
+    return albedo * (vec3(1.0) - f0) * diffuse_weight;
+}
+
 vec3 EvaluateDiffuseReflectance(vec3 albedo, float metalness) {
     vec3 f0 = BRDFF0(albedo, metalness);
-    return albedo * (vec3(1.0) - f0) * (1.0 - metalness);
+    return EvaluateDiffuseReflectance(albedo, f0, 1.0 - metalness);
+}
+
+vec3 EvaluateLambertBRDF(vec3 albedo, vec3 f0, float diffuse_weight) {
+    return EvaluateDiffuseReflectance(albedo, f0, diffuse_weight)
+        * (1.0 / PI);
 }
 
 vec3 EvaluateLambertBRDF(vec3 albedo, float metalness) {
     return EvaluateDiffuseReflectance(albedo, metalness) * (1.0 / PI);
 }
 
-vec3 EvaluateDirectBRDF(vec3 albedo, float roughness, float metalness, float ndotv, float ndotl, float ndoth, float vdoth,
-    float ldoth
-) {
+vec3 EvaluateDirectBRDF(vec3 albedo, vec3 f0, float diffuse_weight,
+        float roughness, float ndotv, float ndotl, float ndoth,
+        float vdoth, float ldoth) {
     float alpha = max(roughness * roughness, 0.002);
-    vec3 f0 = BRDFF0(albedo, metalness);
     vec3 F = FresnelSchlick(vdoth, f0);
-    float D = DistributionGGX(ndoth, alpha);
-    float visibility = VisibilitySmithGGXCorrelated(ndotv, ndotl, alpha);
-
-    vec3 diffuse = albedo * (vec3(1.0) - F) * (1.0 - metalness)
+    vec3 diffuse = albedo * (vec3(1.0) - F) * diffuse_weight
         * DiffuseBurley(ndotv, ndotl, ldoth, roughness);
-    vec3 specular = F * D * visibility * step(1e-5, ndotv);
-    return diffuse + specular;
+    return diffuse + F * DistributionGGX(ndoth, alpha)
+        * VisibilitySmithGGXCorrelated(ndotv, ndotl, alpha)
+        * step(1e-5, ndotv);
+}
+
+vec3 EvaluateDirectBRDF(vec3 albedo, float roughness, float metalness,
+        float ndotv, float ndotl, float ndoth, float vdoth, float ldoth) {
+    return EvaluateDirectBRDF(
+        albedo, BRDFF0(albedo, metalness), 1.0 - metalness,
+        roughness, ndotv, ndotl, ndoth, vdoth, ldoth);
+}
+
+float SmithGGXLambda(float ndotx, float alpha) {
+    float a2 = alpha * alpha;
+    return 0.5 * (-1.0 + sqrt(1.0 + a2
+        * (1.0 - ndotx * ndotx) / max(ndotx * ndotx, 1e-6)));
+}
+
+float SmithGGXG1(float ndotv, float alpha) {
+    return 1.0 / (1.0 + SmithGGXLambda(ndotv, alpha));
+}
+
+float SmithGGXG2Correlated(float ndotv, float ndotl, float alpha) {
+    return 1.0 / (1.0 + SmithGGXLambda(ndotv, alpha)
+        + SmithGGXLambda(ndotl, alpha));
+}
+
+float SpecularOcclusion(float ndotv, float ao, float roughness) {
+    float exponent = exp2(-16.0 * roughness - 1.0);
+    return clamp(pow(ndotv + ao, exponent) - 1.0 + ao, 0.0, 1.0);
+}
+
+vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
+        float ndotl, float alpha) {
+    if (ndotv <= 0.0 || ndotl <= 0.0 || vdoth <= 0.0) {
+        return vec3(0.0);
+    }
+    float ratio = clamp(SmithGGXG2Correlated(ndotv, ndotl, alpha)
+        / max(SmithGGXG1(ndotv, alpha), 1e-5), 0.0, 1.0);
+    return FresnelSchlick(vdoth, f0) * ratio;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,12 +185,9 @@ float DistributionGGXNdotH2(float ndoth2, float alpha) {
     return alpha2 / (PI * denominator * denominator);
 }
 
-// Forward translucent lighting shares the exact BRDF configuration of
-// deferred2: the LabPBR specular atlas (R = smoothness, G = metalness) maps
-// to the same Material struct, direct light uses Burley diffuse + Cook-Torrance
-// GGX, and ambient/torch light use the same Lambert / diffuse-reflectance
-// split. N, V and L must be in the same space (view space in the gbuffer
-// passes).
+// Forward translucent lighting retains the legacy scalar-metalness material
+// path. Its overloads delegate to the same F0-explicit BRDF implementation;
+// N, V and L must use the same space (view space in the gbuffer passes).
 void EvaluateBRDF(vec3 albedo, vec2 texcoord, vec3 N, vec3 V, vec3 L, out vec3 direct_lighting,
     out vec3 lambert_brdf, out vec3 diffuse_reflectance
 ) {

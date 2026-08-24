@@ -72,6 +72,10 @@ void main() {
     // ── Sky (far plane) ──
     // Depth 1.0 = far plane → Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
     if (depth >= 1.0) {
+#if OPAQUE_SSR_DEBUG > 0
+        out_color = vec3(0.0);
+        return;
+#else
         vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
         vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
         vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
@@ -112,6 +116,7 @@ void main() {
 #endif
         out_color = JitterR11G11B10F(sky_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
         return;
+#endif
     }
 
     // ── GBuffer decode ──
@@ -127,6 +132,31 @@ void main() {
     PBRMaterial material = ResolveOpaquePBR(
         albedo, rough_selector.x, rough_selector.y,
         emission_aux.x, emission_aux.y);
+
+#if OPAQUE_SSR_DEBUG == 1
+    out_color = texelFetch(colortex3, tx, 0).rgb;
+    return;
+#elif OPAQUE_SSR_DEBUG == 2
+    out_color = vec3(clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0));
+    return;
+#elif OPAQUE_SSR_DEBUG == 3
+    out_color = vec3(clamp(
+        texelFetch(colortex11, tx, 0).r / OPAQUE_SSR_MAX_DISTANCE,
+        0.0, 1.0));
+    return;
+#elif OPAQUE_SSR_DEBUG == 4
+    out_color = texelFetch(colortex3, tx, 0).rgb;
+    return;
+#elif OPAQUE_SSR_DEBUG == 5
+    out_color = texelFetch(colortex3, tx, 0).rgb;
+    return;
+#elif OPAQUE_SSR_DEBUG == 6
+    out_color = material.f0;
+    return;
+#elif OPAQUE_SSR_DEBUG == 7
+    out_color = vec3(material.perceptual_roughness);
+    return;
+#endif
     vec3 normal   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
     float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
     // Screen-space AO: read the flipped deferred1 history (R); multibounce +
@@ -290,7 +320,11 @@ void main() {
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     indirect_specular *= SpecularOcclusion(
         ndotv, mean_ao, material.perceptual_roughness);
+#if OPAQUE_SSR_DEBUG == 8
+    color = indirect_specular;
+#else
     color += indirect_specular;
+#endif
 
     // ── Emissive ──
     color += albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;

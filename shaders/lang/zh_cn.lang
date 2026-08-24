@@ -287,6 +287,12 @@ option.AIR_FOG_SHADOWS = 雾阴影
 option.AIR_FOG_SHADOWS.comment = 雾内太阳阴影可见性（极线阴影项）。
 
 #Lighting
+option.OPAQUE_SSR_QUALITY = 不透明反射质量
+option.OPAQUE_SSR_QUALITY.comment = 不透明 PBR 材质的屏幕空间间接镜面反射质量。
+value.OPAQUE_SSR_QUALITY.0 = 仅环境
+value.OPAQUE_SSR_QUALITY.1 = 中
+value.OPAQUE_SSR_QUALITY.2 = 高
+value.OPAQUE_SSR_QUALITY.3 = 极高
 option.AMBIENT_BASE = 最低环境光
 option.AMBIENT_BASE.comment = 加到所有表面天空环境光上的全局光照下限，使洞穴和深阴影不会全黑。
 option.TORCH_BRIGHTNESS = 火把亮度

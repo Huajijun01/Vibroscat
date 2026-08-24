@@ -14,10 +14,10 @@
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
 //   gbuf1.a   = v_material_id / 255.0  (see lib/material/core.glsl for ranges)
 //   gbuf2 (RGBA16, 2x8 packed):
-//     R = normal.x [0,1] | vanilla AO
+//     R = normal.x [0,1] | combined vertex/material AO
 //     G = normal.y     | normal.z
-//     B = roughness    | metalness
-//     A = emission     | reserved
+//     B = perceptual roughness | raw specular selector
+//     A = emission     | auxiliary
 //   gbuf4.rg = octahedral-encoded geometric view normal
 //   gbuf4.zw = lightmap coordinates
 //
@@ -90,13 +90,22 @@ void main() {
     // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
     // Programs without at_tangent cannot interpret tangent-space normal maps.
     vec3 w_normal = normalize(v_world_normal);
+    vec3 normal_tex = vec3(0.5, 0.5, 1.0);
+    bool has_normal_texture = any(notEqual(textureSize(normals, 0), ivec2(1)));
+    if (has_normal_texture) normal_tex = texture(normals, v_texcoord).rgb;
 #ifdef HAS_AT_TANGENT
-    if (any(notEqual(textureSize(normals, 0), ivec2(1)))) {
+    if (has_normal_texture) {
         mat3 tbn = mat3(v_world_tangent, v_world_bitangent, v_world_normal);
-        vec3 ts_normal = DecodeLabPBR(texture(normals, v_texcoord).rgb);
+        vec3 ts_normal = DecodeLabPBR(normal_tex);
         w_normal = normalize(tbn * ts_normal);
     }
 #endif
+
+    float material_ao = 1.0;
+#ifdef MC_TEXTURE_FORMAT_LAB_PBR
+    material_ao = normal_tex.b;
+#endif
+    float combined_ao = min(v_color.a, material_ao);
 
 #ifdef PROGRAM_GBUFFERS_PARTICLES
     w_normal = vec3(0.0, 1.0, 0.0);
@@ -106,7 +115,7 @@ void main() {
     // The explicit zero default is rough, non-metallic and non-emissive.
     vec4 spec_tex = vec4(0.0);
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord);
-    Material mat = MaterialDefaults(mat_id, spec_tex);
+    OpaqueMaterial mat = DecodeOpaqueMaterial(spec_tex);
 
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
     mat.emission = 1.0;
@@ -118,9 +127,11 @@ void main() {
     // ── Write GBuffer ──
     gbuf1.rgb = albedo;
     gbuf1.a   = float(mat_id) / 255.0;
-    gbuf2 = vec4(Pack2x8(w_normal.x * 0.5 + 0.5, v_color.a),
-        Pack2x8(w_normal.y * 0.5 + 0.5, w_normal.z * 0.5 + 0.5), Pack2x8(mat.roughness, mat.metalness),
-        Pack2x8(mat.emission, mat.reserved));
+    gbuf2 = vec4(
+        Pack2x8(w_normal.x * 0.5 + 0.5, combined_ao),
+        Pack2x8(w_normal.y * 0.5 + 0.5, w_normal.z * 0.5 + 0.5),
+        Pack2x8(mat.perceptual_roughness, mat.specular_selector),
+        Pack2x8(mat.emission, mat.auxiliary));
     // colortex4 (RGBA8): octahedral view-space geometric normal in RG, lightmap in BA
     vec3 geo_view_n = normalize(mat3(gbufferModelView) * v_world_normal);
     gbuf4 = vec4(EncodeOctahedralNormal(geo_view_n), v_lmcoord.xy);

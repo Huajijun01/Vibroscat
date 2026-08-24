@@ -1,0 +1,22 @@
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/gbuffer_vertex.glsl"
+
+void main() {
+    SetupGbufferVertex();
+
+#if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
+    v_material_id = int(mc_Entity.x + 0.5);
+#elif defined(PROGRAM_GBUFFERS_BLOCK)
+    v_material_id = int(mc_Entity.x + 0.5);
+#elif defined(PROGRAM_GBUFFERS_ENTITIES)
+    v_material_id = entityId - 10000;
+#elif defined(PROGRAM_GBUFFERS_HAND)
+    v_material_id = 64;
+#elif defined(PROGRAM_GBUFFERS_BEACONBEAM)
+    v_material_id = 112;
+#elif defined(PROGRAM_GBUFFERS_SPIDEREYES)
+    v_material_id = 112;
+#else
+    v_material_id = 0;
+#endif
+}

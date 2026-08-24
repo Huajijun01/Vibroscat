@@ -1,0 +1,295 @@
+#shaders/lang/en_us.lang
+
+#Profiles
+profile.DEFAULT = Default
+profile.LOW = §aLow
+profile.MEDIUM = §aMedium
+profile.HIGH = §eHigh (Default)
+profile.ULTRA = §4Ultra
+profile.comment = Performance profiles: each one sets the quality-scaling options (shadow resolution, cloud temporal upsampling, march budgets, AO samples, epipolar resolution) while leaving preference settings untouched.
+
+#Screens
+screen.POSTPROC = Post Processing
+screen.POSTPROC.comment = Tonemapping, camera effects and antialiasing.
+screen.TONEMAP = Tone Mapping
+screen.TONEMAP.comment = Display rendering transform applied to the HDR scene.
+screen.CAMERA = Camera & Effects
+screen.CAMERA.comment = Depth of field, motion blur, bloom and auto exposure.
+screen.ANTIALIASING = Antialiasing
+screen.ANTIALIASING.comment = Temporal antialiasing and FidelityFX CAS sharpening.
+screen.LIGHTING = Lighting
+screen.LIGHTING.comment = Shadow quality, ambient occlusion and ambient/artificial light.
+screen.AMBIENT = Ambient Light
+screen.AMBIENT.comment = Global ambient floor and artificial light intensity.
+screen.SHADOWS = Shadows
+screen.SHADOWS.comment = Shadow map resolution, PCSS blocker/PCF sampling and plant subsurface scattering.
+screen.AO = Ambient Occlusion
+screen.AO.comment = GTAO and SSAO generation, temporal accumulation and history rejection.
+screen.ENVIRONMENT = Environment
+screen.ENVIRONMENT.comment = Volumetric clouds, water and air fog.
+screen.SKY = Sky
+screen.SKY.comment = Celestial objects: star map brightness.
+screen.CLOUDS = Clouds
+screen.CLOUDS.comment = Volumetric cloud rendering, shape and lighting.
+screen.WATER = Water
+screen.WATER.comment = Water reflections, caustics and epipolar volume light.
+screen.FOG = Fog
+screen.FOG.comment = Analytic air fog.
+
+#Post: tonemapping
+option.TONEMAP_MODE = Tone Mapper
+option.TONEMAP_MODE.comment = Selects the display rendering transform applied to the HDR scene.
+value.TONEMAP_MODE.0 = AgX
+value.TONEMAP_MODE.1 = OKLAB
+value.TONEMAP_MODE.2 = ACES
+value.TONEMAP_MODE.3 = Reinhard-Gamut
+option.TONEMAP_EXPOSURE = Manual Exposure
+option.TONEMAP_EXPOSURE.comment = Extra exposure in EV, applied before auto-exposure.
+option.TONEMAP_SATURATION = Saturation
+option.TONEMAP_SATURATION.comment = Pre-tonemap saturation in linear space.
+option.TONEMAP_STRENGTH = Tonemap Strength
+option.TONEMAP_STRENGTH.comment = Blends between the untouched HDR signal and the tonemapped result.
+option.TONEMAP_AGX_LOOK = AgX Look
+option.TONEMAP_AGX_LOOK.comment = Artistic look applied inside the AgX formation (AgX mode only).
+value.TONEMAP_AGX_LOOK.0 = Base
+value.TONEMAP_AGX_LOOK.1 = Punchy
+value.TONEMAP_AGX_LOOK.2 = Greyscale
+option.TONEMAP_AGX_CONTRAST = AgX Contrast
+option.TONEMAP_AGX_CONTRAST.comment = Contrast around the mid-grey pivot in AgX log space.
+option.TONEMAP_AGX_SATURATION = AgX Saturation
+option.TONEMAP_AGX_SATURATION.comment = Chroma gain in the display-referred AgX Base domain.
+option.TONEMAP_AGX_GAMMA = AgX Gamma
+option.TONEMAP_AGX_GAMMA.comment = Gamma adjustment in the display-referred AgX Base domain.
+option.TONEMAP_OKLAB_OVEREXPOSURE = Oklab DRT Overexposure
+option.TONEMAP_OKLAB_OVEREXPOSURE.comment = Highlight asymptote of the Oklab DRT shoulder; mid-grey 18% is preserved for any value.
+option.TONEMAP_RG_GAMUT_EXPANSION = Reinhard-Gamut Expansion
+option.TONEMAP_RG_GAMUT_EXPANSION.comment = Virtual-primary expansion; Rec.709 coordinates contract toward neutral before the Reinhard curve.
+option.TONEMAP_RG_INPUT_SCALE = Reinhard-Gamut Input Scale
+option.TONEMAP_RG_INPUT_SCALE.comment = Scale applied before the curve; 1/(1-0.18) maps scene-linear 18% grey back to 18%.
+option.TONEMAP_RG_HIGHLIGHT_REACH_EV = Reinhard-Gamut Highlight Reach
+option.TONEMAP_RG_HIGHLIGHT_REACH_EV.comment = Scene stops above 18% grey that first reach the display peak.
+option.TONEMAP_RG_HUE_RETENTION = Reinhard-Gamut Hue Retention
+option.TONEMAP_RG_HUE_RETENTION.comment = Pulls the mapped hue back toward the original by the shortest hue angle.
+
+#Post: camera & effects
+option.DOF = Depth of Field
+option.DOF.comment = Enable the depth-of-field pass.
+option.MOTION_BLUR = Motion Blur
+option.MOTION_BLUR.comment = Enable camera motion blur.
+option.MB_STRENGTH = Motion Blur Strength
+option.MB_STRENGTH.comment = Blur trail length for the motion blur pass.
+option.BLOOM = Bloom
+option.BLOOM.comment = Enable the bloom pass.
+option.BLOOM_STRENGTH = Bloom Strength
+option.BLOOM_STRENGTH.comment = Intensity of the bloom contribution.
+option.AE = Auto Exposure
+option.AE.comment = Enable automatic eye adaptation; off uses manual exposure only.
+
+#Post: antialiasing
+option.TAA = TAA
+option.TAA.comment = Temporal antialiasing with R2 jitter sequence.
+option.CAS = CAS Sharpening
+option.CAS.comment = AMD FidelityFX Contrast Adaptive Sharpening.
+option.CAS_SHARPNESS = CAS Sharpness
+option.CAS_SHARPNESS.comment = Sharpening amount of the CAS pass.
+
+#Post: color dither
+option.COLOR_DITHER_STRENGTH = Color Dither Strength
+option.COLOR_DITHER_STRENGTH.comment = Strength of the interleaved gradient noise dither; 0.5 = conservative, 1.0 = default, 2.0 = aggressive.
+
+#Clouds: temporal upscaling values
+value.CLOUD_TEMPORAL_UPSCALING.1 = 1x (Full)
+value.CLOUD_TEMPORAL_UPSCALING.2 = 2x
+value.CLOUD_TEMPORAL_UPSCALING.3 = 3x
+value.CLOUD_TEMPORAL_UPSCALING.4 = 4x
+
+#Clouds: rendering
+option.VOLUMETRIC_CLOUDS = Volumetric Clouds
+option.VOLUMETRIC_CLOUDS.comment = Enable volumetric cloud rendering.
+option.CLOUD_TEMPORAL_UPSCALING = Temporal Upscaling
+option.CLOUD_TEMPORAL_UPSCALING.comment = Low-resolution render divisor (1 = full resolution). Higher values cost less; temporal accumulation reconstructs the detail.
+option.CLOUD_VIEW_MIN_STEPS = Min March Steps
+option.CLOUD_VIEW_MIN_STEPS.comment = Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
+option.CLOUD_VIEW_MAX_STEPS = Max March Steps
+option.CLOUD_VIEW_MAX_STEPS.comment = Maximum cloud steps for long view rays; controls horizon quality and cost.
+option.CLOUD_VIEW_TARGET_STEP_KM = Target Step Distance
+option.CLOUD_VIEW_TARGET_STEP_KM.comment = Adaptive step target distance (km); smaller = denser sampling.
+option.CLOUD_LIGHT_STEPS = Light Steps
+option.CLOUD_LIGHT_STEPS.comment = Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
+option.CLOUD_BASE_ALTITUDE = Base Altitude
+option.CLOUD_BASE_ALTITUDE.comment = Cloud base altitude above terrain (km).
+option.CLOUD_THICKNESS_KM = Layer Thickness
+option.CLOUD_THICKNESS_KM.comment = Cloud layer vertical thickness (km).
+option.CLOUD_COVERAGE = Coverage
+option.CLOUD_COVERAGE.comment = Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
+option.CLOUD_DISTRIBUTION_SCALE_KM = Distribution Scale
+option.CLOUD_DISTRIBUTION_SCALE_KM.comment = 2D Worley fBm distribution map world-space scale for a full wrap (km).
+option.CLOUD_WIND_SPEED = Wind Speed
+option.CLOUD_WIND_SPEED.comment = Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
+option.CLOUD_FINE_WIND_FACTOR = Fine Wind Factor
+option.CLOUD_FINE_WIND_FACTOR.comment = Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
+option.CLOUD_EROSION_SCALE_KM = Erosion Scale
+option.CLOUD_EROSION_SCALE_KM.comment = 3D Worley fBm erosion texture world-space scale for a full wrap (km).
+option.CLOUD_EROSION_STRENGTH = Erosion Strength
+option.CLOUD_EROSION_STRENGTH.comment = Composite low-frequency erosion channel total strength.
+option.CLOUD_FINE_EROSION_SCALE_KM = Fine Erosion Scale
+option.CLOUD_FINE_EROSION_SCALE_KM.comment = Channel A independent detail noise scale for a full wrap (km).
+option.CLOUD_FINE_EROSION_STRENGTH = Fine Erosion Strength
+option.CLOUD_FINE_EROSION_STRENGTH.comment = Channel A independent curl distortion detail erosion strength.
+option.CLOUD_FINE_EROSION_HEIGHT = Fine Erosion Height
+option.CLOUD_FINE_EROSION_HEIGHT.comment = Normalized height for fine erosion to grow from base to full strength.
+option.CLOUD_DENSITY_MULTIPLIER = Density Multiplier
+option.CLOUD_DENSITY_MULTIPLIER.comment = Final density multiplier; raises opacity and self-shadow together.
+option.CLOUD_LIGHT_MAX_DISTANCE_KM = Light Trace Distance
+option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = Maximum light-direction optical depth trace distance (km).
+option.CLOUD_PHASE_FORWARD_G = Forward Phase G
+option.CLOUD_PHASE_FORWARD_G.comment = HanPi forward HG eccentricity.
+option.CLOUD_PHASE_BACKWARD_G = Backward Phase G
+option.CLOUD_PHASE_BACKWARD_G.comment = HanPi backward HG eccentricity.
+option.CLOUD_MS_ATTENUATION = MS Attenuation
+option.CLOUD_MS_ATTENUATION.comment = HanPi per-octave optical depth multiplier.
+option.CLOUD_MS_CONTRIBUTION = MS Contribution
+option.CLOUD_MS_CONTRIBUTION.comment = HanPi per-octave energy multiplier.
+option.CLOUD_MS_ECCENTRICITY = MS Eccentricity
+option.CLOUD_MS_ECCENTRICITY.comment = HanPi per-octave phase eccentricity multiplier.
+option.CLOUD_PHI_INTENSITY = Phi Intensity
+option.CLOUD_PHI_INTENSITY.comment = Vibroscat phi_fwd initial intensity.
+option.CLOUD_PHI_COMPRESSION = Phi Compression
+option.CLOUD_PHI_COMPRESSION.comment = Vibroscat phi_fwd soft compression.
+option.CLOUD_SKY_LIGHT_STRENGTH = Sky Light Strength
+option.CLOUD_SKY_LIGHT_STRENGTH.comment = Sky environment scattering total strength; higher = brighter cloud shadow regions.
+option.CLOUD_HISTORY_GUIDED_END_SCALE = History Guided Scale
+option.CLOUD_HISTORY_GUIDED_END_SCALE.comment = Centroid-distance safety scale for the history-guided march end.
+
+#Shadows
+option.SHADOW_PCSS = PCSS Shadows
+option.SHADOW_PCSS.comment = Penumbra estimation and radius PCF filtering. Off (Low) falls back to hardware bilinear PCF; the blocker search stays on for the plant-SSS thickness.
+option.shadowMapResolution = Shadow Map Resolution
+option.shadowMapResolution.comment = Resolution of the shadow depth map; higher = sharper shadow edges at higher cost.
+option.SHADOW_BLOCKER_SAMPLES = PCSS Blocker Samples
+option.SHADOW_BLOCKER_SAMPLES.comment = Blocker search samples for the PCSS penumbra estimation.
+option.SHADOW_BLOCKER_SEARCH_TEXELS = PCSS Search Radius
+option.SHADOW_BLOCKER_SEARCH_TEXELS.comment = Blocker search radius in shadow texels.
+option.SHADOW_SUN_ANGULAR_RADIUS = Sun Angular Radius
+option.SHADOW_SUN_ANGULAR_RADIUS.comment = Apparent sun angular radius in radians; drives the penumbra size.
+option.SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS = Blocker Depth Tolerance
+option.SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS.comment = World-space depth tolerance for blocker classification (metres).
+option.SHADOW_PCF_MIN_SAMPLES = PCF Min Samples
+option.SHADOW_PCF_MIN_SAMPLES.comment = Minimum filter samples; reached in full sunlight.
+option.SHADOW_PCF_MAX_SAMPLES = PCF Max Samples
+option.SHADOW_PCF_MAX_SAMPLES.comment = Maximum filter samples; reached in deep penumbra.
+option.SHADOW_PCF_GAIN = PCF Sample Gain
+option.SHADOW_PCF_GAIN.comment = Penumbra size to sample count conversion gain.
+option.SHADOW_SUN_HEIGHT_BOOST = Sun Height Boost
+option.SHADOW_SUN_HEIGHT_BOOST.comment = Extra penumbra growth for low sun angles.
+option.SHADOW_DISTANCE_BOOST = Distance Boost
+option.SHADOW_DISTANCE_BOOST.comment = Penumbra growth with shadow distance.
+option.SHADOW_CONTACT_SHARPEN_TEXELS = Contact Sharpen
+option.SHADOW_CONTACT_SHARPEN_TEXELS.comment = Contact-shadow sharpening radius in texels.
+option.SHADOW_SSS_STEPS = SSS Steps
+option.SHADOW_SSS_STEPS.comment = Subsurface scattering shadow march steps.
+option.SHADOW_SSS_DENSITY = SSS Density
+option.SHADOW_SSS_DENSITY.comment = Subsurface scattering absorption density.
+option.SHADOW_SSS_SCALE = SSS Scale
+option.SHADOW_SSS_SCALE.comment = Subsurface scattering world-space scale.
+option.SHADOW_SSS_PENUMBRA_BOOST = SSS Penumbra Boost
+option.SHADOW_SSS_PENUMBRA_BOOST.comment = Penumbra width boost for the SSS transmission term.
+option.SHADOW_SSS_PHASE_G = SSS Phase G
+option.SHADOW_SSS_PHASE_G.comment = Henyey-Greenstein phase for the transmitted light.
+option.SHADOW_SSS_FADE_START = SSS Fade Start
+option.SHADOW_SSS_FADE_START.comment = Shadow-map edge fraction where the SSS transmission starts fading out.
+
+#AO
+option.AO_MODE = Ambient Occlusion Mode
+option.AO_MODE.comment = Screen-space ambient occlusion algorithm: 0 = off, 1 = GTAO (horizon-based), 2 = SSAO (Monte-Carlo hemisphere, heavier). Both share the half-res generation and the temporal accumulation; only the generator differs.
+value.AO_MODE.0 = Off
+value.AO_MODE.1 = GTAO
+value.AO_MODE.2 = SSAO
+option.GTAO_TEMPORAL = Temporal Accumulation
+option.GTAO_TEMPORAL.comment = Enable the full-resolution temporal accumulation of AO.
+option.GTAO_SLICES = GTAO Slices
+option.GTAO_SLICES.comment = Horizon slices per pixel. More slices reduce noise at higher cost.
+option.GTAO_HORIZON_STEPS = GTAO Horizon Steps
+option.GTAO_HORIZON_STEPS.comment = Depth samples per horizon side.
+option.GTAO_RADIUS = GTAO Radius
+option.GTAO_RADIUS.comment = View-space occlusion search radius in metres.
+option.GTAO_STRENGTH = GTAO Strength
+option.GTAO_STRENGTH.comment = Contrast of the occlusion (AO exponent).
+option.GTAO_MULTIBOUNCE = GTAO Multi-Bounce
+option.GTAO_MULTIBOUNCE.comment = Albedo-dependent energy recovery for near-field interreflections (brightens corners).
+option.GTAO_FALLOFF_START = GTAO Falloff Start
+option.GTAO_FALLOFF_START.comment = Radius fraction where the occlusion falloff begins.
+option.GTAO_AGE_LIMIT = GTAO History Age Limit
+option.GTAO_AGE_LIMIT.comment = Frames before the temporal accumulation fully trusts the history.
+option.GTAO_HISTORY_DISTANCE_LIMIT = History Distance Limit
+option.GTAO_HISTORY_DISTANCE_LIMIT.comment = History rejection: max world displacement (m).
+option.GTAO_HISTORY_NORMAL_DOT_MIN = History Normal Limit
+option.GTAO_HISTORY_NORMAL_DOT_MIN.comment = History rejection: min normal dot (cos 30 deg).
+option.SSAO_SAMPLES = SSAO Samples
+option.SSAO_SAMPLES.comment = Hemisphere samples per pixel. More samples reduce the estimator variance at higher cost; the temporal accumulation converges the noise.
+option.SSAO_RADIUS = SSAO Radius
+option.SSAO_RADIUS.comment = View-space occlusion search radius in metres.
+option.SSAO_STRENGTH = SSAO Strength
+option.SSAO_STRENGTH.comment = Contrast of the occlusion (AO exponent). SSAO looks lighter than GTAO, so the default is steeper.
+option.AO_DARKEN_SLOWDOWN = AO Darken Slowdown
+option.AO_DARKEN_SLOWDOWN.comment = Fresh-sample weight scale while AO is darkening (1.0 = no slowdown). Slows the fade-in of black AO so it reads like a light change instead of noise.
+
+#Water
+option.WATER_SSR = Water SSR
+option.WATER_SSR.comment = Screen-space reflections on the water surface.
+option.SSR_STEPS = Water SSR Quality
+option.SSR_STEPS.comment = Samples along the reflection march. More samples sharpen distant reflections at higher cost.
+option.WATER_POM = Water Parallax
+option.WATER_POM.comment = Parallax occlusion mapping of the water normal. Off (Low) evaluates the normal at the plane position.
+option.VALUE_NOISE_POM_COARSE_STEPS = POM Coarse Steps
+option.VALUE_NOISE_POM_COARSE_STEPS.comment = Fixed-step height-chase samples for the water parallax search.
+option.VALUE_NOISE_POM_BISECT_STEPS = POM Bisection Steps
+option.VALUE_NOISE_POM_BISECT_STEPS.comment = Bisection refinement iterations per POM depth crossing (0 = linear-only).
+option.WATER_FOG_CAUSTICS = Water Caustics
+option.WATER_FOG_CAUSTICS.comment = Caustic modulation of the water fog by the wave-surface Jacobian.
+option.WATER_FOG_CAUSTIC_STRENGTH = Caustic Strength
+option.WATER_FOG_CAUSTIC_STRENGTH.comment = Gain of the caustic modulation.
+option.EPIPOLAR_WATER = Epipolar Water Light
+option.EPIPOLAR_WATER.comment = Epipolar volume light along the water column.
+option.EPIPOLAR_SLICES = Epipolar Slices
+option.EPIPOLAR_SLICES.comment = Number of epipolar slices.
+value.EPIPOLAR_SLICES.256 = 256
+value.EPIPOLAR_SLICES.512 = 512
+value.EPIPOLAR_SLICES.1024 = 1024
+value.EPIPOLAR_SLICES.2048 = 2048
+option.EPIPOLAR_SAMPLES = Epipolar Samples
+option.EPIPOLAR_SAMPLES.comment = Samples per epipolar ray.
+value.EPIPOLAR_SAMPLES.128 = 128
+value.EPIPOLAR_SAMPLES.256 = 256
+value.EPIPOLAR_SAMPLES.512 = 512
+value.EPIPOLAR_SAMPLES.1024 = 1024
+option.EPIPOLAR_SHADOW_STEPS = Shadow Steps
+option.EPIPOLAR_SHADOW_STEPS.comment = Shadow steps per epipolar sample.
+option.WATER_EPIPOLAR_MAX_DISTANCE = Water Epipolar March Distance
+option.WATER_EPIPOLAR_MAX_DISTANCE.comment = Water epipolar shadow march distance cap in metres; beyond it the column is treated as unshadowed analytically. Lower = less noise, less far-field shadow detail.
+option.EPIPOLAR_DEPTH_TOLERANCE = Depth Tolerance
+option.EPIPOLAR_DEPTH_TOLERANCE.comment = Relative linear-depth tolerance for matching epipolar columns (0.03 = 3% of the deeper key; scale-invariant).
+option.EPIPOLAR_EDGE_SHARPEN = Edge Sharpen
+option.EPIPOLAR_EDGE_SHARPEN.comment = Continuous sharpening of the epipolar silhouette blend weights.
+option.EPIPOLAR_EDGE_EXTEND = Edge Extend
+option.EPIPOLAR_EDGE_EXTEND.comment = Columns searched when no exact column matches; the nearest valid column is weight-averaged in.
+
+#Fog
+option.AIR_FOG = Air Fog
+option.AIR_FOG.comment = Enable the analytic air fog pass.
+option.AIR_FOG_INTENSITY = Fog Intensity
+option.AIR_FOG_INTENSITY.comment = Overall fog strength.
+option.AIR_FOG_DENSITY = Fog Density
+option.AIR_FOG_DENSITY.comment = Base fog density per kilometre.
+option.AIR_FOG_SKY_STRENGTH = Sky Fog Strength
+option.AIR_FOG_SKY_STRENGTH.comment = How strongly the sky color tints the fog.
+option.AIR_FOG_SHADOWS = Fog Shadows
+option.AIR_FOG_SHADOWS.comment = Sun shadow visibility inside the fog (epipolar shadow term).
+
+#Lighting
+option.AMBIENT_BASE = Minimum Ambient Light
+option.AMBIENT_BASE.comment = Global light floor added to every surface's sky ambient so caves and deep shadows never render fully black.
+option.TORCH_BRIGHTNESS = Torch Brightness
+option.TORCH_BRIGHTNESS.comment = Intensity multiplier for the warm torch light (the tint stays fixed).
+option.STAR_MAP_INTENSITY = Star Brightness
+option.STAR_MAP_INTENSITY.comment = Linear gain of the night star map.

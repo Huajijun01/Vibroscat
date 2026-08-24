@@ -1,0 +1,87 @@
+#include "/lib/post/bloom.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg0;
+layout(rgba16f) uniform restrict writeonly image2D colorimg12;
+
+shared vec4 tile[35][35];
+
+float Luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 full_size = imageSize(colorimg0);
+    ivec2 dst_size = GetBloomMipSize(full_size, 1);
+    bool valid = all(lessThan(gid, dst_size));
+
+    ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 16;
+    ivec2 input_base = group_base * 2 - 2;
+    ivec2 in_size = imageSize(colorimg0);
+
+    uint idx = gl_LocalInvocationIndex;
+    for (uint i = idx; i < 1225u; i += 256u) {
+        uint ty = i / 35u;
+        uint tx = i % 35u;
+        ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), in_size - 1);
+        tile[ty][tx] = imageLoad(colorimg0, coord);
+    }
+
+    barrier();
+
+    ivec2 tile_center = ivec2(gl_LocalInvocationID.xy) * 2 + 2;
+
+    // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block centre.
+    vec4 s_center = tile[tile_center.y + 0][tile_center.x + 0];
+    vec4 s_left   = tile[tile_center.y + 0][tile_center.x - 1];
+    vec4 s_right  = tile[tile_center.y + 0][tile_center.x + 1];
+    vec4 s_up     = tile[tile_center.y - 1][tile_center.x + 0];
+    vec4 s_down   = tile[tile_center.y + 1][tile_center.x + 0];
+    vec4 s_tl     = tile[tile_center.y - 1][tile_center.x - 1];
+    vec4 s_tr     = tile[tile_center.y - 1][tile_center.x + 1];
+    vec4 s_bl     = tile[tile_center.y + 1][tile_center.x - 1];
+    vec4 s_br     = tile[tile_center.y + 1][tile_center.x + 1];
+
+    vec4 result = vec4(0.0);
+    float total_weight = 0.0;
+    float tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_center.rgb));
+    result += s_center * 0.25 * tap_weight;
+    total_weight += 0.25 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_left.rgb));
+    result += s_left * 0.125 * tap_weight;
+    total_weight += 0.125 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_right.rgb));
+    result += s_right * 0.125 * tap_weight;
+    total_weight += 0.125 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_up.rgb));
+    result += s_up * 0.125 * tap_weight;
+    total_weight += 0.125 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_down.rgb));
+    result += s_down * 0.125 * tap_weight;
+    total_weight += 0.125 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_tl.rgb));
+    result += s_tl * 0.0625 * tap_weight;
+    total_weight += 0.0625 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_tr.rgb));
+    result += s_tr * 0.0625 * tap_weight;
+    total_weight += 0.0625 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_bl.rgb));
+    result += s_bl * 0.0625 * tap_weight;
+    total_weight += 0.0625 * tap_weight;
+
+    tap_weight = 1.0 / (1.0 + Luma(s_br.rgb));
+    result += s_br * 0.0625 * tap_weight;
+    total_weight += 0.0625 * tap_weight;
+
+    result /= max(total_weight, 1e-6);
+
+    if (valid) imageStore(colorimg12, gid, result);
+}

@@ -1,0 +1,38 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/volume/epipolar_core.glsl"
+
+layout(local_size_x = 128) in;
+// Iris parses workGroups with Integer.parseInt: literal only, no macros.
+// Max 2048 slices / 128 lanes = 16 groups; EPIPOLAR_SLICES is enforced by guard.
+const ivec3 workGroups = ivec3(16, 1, 1);
+
+#ifdef EPIPOLAR_WATER
+// Full uniform set (compiled even when unused here).
+layout(rgba16f) uniform writeonly image2D uimg_epipolar_endpoints;
+
+void main() {
+    uint slice = gl_GlobalInvocationID.x;
+    if (slice >= uint(EPIPOLAR_SLICES)) return;
+    bool pole_in_screen;
+    vec2 pole = EpipolarLightNDC(pole_in_screen);
+    int sector = int(slice) / (EPIPOLAR_SLICES / 4);
+    // A boundary sector is a valid EXIT edge only when it faces away from
+    // the pole (else it is the entry crossing, never addressed by the
+    // unwarp).
+    bool sector_valid = (sector == 0 && pole.x > -1.0)
+                    || (sector == 1 && pole.y > -1.0)
+                    || (sector == 2 && pole.x <  1.0)
+                    || (sector == 3 && pole.y <  1.0);
+    vec4 line = vec4(0.0);
+    if (sector_valid) {
+        vec2 exit = EpipolarSliceExit(int(slice));
+        vec2 entry = pole_in_screen ? pole : EpipolarBoundaryHit(exit, normalize(pole - exit));
+        line = vec4(entry, exit);
+    }
+    imageStore(uimg_epipolar_endpoints, ivec2(int(slice), 0), line);
+}
+#else
+void main() {}
+#endif

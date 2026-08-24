@@ -1,0 +1,39 @@
+# Normalize line endings for shader source files
+*.glsl text eol=lf
+*.vsh  text eol=lf
+*.fsh  text eol=lf
+*.csh  text eol=lf
+*.h    text eol=lf
+*.vert text eol=lf
+*.frag text eol=lf
+*.comp text eol=lf
+*.geom text eol=lf
+*.tesc text eol=lf
+*.tese text eol=lf
+*.vertex text eol=lf
+*.fragment text eol=lf
+*.compute  text eol=lf
+*.lang text eol=lf
+*.mcmeta text eol=lf
+*.mjs text eol=lf
+*.ps1 text eol=lf
+*.py text eol=lf
+
+# Other text files
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+*.txt  text eol=lf
+*.cfg  text eol=lf
+
+# Binary files
+*.png  binary
+*.jpg  binary
+*.dat  binary
+*.spv  binary
+*.zip  binary

@@ -1,0 +1,295 @@
+#shaders/lang/zh_cn.lang
+
+#Profiles
+profile.DEFAULT = 默认
+profile.LOW = §a低
+profile.MEDIUM = §a中
+profile.HIGH = §e高（默认）
+profile.ULTRA = §4极高
+profile.comment = 性能预设：每档统一设置质量缩放选项（阴影分辨率、云时域上采样、步进预算、AO 采样数、极线分辨率），不触碰偏好类设置。
+
+#Screens
+screen.POSTPROC = 后期处理
+screen.POSTPROC.comment = 色调映射、相机特效与抗锯齿。
+screen.TONEMAP = 色调映射
+screen.TONEMAP.comment = 应用到 HDR 场景的显示渲染变换。
+screen.CAMERA = 相机与特效
+screen.CAMERA.comment = 景深、运动模糊、泛光与自动曝光。
+screen.ANTIALIASING = 抗锯齿
+screen.ANTIALIASING.comment = 时域抗锯齿与 FidelityFX CAS 锐化。
+screen.LIGHTING = 光照
+screen.LIGHTING.comment = 阴影质量、环境光遮蔽与环境光/人工光。
+screen.AMBIENT = 环境光
+screen.AMBIENT.comment = 全局环境光下限与人工光强度。
+screen.SHADOWS = 阴影
+screen.SHADOWS.comment = 阴影贴图分辨率、PCSS 遮挡物/PCF 采样与植被次表面散射。
+screen.AO = 环境光遮蔽
+screen.AO.comment = GTAO 与 SSAO 生成、时域累积与历史拒绝。
+screen.ENVIRONMENT = 环境
+screen.ENVIRONMENT.comment = 体积云、水体与大气雾。
+screen.SKY = 天空
+screen.SKY.comment = 天体：星图亮度。
+screen.CLOUDS = 云
+screen.CLOUDS.comment = 体积云渲染、形态与光照。
+screen.WATER = 水体
+screen.WATER.comment = 水面反射、焦散与极线体积光。
+screen.FOG = 雾
+screen.FOG.comment = 解析大气雾。
+
+#Post: tonemapping
+option.TONEMAP_MODE = 色调映射
+option.TONEMAP_MODE.comment = 选择应用到 HDR 场景的显示渲染变换。
+value.TONEMAP_MODE.0 = AgX
+value.TONEMAP_MODE.1 = OKLAB
+value.TONEMAP_MODE.2 = ACES
+value.TONEMAP_MODE.3 = Reinhard-Gamut
+option.TONEMAP_EXPOSURE = 手动曝光
+option.TONEMAP_EXPOSURE.comment = 额外曝光（EV），在自动曝光之前应用。
+option.TONEMAP_SATURATION = 饱和度
+option.TONEMAP_SATURATION.comment = 色调映射前在线性空间的饱和度。
+option.TONEMAP_STRENGTH = 色调映射强度
+option.TONEMAP_STRENGTH.comment = 在未处理的 HDR 信号与色调映射结果之间混合。
+option.TONEMAP_AGX_LOOK = AgX Look
+option.TONEMAP_AGX_LOOK.comment = 在 AgX 图像形成内部应用的风格化 look（仅 AgX 模式生效）。
+value.TONEMAP_AGX_LOOK.0 = Base
+value.TONEMAP_AGX_LOOK.1 = Punchy
+value.TONEMAP_AGX_LOOK.2 = 灰度
+option.TONEMAP_AGX_CONTRAST = AgX 对比度
+option.TONEMAP_AGX_CONTRAST.comment = 在 AgX 对数空间中围绕中灰枢轴的对比度。
+option.TONEMAP_AGX_SATURATION = AgX 饱和度
+option.TONEMAP_AGX_SATURATION.comment = 在 display-referred 的 AgX Base 域中的色度增益。
+option.TONEMAP_AGX_GAMMA = AgX Gamma
+option.TONEMAP_AGX_GAMMA.comment = 在 display-referred 的 AgX Base 域中的 gamma 调节。
+option.TONEMAP_OKLAB_OVEREXPOSURE = Oklab DRT 过曝
+option.TONEMAP_OKLAB_OVEREXPOSURE.comment = Oklab DRT 肩部曲线的高光渐近值；中灰 18% 在任何取值下都保持不变。
+option.TONEMAP_RG_GAMUT_EXPANSION = Reinhard-Gamut 色域扩张
+option.TONEMAP_RG_GAMUT_EXPANSION.comment = 虚拟原色扩张；Rec.709 坐标在 Reinhard 曲线前向中性轴收缩。
+option.TONEMAP_RG_INPUT_SCALE = Reinhard-Gamut 输入缩放
+option.TONEMAP_RG_INPUT_SCALE.comment = 曲线前应用的缩放；1/(1-0.18) 将场景线性 18% 灰映射回 18%。
+option.TONEMAP_RG_HIGHLIGHT_REACH_EV = Reinhard-Gamut 高光到达
+option.TONEMAP_RG_HIGHLIGHT_REACH_EV.comment = 18% 灰以上、首次到达显示峰值的场景档数。
+option.TONEMAP_RG_HUE_RETENTION = Reinhard-Gamut 色相保持
+option.TONEMAP_RG_HUE_RETENTION.comment = 沿最短色相角把映射后色相拉回原始色相的程度。
+
+#Post: camera & effects
+option.DOF = 景深
+option.DOF.comment = 启用景深通道。
+option.MOTION_BLUR = 运动模糊
+option.MOTION_BLUR.comment = 启用相机运动模糊。
+option.MB_STRENGTH = 运动模糊强度
+option.MB_STRENGTH.comment = 运动模糊的拖影长度。
+option.BLOOM = 泛光
+option.BLOOM.comment = 启用泛光通道。
+option.BLOOM_STRENGTH = 泛光强度
+option.BLOOM_STRENGTH.comment = 泛光贡献的强度。
+option.AE = 自动曝光
+option.AE.comment = 启用自动眼部适应；关闭时仅使用手动曝光。
+
+#Post: antialiasing
+option.TAA = TAA
+option.TAA.comment = 使用 R2 拟随机序列的时域抗锯齿。
+option.CAS = CAS 锐化
+option.CAS.comment = AMD FidelityFX 对比度自适应锐化。
+option.CAS_SHARPNESS = CAS 锐化强度
+option.CAS_SHARPNESS.comment = CAS 通道的锐化量。
+
+#Post: color dither
+option.COLOR_DITHER_STRENGTH = 颜色抖动强度
+option.COLOR_DITHER_STRENGTH.comment = 交错梯度噪声抖动的强度；0.5 = 保守，1.0 = 默认，2.0 = 激进。
+
+#Clouds: temporal upscaling values
+value.CLOUD_TEMPORAL_UPSCALING.1 = 1x（全分辨率）
+value.CLOUD_TEMPORAL_UPSCALING.2 = 2x
+value.CLOUD_TEMPORAL_UPSCALING.3 = 3x
+value.CLOUD_TEMPORAL_UPSCALING.4 = 4x
+
+#Clouds: rendering
+option.VOLUMETRIC_CLOUDS = 体积云
+option.VOLUMETRIC_CLOUDS.comment = 启用体积云渲染。
+option.CLOUD_TEMPORAL_UPSCALING = 时域上采样
+option.CLOUD_TEMPORAL_UPSCALING.comment = 低分辨率渲染除数（1 = 全分辨率）。数值越大开销越低；时域累积负责重建细节。
+option.CLOUD_VIEW_MIN_STEPS = 最小步进数
+option.CLOUD_VIEW_MIN_STEPS.comment = 短视线的云步进下限；数值越高近处剪影越稳定，开销越高。
+option.CLOUD_VIEW_MAX_STEPS = 最大步进数
+option.CLOUD_VIEW_MAX_STEPS.comment = 长视线的云步进上限；控制地平线质量与开销。
+option.CLOUD_VIEW_TARGET_STEP_KM = 目标步距
+option.CLOUD_VIEW_TARGET_STEP_KM.comment = 自适应步进目标距离（km）；越小采样越密。
+option.CLOUD_LIGHT_STEPS = 光照步数
+option.CLOUD_LIGHT_STEPS.comment = 每个云采样点的光照方向步数；影响自阴影质量与主光照开销。
+option.CLOUD_BASE_ALTITUDE = 云底高度
+option.CLOUD_BASE_ALTITUDE.comment = 云底相对地形的海拔（km）。
+option.CLOUD_THICKNESS_KM = 云层厚度
+option.CLOUD_THICKNESS_KM.comment = 云层垂直厚度（km）。
+option.CLOUD_COVERAGE = 云量
+option.CLOUD_COVERAGE.comment = 整体云量；越高覆盖越广、云形越连贯。
+option.CLOUD_DISTRIBUTION_SCALE_KM = 分布尺度
+option.CLOUD_DISTRIBUTION_SCALE_KM.comment = 2D Worley fBm 分布贴图一个完整回绕的世界空间尺度（km）。
+option.CLOUD_WIND_SPEED = 风速
+option.CLOUD_WIND_SPEED.comment = 云风速（km/s）；分布随风漂移，越高运动越快。
+option.CLOUD_FINE_WIND_FACTOR = 细节风因子
+option.CLOUD_FINE_WIND_FACTOR.comment = 细节侵蚀风速倍率；>1 让细节更快流过云层，产生内部运动感。
+option.CLOUD_EROSION_SCALE_KM = 侵蚀尺度
+option.CLOUD_EROSION_SCALE_KM.comment = 3D Worley fBm 侵蚀贴图一个完整回绕的世界空间尺度（km）。
+option.CLOUD_EROSION_STRENGTH = 侵蚀强度
+option.CLOUD_EROSION_STRENGTH.comment = 低频侵蚀通道的总强度。
+option.CLOUD_FINE_EROSION_SCALE_KM = 细节侵蚀尺度
+option.CLOUD_FINE_EROSION_SCALE_KM.comment = 通道 A 独立细节噪声一个完整回绕的尺度（km）。
+option.CLOUD_FINE_EROSION_STRENGTH = 细节侵蚀强度
+option.CLOUD_FINE_EROSION_STRENGTH.comment = 通道 A 独立卷曲形变细节侵蚀强度。
+option.CLOUD_FINE_EROSION_HEIGHT = 细节侵蚀高度
+option.CLOUD_FINE_EROSION_HEIGHT.comment = 细节侵蚀从底部到全强度的归一化高度。
+option.CLOUD_DENSITY_MULTIPLIER = 密度倍率
+option.CLOUD_DENSITY_MULTIPLIER.comment = 最终密度倍率；同时提高不透明度与自阴影。
+option.CLOUD_LIGHT_MAX_DISTANCE_KM = 光照追踪距离
+option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = 光照方向光学深度最大追踪距离（km）。
+option.CLOUD_PHASE_FORWARD_G = 前向相位 G
+option.CLOUD_PHASE_FORWARD_G.comment = HanPi 前向 HG 离心率。
+option.CLOUD_PHASE_BACKWARD_G = 后向相位 G
+option.CLOUD_PHASE_BACKWARD_G.comment = HanPi 后向 HG 离心率。
+option.CLOUD_MS_ATTENUATION = 多重散射衰减
+option.CLOUD_MS_ATTENUATION.comment = HanPi 每倍频程光学深度倍率。
+option.CLOUD_MS_CONTRIBUTION = 多重散射贡献
+option.CLOUD_MS_CONTRIBUTION.comment = HanPi 每倍频程能量倍率。
+option.CLOUD_MS_ECCENTRICITY = 多重散射离心率
+option.CLOUD_MS_ECCENTRICITY.comment = HanPi 每倍频程相位离心率倍率。
+option.CLOUD_PHI_INTENSITY = Phi 强度
+option.CLOUD_PHI_INTENSITY.comment = Vibroscat phi_fwd 初始强度。
+option.CLOUD_PHI_COMPRESSION = Phi 压缩
+option.CLOUD_PHI_COMPRESSION.comment = Vibroscat phi_fwd 软压缩。
+option.CLOUD_SKY_LIGHT_STRENGTH = 天光强度
+option.CLOUD_SKY_LIGHT_STRENGTH.comment = 天空环境散射总强度；越高云阴影区越亮。
+option.CLOUD_HISTORY_GUIDED_END_SCALE = 历史引导系数
+option.CLOUD_HISTORY_GUIDED_END_SCALE.comment = 历史引导步进终点的质心距离安全系数。
+
+#Shadows
+option.SHADOW_PCSS = PCSS 软阴影
+option.SHADOW_PCSS.comment = 半影估计与半径 PCF 过滤。关闭（低画质）时回退为硬件双线性 PCF；遮挡物搜索仍保留，供植物 SSS 厚度估计使用。
+option.shadowMapResolution = 阴影贴图分辨率
+option.shadowMapResolution.comment = 阴影深度贴图分辨率；越高阴影边缘越锐利，开销越高。
+option.SHADOW_BLOCKER_SAMPLES = PCSS 遮挡物采样数
+option.SHADOW_BLOCKER_SAMPLES.comment = PCSS 半影估计的遮挡物搜索采样数。
+option.SHADOW_BLOCKER_SEARCH_TEXELS = PCSS 搜索半径
+option.SHADOW_BLOCKER_SEARCH_TEXELS.comment = 遮挡物搜索半径（阴影纹素）。
+option.SHADOW_SUN_ANGULAR_RADIUS = 太阳角半径
+option.SHADOW_SUN_ANGULAR_RADIUS.comment = 视太阳角半径（弧度）；决定半影大小。
+option.SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS = 遮挡物深度容差
+option.SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS.comment = 遮挡物分类的世界空间深度容差（米）。
+option.SHADOW_PCF_MIN_SAMPLES = PCF 最小采样数
+option.SHADOW_PCF_MIN_SAMPLES.comment = 滤波最小采样数；全日照时使用。
+option.SHADOW_PCF_MAX_SAMPLES = PCF 最大采样数
+option.SHADOW_PCF_MAX_SAMPLES.comment = 滤波最大采样数；深半影时使用。
+option.SHADOW_PCF_GAIN = PCF 采样增益
+option.SHADOW_PCF_GAIN.comment = 半影大小到采样数的换算增益。
+option.SHADOW_SUN_HEIGHT_BOOST = 太阳高度增益
+option.SHADOW_SUN_HEIGHT_BOOST.comment = 低太阳角时的额外半影增长。
+option.SHADOW_DISTANCE_BOOST = 距离增益
+option.SHADOW_DISTANCE_BOOST.comment = 半影随阴影距离的增长。
+option.SHADOW_CONTACT_SHARPEN_TEXELS = 接触锐化
+option.SHADOW_CONTACT_SHARPEN_TEXELS.comment = 接触阴影锐化半径（纹素）。
+option.SHADOW_SSS_STEPS = SSS 步数
+option.SHADOW_SSS_STEPS.comment = 次表面散射阴影步进数。
+option.SHADOW_SSS_DENSITY = SSS 密度
+option.SHADOW_SSS_DENSITY.comment = 次表面散射吸收密度。
+option.SHADOW_SSS_SCALE = SSS 缩放
+option.SHADOW_SSS_SCALE.comment = 次表面散射世界空间尺度。
+option.SHADOW_SSS_PENUMBRA_BOOST = SSS 半影增益
+option.SHADOW_SSS_PENUMBRA_BOOST.comment = 透射项的半影宽度增益。
+option.SHADOW_SSS_PHASE_G = SSS 相位 G
+option.SHADOW_SSS_PHASE_G.comment = 透射光的 Henyey-Greenstein 相位。
+option.SHADOW_SSS_FADE_START = SSS 衰减起点
+option.SHADOW_SSS_FADE_START.comment = SSS 透射开始淡出的阴影贴图边缘比例。
+
+#AO
+option.AO_MODE = 环境光遮蔽模式
+option.AO_MODE.comment = 屏幕空间环境光遮蔽算法：0 = 关闭，1 = GTAO（基于地平线），2 = SSAO（蒙特卡洛半球采样，更重）。两者共用半分辨率生成与时域累积，仅生成核不同。
+value.AO_MODE.0 = 关闭
+value.AO_MODE.1 = GTAO
+value.AO_MODE.2 = SSAO
+option.GTAO_TEMPORAL = 时域累积
+option.GTAO_TEMPORAL.comment = 启用 AO 的全分辨率时域累积。
+option.GTAO_SLICES = GTAO 切片数
+option.GTAO_SLICES.comment = 每像素地平线切片数。越多噪声越低，开销越高。
+option.GTAO_HORIZON_STEPS = GTAO 地平线步数
+option.GTAO_HORIZON_STEPS.comment = 每侧地平线的深度采样数。
+option.GTAO_RADIUS = GTAO 半径
+option.GTAO_RADIUS.comment = 视空间遮蔽搜索半径（米）。
+option.GTAO_STRENGTH = GTAO 强度
+option.GTAO_STRENGTH.comment = 遮蔽对比度（AO 指数）。
+option.GTAO_MULTIBOUNCE = GTAO 多重反弹
+option.GTAO_MULTIBOUNCE.comment = 基于反照率的近场互反射能量恢复（提亮角落）。
+option.GTAO_FALLOFF_START = GTAO 衰减起点
+option.GTAO_FALLOFF_START.comment = 遮蔽衰减开始的半径比例。
+option.GTAO_AGE_LIMIT = GTAO 历史年龄上限
+option.GTAO_AGE_LIMIT.comment = 时域累积完全信任历史所需的帧数。
+option.GTAO_HISTORY_DISTANCE_LIMIT = 历史距离上限
+option.GTAO_HISTORY_DISTANCE_LIMIT.comment = 历史拒绝：最大世界位移（米）。
+option.GTAO_HISTORY_NORMAL_DOT_MIN = 历史法线下限
+option.GTAO_HISTORY_NORMAL_DOT_MIN.comment = 历史拒绝：最小法线点积（cos 30°）。
+option.SSAO_SAMPLES = SSAO 采样数
+option.SSAO_SAMPLES.comment = 每像素半球采样数。越多估计方差越低，开销越高；时域累积负责收敛噪声。
+option.SSAO_RADIUS = SSAO 半径
+option.SSAO_RADIUS.comment = 视空间遮蔽搜索半径（米）。
+option.SSAO_STRENGTH = SSAO 强度
+option.SSAO_STRENGTH.comment = 遮蔽对比度（AO 指数）。SSAO 比 GTAO 更淡，故默认指数更陡。
+option.AO_DARKEN_SLOWDOWN = AO 变暗减速
+option.AO_DARKEN_SLOWDOWN.comment = AO 变暗过程中新鲜样本权重系数（1.0 = 不减速）。减缓黑色 AO 的淡入速度，使其读起来像光照变化而非噪点。
+
+#Water
+option.WATER_SSR = 水面 SSR
+option.WATER_SSR.comment = 水面屏幕空间反射。
+option.SSR_STEPS = 水面反射质量
+option.SSR_STEPS.comment = 反射步进采样数。更多采样使远处反射更清晰，成本更高。
+option.WATER_POM = 水面视差贴图
+option.WATER_POM.comment = 水面法线的视差遮挡映射。关闭（低画质）时法线取平面位置。
+option.VALUE_NOISE_POM_COARSE_STEPS = 视差粗步数
+option.VALUE_NOISE_POM_COARSE_STEPS.comment = 水面视差搜索的固定步高追样本数。
+option.VALUE_NOISE_POM_BISECT_STEPS = 视差二分步数
+option.VALUE_NOISE_POM_BISECT_STEPS.comment = 每次视差深度穿越的二分细化迭代次数（0 = 仅线性）。
+option.WATER_FOG_CAUSTICS = 水体焦散
+option.WATER_FOG_CAUSTICS.comment = 波面雅可比对水体雾的焦散调制。
+option.WATER_FOG_CAUSTIC_STRENGTH = 焦散强度
+option.WATER_FOG_CAUSTIC_STRENGTH.comment = 焦散调制增益。
+option.EPIPOLAR_WATER = 水体极线体积光
+option.EPIPOLAR_WATER.comment = 沿水柱的极线体积光。
+option.EPIPOLAR_SLICES = 极线切片数
+option.EPIPOLAR_SLICES.comment = 极线切片数量。
+value.EPIPOLAR_SLICES.256 = 256
+value.EPIPOLAR_SLICES.512 = 512
+value.EPIPOLAR_SLICES.1024 = 1024
+value.EPIPOLAR_SLICES.2048 = 2048
+option.EPIPOLAR_SAMPLES = 极线采样数
+option.EPIPOLAR_SAMPLES.comment = 每条极线射线的采样数。
+value.EPIPOLAR_SAMPLES.128 = 128
+value.EPIPOLAR_SAMPLES.256 = 256
+value.EPIPOLAR_SAMPLES.512 = 512
+value.EPIPOLAR_SAMPLES.1024 = 1024
+option.EPIPOLAR_SHADOW_STEPS = 阴影步数
+option.EPIPOLAR_SHADOW_STEPS.comment = 每个极线采样点的阴影步数。
+option.WATER_EPIPOLAR_MAX_DISTANCE = 水极线步进距离
+option.WATER_EPIPOLAR_MAX_DISTANCE.comment = 水雾极线阴影步进的距离上限（米）；超出部分按解析无阴影处理。越小噪点越少，但远场阴影细节越弱。
+option.EPIPOLAR_DEPTH_TOLERANCE = 深度容差
+option.EPIPOLAR_DEPTH_TOLERANCE.comment = 极线列匹配的相对线性深度容差（0.03 = 较深 key 的 3%，与尺度无关）。
+option.EPIPOLAR_EDGE_SHARPEN = 边缘锐化
+option.EPIPOLAR_EDGE_SHARPEN.comment = 极线剪影混合权重的连续锐化。
+option.EPIPOLAR_EDGE_EXTEND = 边缘延伸
+option.EPIPOLAR_EDGE_EXTEND.comment = 无精确匹配列时搜索的范围；按深度权重平均最近的合法列。
+
+#Fog
+option.AIR_FOG = 大气雾
+option.AIR_FOG.comment = 启用解析大气雾通道。
+option.AIR_FOG_INTENSITY = 雾强度
+option.AIR_FOG_INTENSITY.comment = 整体雾强度。
+option.AIR_FOG_DENSITY = 雾密度
+option.AIR_FOG_DENSITY.comment = 每公里基础雾密度。
+option.AIR_FOG_SKY_STRENGTH = 天空雾强度
+option.AIR_FOG_SKY_STRENGTH.comment = 天空色对雾的着色强度。
+option.AIR_FOG_SHADOWS = 雾阴影
+option.AIR_FOG_SHADOWS.comment = 雾内太阳阴影可见性（极线阴影项）。
+
+#Lighting
+option.AMBIENT_BASE = 最低环境光
+option.AMBIENT_BASE.comment = 加到所有表面天空环境光上的全局光照下限，使洞穴和深阴影不会全黑。
+option.TORCH_BRIGHTNESS = 火把亮度
+option.TORCH_BRIGHTNESS.comment = 暖色火把光强度倍率（色调保持不变）。
+option.STAR_MAP_INTENSITY = 星空亮度
+option.STAR_MAP_INTENSITY.comment = 夜空星图的线性增益。

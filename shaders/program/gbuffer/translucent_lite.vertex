@@ -1,0 +1,45 @@
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/lighting/ambient_light.glsl"
+
+flat out vec3 v_normal;
+flat out vec3 v_sun_light_col;
+out vec3 v_view_pos;
+out vec3 v_ambient_col;
+out vec3 v_shadow_proj_pos;
+out vec4 v_color;
+out vec4 v_texcoord;
+
+void main() {
+    vec3 view_pos = (gl_ModelViewMatrix * gl_Vertex).xyz;
+    v_view_pos = view_pos;
+    vec3 world_pos = ViewToSceneSpace(view_pos);
+
+    v_shadow_proj_pos = mat3(shadowModelView) * (world_pos + gl_Normal * 0.025) + shadowModelView[3].xyz;
+    v_shadow_proj_pos = vec3(shadowProjection[0].x, shadowProjection[1].y, shadowProjection[2].z) * v_shadow_proj_pos + shadowProjection[3].xyz;
+    v_shadow_proj_pos.xy /= GetDistortFactor(v_shadow_proj_pos.xy);
+    vec3 ndc = v_shadow_proj_pos * 0.5 + 0.5;
+    ndc.z -= 0.0001;
+    v_shadow_proj_pos = vec3(ndc.xy, ProtectShadowDepth(ndc.z));
+
+    gl_Position = gl_ProjectionMatrix * vec4(view_pos, 1.0);
+#ifdef TAA
+    gl_Position.xy += u_taa_offset * gl_Position.w;
+#endif
+
+    v_color = gl_Color;
+    v_texcoord.xy = gl_MultiTexCoord0.xy;
+    v_texcoord.zw = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
+
+    vec3 view_normal = gl_NormalMatrix * gl_Normal;
+    v_normal = length(view_normal) < 1e-4 ? vec3(0.0, 0.0, 1.0) : normalize(view_normal);
+
+    vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+    v_sun_light_col = ground_light.rgb;
+    // Same sky ambient + lightmap remap as deferred2 (no AO in the gbuffer
+    // stage).
+    v_ambient_col = AmbientLight(world_normal, vec3(1.0), v_texcoord.w);
+}

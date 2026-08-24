@@ -1,0 +1,39 @@
+/* RENDERTARGETS: 12 */
+
+#include "/lib/contract/exposure_data.glsl"
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/color/dither.glsl"
+
+const float COLOR_JITTER_SEED = 97.0;
+
+layout(location = 0) out vec4 out_color;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
+
+    vec3 hdr = texture(colortex0, uv).rgb;
+
+#ifdef BLOOM
+    // Final half-res → full-res step: bilinear sample of the mip1 tile with
+    // a half-texel center offset (screen texel i reads tile i/2, pixel-center
+    // aligned). The atlas packs mip2/mip3 right/below mip1 (uv 0.5); edge
+    // texels would otherwise blend 50% of the neighbour tile — clamp to
+    // mip1's texel-centre range so edges read the tile edge, not the seam.
+    vec2 bloom_uv = uv * 0.5 + 0.5 * u_view_pixel_size;
+    bloom_uv = clamp(bloom_uv, 0.5 * u_view_pixel_size, vec2(0.5) - 0.5 * u_view_pixel_size);
+    vec3 bloom = texture(colortex12, bloom_uv).rgb * BLOOM_STRENGTH * (1.0 / 7.0);
+    hdr += bloom;
+#endif
+    hdr *= exp2(TONEMAP_EXPOSURE);
+#ifdef AE
+    hdr *= exposure;
+#endif
+    float hdr_luma = Luminance(hdr);
+    hdr = mix(vec3(hdr_luma), hdr, TONEMAP_SATURATION);
+
+    vec3 ldr = mix(hdr, Tonemap(hdr), TONEMAP_STRENGTH);
+    vec3 jittered_ldr = JitterRGBA16F(ldr, gl_FragCoord.xy, COLOR_JITTER_SEED);
+    out_color = vec4(jittered_ldr, 1.0);
+}

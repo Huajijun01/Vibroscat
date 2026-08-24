@@ -1,0 +1,34 @@
+// Phase 2: combine the 64 partial sums → avgLum → update smoothLum &
+// exposure
+
+#include "/lib/contract/exposure_data.glsl"
+#include "/lib/contract/uniforms.glsl"
+
+layout(local_size_x = 64) in;
+const ivec3 workGroups = ivec3(1, 1, 1);
+
+shared float cache[64];
+
+void main() {
+    uint tid = gl_LocalInvocationIndex;
+
+    cache[tid] = partial_sums[tid];
+    barrier();
+
+    for (uint s = 32u; s > 0u; s >>= 1u) {
+        if (tid < s) cache[tid] += cache[tid + s];
+        barrier();
+    }
+
+    if (tid == 0u) {
+        float total_pixels = u_screen_res.x * u_screen_res.y;
+        float avg_lum = cache[0] / total_pixels;
+        avg_lum = max(avg_lum, 0.001);
+        float target_lum = 0.15;
+
+        float rate_per_sec = avg_lum > smooth_lum ? 5.0 : 1.0;
+        float w = clamp(frameTime * rate_per_sec, 0.0, 1.0);
+        smooth_lum = mix(smooth_lum, avg_lum, w);
+        exposure = target_lum / smooth_lum;
+    }
+}

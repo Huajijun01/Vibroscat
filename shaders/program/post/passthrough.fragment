@@ -1,0 +1,12 @@
+/* RENDERTARGETS: 0 */
+
+#include "/lib/contract/uniforms.glsl"
+
+layout(location = 0) out vec3 out_color;
+
+// Identity passthrough: reads colortex0 and writes it back unchanged, so
+// the composite stage stays a visual no-op while keeping a fragment pass
+// alive (flip-capable).
+void main() {
+    out_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).rgb;
+}

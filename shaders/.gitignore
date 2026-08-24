@@ -1,0 +1,7 @@
+
+# Development previews rendered by the texture generator tools
+# (tools/generate_*.py) are not part of the released pack.
+textures/*_preview.png
+textures/*_preview.gif
+textures/*_cross_section.png
+textures/caustics_value_noise_normals.gif

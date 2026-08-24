@@ -1,0 +1,218 @@
+/* RENDERTARGETS: 12,2 */
+
+// ── Water shading switches ──
+// Water normal evaluation (0 = geometry normal only, no POM/noise).
+#define WATER_NORMAL_ENABLED 1
+// SSR march (0 = bypass).
+#define WATER_SSR_ENABLED 1
+// Skip SSR for skyward reflections (view-space z > 0).
+#define WATER_SSR_SKY_SKIP 1
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/filters.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/ambient_light.glsl"
+#include "/lib/raytrace/ssr.glsl"
+#include "/lib/water/fog.glsl"
+#include "/lib/water/ocean.glsl"
+
+flat in int v_id;
+flat in int v_glass;
+flat in vec3 v_normal;
+flat in vec3 v_sun_light_col;
+in vec3 v_world_pos;
+in vec3 v_view_pos;
+in vec3 v_ambient_col;
+in vec3 v_shadow_proj_pos;
+in vec4 v_color;
+in vec4 v_texcoord;
+
+layout(location = 0) out vec4 out_layer_color;
+layout(location = 1) out vec4 out_surface_data;
+
+vec3 WaterFogCol() {
+    // Runtime water-body coefficients from shaders.properties (u_water_*).
+    vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(v_view_pos));
+    float phase = PhaseCornetteShanks(dot(world_view_dir, normalize(u_world_light_dir)), WATER_PHASE_G);
+    return (u_water_scattering / u_water_absorption) * phase * (v_sun_light_col * eyeBrightnessSmooth.y * (1.0 / 240.0) + v_ambient_col * (0.25 / PI) * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / 240.0) : 1.0));
+}
+
+void main() {
+    vec4 diffuse = texture(gtexture, v_texcoord.xy);
+
+    diffuse.rgb *= v_color.rgb;
+    diffuse.rgb = ToLinear(diffuse.rgb);
+
+    // Non-glass/non-water translucent objects (ice, slime, honey, ...) use
+    // the translucent_lite path: diffuse only, no SSR/Fresnel/water data.
+    if (v_id != 1 && v_glass != 1) {
+        if (diffuse.a < 0.01) discard;
+        // Same BRDF configuration as deferred2 (shared BRDF helper).
+        vec3 N = normalize(v_normal);
+        vec3 V = -normalize(v_view_pos);
+        vec3 L = mat3(gbufferModelView) * normalize(u_world_light_dir);
+        vec3 direct_lighting;
+        vec3 lambert_brdf;
+        vec3 diffuse_reflectance;
+        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, N, V, L, direct_lighting, lambert_brdf, diffuse_reflectance);
+        float s = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
+            (1.0 / real_shadow_map_resolution));
+        float torch_light = BlockLightFromLm(v_texcoord.z);
+        vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
+                 + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
+        out_layer_color = vec4(lit * diffuse.a, diffuse.a);
+        out_surface_data = vec4(v_normal * 0.5 + 0.5, 0.0);
+        return;
+    }
+
+    vec3 surface_normal = vec3(0.0, 0.0, 1.0);
+    vec3 current_normal = v_normal;
+    if(v_id == 1) {
+#if WATER_NORMAL_ENABLED
+        // Fitted value-noise ocean (ocean.glsl); normal at the
+        // parallax-corrected position, shared by lighting, reflections,
+        // and refraction.
+        vec3 world_n;
+        OceanValueNoisePOM((v_world_pos + cameraPosition).xz, normalize(v_world_pos), frameTimeCounter, world_n);
+        surface_normal = vec3(world_n.x, world_n.z, world_n.y);
+        current_normal = normalize(mat3(gbufferModelView) * world_n);
+#endif
+        if (isEyeInWater == 1) {
+            // Viewed from below the visible side has the inverted normal
+            // (refraction tilt + Snell-window alpha depend on it).
+            surface_normal = -surface_normal;
+            current_normal = -current_normal;
+        }
+    }
+
+    current_normal = normalize(mix(current_normal, v_normal, (1.0 - Pow4(dot(-normalize(v_view_pos), v_normal))) * 0.7));
+
+    if (v_id == 1) {
+        vec3 to_camera = -normalize(v_view_pos);
+        current_normal = SoftClampWaterNormal(current_normal, to_camera);
+        vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
+        surface_normal = vec3(world_n_clamped.x, world_n_clamped.z, world_n_clamped.y);
+    }
+
+    // STBN dither for the translucent ray trace: spatial blue noise, one
+    // time slice per frame.
+#ifdef TAA
+    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter);
+#else
+    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), 0);
+#endif
+
+    vec2 screen_texcoord = gl_FragCoord.xy * u_view_pixel_size;
+
+    vec3 view_dir = normalize(v_view_pos);
+
+    vec2 rt_coord = screen_texcoord;
+    vec3 rt_pos = ViewToNDC(v_view_pos) * 0.5 + 0.5;
+    bool rt_hit_flag = false;
+    bool rt_hit_sky = false;
+    vec3 reflect_dir = reflect(view_dir, current_normal);
+
+#if WATER_SSR_ENABLED
+    bool ssr_allowed = (v_id == 1 || v_glass == 1);
+#if WATER_SSR_SKY_SKIP
+    if (ssr_allowed && reflect_dir.z < 0.0)
+#endif
+    {
+    rt_hit_flag = RayTraceHIT(v_view_pos, reflect_dir, dot(-view_dir, current_normal), dither, false, rt_pos, rt_hit_sky);
+    }
+#endif
+    rt_coord = rt_pos.xy;
+    vec3 prev_coord = ToPrevious(vec3(rt_coord, texture(depthtex0, rt_coord).x));
+
+    vec3 reflect_color = vec3(0.0);
+    if(rt_hit_flag) {
+        reflect_color = texture(colortex5, prev_coord.xy).rgb;
+    } else {
+        if(isEyeInWater == 1) {
+            reflect_color = WaterFogCol();
+        } else {
+            vec3 view_refl_dir = normalize(mat3(gbufferModelViewInverse) * reflect_dir);
+            reflect_color = SkyLightFromLm(v_texcoord.w) * texture(usam_skylut_cloud, CloudSkyboxUV(view_refl_dir)).rgb;
+        }
+    }
+
+    // Sun glint = direct solar reflection; SSR landing on ground reflects
+    // that ground instead (tracer classifies the hit, no extra depth fetch).
+    float sun_spec_mask = (rt_hit_flag && !rt_hit_sky) ? 0.0 : 1.0;
+
+    // Single hardware-PCF shadow sample (no PCSS needed on water).
+    float s = texture(shadowtex1, v_shadow_proj_pos);
+
+    vec3 V = -view_dir;
+    vec3 N = current_normal;
+    vec3 L = mat3(gbufferModelView) * normalize(u_world_light_dir);
+
+    vec3 H = normalize(V + L);
+
+    float ndotv = Saturate(dot(N, V));
+    float ndotl = Saturate(dot(N, L));
+    float ldotv = dot(L, V);
+    float ldoth = dot(L, H);
+    vec3 sun_light = v_sun_light_col * s;
+    vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
+
+    const float f0 = 0.1;
+    const float water_f0 = 0.02;
+    const float sun_roughness = 0.02;
+
+    // Sun/moon glint: Decima spherical area light GGX plus exact
+    // dielectric Fresnel (f0 -> IOR). The disc radii come from
+    // contract/settings.glsl (same constants as the rendered sky discs); the
+    // active light is the sun when it is above the horizon (world light
+    // direction y > 0), otherwise the moon.
+    float light_radius = u_world_light_dir.y > 0.0 ? SUN_DISC_RADIUS : MOON_DISC_RADIUS;
+
+    float sun_f0 = v_id == 1 ? water_f0 : f0;
+    vec3 sun_fresnel = FresnelDielectric(ldoth, sun_f0);
+
+    vec3 sun_specular = vec3(0.0);
+    if (ndotl > 1e-4 && sun_fresnel.r >= 1e-2) {
+        float ndoth2 = GetNdotHSquared(ndotl, ndotv, ldotv, light_radius);
+        sun_specular = DistributionGGXNdotH2(ndoth2, sun_roughness)
+               * VisibilitySmithGGXCorrelated(ndotv, ndotl, sun_roughness)
+               * sun_fresnel;
+    }
+
+    float out_alpha = 0.0;
+
+    if(v_id == 1) {
+        if(isEyeInWater == 0) {
+            out_alpha = Pow5(1.0 - ndotv) * 0.98 + 0.02;
+        } else {
+            float new_ndotv = ndotv;
+            new_ndotv = Saturate(sqrt(1.0 - new_ndotv * new_ndotv) * 1.33);
+            new_ndotv = sqrt(1.0 - new_ndotv * new_ndotv);
+            out_alpha = Pow5(1.0 - new_ndotv);
+        }
+    } else {
+        out_alpha = Pow5(1.0 - ndotv) * (1.0 - diffuse.a) + diffuse.a;
+    }
+
+    vec3 sun_reflect = sun_light * (sun_specular) * ndotl * sun_spec_mask;
+    vec3 sky_reflect = reflect_color * out_alpha * v_texcoord.w;
+    vec3 env_reflect = v_id == 1 ? vec3(0.0) : v_ambient_col * base_color;
+
+    // Surface reflections stay at full strength (not modulated by the layer
+    // alpha); only the scattered/transmitted terms are alpha-modulated — the
+    // blend pass adds them on top of the transmitted background.
+    vec3 comp_light = sun_reflect + sky_reflect + env_reflect * Saturate(out_alpha);
+    out_layer_color = vec4(comp_light, Saturate(out_alpha));
+
+    // colortex2 (blend off, cleared by deferred2): RG = refraction normal.xy,
+    // B = z, A = water flag. Nearest translucent fragment wins (glass in
+    // front of water replaces the water data).
+    out_surface_data = vec4(surface_normal * 0.5 + 0.5, v_id == 1 ? 1.0 : 0.0);
+}

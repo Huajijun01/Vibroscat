@@ -1,0 +1,45 @@
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+const ivec3 workGroups = ivec3(8, 8, 1);
+
+layout(rgba16f) uniform writeonly image2D uimg_skylut;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+
+    vec3 sun_dir = vec3(0.0, u_world_sun_dir.y, sqrt(1.0 - u_world_sun_dir.y * u_world_sun_dir.y));
+    float theta_h = asin(ATM_PLANET_R / (ATM_PLANET_R + u_cam_altitude)) - PI * 0.5;
+
+    float phi = (float(id.x) / float(SKY_LUT_W - 1) - 0.5) * PI;
+    float y   = float(id.y) + 0.5;
+    float theta;
+
+    if (y >= float(SKY_LUT_GND)) {
+        float t = (y - float(SKY_LUT_GND)) / float(SKY_LUT_SKY - 1);
+        t = t * t;
+        t = t * 0.99999 + 0.00001;
+        theta = theta_h + t * (PI * 0.5 - theta_h);
+    } else {
+        float t = clamp(1.0 - y / float(SKY_LUT_GND - 1), 0.0, 1.0);
+        t = t * t;
+        t = t * t;
+        t = t * 0.99999 + 0.00001;
+        theta = theta_h - t * (PI * 0.5 + theta_h);
+    }
+
+    vec3 view_dir = vec3(cos(theta) * cos(phi), sin(theta), cos(theta) * sin(phi));
+    vec4 L = ComputeSkyRadiance(vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0), view_dir, sun_dir);
+    vec3 rgb = Rec2020ToSRGB(SpectralToLinearRec2020(L)) * ATM_EXPOSURE;
+
+    // Static interleaved gradient noise dither — no temporal component to avoid flicker
+    float d_noise = InterleavedGradientNoise(vec2(id));
+    rgb += (d_noise - 0.5) * max(rgb, 1e-4) / 1024.0;
+
+    imageStore(uimg_skylut, id, vec4(rgb, 1.0));
+}

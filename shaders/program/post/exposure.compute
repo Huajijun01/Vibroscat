@@ -1,0 +1,45 @@
+// Phase 1: 64 workgroups, each processing every 64th pixel (uniform
+// count) → 64 partial sums in SSBO[2..65]; phase 2
+// (exposure_final.compute) combines them
+
+#include "/lib/contract/exposure_data.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/color/color.glsl"
+
+layout(local_size_x = 256) in;
+const ivec3 workGroups = ivec3(8, 8, 1);
+
+layout(r11f_g11f_b10f) readonly uniform image2D colorimg0;
+
+shared float cache[256];
+
+void main() {
+    uint tid = gl_LocalInvocationIndex;
+    uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
+
+    ivec2 size = imageSize(colorimg0);
+    uint total_pixels = uint(size.x) * uint(size.y);
+    uint px_per_group = (total_pixels + 63u) / 64u;
+
+    uint start = wid * px_per_group;
+    uint end = min(start + px_per_group, total_pixels);
+
+    float sum = 0.0;
+    for (uint i = start + tid; i < end; i += 256u) {
+        ivec2 pos = ivec2(i % uint(size.x), i / uint(size.x));
+        vec3 c = imageLoad(colorimg0, pos).rgb;
+        sum += Luminance(c);
+    }
+
+    cache[tid] = sum;
+    barrier();
+
+    for (uint s = 128u; s > 0u; s >>= 1u) {
+        if (tid < s) cache[tid] += cache[tid + s];
+        barrier();
+    }
+
+    if (tid == 0u) {
+        partial_sums[wid] = cache[0];
+    }
+}

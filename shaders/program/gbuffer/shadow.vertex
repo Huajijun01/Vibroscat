@@ -1,0 +1,44 @@
+// ════════════════════════════════════════════════════════════════════════════
+// Shadow pass — vertex shader
+// ════════════════════════════════════════════════════════════════════════════
+// During the shadow pass Iris sets gl_ModelViewMatrix = model→shadow-view
+// and gl_ProjectionMatrix = orthographic shadow projection (no explicit
+// shadowModelView/shadowProjection needed). Water blocks (mc_Entity 80)
+// are culled before distortion.
+
+// ── Outputs ──
+out vec2 v_texcoord;
+out vec4 v_color;
+
+// ── Inputs ──
+in vec4 mc_Entity;
+
+// ── Libraries ──
+#include "/lib/contract/settings.glsl"
+#include "/lib/core/coordinates.glsl"
+
+void main() {
+    v_texcoord = gl_MultiTexCoord0.xy;
+    v_color    = gl_Color;
+
+    // world → shadowView → shadowClip (orthographic, diagonal-only matrix multiply)
+    vec3 shadow_view_pos = mat3(gl_ModelViewMatrix) * vec3(gl_Vertex) + gl_ModelViewMatrix[3].xyz;
+
+    gl_Position.x = gl_ProjectionMatrix[0].x * shadow_view_pos.x + gl_ProjectionMatrix[3].x;
+    gl_Position.y = gl_ProjectionMatrix[1].y * shadow_view_pos.y + gl_ProjectionMatrix[3].y;
+    gl_Position.z = gl_ProjectionMatrix[2].z * shadow_view_pos.z + gl_ProjectionMatrix[3].z;
+    gl_Position.w = 1.0;
+
+    // Depth protection in clip space: with w = 1.0, window depth =
+    // 0.5 + 0.5·z_clip, so scaling z_clip by SHADOW_DEPTH_SCALE equals the
+    // fragment remap without disabling early-Z.
+    gl_Position.z *= SHADOW_DEPTH_SCALE;
+
+#if !defined(PROGRAM_SHADOW_ENTITIES)
+    int block_id = int(mc_Entity.x + 0.5);
+    if (block_id == 80) { gl_Position.w = -1.0; return; }
+#endif
+
+    // Analytic distortion: compress XY toward center
+    gl_Position.xy /= GetDistortFactor(gl_Position.xy);
+}

@@ -1,0 +1,53 @@
+/* RENDERTARGETS: 12,2 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/filters.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/ambient_light.glsl"
+
+flat in vec3 v_normal;
+flat in vec3 v_sun_light_col;
+in vec3 v_view_pos;
+in vec3 v_ambient_col;
+in vec3 v_shadow_proj_pos;
+in vec4 v_color;
+in vec4 v_texcoord;
+
+layout(location = 0) out vec4 out_layer_color;
+layout(location = 1) out vec4 out_surface_data;
+
+// Lightweight forward translucent for hand-held items and particles:
+// deferred2-compatible BRDF (shared BRDF helper), alpha passes
+// straight through. No Fresnel, SSR, water waves or water-column fog.
+void main() {
+    vec4 albedo = texture(gtexture, v_texcoord.xy) * v_color;
+    if(albedo.a < 0.01) discard;
+    vec3 base_color = ToLinear(albedo.rgb);
+    float alpha = albedo.a;
+
+    // Same BRDF configuration as deferred2 (shared BRDF helper).
+    vec3 N = normalize(v_normal);
+#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
+    N = vec3(0.0, 1.0, 0.0);
+#endif
+
+    vec3 V = -normalize(v_view_pos);
+    vec3 L = mat3(gbufferModelView) * normalize(u_world_light_dir);
+    vec3 direct_lighting;
+    vec3 lambert_brdf;
+    vec3 diffuse_reflectance;
+    EvaluateBRDF(base_color, v_texcoord.xy, N, V, L, direct_lighting, lambert_brdf, diffuse_reflectance);
+
+    float s = texture(shadowtex1, v_shadow_proj_pos);
+    float torch_light = BlockLightFromLm(v_texcoord.z);
+    vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
+             + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
+
+    // Premultiplied translucent layer: color * alpha + alpha.
+    out_layer_color = vec4(lit * alpha, alpha);
+    // Non-water normal/flag: (0,0,1) packed, water flag 0.
+    out_surface_data = vec4(N * 0.5 + 0.5, 0.0);
+}

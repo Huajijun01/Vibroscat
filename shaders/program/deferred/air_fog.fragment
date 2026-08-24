@@ -1,0 +1,57 @@
+
+/* RENDERTARGETS: 0 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/atmosphere/air_fog.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/volume/air_epipolar.glsl"
+#include "/lib/volume/epipolar_core.glsl"
+
+layout(location = 0) out vec3 out_color;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
+    vec3 scene = texture(colortex0, uv).rgb;
+
+#ifndef AIR_FOG
+    out_color = scene;
+    return;
+#endif
+    if (isEyeInWater == 1) {
+        out_color = scene;
+        return;
+    }
+
+    vec3 epipolar_light = vec3(1.0);
+#ifdef EPIPOLAR_WATER
+    float air_key = EpipolarAirColumnKey(uv, ivec2(gl_FragCoord.xy));
+    epipolar_light = EpipolarSampleE(uv * 2.0 - 1.0, air_key);
+#endif
+
+    float depth = texture(depthtex0, uv).r;
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, depth * 2.0 - 1.0));
+    float view_len = length(view_pos);
+    vec3 scene_pos = ViewToSceneSpace(view_pos);
+    // Eye-accurate view direction: depth reconstruction is feet-space and
+    // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
+    vec3 world_dir = normalize(scene_pos - EyePositionSceneSpace());
+
+    float shadow_fallback = 1.0;
+#ifdef AIR_FOG_SHADOWS
+#ifndef EPIPOLAR_WATER
+    shadow_fallback = texture(shadowtex1, ProjectToShadow(scene_pos));
+#endif
+#endif
+
+    // Chunk-edge approximation: clamp the march to the far plane (sphere of
+    // radius far).
+    float fog_end = far;
+    float depth_dist = depth >= 1.0 ? fog_end : min(view_len, fog_end);
+
+    AirFogMedium medium = AirFogMediumAtCamera();
+    AirFogResult fog = AirFogRender(world_dir, depth_dist, fog_end, medium,
+                                    epipolar_light, shadow_fallback);
+    out_color = scene * fog.transmittance + fog.in_scattering;
+}

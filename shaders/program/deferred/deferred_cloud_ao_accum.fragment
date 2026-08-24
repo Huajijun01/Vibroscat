@@ -1,0 +1,166 @@
+// ════════════════════════════════════════════════════════════════════════════
+// Deferred cloud/AO accumulation fragment — full-res temporal upsampling +
+// accumulation for clouds and screen-space AO (GTAO or SSAO, selected by
+// AO_MODE).
+// ════════════════════════════════════════════════════════════════════════════
+// Runs after the deferred1 computes (clouds_render, ao.compute) in the same
+// program: compute produces the low-res fresh inputs, this fragment
+// accumulates at full res and writes one merged history frame to colortex8.
+// The two histories are spatially exclusive (depth branch):
+//   sky:      RGBA = radiance.rgb + distance (NaN/0 rejected by cloud validation)
+//   geometry: R = AO, G = age, B = 1 - depth, A = NaN ("not cloud": taps
+//             crossing the boundary propagate NaN and reject the history)
+// The colortex flip (read main / write alt) gives deferred2 the current
+// frame without an extra buffer or compute-side race.
+//
+// Sky pixels run cloud accumulation; geometry pixels run AO accumulation.
+// Type switches reset cleanly: cloud validation rejects NaN (AO pixels);
+// the AO side reseeds when the history is not AO-marked. AO generation is
+// half-res, bilinear upsample, one sample per pixel per frame (no
+// checkerboard phase). SSAO always uses the temporal path; GTAO_TEMPORAL off
+// passes the fresh AO through bilinearly.
+
+/* RENDERTARGETS: 8 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/core/packing.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/cloud/temporal.glsl"
+#include "/lib/cloud/volumetric.glsl"
+#include "/lib/lighting/temporal_ao.glsl"
+
+layout(location = 0) out vec4 out_history;
+
+#ifdef VOLUMETRIC_CLOUDS
+layout(r8) uniform image2D uimg_clouds_age;
+#endif
+
+void main() {
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+    float depth = texelFetch(depthtex0, tx, 0).r;
+
+    if (depth >= 1.0) {
+        // ── Sky: cloud temporal upsampling + accumulation ──
+#ifdef VOLUMETRIC_CLOUDS
+        vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
+        vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
+        vec3 view_dir = normalize(mat3(gbufferModelViewInverse) * (view_h.xyz / view_h.w));
+        vec3 camera_atm_pos = AtmosphereCameraPosition();
+        float cloud_entry;
+        float cloud_exit;
+        bool cloud_visible = CloudShellInterval(camera_atm_pos, view_dir, cloud_entry, cloud_exit);
+        if (cloud_visible
+                && length(camera_atm_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
+            // Only render when the ray rises into the layer (not skimming beneath).
+            cloud_visible = cloud_entry > 0.0;
+        }
+        if (cloud_visible) {
+            int pixel_age = int(imageLoad(uimg_clouds_age, tx).r * 255.0 + 0.5);
+            int new_age;
+            CloudFrame fresh = CloudSampleFresh(tx);
+            CloudFrame held_history = CloudHistoryLoad(tx);
+            bool has_fresh = CloudHasFreshSample(tx);
+            CloudFrame accumulated;
+            if (CloudHistoryInvalid(held_history)) {
+                // Empty history: reconstruct via hardware-bilinear sample
+                // (smooth entry); phase-matched updates refine.
+                accumulated = CloudSampleCurrentBilinear(tx);
+                new_age = 0;
+            } else {
+                float distance_for_reprojection = has_fresh ? fresh.surface_distance : held_history.surface_distance;
+                vec2 previous_uv;
+                if (!CloudReprojectToPrevious(view_dir, distance_for_reprojection, previous_uv
+                )) {
+                    // UV out of range / behind previous camera: reject history.
+                    accumulated = fresh;
+                    new_age = 0;
+                } else {
+                    CloudFrame reprojected_history = CloudHistorySample(previous_uv);
+                    if (CloudHistoryInvalid(reprojected_history)) {
+                        // Reprojected slot has no data: force current trace.
+                        accumulated = fresh;
+                        new_age = 0;
+                    } else {
+                        accumulated = has_fresh ? CloudAccumulate(fresh, reprojected_history, pixel_age)
+                            : reprojected_history;
+                        new_age = min(pixel_age + 1, CLOUD_AGE_LIMIT);
+                    }
+                }
+            }
+            imageStore(uimg_clouds_age, tx, vec4(float(new_age) * (1.0 / 255.0), 0.0, 0.0, 0.0));
+            out_history = vec4(accumulated.radiance, accumulated.surface_distance);
+        } else {
+            // Ray misses the layer: keep the invalid marker, reset age
+            // (entering rays reseed immediately).
+            imageStore(uimg_clouds_age, tx, vec4(0.0, 0.0, 0.0, 0.0));
+            out_history = vec4(0.0, 0.0, 1.0, CLOUD_HISTORY_NO_DATA);
+        }
+#else
+        out_history = vec4(0.0, 0.0, 1.0, CLOUD_HISTORY_NO_DATA);
+#endif
+        return;
+    }
+
+    // ── Geometry: AO temporal accumulation; cloud history invalid ──
+#if defined(GTAO) || defined(SSAO)
+#if defined(GTAO_TEMPORAL) || defined(SSAO)
+    {
+        vec4 geometry_data = texelFetch(colortex4, tx, 0);
+        vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
+#ifdef TAA
+        vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
+#else
+        vec3 world_pos = DepthToWorldPos(uv, depth);
+#endif
+
+        // Fresh half-res AO, bilinear upsample, one sample/pixel/frame
+        // (full convergence). Non-finite reads fall back to open (NaN would
+        // poison the history).
+        float fresh_ao = texture(usam_ao, uv).r;
+        fresh_ao = (fresh_ao >= 0.0 && fresh_ao <= 1.0) ? fresh_ao : 1.0;
+
+        float next_age = 0.0;
+        float accumulated = fresh_ao;
+        vec2 history_uv;
+        if (frameCounter > 0 && GTAOReprojectToPrevious(world_pos, history_uv)) {
+            vec4 history = texture(colortex8, history_uv);
+            if (isnan(history.a)) {
+                // AO history (A=NaN): accumulate with distance/normal
+                // rejection; full rejection reseeds with age reset.
+                float rejection = GTAOHistoryWeight(world_pos, geo_view_n, history_uv, history);
+                accumulated = GTAOAccumulate(fresh_ao, history.r, history.g, rejection, next_age);
+            } else {
+                // Cloud radiance or never-written slot: reseed from current frame.
+                accumulated = fresh_ao;
+                next_age = 1.0;
+            }
+        } else {
+            next_age = 1.0;   // first frame or reprojection failure: seed
+        }
+        // R = accumulated AO (clamped vs Catmull-Rom overshoot), G = age,
+        // B = 1 - depth, A = NaN marks "not cloud" (boundary-crossing taps
+        // reject the history). Stays linear; deferred2 applies multibounce +
+        // strength.
+        out_history = vec4(Saturate(accumulated), next_age, 1.0 - depth, CLOUD_HISTORY_NO_DATA);
+    }
+#else
+    {
+        // No temporal path: pass the fresh AO through bilinearly; A still
+        // marks "not cloud".
+        float fresh_ao = texture(usam_ao, uv).r;
+        out_history = vec4(Saturate(fresh_ao), 1.0, 1.0 - depth, CLOUD_HISTORY_NO_DATA);
+    }
+#endif
+#else
+    // GTAO off (clouds on): geometry pixels invalidate the cloud history.
+#ifdef VOLUMETRIC_CLOUDS
+    out_history = vec4(0.0, 0.0, 1.0, CLOUD_HISTORY_NO_DATA);
+    imageStore(uimg_clouds_age, tx, vec4(0.0, 0.0, 0.0, 0.0));
+#endif
+#endif
+}

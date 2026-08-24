@@ -1,0 +1,15 @@
+out vec2 v_texcoord;
+out vec4 v_color;
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+
+void main() {
+    vec4 view_pos = gl_ModelViewMatrix * gl_Vertex;
+    gl_Position = gl_ProjectionMatrix * view_pos;
+#ifdef TAA
+    gl_Position.xy += u_taa_offset * gl_Position.w;
+#endif
+    v_texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
+    v_color = gl_Color;
+}

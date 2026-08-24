@@ -1,0 +1,8 @@
+out vec2 v_texcoord;
+out vec4 v_color;
+
+void main() {
+    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    v_texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
+    v_color = gl_Color;
+}

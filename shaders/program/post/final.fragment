@@ -1,0 +1,25 @@
+/* RENDERTARGETS: 0 */
+
+#include "/lib/contract/resources.glsl"
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/color/dither.glsl"
+#include "/lib/third_party/fidelityfx/cas.glsl"
+
+const float COLOR_JITTER_SEED = 127.0;
+
+layout(location = 0) out vec4 out_color;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
+
+#ifdef CAS
+    vec3 ldr = CASSharpen(colortex12, uv, u_view_pixel_size, CAS_SHARPNESS);
+#else
+    vec3 ldr = texture(colortex12, uv).rgb;
+#endif
+
+    vec3 srgb = FromLinear(ldr);
+    out_color = vec4(JitterSRGB8(srgb, gl_FragCoord.xy, COLOR_JITTER_SEED), 1.0);
+}

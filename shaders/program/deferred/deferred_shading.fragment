@@ -1,0 +1,242 @@
+// ════════════════════════════════════════════════════════════════════════════
+// Deferred shading — reads GBuffer, computes diffuse + environment light
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Lighting model:
+//   1. Sky pixels (depth >= 1.0): sample Sky View LUT directly
+//   2. Surface pixels: decode GBuffer → directional + ambient + torch
+//
+// Direct: Burley diffuse + Cook-Torrance GGX specular
+// Ambient: SH irradiance from the cloud skybox (sky_light.glsl, L0-2,
+//          projected by prepare2), × skyLight × AO, Lambertian
+// Torch: blockLight masked by (1-skyLight), warm tint, Lambertian
+// Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance → irradiance.
+
+/* RENDERTARGETS: 0,2,5 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/filters.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/core/packing.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/celestial.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/cloud/render.glsl"
+#include "/lib/cloud/volumetric.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/color/dither.glsl"
+#include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/ambient_light.glsl"
+#include "/lib/material/core.glsl"
+#include "/lib/shadow/pcss.glsl"
+
+const float COLOR_JITTER_SEED = 11.0;
+
+layout(location = 0) out vec3 out_color;
+layout(location = 1) out vec4 out_gbuf_clear;
+layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
+
+void main() {
+    out_direct_brdf = vec3(0.0);
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    float depth = texelFetch(depthtex0, tx, 0).r;
+    // Last opaque-gbuffer consumer: colortex2 freed for translucent water data.
+    out_gbuf_clear = vec4(0.0);
+
+    // ── Sky (far plane) ──
+    // Depth 1.0 = far plane → Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
+    if (depth >= 1.0) {
+        vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+        vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
+        vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
+        vec3 view_dir = normalize(mat3(gbufferModelViewInverse) * (view_h.xyz / view_h.w));
+        vec3 sun_dir = normalize(u_world_sun_dir);
+        vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
+        vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
+        // Discs stay out of the LUT so clouds attenuate them by real transmittance.
+        vec3 celestial = vec3(0.0);
+        celestial = RenderCelestialDiscs(view_dir, vec3(0.0));
+        celestial += RenderStarMap(view_dir);
+#ifdef VOLUMETRIC_CLOUDS
+        vec3 camera_atm_pos = AtmosphereCameraPosition();
+        float cloud_entry;
+        float cloud_exit;
+        bool cloud_visible = CloudShellInterval(camera_atm_pos, view_dir, cloud_entry, cloud_exit);
+        if (cloud_visible
+                && length(camera_atm_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
+            // Only render when the ray rises into the layer (not skimming beneath).
+            cloud_visible = cloud_entry > 0.0;
+        }
+        if (cloud_visible) {
+            // Cloud history (radiance.rgb + distance.a) via the deferred1 colortex8 flip.
+            vec4 accumulated = texture(colortex8, uv);
+            // Distance is never EMA-mixed; feeds relight + the distance fade.
+            vec3 surface_position = camera_atm_pos + view_dir * accumulated.a;
+            accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
+            vec3 cloud_transmittance;
+            sky_color = RenderCloudLayers(view_dir, sky_color, accumulated.rgb, surface_position, cloud_entry,
+                cloud_transmittance);
+            // Sun/moon occluded by real cloud transmittance.
+            sky_color += celestial * cloud_transmittance;
+        } else {
+            sky_color += celestial;
+        }
+#else
+        sky_color += celestial;
+#endif
+        out_color = JitterR11G11B10F(sky_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+        return;
+    }
+
+    // ── GBuffer decode ──
+    vec4 g1 = texelFetch(colortex1, tx, 0);
+    vec4 g2 = texelFetch(colortex2, tx, 0);
+    vec2 nx_ao = Unpack2x8(g2.r);
+    vec2 ny_nz = Unpack2x8(g2.g);
+    vec2 rough_metal = Unpack2x8(g2.b);
+    vec2 emiss_res = Unpack2x8(g2.a);
+    vec4 geometry_data = texelFetch(colortex4, tx, 0);
+
+    vec3 albedo   = ToLinear(g1.rgb);    // sRGB → linear
+    vec3 normal   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
+    float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
+    // Screen-space AO: read the flipped deferred1 history (R); multibounce +
+    // strength curve after the temporal blend (not time-averaged).
+    float gtao_ao = 1.0;
+    vec3 gtao_ao_rgb = vec3(1.0);   // multibounce (per-albedo-channel) result
+    // AO on: screen-space replaces vanilla vertex AO; baked AO kept as
+    // AO-off fallback. Multibounce is per-channel (vec3).
+    vec3 ao_effective = vec3(ao);
+#if defined(GTAO) || defined(SSAO)
+    gtao_ao = texture(colortex8, (vec2(tx) + 0.5) * u_view_pixel_size).r;
+#endif
+    // decode geometric view normal from colortex4 (octahedral) → world-space
+    vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
+    vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
+    vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
+    float roughness = rough_metal.x;
+    float metalness = rough_metal.y;
+    float emission  = emiss_res.x * 0.0;
+    // Plant translucency from the materialID stored in colortex1.a.
+    float sss_amount = SSSAmountForId(int(g1.a * 255.0 + 0.5));
+
+    // ── World position (for shadow) ──
+    vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+#ifdef TAA
+    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
+#else
+    vec3 world_pos = DepthToWorldPos(uv, depth);
+#endif
+    // Eye-space receiver position: distance responses and the view vector
+    // use the eye, not the feet-space origin.
+    vec3 view_pos = SceneToViewSpace(world_pos);
+    vec3 V = normalize(EyePositionSceneSpace() - world_pos);
+
+    // Catmull-Rom history overshoot at AO edges must be clamped (would
+    // brighten ambient past fully-open along silhouettes).
+#if defined(GTAO) || defined(SSAO)
+    gtao_ao = Saturate(gtao_ao);
+    // Strength curve on the raw accumulated value (SSAO looks lighter, so
+    // its exponent defaults steeper).
+#ifdef SSAO
+    gtao_ao = pow(gtao_ao, SSAO_STRENGTH);
+#else
+    gtao_ao = pow(gtao_ao, GTAO_STRENGTH);
+#endif
+    if (GTAO_MULTIBOUNCE) {
+        // Jimenez et al. 2016 RGB-polynomial: per-channel boost so corners
+        // pick up surface colour; applied after the blend (field stays linear).
+        vec3 multibounce_a = 2.0404 * albedo - 0.3324;
+        vec3 multibounce_b = -4.7951 * albedo + 0.6417;
+        vec3 multibounce_c = 2.7552 * albedo + 0.6903;
+        gtao_ao_rgb = max(vec3(gtao_ao), ((gtao_ao * multibounce_a + multibounce_b) * gtao_ao + multibounce_c) * gtao_ao);
+    } else {
+        gtao_ao_rgb = vec3(gtao_ao);
+    }
+    ao_effective = gtao_ao_rgb;
+#endif
+
+    // ── Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) ──
+    float block_light = BlockLightFromLm(lm.r);
+    float torch_light = block_light;
+
+    // ── Directional light (sun or moon) ──
+    vec3 L = (u_world_light_dir);
+    vec3 half_vector = V + L;
+    vec3 H = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
+    float ndotl = Max0(dot(normal, L));
+    float ndotv = Max0(dot(normal, V));
+    float ndoth = Max0(dot(normal, H));
+    float vdoth = Max0(dot(V, H));
+    float ldoth = Max0(dot(L, H));
+    float geo_ndotl = dot(geo_normal, L);
+    vec3 direct_brdf = EvaluateDirectBRDF(albedo, roughness, metalness, ndotv, ndotl, ndoth, vdoth, ldoth);
+    vec3 direct_lighting = direct_brdf * ndotl;
+
+    // ── Shadow ──
+    float shadow_occlusion = 1.0;
+    float sss_thickness_world = 0.0;
+    vec3 shadow_proj = ProjectToShadowWithBias(world_pos, geo_ndotl);
+    if (all(greaterThanEqual(shadow_proj, vec3(0.0))) && all(lessThanEqual(shadow_proj, vec3(1.0)))) {
+#ifdef SHADOW_PCSS
+        vec3 shadow_clip = ProjectToShadowClip(world_pos);
+        shadow_occlusion = ShadowFilterPCSS(shadow_proj, shadow_clip, gl_FragCoord.xy, view_pos, sss_amount, ndotl,
+            sss_thickness_world);
+#else
+        // LOW tier: hardware-bilinear PCF; the blocker search stays on so
+        // the plant-SSS thickness estimate keeps working (see
+        // ShadowFilterHardwarePCF).
+        vec3 shadow_clip = ProjectToShadowClip(world_pos);
+        shadow_occlusion = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, gl_FragCoord.xy, sss_amount,
+            sss_thickness_world);
+#endif
+    }
+    out_direct_brdf = direct_lighting * shadow_occlusion;
+
+    // ── Light color sources (same colors as the gbuffer translucent passes) ──
+    vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
+    // Sky ambient: remapped sky light × AO-aware blend + AMBIENT_BASE floor (AmbientLight).
+    vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
+    vec3 block_color = TORCH_LIGHT_COLOR;              // warm torches
+
+    // ── Composite ──
+    vec3 color = direct_lighting * sun_color * shadow_occlusion;
+
+    // Plant SSS: transmission through the PCSS-measured foliage thickness,
+    // after the shadow term; tinted by albedo, scalar absorption from average
+    // albedo. Fades to zero at the shadow-map boundary (no AO fallback).
+    if (sss_amount > 0.01) {
+        float effective_shadow_distance = max(shadowDistance, 1.0);
+        float shadow_ndc_edge = max(abs(shadow_proj.x * 2.0 - 1.0), abs(shadow_proj.y * 2.0 - 1.0));
+        float shadow_dist_ratio = length(view_pos) / effective_shadow_distance;
+        float sss_availability = smoothstep(1.0, 0.9, shadow_ndc_edge) * smoothstep(0.8, 0.7, shadow_dist_ratio);
+        float ldotv = dot(L, V);
+        // Normalized HG: back-lit peak stays 1 (preserves brightness scale).
+        float hg_phase = PhaseMieHG(-ldotv, SHADOW_SSS_PHASE_G);
+        float effective_thickness = sss_thickness_world * sss_availability;
+        float average_albedo = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
+        float absorption = (1.0 - 0.75 * Saturate(average_albedo)) * SHADOW_SSS_DENSITY / max(sss_amount, 1.0e-3);
+        vec3 transmission = sun_color * hg_phase
+            * exp(-absorption * effective_thickness)
+            * sss_amount * SHADOW_SSS_SCALE
+            * albedo * sss_availability;
+        color += transmission;
+    }
+
+    // Lambertian (no incident direction from SH/lightmap); metals have no
+    // diffuse lobe. AO multiplies indirect terms only. Block light uses AO
+    // cubed, blended toward 1 by falloff (occlusion visible in torchlit caves).
+    vec3 lambert_brdf = EvaluateLambertBRDF(albedo, metalness);
+    vec3 diffuse_reflectance = EvaluateDiffuseReflectance(albedo, metalness);
+    color += lambert_brdf * sky_ambient * ao_effective;
+    color += diffuse_reflectance * block_color * torch_light * gtao_ao;
+
+    // ── Emissive ──
+    color += albedo * emission * (1.0 + block_light);
+
+    out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+}

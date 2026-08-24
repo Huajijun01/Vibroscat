@@ -1,0 +1,162 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/cloud/checkerboard.glsl"
+#include "/lib/cloud/volumetric.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+#if CLOUD_TEMPORAL_UPSCALING == 1
+const vec2 workGroupsRender = vec2(1.0, 1.0);
+#elif CLOUD_TEMPORAL_UPSCALING == 2
+const vec2 workGroupsRender = vec2(0.5, 0.5);
+#elif CLOUD_TEMPORAL_UPSCALING == 3
+const vec2 workGroupsRender = vec2(0.333333, 0.333333);
+#elif CLOUD_TEMPORAL_UPSCALING == 4
+const vec2 workGroupsRender = vec2(0.25, 0.25);
+#endif
+
+layout(rgba16f) uniform restrict writeonly image2D uimg_clouds_current;
+
+#ifdef CLOUD_HISTORY_GUIDED_MARCH_END
+void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, inout float march_end
+) {
+    if (frameCounter <= 0) return;
+
+    vec3 camera_delta = cameraPosition - previousCameraPosition;
+    if (length(camera_delta) > 64.0) return;
+
+    vec2 history_size = vec2(textureSize(colortex8, 0));
+    ivec2 history_max = ivec2(history_size) - ivec2(1);
+    ivec2 current_texel = clamp(ivec2(current_uv * history_size), ivec2(0), history_max);
+    vec4 seed = texelFetch(colortex8, current_texel, 0);
+    if (any(isnan(seed)) || !(seed.a > 0.0) || !(seed.b < 0.99999)) return;
+
+    vec2 previous_uv;
+    if (!CloudProjectToPrevious(view_dir, seed.a, previous_uv)) return;
+    ivec2 previous_texel = clamp(ivec2(previous_uv * history_size), ivec2(0), history_max);
+    vec4 history = texelFetch(colortex8, previous_texel, 0);
+    if (any(isnan(history)) || !(history.a > 0.0) || !(history.b < 0.99999)) return;
+
+    // Recover the previous-frame ray at the accepted texel, move its
+    // centroid into the current camera space, project onto the current ray.
+    // Project the previous-frame ray into the current camera space; a large
+    // lateral error rejects (unrelated history must not shorten the march).
+    vec2 previous_center_uv = (vec2(previous_texel) + 0.5) / history_size;
+    vec4 previous_view_h = inverse(gbufferPreviousProjection)
+        * vec4(previous_center_uv * 2.0 - 1.0, 1.0, 1.0);
+    if (abs(previous_view_h.w) <= 1.0e-5) return;
+    vec3 previous_view_dir = normalize(previous_view_h.xyz / previous_view_h.w);
+    vec3 previous_scene = previous_view_dir * (history.a * 1000.0);
+    vec3 current_scene = (inverse(gbufferPreviousModelView)
+        * vec4(previous_scene, 1.0)).xyz - camera_delta;
+
+    // The density field advances with the large-scale wind; fine erosion
+    // moves faster, its residual motion is left to the margin.
+    current_scene += vec3(-CLOUD_WIND_SPEED * frameTime * 1000.0, 0.0, 0.0);
+    float current_distance_km = dot(current_scene, view_dir) * 0.001;
+    if (!(current_distance_km > march_start)) return;
+
+    float lateral_distance_km = sqrt(max(
+        dot(current_scene, current_scene) - dot(current_scene, view_dir) * dot(current_scene, view_dir),
+        0.0
+    )) * 0.001;
+    float lateral_limit_km = max(2.0 * CLOUD_VIEW_TARGET_STEP_KM, current_distance_km * 0.05);
+    if (lateral_distance_km > lateral_limit_km) return;
+
+    float wind_margin_km = CLOUD_WIND_SPEED * frameTime * max(CLOUD_FINE_WIND_FACTOR, 1.0);
+    float centroid_margin_km = max(2.0 * CLOUD_VIEW_TARGET_STEP_KM,
+        current_distance_km * (CLOUD_HISTORY_GUIDED_END_SCALE - 1.0));
+    float guided_end = min(march_end, current_distance_km + centroid_margin_km + wind_margin_km);
+    if (guided_end <= march_start + CLOUD_VIEW_TARGET_STEP_KM) return;
+    march_end = guided_end;
+}
+#endif
+
+void main() {
+#ifndef VOLUMETRIC_CLOUDS
+    // deferred1 is shared with GTAO (VOLUMETRIC_CLOUDS || GTAO): nothing to
+    // do without clouds.
+    return;
+#endif
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 render_size = imageSize(uimg_clouds_current);
+    if (any(greaterThanEqual(id, render_size))) return;
+
+    ivec2 checker_offset = CloudCheckerboardOffset(
+        uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA)
+    );
+    ivec2 sample_pos_i = id * CLOUD_TEMPORAL_UPSCALING + checker_offset;
+    vec2 sample_pos = vec2(sample_pos_i);
+    vec2 uv = (sample_pos + 0.5) * u_view_pixel_size;
+    vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
+    vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
+    vec3 view_dir = normalize(
+        mat3(gbufferModelViewInverse) * (view_h.xyz / view_h.w)
+    );
+
+    // Stop the interval at the opaque surface depth (no tracing behind
+    // terrain).
+    float terrain_end_km = CLOUD_MAX_DISTANCE_KM;
+    ivec2 depth_texel = clamp(
+        sample_pos_i,
+        ivec2(0),
+        ivec2(textureSize(depthtex0, 0)) - 1
+    );
+    float sample_depth = texelFetch(depthtex0, depth_texel, 0).r;
+    if (sample_depth < 1.0) {
+        vec3 surface_ndc = vec3(uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
+        vec4 surface_view_h = gbufferProjectionInverse * vec4(surface_ndc, 1.0);
+        vec3 surface_view_pos = surface_view_h.xyz / surface_view_h.w;
+        terrain_end_km = length(surface_view_pos) * 0.001;
+    }
+
+    vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
+    float march_start = 0.0;
+    float march_end = 0.0;
+    float cloud_top_distance = terrain_end_km;
+    bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, march_start, march_end);
+    int step_count = 0;
+    if (cloud_visible) {
+        march_end = min(march_end, terrain_end_km);
+        cloud_visible = march_end > march_start + 1.0e-5;
+        if (cloud_visible) {
+            step_count = clamp(int(ceil((march_end - march_start) / CLOUD_VIEW_TARGET_STEP_KM)),
+                CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
+            cloud_top_distance = (view_dir.y < 0.0 && march_start > 0.0) ? march_start : march_end;
+#ifdef CLOUD_HISTORY_GUIDED_MARCH_END
+            CloudHistoryGuidedEnd(uv, view_dir, march_start, march_end);
+#endif
+        } else {
+            cloud_top_distance = march_end;
+        }
+    }
+
+    vec3 surface_position;
+    bool hit = false;
+    vec3 cloud_data = vec3(0.0, 0.0, 1.0);
+    if (cloud_visible) {
+        cloud_data = MarchVolumetricClouds(
+            camera_atmosphere_pos,
+            view_dir,
+            sample_pos_i,
+            int((frameCounter / CLOUD_CHECKERBOARD_AREA) & 63),
+            march_start,
+            march_end,
+            step_count,
+            surface_position,
+            hit
+        );
+    } else {
+        surface_position = vec3(0.0);
+    }
+
+    vec4 frame;
+    if (hit) {
+        float distance_km = length(surface_position - AtmosphereCameraPosition());
+        frame = vec4(cloud_data, distance_km);
+    } else {
+        frame = vec4(cloud_data, cloud_top_distance);
+    }
+    imageStore(uimg_clouds_current, id, frame);
+}

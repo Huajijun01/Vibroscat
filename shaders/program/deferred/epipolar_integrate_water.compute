@@ -1,0 +1,58 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/volume/epipolar_core.glsl"
+#include "/lib/volume/water_epipolar.glsl"
+#include "/lib/water/fog.glsl"
+
+layout(local_size_x = 1, local_size_y = 128) in;
+// Iris parses workGroups with Integer.parseInt: literal only, no macros.
+// Max 2048 slices; EPIPOLAR_SLICES / EPIPOLAR_SAMPLES are enforced by guards.
+const ivec3 workGroups = ivec3(2048, 1, 1);
+
+#ifdef EPIPOLAR_WATER
+layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
+
+// Water-column integrate pass (composite1_a, consumed by composite1.fsh
+// blend): writes the full RGB E and the column depth key. The air pass
+// (composite2.csh) overwrites the same image later in the frame.
+void main() {
+    uint slice = gl_WorkGroupID.x;
+    if (slice >= uint(EPIPOLAR_SLICES)) return;
+    vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(int(slice), 0), 0);
+    uint loop = uint((EPIPOLAR_SAMPLES + 127) / 128);
+    for (uint i = 0u; i < loop; ++i) {
+        uint sample_index = gl_LocalInvocationID.y + i * 128u;
+        if (sample_index >= uint(EPIPOLAR_SAMPLES)) break;
+        vec3 water_e = vec3(1.0);
+        float water_key = 0.0;
+        if (!all(equal(line, vec4(0.0)))) {
+            float p = float(sample_index) / float(EPIPOLAR_SAMPLES - 1);
+            vec2 ndc = mix(line.xy, line.zw, p);
+            vec2 uv01 = ndc * 0.5 + 0.5;
+            ivec2 texel = ivec2(clamp(uv01 * u_screen_res, vec2(0.5), u_screen_res - vec2(0.5)));
+            vec3 start_scene;
+            vec3 end_scene;
+            if (EpipolarWaterSegment(texel, uv01, start_scene, end_scene, water_key)) {
+                float per_metre = WaterLightPathPerMetre();
+                // Underwater the surface height is the eye position plus the
+                // brightness-proxy depth (same approach the blend pass uses);
+                // above water the column starts at the geometric surface.
+                float surface_y = isEyeInWater == 1
+                    ? start_scene.y + (1.0 - float(eyeBrightnessSmooth.y) / 240.0) * 15.0
+                    : start_scene.y;
+                float light_path1 = max(surface_y - start_scene.y, 0.0) * per_metre;
+                float light_path2 = max(surface_y - end_scene.y, 0.0) * per_metre;
+                vec3 extinction = u_water_absorption + u_water_scattering;
+                water_e = EpipolarShadowRatio(start_scene, end_scene, light_path1,
+                                              light_path2, extinction,
+                                              ivec2(int(slice), int(sample_index)));
+            }
+        }
+        imageStore(uimg_epipolar_term, ivec2(int(slice), int(sample_index)),
+                   vec4(water_e, water_key));
+    }
+}
+#else
+void main() {}
+#endif

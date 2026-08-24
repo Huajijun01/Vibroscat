@@ -1,0 +1,108 @@
+/* RENDERTARGETS: 0,5 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/filters.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/color/dither.glsl"
+
+const float COLOR_JITTER_SEED = 47.0;
+
+layout(location = 0) out vec3 out_color;
+layout(location = 1) out vec3 out_scene;
+
+ivec2 ClampTexel(ivec2 texel, ivec2 texture_size) {
+    return clamp(texel, ivec2(0), texture_size - 1);
+}
+
+vec3 FetchDepthPosition(sampler2D depth, ivec2 texel) {
+    ivec2 depth_size = textureSize(depth, 0);
+    ivec2 sample_texel = ClampTexel(texel, depth_size);
+    vec2 sample_uv = (vec2(sample_texel) + 0.5) / vec2(depth_size);
+    return vec3(sample_uv, texelFetch(depth, sample_texel, 0).r);
+}
+
+vec3 FetchColorClamped(sampler2D color, ivec2 texel) {
+    ivec2 sample_texel = ClampTexel(texel, textureSize(color, 0));
+    return texelFetch(color, sample_texel, 0).rgb;
+}
+
+vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
+    vec3 center     = FetchDepthPosition(depth, tx);
+    vec3 down_left  = FetchDepthPosition(depth, tx + ivec2(-2, -2));
+    vec3 up_right   = FetchDepthPosition(depth, tx + ivec2( 2,  2));
+    vec3 up_left    = FetchDepthPosition(depth, tx + ivec2( 2, -2));
+    vec3 down_right = FetchDepthPosition(depth, tx + ivec2(-2,  2));
+    if (down_left.z  < center.z) center = down_left;
+    if (up_right.z   < center.z) center = up_right;
+    if (up_left.z    < center.z) center = up_left;
+    if (down_right.z < center.z) center = down_right;
+    return center;
+}
+
+float GetBlendWeight(vec3 previous_color, vec3 current_color, vec3 clipped_color, vec2 velocity) {
+	float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / Luminance(previous_color))
+                     * clamp(length(velocity * u_screen_res), 0.0, 1.0);
+    const float basic_blend_weight = 0.1;
+    return clamp(movement + basic_blend_weight, 0.0, 1.0);
+}
+
+void main() {
+#ifndef TAA
+    vec3 scene_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
+    vec3 jittered_result = JitterR11G11B10F(scene_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+    out_color = jittered_result;
+    out_scene = jittered_result;
+    return;
+#else
+    vec2 pixel_size = u_view_pixel_size;
+    vec2 texcoord = gl_FragCoord.xy * pixel_size;
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+
+    vec3 closest_to_camera = GetClosestToCamera(depthtex0, tx);
+    vec3 position = ToPrevious(closest_to_camera);
+
+    vec2 velocity = position.xy - closest_to_camera.xy;
+    vec2 history_uv = texcoord + velocity;
+
+    vec2 unjitter_uv = texcoord + u_taa_offset * 0.5;
+    vec3 current_color = texture(colortex0, unjitter_uv).rgb;
+
+    vec3 history;
+    bool valid = all(greaterThanEqual(history_uv, vec2(0.0))) && all(lessThanEqual(history_uv, vec2(1.0)));
+    if (valid) {
+        history = FastCatmullRom5Tap(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
+    } else {
+        history = current_color;
+    }
+
+    // --- AABB clip (sample 3x3 from jittered position, texelFetch) ---
+    vec3 clip_min, clip_max;
+    {
+        vec3 a = FetchColorClamped(colortex0, tx + ivec2(-1,  1));
+        vec3 b = FetchColorClamped(colortex0, tx + ivec2( 0,  1));
+        vec3 c = FetchColorClamped(colortex0, tx + ivec2( 1,  1));
+        vec3 d = FetchColorClamped(colortex0, tx + ivec2(-1,  0));
+        vec3 e = current_color;
+        vec3 f = FetchColorClamped(colortex0, tx + ivec2( 1,  0));
+        vec3 g = FetchColorClamped(colortex0, tx + ivec2(-1, -1));
+        vec3 h = FetchColorClamped(colortex0, tx + ivec2( 0, -1));
+        vec3 i = FetchColorClamped(colortex0, tx + ivec2( 1, -1));
+        clip_min = min(a, min(b, min(c, min(d, min(e, min(f, min(g, min(h, i))))))));
+        clip_max = max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h, i))))))));
+    }
+    vec3 clamped = clamp(history, clip_min, clip_max);
+    float blend_weight = GetBlendWeight(history, current_color, clamped, velocity);
+
+    vec3 result = HDRDecompress(mix(HDRCompress(clamped), HDRCompress(current_color), blend_weight));
+    vec3 jittered_result = JitterR11G11B10F(result, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#ifdef MOTION_BLUR
+    out_color = vec3(velocity * step(0.56, closest_to_camera.z), 0.0);
+#else
+    out_color = jittered_result;
+#endif
+
+    out_scene = jittered_result;
+#endif
+}

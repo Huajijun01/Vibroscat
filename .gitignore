@@ -1,0 +1,27 @@
+# Local runtime, generated output, and development-only directories.
+/.vibris/
+/build/
+/iris-docs/
+/.codex/
+/.reasonix/
+/research/
+/gpu-trace-1/
+/logs/
+/shaders/.reasonix/
+/docs/reasonix/
+/.agents/
+/tests/
+/tools/
+/AGENTS.md
+/.editorconfig
+/config/
+/logo/
+/third_party/
+/*.cap
+/*.json
+/*.png
+/*.spv
+/*.txt
+/.gitCOMMIT_MSG_TMP
+__pycache__/
+.pytest_cache/

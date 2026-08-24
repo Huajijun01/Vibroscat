@@ -1,0 +1,132 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
+// The skybox feeds only the L0-L2 SH probe (fine detail averaged away), so
+// it bakes with a reduced march budget; the screen pass keeps the
+// settings-level budgets.
+#define CLOUD_SKYBOX_VIEW_STEPS 48
+#define CLOUD_SKYBOX_MIN_STEPS 16
+#define CLOUD_SKYBOX_LIGHT_STEPS 2
+#undef CLOUD_VIEW_MAX_STEPS
+#define CLOUD_VIEW_MAX_STEPS CLOUD_SKYBOX_VIEW_STEPS
+#undef CLOUD_VIEW_MIN_STEPS
+#define CLOUD_VIEW_MIN_STEPS CLOUD_SKYBOX_MIN_STEPS
+#undef CLOUD_LIGHT_STEPS
+#define CLOUD_LIGHT_STEPS CLOUD_SKYBOX_LIGHT_STEPS
+#include "/lib/cloud/render.glsl"
+#include "/lib/cloud/volumetric.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+const ivec3 workGroups = ivec3(16, 16, 1);
+
+layout(rgba16f) uniform image2D uimg_skylut_cloud;
+
+// Fixed-ratio EMA per texel refresh: one texel per cell per 4-frame cycle,
+// so the SH probe converges smoothly without re-baking every frame.
+const float CLOUD_SKYBOX_HISTORY_ALPHA = 0.25;
+
+// 2x2 checkerboard refresh (same coarse-to-fine order as the screen pass);
+// 128x128 cells, one phase-matched texel re-marched per frame.
+const ivec2[4] skybox_checkerboard_2x2 = ivec2[4](
+    ivec2(0, 0),
+    ivec2(1, 1),
+    ivec2(1, 0),
+    ivec2(0, 1)
+);
+
+void main() {
+    ivec2 cell = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(cell, ivec2(CLOUD_SKYBOX_SIZE / 2)))) return;
+
+    uint phase_index = uint(frameCounter) % 4u;
+    ivec2 phase_offset = skybox_checkerboard_2x2[phase_index];
+    bool full_init = (frameCounter == 0);
+
+    for (int i = 0; i < 4; ++i) {
+        ivec2 offset = skybox_checkerboard_2x2[i];
+        if (!full_init && any(notEqual(offset, phase_offset))) continue;
+
+        // Equal-area cylindrical mapping at the texel center: u = azimuth,
+        // v = sin(elevation) (constant solid angle 4π/N², no per-pixel
+        // Jacobian for SH). World-aligned: +X at u = 0.5, zenith at v = 1.
+        ivec2 texel = cell * 2 + offset;
+        float mu = 2.0 * (float(texel.y) + 0.5) / float(CLOUD_SKYBOX_SIZE) - 1.0;
+        float cos_theta = sqrt(max(1.0 - mu * mu, 0.0));
+        float phi = (float(texel.x) + 0.5) / float(CLOUD_SKYBOX_SIZE) * TAU - PI;
+        vec3 view_dir = vec3(cos_theta * cos(phi), mu, cos_theta * sin(phi));
+
+        vec3 sun_dir = normalize(u_world_sun_dir);
+        vec3 sky_color = texture(usam_skylut, SkyLUTUV(
+            view_dir,
+            sun_dir,
+            ATM_PLANET_R,
+            u_cam_altitude
+        )).rgb;
+
+        vec3 cloud_data = vec3(0.0, 0.0, 1.0);
+        vec3 surface_position = vec3(0.0);
+        float cloud_entry = 1.0e9;
+#ifdef VOLUMETRIC_CLOUDS
+        vec3 camera_atm_pos = AtmosphereCameraPosition();
+        float cloud_exit = 0.0;
+        bool cloud_visible = CloudShellInterval(
+            camera_atm_pos,
+            view_dir,
+            cloud_entry,
+            cloud_exit
+        );
+        if (cloud_visible) {
+            int step_count = clamp(int(ceil((cloud_exit - cloud_entry) / CLOUD_VIEW_TARGET_STEP_KM)),
+                CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
+            bool hit;
+            cloud_data = MarchVolumetricClouds(
+                camera_atm_pos,
+                view_dir,
+                texel,
+                frameCounter / 4,
+                cloud_entry,
+                cloud_exit,
+                step_count,
+                surface_position,
+                hit
+            );
+        } else {
+            cloud_entry = 1.0e9;
+        }
+        vec3 cloud_transmittance;
+        sky_color = RenderCloudLayers(
+            view_dir,
+            sky_color,
+            cloud_data,
+            surface_position,
+            cloud_entry,
+            cloud_transmittance
+        );
+#endif
+        // Fixed-ratio history blend; the first write (fresh start/reload)
+        // replaces unconditionally.
+        vec4 previous = imageLoad(uimg_skylut_cloud, texel);
+        vec3 fresh = sky_color;
+        if (texel.x == CLOUD_SKYBOX_SIZE - 1 && !full_init) {
+            // Manual repeat for the clamped image: the rightmost column
+            // copies column 0 (continuous azimuth seam). Safe here: only
+            // phases writing odd x texels read it (even columns unwritten
+            // this frame).
+            fresh = imageLoad(
+                uimg_skylut_cloud,
+                ivec2(0, texel.y)
+            ).rgb;
+        }
+        float alpha = (full_init || previous.a < 0.5)
+            ? 1.0
+            : CLOUD_SKYBOX_HISTORY_ALPHA;
+        imageStore(
+            uimg_skylut_cloud,
+            texel,
+            vec4(mix(previous.rgb, fresh, alpha), 1.0)
+        );
+    }
+}

@@ -1,0 +1,85 @@
+#ifndef BLOOM_SRC_MIP
+#define BLOOM_SRC_MIP 2
+#endif
+#ifndef BLOOM_DST_MIP
+#define BLOOM_DST_MIP 1
+#endif
+
+#include "/lib/post/bloom.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(rgba16f) uniform restrict image2D colorimg12;
+
+shared vec4 tile[21][21];
+
+// 5x5 Gaussian bloom upsample, pixel-center aligned: separable Gaussian
+// (sigma ~0.866, [1,4,6,4,1]/16) on the output's source position. Even axis
+// = 5-tap binomial; odd axis needs a 6th tap (half-texel centre — a
+// truncated 5-tap drifts ~0.045 texel/level through the cascade).
+void main() {
+    ivec2 full_size = imageSize(colorimg12);
+    ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);
+    ivec2 src_size   = GetBloomMipSize(full_size, BLOOM_SRC_MIP);
+    ivec2 dst_origin = GetBloomMipOrigin(full_size, BLOOM_DST_MIP);
+    ivec2 dst_size   = GetBloomMipSize(full_size, BLOOM_DST_MIP);
+
+    ivec2 src_limit = src_origin + src_size - 1;
+    ivec2 group_base = src_origin + ivec2(gl_WorkGroupID.xy) * 16;
+
+    uint idx = gl_LocalInvocationIndex;
+    for (uint i = idx; i < 441u; i += 256u) {
+        uint ty = i / 21u;
+        uint tx = i % 21u;
+        ivec2 coord = clamp(group_base + ivec2(tx, ty) - 2, src_origin, src_limit);
+        tile[ty][tx] = imageLoad(colorimg12, coord);
+    }
+
+    barrier();
+
+    ivec2 local = ivec2(gl_LocalInvocationID.xy);
+    ivec2 out_base = ivec2(gl_WorkGroupID.xy) * 32 + local * 2;
+
+    // Separable 5x5 Gaussian on the output's source position: even axis
+    // 5-tap binomial; odd axis 6 taps at half offsets (centre stays at
+    // k+1/2).
+    const float WE[5] = float[5](0.0625, 0.25, 0.375, 0.25, 0.0625);
+    const float WO[6] = float[6](0.007144, 0.102815, 0.390041, 0.390041, 0.102815, 0.007144);
+
+    vec4 h_e[6];
+    vec4 h_o[6];
+    for (int j = 0; j < 6; j++) {
+        vec4 e = vec4(0.0);
+        for (int i = 0; i < 5; i++) {
+            e += tile[local.y + j][local.x + i] * WE[i];
+        }
+        h_e[j] = e;
+
+        vec4 o = vec4(0.0);
+        for (int i = 0; i < 6; i++) {
+            o += tile[local.y + j][local.x + i] * WO[i];
+        }
+        h_o[j] = o;
+    }
+
+    vec4 c00 = vec4(0.0);
+    vec4 c10 = vec4(0.0);
+    for (int j = 0; j < 5; j++) {
+        c00 += h_e[j] * WE[j];
+        c10 += h_o[j] * WE[j];
+    }
+    vec4 c01 = vec4(0.0);
+    vec4 c11 = vec4(0.0);
+    for (int j = 0; j < 6; j++) {
+        c01 += h_e[j] * WO[j];
+        c11 += h_o[j] * WO[j];
+    }
+
+    if (all(lessThan(out_base, dst_size)))
+        imageStore(colorimg12, dst_origin + out_base, imageLoad(colorimg12, dst_origin + out_base) + c00);
+    if (all(lessThan(out_base + ivec2(1, 0), dst_size)))
+        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 0), imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 0)) + c10);
+    if (all(lessThan(out_base + ivec2(0, 1), dst_size)))
+        imageStore(colorimg12, dst_origin + out_base + ivec2(0, 1), imageLoad(colorimg12, dst_origin + out_base + ivec2(0, 1)) + c01);
+    if (all(lessThan(out_base + ivec2(1, 1), dst_size)))
+        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 1), imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 1)) + c11);
+}

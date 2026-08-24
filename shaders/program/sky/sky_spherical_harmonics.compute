@@ -1,0 +1,119 @@
+#include "/lib/contract/sky_light_data.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
+
+layout(local_size_x = 256) in;
+const ivec3 workGroups = ivec3(1, 1, 1);
+
+layout(rgba16f) uniform readonly image2D uimg_skylut_cloud;
+
+shared float row_sin[256];
+shared float row_cos[256];
+shared vec4 reduce_01[256];
+shared vec4 reduce_2[256];
+shared float reduce_24[256];
+
+// Equal-area texture: d(phi) * d(sin(theta)) = (2pi/N) * (2/N) = 4pi/N^2
+// for every texel, so the SH integral is a plain sum with one constant
+// weight. No per-pixel Jacobian is needed.
+const float SH_SOLID_ANGLE = 4.0 * PI / (float(CLOUD_SKYBOX_SIZE) * float(CLOUD_SKYBOX_SIZE));
+
+void main() {
+    uint tid = gl_LocalInvocationIndex;
+    // Rows are shared because every lane visits all 256 rows. The column
+    // basis is lane-local because the workgroup has one lane per column.
+    row_sin[tid] = 2.0 * (float(tid) + 0.5) / float(CLOUD_SKYBOX_SIZE) - 1.0;
+    row_cos[tid] = sqrt(max(1.0 - row_sin[tid] * row_sin[tid], 0.0));
+    float col_angle = (float(tid) + 0.5) / float(CLOUD_SKYBOX_SIZE) * TAU - PI;
+    float col_cos_tid = cos(col_angle);
+    float col_sin_tid = sin(col_angle);
+    barrier();
+
+    vec4 sh_r01 = vec4(0.0);
+    vec4 sh_r2 = vec4(0.0);
+    float sh_r24 = 0.0;
+    vec4 sh_g01 = vec4(0.0);
+    vec4 sh_g2 = vec4(0.0);
+    float sh_g24 = 0.0;
+    vec4 sh_b01 = vec4(0.0);
+    vec4 sh_b2 = vec4(0.0);
+    float sh_b24 = 0.0;
+
+    for (uint y = 0u; y < uint(CLOUD_SKYBOX_SIZE); ++y) {
+        vec3 color = imageLoad(uimg_skylut_cloud, ivec2(tid, y)).rgb;
+
+        float sy = row_sin[y];
+        float cy = row_cos[y];
+        float dx = cy * col_cos_tid;
+        float dz = cy * col_sin_tid;
+
+        // World-space orthonormal SH basis, L = 0..2, 9 terms.
+        float Y0 = SH_Y0;
+        float Y1 = SH_Y1 * sy;
+        float Y2 = SH_Y1 * dz;
+        float Y3 = SH_Y1 * dx;
+        float Y20 = SH_Y20 * (3.0 * sy * sy - 1.0);
+        float y2yz = SH_Y21 * sy * dz;
+        float y2xz = SH_Y21 * dx * dz;
+        float y2xy = SH_Y21 * dx * sy;
+        float y2x2z2 = SH_Y22 * (dx * dx - dz * dz);
+
+        sh_r01 += color.r * vec4(Y0, Y1, Y2, Y3);
+        sh_r2 += color.r * vec4(Y20, y2yz, y2xz, y2xy);
+        sh_r24 += color.r * y2x2z2;
+        sh_g01 += color.g * vec4(Y0, Y1, Y2, Y3);
+        sh_g2 += color.g * vec4(Y20, y2yz, y2xz, y2xy);
+        sh_g24 += color.g * y2x2z2;
+        sh_b01 += color.b * vec4(Y0, Y1, Y2, Y3);
+        sh_b2 += color.b * vec4(Y20, y2yz, y2xz, y2xy);
+        sh_b24 += color.b * y2x2z2;
+    }
+
+    // Reduce one color channel at a time. This preserves the original
+    // pairwise order, cuts synchronization by two thirds, and keeps the
+    // shared footprint bounded while processing colors independently.
+    #define REDUCE_COLOR(field01, field2, field24, out0, out1, out24) \
+        reduce_01[tid] = field01; \
+        reduce_2[tid] = field2; \
+        reduce_24[tid] = field24; \
+        barrier(); \
+        for (uint s = 128u; s > 0u; s >>= 1u) { \
+            if (tid < s) { \
+                reduce_01[tid] += reduce_01[tid + s]; \
+                reduce_2[tid] += reduce_2[tid + s]; \
+                reduce_24[tid] += reduce_24[tid + s]; \
+            } \
+            barrier(); \
+        } \
+        if (tid == 0u) { \
+            out0 = reduce_01[0] * SH_SOLID_ANGLE; \
+            out1 = reduce_2[0] * SH_SOLID_ANGLE; \
+            out24 = reduce_24[0] * SH_SOLID_ANGLE; \
+        }
+
+    REDUCE_COLOR(sh_r01, sh_r2, sh_r24, skySH_R0, skySH_R1, skySH_R2.x)
+    REDUCE_COLOR(sh_g01, sh_g2, sh_g24, skySH_G0, skySH_G1, skySH_G2.x)
+    REDUCE_COLOR(sh_b01, sh_b2, sh_b24, skySH_B0, skySH_B1, skySH_B2.x)
+
+    if (tid == 0u) {
+        // Ground light = direct sun/moon color via transmittance LUT.
+        float ground_r  = ATM_PLANET_R + 0.01;
+        float ground_r2 = ground_r * ground_r;
+        float mu_light = u_world_sun_dir.y;
+        float mu_abs = abs(mu_light);
+        vec4 trans = SampleTransmittance(utex_tslut, ground_r, ground_r2, mu_abs);
+        vec3 gnd_color;
+        if (mu_light > 0.0) {
+            gnd_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_SOLAR)) * ATM_EXPOSURE;
+        } else {
+            gnd_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_MOON_IRR)) * ATM_EXPOSURE;
+        }
+
+        ground_light.rgb = gnd_color;
+        ground_light.a = 0.0;
+    }
+}

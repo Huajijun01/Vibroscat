@@ -1,0 +1,267 @@
+/* RENDERTARGETS: 0 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/color/dither.glsl"
+#include "/lib/volume/epipolar_core.glsl"
+#include "/lib/volume/water_epipolar.glsl"
+#include "/lib/water/fog.glsl"
+
+const float COLOR_JITTER_SEED = 83.0;
+
+layout(location = 0) out vec3 main_color;
+
+// World-space caustics: light enters the actual surface plane along the
+// light dir (not assumed vertical); pattern sampled at the entry crossing
+// (z = animation time). 256x256x64 volume baked from the in-game value-noise
+// surface, 8 m tile / 2 s loop
+// (baked offline).
+#define CAUSTIC_WORLD_SCALE 8.0
+#define CAUSTIC_TIME_SPEED 0.5
+#define CAUSTIC_REFERENCE vec4(0.14314292, 0.04990238, 0.04457350, 0.07125610) // per depth layer, from bake
+#define CAUSTIC_TONE_A vec4(6.722147, 18.361074, 20.769127, 13.544966) // per depth layer (1/4/9/16 m), from bake
+#define CAUSTIC_GAIN 1.0
+#define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
+// Fixed bake reference plane; underwater eyeBrightnessSmooth cannot
+// reconstruct the surface precisely enough for sampling.
+#define CAUSTIC_PLANE_Y 64.0
+
+// Cubic B-spline via 4 bilinear taps (2/axis), exact lerp split pairs;
+// z/time axis keeps hardware linear. RGBA8 = 1/4/9/16 m layers per channel.
+vec4 CausticSampleBspline(vec2 uv, float time) {
+    vec2 size = vec2(256.0);
+    vec2 p = uv * size - 0.5;
+    vec2 f = fract(p);
+    vec2 center = floor(p) + 0.5;
+    vec2 texel = 1.0 / size;
+
+    vec2 w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
+    vec2 w3 = f * f * f / 6.0;
+    vec2 w1 = (3.0 * f * f * f - 6.0 * f * f + 4.0) / 6.0;
+    vec2 w2 = (-3.0 * f * f * f + 3.0 * f * f + 3.0 * f + 1.0) / 6.0;
+
+    vec2 c_a = w0 + w1;
+    vec2 c_b = w2 + w3;
+    vec2 a_pos = (center - 1.0) + w1 / max(c_a, vec2(1.0e-5));
+    vec2 b_pos = (center + 1.0) + w3 / max(c_b, vec2(1.0e-5));
+
+    vec2 uv_a = a_pos * texel;
+    vec2 uv_b = b_pos * texel;
+    return c_a.x * c_a.y * texture(utex_caustics, vec3(uv_a, time))
+         + c_b.x * c_a.y * texture(utex_caustics, vec3(uv_b.x, uv_a.y, time))
+         + c_a.x * c_b.y * texture(utex_caustics, vec3(uv_a.x, uv_b.y, time))
+         + c_b.x * c_b.y * texture(utex_caustics, vec3(uv_b, time));
+}
+
+// Decode each layer by its own inverse tone map (CAUSTIC_TONE_A), then blend
+// the bracketing layers by path (decode before mix: layers keep their
+// contrast).
+vec4 CausticUnmap(vec4 y) {
+    // Numerically stable inverse of y = (1-exp(-a*x))/(1-exp(-a)):
+    // x = -log(1 - y + y*exp(-a)) / a; per-channel a.
+    return -log(1.0 - y + y * exp(-CAUSTIC_TONE_A)) / CAUSTIC_TONE_A;
+}
+
+float CausticDepthBlend(vec4 lin, float path) {
+    // Depth layers at 1 / 4 / 9 / 16 m of water column.
+    const float d1 = 1.0, d2 = 4.0, d3 = 9.0, d4 = 16.0;
+    if (path <= d1) return lin.r;
+    if (path <= d2) return mix(lin.r, lin.g, (path - d1) / (d2 - d1));
+    if (path <= d3) return mix(lin.g, lin.b, (path - d2) / (d3 - d2));
+    return mix(lin.b, lin.a, clamp((path - d3) / (d4 - d3), 0.0, 1.0));
+}
+
+// Shared sampler: trace the light back to the surface plane, un-map, return
+// the signed delta scaled by the surface BRDF. Caller supplies the surface
+// height (water fragment above water; sky-lightmap estimate underwater).
+float CausticWaterPath(vec3 world_pos, float caustic_surface_y, vec3 light_dir) {
+    const float CAUSTIC_WATER_IOR = 1.333; // air -> water, flat surface
+    // Refraction bends the path toward vertical: path = vertical drop /
+    // refracted y component.
+    vec3 refracted = refract(-light_dir, vec3(0.0, 1.0, 0.0), 1.0 / CAUSTIC_WATER_IOR);
+    float path_per_metre = 1.0 / max(-refracted.y, 1.0e-3);
+    return max(caustic_surface_y - world_pos.y, 0.0) * path_per_metre;
+}
+
+vec3 CausticLightContribution(vec3 caustic_world_pos, vec3 caustic_brdf, vec3 transmission, float caustic_surface_y,
+    float caustic_sample_y
+) {
+    vec3 light_dir = normalize(u_world_light_dir);
+    float caustic_reach = (caustic_sample_y - caustic_world_pos.y) / max(light_dir.y, 1.0e-3);
+    vec3 caustic_entry = caustic_world_pos + light_dir * max(caustic_reach, 0.0);
+    vec2 caustic_uv = caustic_entry.xz / CAUSTIC_WORLD_SCALE;
+    float caustic_time = fract(frameTimeCounter * CAUSTIC_TIME_SPEED);
+    float caustic_path = CausticWaterPath(caustic_world_pos, caustic_surface_y, light_dir);
+    // Unmap → normalize by reference → blend bracketing 1/4/9/16 m layers
+    // by path length.
+    vec4 caustic_rel = CausticUnmap(CausticSampleBspline(caustic_uv, caustic_time)) / CAUSTIC_REFERENCE;
+    float caustic_mixed = CausticDepthBlend(caustic_rel, caustic_path);
+    float caustic_delta = (caustic_mixed - 1.0) * CAUSTIC_GAIN;
+
+    // Direct light is column-attenuated; the caustic delta modulates it
+    // (caller removes the unattenuated component). Underwater path =
+    // (1 - lmcoord.y) * 15 * pathPerMetre.
+    vec3 caustic_attenuation = WaterTransmittance(caustic_path);
+    // Fade only the delta in with the column; base direct light must not
+    // black out at zero path.
+    float caustic_fade = smoothstep(0.0, CAUSTIC_FADE_DEPTH, caustic_path);
+    return caustic_brdf * ground_light.rgb * caustic_attenuation
+        * (1.0 + caustic_delta * caustic_fade)
+        * transmission * step(0.01, light_dir.y);
+}
+
+// Unnormalized water normal N = (slope_x, 1, slope_z); dot(N,N) = 1 + |grad|^2
+// is the surface area proxy. 1/(1+k*(dotN-1)) approximates the caustic
+// brightening/dimming of the water fog from wave focusing.
+float WaterFogCausticFactor(vec3 world_normal) {
+    float max_comp = max(max(abs(world_normal.x), abs(world_normal.y)),
+                        abs(world_normal.z));
+    vec3 unnormalized = world_normal / max(max_comp, 1.0e-4);
+    float dot_n = dot(unnormalized, unnormalized);
+    return 1.0 / (1.0 + WATER_FOG_CAUSTIC_STRENGTH * (dot_n - 1.0));
+}
+
+void main() {
+    vec2 texcoord = gl_FragCoord.xy * u_view_pixel_size;
+
+    vec3 epipolar_light = vec3(1.0);
+#ifdef EPIPOLAR_WATER
+    epipolar_light = EpipolarSampleE(texcoord * 2.0 - 1.0,
+                                    EpipolarColumnKey(texcoord, ivec2(gl_FragCoord.xy)));
+#endif
+
+    vec3 scene_color = texture(colortex0, texcoord).rgb;
+
+    float frag_depth = texture(depthtex0, texcoord).x;
+    bool is_sky = frag_depth >= 1.0;
+
+    vec3 view_pos0 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth * 2.0 - 1.0));
+    float view_len0 = length(view_pos0);
+    // ViewToSceneSpace() is camera-relative; absolute positions add cameraPosition.
+    vec3 world_pos = ViewToSceneSpace(view_pos0);
+    // Eye-accurate view direction: depth reconstruction is feet-space and
+    // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
+    vec3 world_dir = normalize(world_pos - EyePositionSceneSpace());
+    vec3 water_light_dir = normalize(u_world_light_dir);
+    float water_sun_phase = PhaseCornetteShanks(dot(world_dir, water_light_dir), WATER_PHASE_G);
+    float water_sky_phase = PhaseCornetteShanks(world_dir.y, WATER_PHASE_G);
+
+    vec4 trans_color = texture(colortex12, texcoord);
+    vec4 refraction_data = texture(colortex2, texcoord);
+    bool is_water = refraction_data.a > 0.99;
+
+    vec3 fog_multi_scatter = EvalSkyLight(world_dir);
+    // Underwater water-fog surface estimate: vertical distance to the water
+    // surface is approximated by (1 - eyeBrightnessSmooth.y / 240) * 15.
+    float fog_vertical_depth = (1.0 - float(eyeBrightnessSmooth.y) / 240.0) * 15.0;
+    float fog_surface_world_y = cameraPosition.y + fog_vertical_depth;
+    vec3 color;
+
+    if (!is_sky) {
+        float frag_depth1 = texture(depthtex1, texcoord).x;
+        vec3 view_pos1 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth1 * 2.0 - 1.0));
+        vec3 comp_color = scene_color;
+        vec2 refract_coord = texcoord;
+        float water_fog_caustic = 1.0;
+
+        if (is_water) {
+            // Refraction: nearest surface is water; use its stored normal
+            // (colortex2 xyz), no depth tricks.
+            vec3 waves_normal = refraction_data.xzy * 2.0 - 1.0;
+
+            vec4 waves_normal_mv = gbufferModelView * vec4(waves_normal.xyz, 0.0);
+            vec3 waves_normal_view = normalize(waves_normal_mv.xyz);
+
+#ifdef WATER_FOG_CAUSTICS
+            water_fog_caustic = WaterFogCausticFactor(waves_normal);
+#endif
+
+            vec4 view_up = gbufferModelView * vec4(0.0, 1.0, 0.0, 0.0);
+            view_up.xyz = normalize(view_up.xyz);
+
+            refract_coord = view_up.xy - waves_normal_view.xy;
+            refract_coord *= Saturate(length(view_pos1) - view_len0) * 0.5 / (view_len0 + 0.0001);
+            refract_coord += texcoord;
+
+            comp_color = texture(colortex0, refract_coord).rgb;
+
+            // Caustics modulate the refracted opaque receiver.
+            float refract_d = texture(depthtex1, refract_coord).x;
+            vec3 view_pos_refr = NDCToView(vec3(refract_coord * 2.0 - 1.0, refract_d * 2.0 - 1.0));
+            vec3 caustic_world_pos = ViewToSceneSpace(view_pos_refr) + cameraPosition;
+            vec3 caustic_brdf = texture(colortex5, refract_coord).rgb;
+            vec3 caustic_surface_world = ViewToSceneSpace(view_pos0) + cameraPosition;
+            float caustic_fade_surface_y;
+            float caustic_sample_y;
+            if (isEyeInWater == 1) {
+                // Underwater: fade uses the receiver's lightmap sky light
+                // (lmcoord.y); surface height = receiver + (1 - lmcoord.y) * 15.
+                float caustic_lm_sky = texture(colortex4, refract_coord).w;
+                caustic_fade_surface_y = caustic_world_pos.y + (1.0 - caustic_lm_sky) * 15.0;
+                caustic_sample_y = CAUSTIC_PLANE_Y;
+            } else {
+                caustic_fade_surface_y = caustic_surface_world.y;
+                caustic_sample_y = caustic_surface_world.y;
+            }
+            // Replace unattenuated direct light with the column-attenuated,
+            // caustic-modulated version.
+            comp_color -= caustic_brdf * ground_light.rgb;
+            comp_color += CausticLightContribution(caustic_world_pos, caustic_brdf, vec3(1.0),
+                caustic_fade_surface_y, caustic_sample_y);
+
+            view_pos1 = view_pos_refr;
+        }
+
+        if (is_water && isEyeInWater == 0) {
+            // Column fog on the refracted background, then composite the
+            // premultiplied layer once.
+            vec3 surface_world = ViewToSceneSpace(view_pos0) + cameraPosition;
+            vec3 receiver_world = ViewToSceneSpace(view_pos1) + cameraPosition;
+#ifdef EPIPOLAR_WATER
+            // The column follows the refracted ray: sample the epipolar term
+            // at the refracted receiver, not the screen texel.
+            vec2 epi_texel = clamp(refract_coord / u_view_pixel_size, vec2(0.5),
+                                  vec2(1.0) / u_view_pixel_size - vec2(0.5));
+            epipolar_light = EpipolarSampleE(refract_coord * 2.0 - 1.0,
+                                            EpipolarColumnKey(refract_coord, ivec2(epi_texel)));
+#endif
+            WaterFogRender(comp_color, max(length(view_pos1) - view_len0, 0.0), 0.0,
+                WaterColumnLightPath(receiver_world, surface_world.y), water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light, water_fog_caustic);
+            comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
+        } else if (isEyeInWater == 1) {
+            if (!is_water) {
+                // Caustics land on opaque surfaces through the volume, not on
+                // the water surface itself.
+                vec3 caustic_world_pos = ViewToSceneSpace(view_pos0) + cameraPosition;
+                vec3 caustic_brdf = texture(colortex5, texcoord).rgb;
+                float caustic_lm_sky = texture(colortex4, texcoord).w;
+                float caustic_fade_surface_y = caustic_world_pos.y + (1.0 - caustic_lm_sky) * 15.0;
+                comp_color -= caustic_brdf * ground_light.rgb;
+                comp_color += CausticLightContribution(caustic_world_pos, caustic_brdf, vec3(1.0),
+                    caustic_fade_surface_y, CAUSTIC_PLANE_Y);
+            }
+            comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
+            vec3 receiver_world = ViewToSceneSpace(view_pos0) + cameraPosition;
+            WaterFogRender(comp_color, view_len0, WaterColumnLightPath(cameraPosition, fog_surface_world_y),
+                WaterColumnLightPath(receiver_world, fog_surface_world_y), water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light, 1.0);
+        } else {
+            comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
+        }
+
+        color = comp_color;
+    } else {
+        color = scene_color;
+        if (isEyeInWater == 1) {
+            WaterFogRender(color, far * 11.4514, WaterColumnLightPath(cameraPosition, fog_surface_world_y), 0.0,
+                water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light, 1.0);
+        }
+        color = color * (1.0 - trans_color.a) + trans_color.rgb;
+    }
+
+    main_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+}

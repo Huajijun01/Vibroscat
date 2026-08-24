@@ -1,0 +1,67 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/lighting/ambient_light.glsl"
+
+#ifdef HAS_MC_ENTITY
+in vec4 mc_Entity;
+#endif
+
+flat out int v_id;
+flat out int v_glass;
+out vec3 v_world_pos;
+out vec3 v_view_pos;
+flat out vec3 v_normal;
+flat out vec3 v_sun_light_col;
+out vec3 v_ambient_col;
+out vec3 v_shadow_proj_pos;
+out vec4 v_color;
+out vec4 v_texcoord;
+
+void main() {
+    vec3 view_pos = (gl_ModelViewMatrix * gl_Vertex).xyz;
+    v_view_pos = view_pos;
+    v_world_pos = ViewToSceneSpace(view_pos);
+
+    v_shadow_proj_pos = mat3(shadowModelView) * (v_world_pos + gl_Normal * 0.025) + shadowModelView[3].xyz;
+    v_shadow_proj_pos = vec3(shadowProjection[0].x, shadowProjection[1].y, shadowProjection[2].z) * v_shadow_proj_pos + shadowProjection[3].xyz;
+    v_shadow_proj_pos.xy /= GetDistortFactor(v_shadow_proj_pos.xy);
+    vec3 ndc = v_shadow_proj_pos * 0.5 + 0.5;
+    ndc.z -= 0.0001;
+    v_shadow_proj_pos = vec3(ndc.xy, ProtectShadowDepth(ndc.z));
+
+    gl_Position = gl_ProjectionMatrix * vec4(view_pos, 1.0);
+#ifdef TAA
+    gl_Position.xy += u_taa_offset * gl_Position.w;
+#endif
+
+    v_color = gl_Color;
+    v_texcoord.xy = gl_MultiTexCoord0.xy;
+    v_texcoord.zw = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
+
+// gbuffers_water also receives glass/ice: the water flag must come from
+// block.properties (block.80), not the program.
+#if defined(PROGRAM_GBUFFERS_WATER)
+    v_id = (mc_Entity.x == 80.0) ? 1 : 2;
+    // Glass/ice classes from block.properties: 160 = glass/panes,
+    // 161 = ice, 163-167 = stained glass; slime/honey (162) is not glass.
+    v_glass = (mc_Entity.x == 160.0 || mc_Entity.x == 161.0 || (mc_Entity.x >= 163.0 && mc_Entity.x <= 167.0)) ? 1 : 0;
+#elif defined(PROGRAM_GBUFFERS_HAND_WATER)
+    // mc_Entity is terrain-only: not supplied for hand programs; handheld
+    // translucent objects are never water.
+    v_id = 2;
+    v_glass = 0;
+#else
+    v_id = 2;
+    v_glass = 0;
+#endif
+
+    v_normal = normalize(gl_NormalMatrix * gl_Normal);
+
+    vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+    v_sun_light_col = ground_light.rgb;
+    // Same sky ambient + lightmap remap as deferred2 (no AO in the gbuffer
+    // stage).
+    v_ambient_col = AmbientLight(world_normal, vec3(1.0), v_texcoord.w);
+}

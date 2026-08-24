@@ -1,0 +1,31 @@
+// ════════════════════════════════════════════════════════════════════════════
+// Shadow pass — fragment shader
+// ════════════════════════════════════════════════════════════════════════════
+//
+// alphaTest off in shaders.properties → manual discard of alpha < 0.5.
+// rgb = tinted albedo, a = texture alpha (colored / stochastic shadows).
+// Depth is written by Iris to shadowtex0.
+
+#include "/lib/contract/uniforms.glsl"
+
+in vec2 v_texcoord;
+in vec4 v_color;
+
+layout(location = 0) out vec4 out_color;
+
+#if defined(PROGRAM_SHADOW_SOLID) || defined(PROGRAM_SHADOW_WATER)
+layout(early_fragment_tests) in;
+#endif
+
+void main() {
+    vec4 albedo = texture(gtexture, v_texcoord);
+
+#ifdef USE_DISCARD
+    if (albedo.a < 0.5) discard;
+#endif
+
+    out_color = vec4(albedo.rgb, albedo.a);
+
+    // Depth protection lives in shadow.vertex (clip-z scale); no fragment
+    // depth write here (early-Z).
+}

@@ -49,9 +49,11 @@ uniform sampler2D specular;       // LabPBR specular atlas (1x1 fallback = none)
 uniform sampler2D colortex0;      // scene color (post chain input)
 uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
 uniform sampler2D colortex2;      // opaque GBuffer, then translucent surface data
+uniform sampler2D colortex3;      // opaque reflection radiance transient
 uniform sampler2D colortex4;      // opaque geometric normal (RG) + lightmap (BA)
 uniform sampler2D colortex5;      // TAA / composite history
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
+uniform sampler2D colortex11;     // opaque reflection path length/confidence
 uniform sampler2D colortex12;     // sequential post workspace
 
 // ── Shadow bindings and transforms ──

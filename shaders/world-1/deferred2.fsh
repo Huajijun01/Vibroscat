@@ -1,3 +1,4 @@
 #version 430 compatibility
 #define WORLD_NETHER
-#include "/program/deferred/deferred_shading.fragment"
+const bool colortex5MipmapEnabled = true;
+#include "/program/deferred/opaque_reflection_trace.fragment"

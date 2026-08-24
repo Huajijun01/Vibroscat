@@ -1,0 +1,12 @@
+/* RENDERTARGETS: 3,11 */
+
+#include "/lib/contract/uniforms.glsl"
+
+layout(location = 0) out vec3 out_reflection_radiance;
+layout(location = 1) out vec2 out_reflection_metadata;
+
+void main() {
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    out_reflection_radiance = texelFetch(colortex3, tx, 0).rgb;
+    out_reflection_metadata = texelFetch(colortex11, tx, 0).rg;
+}

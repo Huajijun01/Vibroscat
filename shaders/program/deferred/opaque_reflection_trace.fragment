@@ -67,6 +67,11 @@ void main() {
     vec3 history = SampleOpaqueHistory(
         hit, hit_geo_normal, view_direction, rough_selector.x,
         -view_pos.z, confidence, selected_mip);
+#if OPAQUE_SSR_DEBUG == 4
+    float max_mip = float(max(textureQueryLevels(colortex5) - 1, 1));
+    out_reflection_radiance = vec3(selected_mip / max_mip) * confidence;
+#else
     out_reflection_radiance = history;
+#endif
     out_reflection_metadata = vec2(hit.path_length, confidence);
 }

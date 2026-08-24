@@ -287,6 +287,12 @@ option.AIR_FOG_SHADOWS = Fog Shadows
 option.AIR_FOG_SHADOWS.comment = Sun shadow visibility inside the fog (epipolar shadow term).
 
 #Lighting
+option.OPAQUE_SSR_QUALITY = Opaque Reflection Quality
+option.OPAQUE_SSR_QUALITY.comment = Screen-space indirect specular quality for opaque PBR materials.
+value.OPAQUE_SSR_QUALITY.0 = Environment Only
+value.OPAQUE_SSR_QUALITY.1 = Medium
+value.OPAQUE_SSR_QUALITY.2 = High
+value.OPAQUE_SSR_QUALITY.3 = Ultra
 option.AMBIENT_BASE = Minimum Ambient Light
 option.AMBIENT_BASE.comment = Global light floor added to every surface's sky ambient so caves and deep shadows never render fully black.
 option.TORCH_BRIGHTNESS = Torch Brightness

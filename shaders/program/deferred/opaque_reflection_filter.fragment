@@ -45,6 +45,12 @@ void main() {
     float center_distance = max(center_metadata.x, 0.0);
     float center_confidence = clamp(center_metadata.y, 0.0, 1.0);
 
+#if OPAQUE_SSR_DEBUG >= 1 && OPAQUE_SSR_DEBUG <= 4
+    out_reflection_radiance = center_radiance;
+    out_reflection_metadata = vec2(center_distance, center_confidence);
+    return;
+#endif
+
     float center_depth = texelFetch(depthtex1, tx, 0).r;
     if (center_depth >= 1.0 || center_confidence <= 0.0) {
         out_reflection_radiance = center_radiance;

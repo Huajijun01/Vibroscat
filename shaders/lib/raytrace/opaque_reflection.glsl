@@ -6,6 +6,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 
+#ifdef OPAQUE_SSR
 struct OpaqueTraceHit {
     vec3 screen;
     float path_length;
@@ -51,6 +52,7 @@ vec3 OpaquePerspectivePoint(vec3 Q0, vec3 Q1, float k0, float k1,
     float k = mix(k0, k1, interpolation);
     return mix(Q0, Q1, interpolation) / max(k, 1e-8);
 }
+#endif
 
 vec2 OpaqueSSRRandom2(ivec2 tx) {
     ivec3 size = textureSize(utex_stbn_scalar, 0);
@@ -95,6 +97,7 @@ vec3 OpaqueReflectionDirection(vec3 N, vec3 V,
     return dot(N, L) > 1e-5 ? L : vec3(0.0);
 }
 
+#ifdef OPAQUE_SSR
 OpaqueTraceHit TraceOpaqueReflection(vec3 view_origin,
         vec3 view_direction, float jitter) {
     OpaqueTraceHit miss = OpaqueTraceMiss();
@@ -308,5 +311,6 @@ vec3 SampleOpaqueHistory(OpaqueTraceHit hit, vec3 hit_geo_normal,
     }
     return max(history, vec3(0.0));
 }
+#endif
 
 #endif

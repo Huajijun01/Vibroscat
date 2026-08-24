@@ -148,6 +148,56 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         self.assertIn("vec3 f0, float diffuse_weight", source)
         self.assertIn("VisibleGGXThroughput", source)
 
+    def test_profiles_and_languages_expose_opaque_quality(self):
+        properties = read("shaders/shaders.properties")
+        for profile, quality in (
+            ("LOW", 0),
+            ("MEDIUM", 1),
+            ("HIGH", 2),
+            ("ULTRA", 3),
+        ):
+            self.assertRegex(
+                properties,
+                rf"profile\.{profile}\s*=.*\bOPAQUE_SSR_QUALITY={quality}\b",
+            )
+        lighting_line = next(
+            line
+            for line in properties.splitlines()
+            if line.startswith("screen.LIGHTING =")
+        )
+        self.assertIn("OPAQUE_SSR_QUALITY", lighting_line)
+
+        english = read("shaders/lang/en_us.lang")
+        chinese = read("shaders/lang/zh_cn.lang")
+        for token in (
+            "option.OPAQUE_SSR_QUALITY",
+            "value.OPAQUE_SSR_QUALITY.0",
+            "value.OPAQUE_SSR_QUALITY.1",
+            "value.OPAQUE_SSR_QUALITY.2",
+            "value.OPAQUE_SSR_QUALITY.3",
+        ):
+            self.assertIn(token, english)
+            self.assertIn(token, chinese)
+        self.assertIn("不透明反射质量", chinese)
+
+    def test_debug_views_remain_internal(self):
+        settings = read("shaders/lib/contract/settings.glsl")
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        filt = read("shaders/program/deferred/opaque_reflection_filter.fragment")
+        shade = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertIn("OPAQUE_SSR_DEBUG", settings)
+        for debug_value in range(1, 9):
+            token = f"OPAQUE_SSR_DEBUG == {debug_value}"
+            self.assertTrue(
+                token in trace or token in filt or token in shade,
+                f"missing opaque debug view {debug_value}",
+            )
+        properties = read("shaders/shaders.properties")
+        self.assertNotRegex(
+            properties,
+            r"screen\.[^=]*=.*\bOPAQUE_SSR_DEBUG\b",
+        )
+
 
 class LabPBRReferenceTests(unittest.TestCase):
     def test_selector_boundaries(self):

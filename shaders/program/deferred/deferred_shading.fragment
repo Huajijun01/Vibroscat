@@ -48,6 +48,16 @@ vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
         * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
 }
 
+vec3 OpaqueEnvironmentFallbackDirection(vec3 sampled_direction,
+        vec3 geo_normal, vec3 V, inout vec3 reflection_half,
+        out bool used_geometric_fallback) {
+    used_geometric_fallback = dot(geo_normal, sampled_direction) <= 1e-5;
+    if (!used_geometric_fallback) return sampled_direction;
+
+    reflection_half = geo_normal;
+    return reflect(-V, geo_normal);
+}
+
 vec3 SanitizeOpaqueHistory(vec3 history, float average_luminance) {
     if (any(isnan(history)) || any(isinf(history))
             || any(lessThan(history, vec3(0.0)))) {
@@ -296,9 +306,11 @@ void main() {
     vec3 reflection_half;
     vec3 reflection_direction = OpaqueReflectionDirection(
         normal, V, material.perceptual_roughness, tx, reflection_half);
-    if (dot(geo_normal, reflection_direction) <= 1e-5) {
-        reflection_direction = vec3(0.0);
-    }
+    bool used_geometric_fallback;
+    reflection_direction = OpaqueEnvironmentFallbackDirection(
+        reflection_direction, geo_normal, V, reflection_half,
+        used_geometric_fallback);
+    vec3 specular_normal = used_geometric_fallback ? geo_normal : normal;
     vec3 environment = SampleOpaqueEnvironment(reflection_direction, lm.g);
     vec3 history = vec3(0.0);
     float confidence = 0.0;
@@ -310,16 +322,18 @@ void main() {
     float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
     vec3 incident_radiance = mix(
         environment, recursion_decay * history, confidence);
-    float reflection_ndotl = Max0(dot(normal, reflection_direction));
+    float reflection_ndotv = Max0(dot(specular_normal, V));
+    float reflection_ndotl = Max0(
+        dot(specular_normal, reflection_direction));
     vec3 indirect_specular = incident_radiance * VisibleGGXThroughput(
         material.f0,
         Max0(dot(V, reflection_half)),
-        ndotv,
+        reflection_ndotv,
         reflection_ndotl,
         material.alpha);
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     indirect_specular *= SpecularOcclusion(
-        ndotv, mean_ao, material.perceptual_roughness);
+        reflection_ndotv, mean_ao, material.perceptual_roughness);
 #if OPAQUE_SSR_DEBUG == 8
     color = indirect_specular;
 #else

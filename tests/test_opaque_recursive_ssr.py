@@ -153,6 +153,11 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, source)
         self.assertNotIn("emiss_res.x * 0.0", source)
 
+    def test_ssr_rejection_keeps_an_environment_fallback_direction(self):
+        source = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertIn("OpaqueEnvironmentFallbackDirection", source)
+        self.assertNotIn("reflection_direction = vec3(0.0)", source)
+
     def test_brdf_consumes_rgb_f0(self):
         source = read("shaders/lib/lighting/brdf.glsl")
         self.assertIn("vec3 f0, float diffuse_weight", source)

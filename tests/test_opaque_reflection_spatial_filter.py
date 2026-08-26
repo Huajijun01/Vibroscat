@@ -33,6 +33,11 @@ def stage_candidate_count(tap_radius, stages=3):
 
 class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
     WORLDS = ("world0", "world1", "world-1")
+    WORLD_DEFINES = {
+        "world0": "WORLD_OVERWORLD",
+        "world1": "WORLD_END",
+        "world-1": "WORLD_NETHER",
+    }
 
     def test_spatial_pass_schedule_has_three_ping_pong_stages(self):
         properties = read("shaders/shaders.properties")
@@ -49,6 +54,7 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
             )
             for stage in (3, 4, 5):
                 source = read(f"shaders/{world}/deferred{stage}.csh")
+                self.assertIn(self.WORLD_DEFINES[world], source)
                 self.assertIn("opaque_reflection_spatial_filter.compute", source)
                 self.assertIn(f"#define OPAQUE_SPATIAL_STAGE {stage - 3}", source)
             shading = read(f"shaders/{world}/deferred6.fsh")
@@ -113,6 +119,15 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
             "source_weight",
         ):
             self.assertIn(token, helpers)
+
+    def test_spatial_filter_has_no_temporal_or_svgf_path(self):
+        sources = (
+            read("shaders/lib/lighting/opaque_reflection_filter.glsl"),
+            read("shaders/program/deferred/opaque_reflection_spatial_filter.compute"),
+        )
+        for source in sources:
+            for token in ("SVGF", "temporal", "history_length"):
+                self.assertNotIn(token, source)
 
     def test_filter_support_is_adaptive_and_coarse_to_fine(self):
         compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")

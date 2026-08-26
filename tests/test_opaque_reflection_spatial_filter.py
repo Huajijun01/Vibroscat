@@ -49,7 +49,9 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
                 self.assertIn(f"#define OPAQUE_SPATIAL_STAGE {stage - 3}", source)
             shading = read(f"shaders/{world}/deferred6.fsh")
             self.assertIn("deferred_shading.fragment", shading)
-            self.assertNotIn("deferred_shading.fragment", read(f"shaders/{world}/deferred4.fsh"))
+            self.assertFalse(
+                (ROOT / f"shaders/{world}/deferred4.fsh").exists()
+            )
         self.assertIn("flip.deferred6.colortex5 = false", properties)
         self.assertNotIn("flip.deferred4.colortex5 = false", properties)
 
@@ -58,8 +60,8 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
         uniforms = read("shaders/lib/contract/uniforms.glsl")
         self.assertIn("const int colortex6Format  = R11F_G11F_B10F;", resources)
         self.assertIn("const int colortex7Format  = RG16F;", resources)
-        self.assertIn("const bool colortex6Clear = true", resources)
-        self.assertIn("const bool colortex7Clear = true", resources)
+        self.assertRegex(resources, r"const bool colortex6Clear\s*=\s*true")
+        self.assertRegex(resources, r"const bool colortex7Clear\s*=\s*true")
         self.assertRegex(uniforms, r"uniform sampler2D colortex6\s*;")
         self.assertRegex(uniforms, r"uniform sampler2D colortex7\s*;")
 

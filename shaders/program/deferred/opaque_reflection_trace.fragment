@@ -26,11 +26,6 @@ void main() {
         ny_nz.x * 2.0 - 1.0,
         ny_nz.y * 2.0 - 1.0));
 
-    vec4 geometry_data = texelFetch(colortex4, tx, 0);
-    vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
-    vec3 geo_normal = normalize(
-        mat3(gbufferModelViewInverse) * geo_view_normal);
-
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
 #ifdef TAA
     vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
@@ -43,29 +38,21 @@ void main() {
     vec3 H;
     vec3 reflection_direction = OpaqueReflectionDirection(
         normal, V, rough_selector.x, tx, H);
-    if (dot(geo_normal, reflection_direction) <= 1e-5) return;
 
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(
         mat3(gbufferModelView) * reflection_direction);
-    vec3 trace_origin = view_pos
-        + geo_view_normal * 0.03
-        + view_direction * 0.05;
+    vec3 trace_origin = view_pos + view_direction * 0.05;
     float trace_jitter = OpaqueSSRRandom2(tx).y;
-    OpaqueTraceHit hit = TraceOpaqueReflection(
-        trace_origin, view_direction, trace_jitter);
-    if (!hit.valid) return;
+    SSRHit shared_hit = TraceScreenSpaceReflection(
+        trace_origin, view_direction, trace_jitter,
+        OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, false);
+    if (!shared_hit.valid || shared_hit.sky) return;
 
-    ivec2 hit_tx = clamp(
-        ivec2(hit.screen.xy * vec2(viewWidth, viewHeight)),
-        ivec2(0),
-        ivec2(viewWidth, viewHeight) - 1);
-    vec3 hit_geo_normal = DecodeOctahedralNormal(
-        texelFetch(colortex4, hit_tx, 0).xy);
     float confidence;
     float selected_mip;
     vec3 history = SampleOpaqueHistory(
-        hit, hit_geo_normal, view_direction, rough_selector.x,
+        shared_hit, rough_selector.x,
         -view_pos.z, confidence, selected_mip);
 #if OPAQUE_SSR_DEBUG == 4
     float max_mip = float(max(textureQueryLevels(colortex5) - 1, 1));
@@ -73,5 +60,5 @@ void main() {
 #else
     out_reflection_radiance = history;
 #endif
-    out_reflection_metadata = vec2(hit.path_length, confidence);
+    out_reflection_metadata = vec2(shared_hit.path_length, confidence);
 }

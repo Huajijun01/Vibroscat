@@ -6,111 +6,187 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 
-// Screen-space reflections for the water forward pass (translucent gbuffer).
-//
-// March design (McGuire & Mara, "Efficient GPU Screen-Space Ray Tracing",
-// JCGT 3(4), 2014): the ray's projection is a straight segment in (screen UV,
-// NDC z) space ending where the ray first leaves the screen or reaches the
-// far plane. The segment is covered by SSR_STEPS samples at constant pitch
-// (1/(SSR_STEPS-1) of the path), the first sample jittered within one pitch,
-// so the march is guaranteed to reach its endpoint for every jitter phase.
-// Depth crossings are detected in linearized view distance (coordinates.glsl
-// LinearDepthFromScreenDepth), refined by interval bisection, accepted by a
-// distance-scaled tolerance. depthtex1 is always sampled.
-// SSR_STEPS (march samples) is a user option declared in
-// contract/settings.glsl.
-#define SSR_REFINE_STEPS 6           // bisection iterations per depth crossing
-#define SSR_TOL_SLOPE 0.1           // k: tolerance grows k * travelled (metres)
-#define SSR_TOL_BIAS 0.5             // eps: fixed tolerance (metres)
+// Shared screen-space reflection marcher. Both water and opaque reflection
+// use the same deliberately permissive depth-crossing rule; only their step
+// budget, distance limit, and treatment of a far-plane miss differ.
+#define SSR_REFINE_STEPS 6
+#define SSR_TOL_SLOPE 0.1
+#define SSR_TOL_BIAS 0.5
 
-bool RayTraceHIT(vec3 view_ray_ori, vec3 view_screen_step_dir, float ndot_v, float noise, bool is_hand, inout vec3 screen_pos, out bool hit_sky){
-    // Projection of the ray is a straight line in (screen UV, NDC z) space.
-    // A second point on the ray line, at least ~2 m in front of the origin,
-    // fixes its screen-space direction.
-    float sample_z = max(1.0, -view_ray_ori.z) + 1.0;
-    float t = clamp((-sample_z - view_ray_ori.z) / view_screen_step_dir.z, -1.0e6, 1.0e6);
-    vec3 dir = normalize(ViewToNDC(view_ray_ori + view_screen_step_dir * t) * 0.5 + 0.5 - screen_pos);
+// Keep one statically bounded loop while allowing the water and opaque passes
+// to select different runtime budgets. OPAQUE_SSR_STEPS is absent at quality
+// 0, so the water budget remains the bound in that configuration.
+#if defined(OPAQUE_SSR_STEPS) && OPAQUE_SSR_STEPS > SSR_STEPS
+#define SSR_TRACE_MAX_STEPS OPAQUE_SSR_STEPS
+#else
+#define SSR_TRACE_MAX_STEPS SSR_STEPS
+#endif
 
-    // Endpoint: first intersection of the projected line with a screen edge
-    // (UV = 0/1) or with the far plane (NDC z = 1), whichever comes first.
-    float s_end = 1e20;
-    if (dir.x > 0.0) s_end = min(s_end, (1.0 - screen_pos.x) / dir.x);
-    else if (dir.x < 0.0) s_end = min(s_end, (0.0 - screen_pos.x) / dir.x);
-    if (dir.y > 0.0) s_end = min(s_end, (1.0 - screen_pos.y) / dir.y);
-    else if (dir.y < 0.0) s_end = min(s_end, (0.0 - screen_pos.y) / dir.y);
-    if (dir.z > 0.0) s_end = min(s_end, (1.0 - screen_pos.z) / dir.z);
+struct SSRHit {
+    vec3 screen;
+    float surface_depth;
+    float path_length;
+    bool valid;
+    bool sky;
+};
 
-    // Constant pitch over the full path; the jittered first sample still
-    // leaves (SSR_STEPS - 1) pitches, so the last sample sits at or beyond
-    // the endpoint for every noise phase: a miss always means the whole path
-    // was covered, never a truncated budget.
-    float step_len = 1.0 / float(SSR_STEPS - 1);
-    float s = step_len * (0.5 + 0.5 * noise);
+SSRHit SSRMiss() {
+    SSRHit hit;
+    hit.screen = vec3(0.0);
+    hit.surface_depth = 1.0;
+    hit.path_length = 0.0;
+    hit.valid = false;
+    hit.sky = false;
+    return hit;
+}
 
-    hit_sky = false;
+bool SSRFinite(vec3 value) {
+    return !any(isnan(value)) && !any(isinf(value));
+}
 
-    vec3 start_pos = screen_pos;
-    float ray_start_lin = LinearDepthFromScreenDepth(start_pos.z);
+SSRHit TraceScreenSpaceReflection(vec3 view_origin,
+        vec3 view_direction, float jitter, float max_distance,
+        int step_budget, bool allow_sky) {
+    SSRHit miss = SSRMiss();
+    if (!SSRFinite(view_origin) || !SSRFinite(view_direction)) return miss;
 
-    for (int i = 0; i < SSR_STEPS; i++) {
-        vec3 prev_pos = screen_pos;
-        screen_pos = start_pos + dir * (s * s_end);
+    float direction_length = length(view_direction);
+    if (direction_length < 0.999) return miss;
+    view_direction /= direction_length;
 
-        if (Saturate(screen_pos.xy) != screen_pos.xy) break;  // left the screen
+    // A zero distance means the water path may continue to the far plane.
+    // Opaque reflections pass their finite distance budget here.
+    float ray_length = max_distance > 0.0 ? max_distance : far;
+    if (view_direction.z > 1e-6) {
+        ray_length = min(ray_length,
+            (-near * 1.01 - view_origin.z) / view_direction.z);
+    } else if (view_direction.z < -1e-6) {
+        ray_length = min(ray_length,
+            (-far * 0.999 - view_origin.z) / view_direction.z);
+    }
+    if (ray_length <= 0.05) return miss;
 
-        // Sample once per step; the far-plane test below reuses this sample
-        // (no extra depth fetch).
-        float surf_depth = textureLod(depthtex1, screen_pos.xy, 0.0).x;
+    vec3 view_end = view_origin + view_direction * ray_length;
+    vec3 start_pos = ViewToNDC(view_origin) * 0.5 + 0.5;
+    vec3 end_pos = ViewToNDC(view_end) * 0.5 + 0.5;
+    if (!SSRFinite(start_pos) || !SSRFinite(end_pos)
+            || any(lessThan(start_pos.xy, vec2(0.0)))
+            || any(greaterThan(start_pos.xy, vec2(1.0)))) {
+        return miss;
+    }
 
-        if (screen_pos.z >= 1.0) {
-            // Past the far plane: a sky pixel here (depth 1.0 = no geometry)
-            // is a sky hit — the consumer reuses the in-screen sky color from
-            // last frame instead of the sky-LUT fallback. A geometry pixel
-            // means the ray exited beyond it without a crossing: no hit.
-            if (surf_depth >= 1.0) {
-                hit_sky = true;
-                return true;
+    // Clip the projected line to the visible rectangle and both depth planes.
+    // This preserves full-path coverage without accepting samples outside the
+    // depth texture.
+    vec3 projected_delta = end_pos - start_pos;
+    float end_fraction = 1.0;
+    if (projected_delta.x > 0.0) {
+        end_fraction = min(end_fraction,
+            (1.0 - start_pos.x) / projected_delta.x);
+    } else if (projected_delta.x < 0.0) {
+        end_fraction = min(end_fraction,
+            (0.0 - start_pos.x) / projected_delta.x);
+    }
+    if (projected_delta.y > 0.0) {
+        end_fraction = min(end_fraction,
+            (1.0 - start_pos.y) / projected_delta.y);
+    } else if (projected_delta.y < 0.0) {
+        end_fraction = min(end_fraction,
+            (0.0 - start_pos.y) / projected_delta.y);
+    }
+    if (projected_delta.z > 0.0) {
+        end_fraction = min(end_fraction,
+            (1.0 - start_pos.z) / projected_delta.z);
+    } else if (projected_delta.z < 0.0) {
+        end_fraction = min(end_fraction,
+            (0.0 - start_pos.z) / projected_delta.z);
+    }
+    end_fraction = clamp(end_fraction, 0.0, 1.0);
+    vec3 end_screen = mix(start_pos, end_pos, end_fraction);
+    projected_delta = end_screen - start_pos;
+    float projected_length = max(abs(projected_delta.x),
+        abs(projected_delta.y));
+    float quarter_pixel = 0.25 * max(u_view_pixel_size.x,
+        u_view_pixel_size.y);
+    if (projected_length < quarter_pixel) return miss;
+
+    int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
+    float step_length = 1.0 / float(max(budget - 1, 1));
+    float sample_t = step_length
+        * (0.5 + 0.5 * clamp(jitter, 0.0, 1.0));
+    float ray_start_depth = LinearDepthFromScreenDepth(start_pos.z);
+    float previous_t = 0.0;
+    vec3 previous_pos = start_pos;
+
+    for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
+        if (i >= budget) break;
+        float t = min(sample_t, 1.0);
+        vec3 ray_pos = start_pos + projected_delta * t;
+        if (any(lessThan(ray_pos.xy, vec2(0.0)))
+                || any(greaterThan(ray_pos.xy, vec2(1.0)))) break;
+
+        float surface_depth = textureLod(depthtex1, ray_pos.xy, 0.0).x;
+        if (ray_pos.z >= 1.0) {
+            if (allow_sky && surface_depth >= 1.0) {
+                SSRHit sky_hit;
+                sky_hit.screen = ray_pos;
+                sky_hit.surface_depth = 1.0;
+                sky_hit.path_length = length(
+                    NDCToView(ray_pos * 2.0 - 1.0) - view_origin);
+                sky_hit.valid = true;
+                sky_hit.sky = true;
+                return sky_hit;
             }
             break;
         }
 
-        float surf_lin = LinearDepthFromScreenDepth(surf_depth);
-        float ray_lin = LinearDepthFromScreenDepth(screen_pos.z);
-
-        if (surf_lin < ray_lin) {
-            // Depth crossing inside [prev_pos, screen_pos]: bisect the
-            // interval branch-free — step() selects the half that still
-            // contains the crossing, mix() applies the selection.
-            vec3 lo = prev_pos;
-            vec3 hi = screen_pos;
-            for (int j = 0; j < SSR_REFINE_STEPS; j++) {
-                vec3 mid = (lo + hi) * 0.5;
-                float mid_surf = LinearDepthFromScreenDepth(
-                    textureLod(depthtex1, mid.xy, 0.0).x);
-                // sel = 1 when the surface is nearer than the ray at mid,
-                // i.e. the crossing lies in [lo, mid]: hi <- mid; else lo <- mid.
-                float sel = step(mid_surf, LinearDepthFromScreenDepth(mid.z));
-                lo = mix(mid, lo, sel);
-                hi = mix(hi, mid, sel);
+        float ray_depth = LinearDepthFromScreenDepth(ray_pos.z);
+        float surface_linear = LinearDepthFromScreenDepth(surface_depth);
+        if (surface_depth < 1.0 && surface_linear < ray_depth) {
+            // The first permissive crossing is enough. Bisection only locates
+            // it; there is intentionally no thickness or normal rejection.
+            float lo = previous_t;
+            float hi = t;
+            vec3 lo_pos = previous_pos;
+            vec3 hi_pos = ray_pos;
+            for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
+                float mid_t = 0.5 * (lo + hi);
+                vec3 mid_pos = mix(start_pos, end_screen, mid_t);
+                float mid_surface = LinearDepthFromScreenDepth(
+                    textureLod(depthtex1, mid_pos.xy, 0.0).x);
+                float mid_ray = LinearDepthFromScreenDepth(mid_pos.z);
+                if (mid_surface < mid_ray) {
+                    hi = mid_t;
+                    hi_pos = mid_pos;
+                } else {
+                    lo = mid_t;
+                    lo_pos = mid_pos;
+                }
             }
 
-            vec3 hit_pos = (lo + hi) * 0.5;
+            vec3 hit_pos = 0.5 * (lo_pos + hi_pos);
             float hit_depth = textureLod(depthtex1, hit_pos.xy, 0.0).x;
-
-            float hit_ray = LinearDepthFromScreenDepth(hit_pos.z);
-            float hit_surf = LinearDepthFromScreenDepth(hit_depth);
-            float travelled = hit_ray - ray_start_lin;
-
-            if (abs(hit_ray - hit_surf) < SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) {
-                screen_pos = hit_pos;
-                return true;
+            float hit_ray_depth = LinearDepthFromScreenDepth(hit_pos.z);
+            float hit_surface_depth = LinearDepthFromScreenDepth(hit_depth);
+            float travelled = max(hit_ray_depth - ray_start_depth, 0.0);
+            if (abs(hit_ray_depth - hit_surface_depth)
+                    <= SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) {
+                SSRHit hit;
+                hit.screen = hit_pos;
+                hit.surface_depth = hit_depth;
+                hit.path_length = length(
+                    NDCToView(hit_pos * 2.0 - 1.0) - view_origin);
+                hit.valid = true;
+                hit.sky = false;
+                return hit;
             }
         }
 
-        s += step_len;
+        previous_t = t;
+        previous_pos = ray_pos;
+        sample_t += step_length;
     }
-
-    return false;
+    return miss;
 }
 
 #endif

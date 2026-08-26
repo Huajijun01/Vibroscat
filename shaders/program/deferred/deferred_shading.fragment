@@ -316,8 +316,8 @@ void main() {
     float confidence = 0.0;
 #ifdef OPAQUE_SSR
     history = SanitizeOpaqueHistory(
-        texelFetch(colortex3, tx, 0).rgb, smooth_lum);
-    confidence = clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0);
+        texelFetch(colortex6, tx, 0).rgb, smooth_lum);
+    confidence = clamp(texelFetch(colortex7, tx, 0).g, 0.0, 1.0);
 #endif
     float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
     vec3 incident_radiance = mix(

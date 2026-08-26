@@ -67,7 +67,9 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
 
     def test_water_ssr_helper_remains_separate(self):
         water = read("shaders/lib/raytrace/ssr.glsl")
-        self.assertIn("bool RayTraceHIT", water)
+        self.assertIn("struct SSRHit", water)
+        self.assertIn("TraceScreenSpaceReflection", water)
+        self.assertNotIn("RayTraceHIT", water)
         self.assertNotIn("TraceOpaqueReflection", water)
 
     def test_opaque_material_decoder_is_format_aware(self):
@@ -103,18 +105,28 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, source)
         self.assertNotIn("texture(colortex5", source)
 
-    def test_opaque_trace_has_required_rejection_terms(self):
+    def test_opaque_trace_uses_shared_loose_crossing(self):
         source = read("shaders/lib/raytrace/opaque_reflection.glsl")
         for token in (
-            "TraceOpaqueReflection",
             "OPAQUE_SSR_MAX_DISTANCE",
-            "OPAQUE_SSR_THICKNESS",
             "ToPrevious",
             "OpaqueHistoryMip",
             "OpaqueHistoryConfidence",
         ):
             self.assertIn(token, source)
-        self.assertIn("depthtex1", source)
+        self.assertIn('#include "/lib/raytrace/ssr.glsl"', source)
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        self.assertIn("TraceScreenSpaceReflection", trace)
+        shared = read("shaders/lib/raytrace/ssr.glsl")
+        self.assertIn("depthtex1", shared)
+        for token in (
+            "OpaqueTraceThickness",
+            "OPAQUE_SSR_THICKNESS",
+            "OpaqueGeometricViewNormalAt",
+            "front_facing",
+            "thickness_error",
+        ):
+            self.assertNotIn(token, source)
 
     def test_filter_uses_all_guidance_terms(self):
         source = read(

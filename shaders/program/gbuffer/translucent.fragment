@@ -126,7 +126,11 @@ void main() {
     if (ssr_allowed && reflect_dir.z < 0.0)
 #endif
     {
-    rt_hit_flag = RayTraceHIT(v_view_pos, reflect_dir, dot(-view_dir, current_normal), dither, false, rt_pos, rt_hit_sky);
+    SSRHit water_hit = TraceScreenSpaceReflection(
+        v_view_pos, reflect_dir, dither, 0.0, SSR_STEPS, true);
+    rt_hit_flag = water_hit.valid;
+    rt_hit_sky = water_hit.sky;
+    if (water_hit.valid) rt_pos = water_hit.screen;
     }
 #endif
     rt_coord = rt_pos.xy;

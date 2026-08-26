@@ -152,8 +152,10 @@ void main() {
                     ox <= SPATIAL_TAP_RADIUS; ++ox) {
                 ivec2 tap = ivec2(ox, oy);
                 if (center_only && any(notEqual(tap, ivec2(0)))) continue;
-                if (center_radius < 0.5 * float(SPATIAL_STRIDE)
-                        && any(notEqual(tap, ivec2(0)))) continue;
+                float tap_distance = length(
+                    vec2(tap * SPATIAL_STRIDE));
+                if (tap_distance > max(center_radius,
+                        0.5 * float(SPATIAL_STRIDE))) continue;
 
                 ivec2 sample_tile = local_center
                     + tap * SPATIAL_STRIDE;

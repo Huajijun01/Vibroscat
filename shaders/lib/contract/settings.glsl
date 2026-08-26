@@ -152,14 +152,17 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #if OPAQUE_SSR_QUALITY == 1
 #define OPAQUE_SSR_STEPS 24
 #define OPAQUE_SSR_FILTER_RADIUS 4.0
+// Spatial filter support cap is 4 px; the low tap radius keeps the kernel 3x3.
 #define OPAQUE_SSR_SPATIAL_TAP_RADIUS 1
 #elif OPAQUE_SSR_QUALITY == 2
 #define OPAQUE_SSR_STEPS 40
 #define OPAQUE_SSR_FILTER_RADIUS 6.0
+// Spatial filter support cap is 6 px; medium/high use a 5x5 candidate kernel.
 #define OPAQUE_SSR_SPATIAL_TAP_RADIUS 2
 #elif OPAQUE_SSR_QUALITY == 3
 #define OPAQUE_SSR_STEPS 64
 #define OPAQUE_SSR_FILTER_RADIUS 8.0
+// Spatial filter support cap is 8 px; stage stride stays an internal detail.
 #define OPAQUE_SSR_SPATIAL_TAP_RADIUS 2
 #endif
 #define OPAQUE_SSR_MAX_DISTANCE 96.0

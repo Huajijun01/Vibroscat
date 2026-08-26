@@ -27,6 +27,10 @@ def normalize(weights):
     return [w / total for w in weights] if total > 1e-6 else []
 
 
+def stage_candidate_count(tap_radius, stages=3):
+    return stages * (2 * tap_radius + 1) ** 2
+
+
 class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
     WORLDS = ("world0", "world1", "world-1")
 
@@ -109,6 +113,13 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
             "source_weight",
         ):
             self.assertIn(token, helpers)
+
+    def test_filter_support_is_adaptive_and_coarse_to_fine(self):
+        compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
+        self.assertIn("tap_distance", compute)
+        self.assertIn("SPATIAL_STRIDE", compute)
+        self.assertEqual(stage_candidate_count(1), 27)
+        self.assertEqual(stage_candidate_count(2), 75)
 
     def test_spatial_radius_is_bounded(self):
         self.assertEqual(spatial_radius(0.2, 4.0, 6.0), 0.2**2 * 2.0)

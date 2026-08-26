@@ -1,3 +1,3 @@
 #version 430 compatibility
-#define WORLD_NETHER
+#define WORLD_END
 #include "/program/deferred/deferred_shading.fragment"

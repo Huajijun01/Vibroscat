@@ -42,26 +42,31 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             with self.subTest(world=world):
                 paths = {
                     "trace": f"shaders/{world}/deferred2.fsh",
-                    "filter": f"shaders/{world}/deferred3.fsh",
-                    "shade": f"shaders/{world}/deferred4.fsh",
+                    "filter_wide": f"shaders/{world}/deferred3.csh",
+                    "filter_medium": f"shaders/{world}/deferred4.csh",
+                    "filter_fine": f"shaders/{world}/deferred5.csh",
+                    "shade": f"shaders/{world}/deferred6.fsh",
                 }
                 for role, path in paths.items():
                     self.assertTrue(
                         (ROOT / path).is_file(), f"missing {role} wrapper: {path}"
                     )
                 trace = read(paths["trace"])
-                filt = read(paths["filter"])
+                filt = "\n".join(
+                    read(paths[key])
+                    for key in ("filter_wide", "filter_medium", "filter_fine")
+                )
                 shade = read(paths["shade"])
                 self.assertIn(define, trace)
                 self.assertIn("colortex5MipmapEnabled = true", trace)
                 self.assertIn("opaque_reflection_trace.fragment", trace)
-                self.assertIn("opaque_reflection_filter.fragment", filt)
+                self.assertIn("opaque_reflection_spatial_filter.compute", filt)
                 self.assertIn("deferred_shading.fragment", shade)
 
     def test_caustic_flip_follows_final_shading(self):
         props = read("shaders/shaders.properties")
         self.assertNotIn("flip.deferred2.colortex5 = false", props)
-        self.assertIn("flip.deferred4.colortex5 = false", props)
+        self.assertIn("flip.deferred6.colortex5 = false", props)
         self.assertIn("flip.composite.colortex5 = true", props)
         self.assertIn("flip.composite1.colortex5 = true", props)
 
@@ -129,24 +134,19 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertNotIn(token, source)
 
     def test_filter_uses_all_guidance_terms(self):
-        source = read(
-            "shaders/program/deferred/opaque_reflection_filter.fragment"
-        )
+        source = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
         for token in (
-            "FILTER_TAPS",
+            "OpaqueSpatialWeight",
             "depth_weight",
             "normal_weight",
             "roughness_weight",
             "distance_weight",
-            "confidence",
+            "source_weight",
         ):
             self.assertIn(token, source)
-        self.assertIn("const int FILTER_TAPS = 9", source)
 
     def test_filter_avoids_glsl_reserved_packed_identifier(self):
-        source = read(
-            "shaders/program/deferred/opaque_reflection_filter.fragment"
-        )
+        source = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
         self.assertNotRegex(
             source,
             r"\b(?:vec[234]|float|int|uint)\s+packed\b",
@@ -158,6 +158,8 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             "ResolveOpaquePBR",
             "colortex3",
             "colortex11",
+            "colortex6",
+            "colortex7",
             "OpaqueReflectionDirection",
             "VisibleGGXThroughput",
             "OPAQUE_SSR_RECURSION_DECAY",
@@ -214,7 +216,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         conditional_block = properties.split(condition, 1)[1].split("#endif", 1)[0]
         enabled_block, disabled_block = conditional_block.split("#else", 1)
         for world in ("world0", "world1", "world-1"):
-            for program in ("deferred2", "deferred3"):
+            for program in ("deferred2", "deferred3", "deferred4", "deferred5"):
                 self.assertRegex(
                     enabled_block,
                     rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*"
@@ -229,7 +231,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
     def test_debug_views_remain_internal(self):
         settings = read("shaders/lib/contract/settings.glsl")
         trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
-        filt = read("shaders/program/deferred/opaque_reflection_filter.fragment")
+        filt = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
         shade = read("shaders/program/deferred/deferred_shading.fragment")
         self.assertRegex(
             settings,

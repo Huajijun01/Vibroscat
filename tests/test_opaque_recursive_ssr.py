@@ -207,9 +207,83 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, chinese)
         self.assertIn("不透明反射质量", chinese)
 
+    def test_opaque_reflection_switch_is_exposed_and_profiled(self):
+        settings = read("shaders/lib/contract/settings.glsl")
+        self.assertRegex(settings, r"(?m)^#define OPAQUE_REFLECTION\s+1\b")
+
+        properties = read("shaders/shaders.properties")
+        lighting_line = next(
+            line
+            for line in properties.splitlines()
+            if line.startswith("screen.LIGHTING =")
+        )
+        self.assertIn("OPAQUE_REFLECTION", lighting_line)
+        for profile, enabled in (("LOW", 0), ("MEDIUM", 0), ("HIGH", 1), ("ULTRA", 1)):
+            self.assertRegex(
+                properties,
+                rf"profile\.{profile}\s*=.*\bOPAQUE_REFLECTION={enabled}\b",
+            )
+
+        english = read("shaders/lang/en_us.lang")
+        chinese = read("shaders/lang/zh_cn.lang")
+        for token in (
+            "option.OPAQUE_REFLECTION",
+            "option.OPAQUE_REFLECTION.comment",
+        ):
+            self.assertIn(token, english)
+            self.assertIn(token, chinese)
+
+    def test_opaque_reflection_switch_controls_ssr_passes(self):
+        properties = read("shaders/shaders.properties")
+        condition = "#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0"
+        self.assertIn(condition, properties)
+        enabled_block, disabled_block = properties.split(condition, 1)[1].split("#else", 1)
+        disabled_block = disabled_block.split("#endif", 1)[0]
+        for world in ("world0", "world1", "world-1"):
+            for program in ("deferred2", "deferred3"):
+                self.assertRegex(
+                    enabled_block,
+                    rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*true\b",
+                )
+                self.assertRegex(
+                    disabled_block,
+                    rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*false\b",
+                )
+
+    def test_disabled_opaque_reflection_uses_environment_only(self):
+        settings = read("shaders/lib/contract/settings.glsl")
+        self.assertIn("#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0", settings)
+
+        shading = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertIn("#ifdef OPAQUE_SSR\n    vec3 reflection_direction = OpaqueReflectionDirection(", shading)
+        self.assertIn("#else\n    vec3 reflection_direction = reflect(-V, normal);", shading)
+        self.assertIn("#ifdef OPAQUE_SSR\n    vec3 environment = SampleOpaqueEnvironment(", shading)
+        self.assertRegex(
+            shading,
+            r"#else\n(?:\s*//.*\n)*\s*vec3 environment = "
+            r"EvalSkyRadiance\(reflection_direction\)\n"
+            r"\s*\* pow\(lm\.y, 8\.0\) \* mean_ao;",
+        )
+        self.assertNotIn("SkyLightFromLm(lm.y)", shading)
+        self.assertIn("vec3 incident_radiance = environment;", shading)
+        environment_block = shading.split(
+            "#ifdef OPAQUE_SSR\n    vec3 environment = SampleOpaqueEnvironment(", 1
+        )[1].split("vec3 incident_radiance = environment;", 1)[0]
+        disabled_environment = environment_block.split("#else", 1)[1]
+        self.assertNotIn("usam_skylut_cloud", disabled_environment)
+        sky_light = read("shaders/lib/atmosphere/sky_light.glsl")
+        self.assertIn("vec3 EvalSkyRadiance(vec3 direction)", sky_light)
+        self.assertNotIn("EvalSkyLight(reflection_direction)", shading)
+
+        for source in (
+            "shaders/program/deferred/opaque_reflection_trace.fragment",
+            "shaders/program/deferred/opaque_reflection_filter.fragment",
+        ):
+            self.assertTrue((ROOT / source).is_file())
+
     def test_zero_quality_disables_trace_and_filter_programs(self):
         properties = read("shaders/shaders.properties")
-        condition = "#if OPAQUE_SSR_QUALITY > 0"
+        condition = "#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0"
         self.assertIn(condition, properties)
         conditional_block = properties.split(condition, 1)[1].split("#endif", 1)[0]
         enabled_block, disabled_block = conditional_block.split("#else", 1)

@@ -304,24 +304,37 @@ void main() {
 
     // ── Indirect specular ──
     vec3 reflection_half;
+#ifdef OPAQUE_SSR
     vec3 reflection_direction = OpaqueReflectionDirection(
         normal, V, material.perceptual_roughness, tx, reflection_half);
+#else
+    vec3 reflection_direction = reflect(-V, normal);
+    reflection_half = normal;
+#endif
     bool used_geometric_fallback;
     reflection_direction = OpaqueEnvironmentFallbackDirection(
         reflection_direction, geo_normal, V, reflection_half,
         used_geometric_fallback);
     vec3 specular_normal = used_geometric_fallback ? geo_normal : normal;
-    vec3 environment = SampleOpaqueEnvironment(reflection_direction, lm.g);
-    vec3 history = vec3(0.0);
-    float confidence = 0.0;
+    float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
 #ifdef OPAQUE_SSR
-    history = SanitizeOpaqueHistory(
-        texelFetch(colortex3, tx, 0).rgb, smooth_lum);
-    confidence = clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0);
+    vec3 environment = SampleOpaqueEnvironment(reflection_direction, lm.g);
+#else
+    // SH-only reflections are a low-cost environment fallback. Gate them by
+    // the raw sky light visibility and AO so dark or occluded surfaces do not
+    // retain a uniform plastic specular sheen.
+    vec3 environment = EvalSkyRadiance(reflection_direction)
+        * pow(lm.y, 8.0) * mean_ao;
 #endif
+    vec3 incident_radiance = environment;
+#ifdef OPAQUE_SSR
+    vec3 history = SanitizeOpaqueHistory(
+        texelFetch(colortex3, tx, 0).rgb, smooth_lum);
+    float confidence = clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0);
     float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
-    vec3 incident_radiance = mix(
+    incident_radiance = mix(
         environment, recursion_decay * history, confidence);
+#endif
     float reflection_ndotv = Max0(dot(specular_normal, V));
     float reflection_ndotl = Max0(
         dot(specular_normal, reflection_direction));
@@ -331,7 +344,6 @@ void main() {
         reflection_ndotv,
         reflection_ndotl,
         material.alpha);
-    float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     indirect_specular *= SpecularOcclusion(
         reflection_ndotv, mean_ao, material.perceptual_roughness);
 #if OPAQUE_SSR_DEBUG == 8

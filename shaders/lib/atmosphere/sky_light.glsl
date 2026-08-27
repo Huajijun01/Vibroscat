@@ -19,6 +19,39 @@ const float SH_A0 = 3.141593;
 const float SH_A1 = 2.094395;
 const float SH_A2 = 0.785398;
 
+// Evaluate the projected sky radiance itself. Unlike EvalSkyLight, this
+// leaves the SH coefficients unconvolved so specular environment lookups do
+// not receive a diffuse irradiance integral.
+vec3 EvalSkyRadiance(vec3 direction) {
+    if (dot(direction, direction) < 1e-8) return vec3(0.0);
+    vec3 unit_direction = normalize(direction);
+    float x = unit_direction.x;
+    float y = unit_direction.y;
+    float z = unit_direction.z;
+
+    float Y0 = SH_Y0;
+    float Y1 = SH_Y1 * y;
+    float Y2 = SH_Y1 * z;
+    float Y3 = SH_Y1 * x;
+    float Y20 = SH_Y20 * (3.0 * y * y - 1.0);
+    float y2yz = SH_Y21 * y * z;
+    float y2xz = SH_Y21 * x * z;
+    float y2xy = SH_Y21 * x * y;
+    float y2x2z2 = SH_Y22 * (x * x - z * z);
+
+    vec3 radiance = vec3(
+        dot(skySH_R0, vec4(Y0, Y1, Y2, Y3))
+      + dot(skySH_R1, vec4(Y20, y2yz, y2xz, y2xy))
+      + skySH_R2.x * y2x2z2,
+        dot(skySH_G0, vec4(Y0, Y1, Y2, Y3))
+      + dot(skySH_G1, vec4(Y20, y2yz, y2xz, y2xy))
+      + skySH_G2.x * y2x2z2,
+        dot(skySH_B0, vec4(Y0, Y1, Y2, Y3))
+      + dot(skySH_B1, vec4(Y20, y2yz, y2xz, y2xy))
+      + skySH_B2.x * y2x2z2);
+    return max(radiance, 0.0);
+}
+
 // World-space reconstruction: coefficients baked in the cloud-skybox axes
 // (+X azimuth 0, +Y up, +Z +90°), so a world normal maps directly (no
 // sun-azimuth rotation); all 9 terms kept (clouds break the sun-azimuth

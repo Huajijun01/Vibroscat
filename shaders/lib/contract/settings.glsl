@@ -145,6 +145,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 // Opaque recursive screen-space indirect specular. This budget is separate
 // from the forward water/glass SSR path below.
 #define OPAQUE_SSR_QUALITY 2 // [0 1 2 3]
+#define OPAQUE_SSR_SPATIAL_FILTER
 #define OPAQUE_SSR_DEBUG 0 // [0 1 2 3 4 5 6 7 8]
 #if OPAQUE_SSR_QUALITY > 0
 #define OPAQUE_SSR

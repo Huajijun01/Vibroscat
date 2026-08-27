@@ -287,6 +287,8 @@ option.AIR_FOG_SHADOWS = 雾阴影
 option.AIR_FOG_SHADOWS.comment = 雾内太阳阴影可见性（极线阴影项）。
 
 #Lighting
+option.OPAQUE_REFLECTION = 不透明反射
+option.OPAQUE_REFLECTION.comment = 开启不透明屏幕空间反射；关闭时只使用天空 SH 环境光。
 option.OPAQUE_SSR_QUALITY = 不透明反射质量
 option.OPAQUE_SSR_QUALITY.comment = 不透明 PBR 材质的屏幕空间间接镜面反射质量。
 value.OPAQUE_SSR_QUALITY.0 = 仅环境

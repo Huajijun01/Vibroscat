@@ -287,6 +287,8 @@ option.AIR_FOG_SHADOWS = Fog Shadows
 option.AIR_FOG_SHADOWS.comment = Sun shadow visibility inside the fog (epipolar shadow term).
 
 #Lighting
+option.OPAQUE_REFLECTION = Opaque Reflections
+option.OPAQUE_REFLECTION.comment = Enable opaque screen-space reflections; off uses sky SH environment lighting only.
 option.OPAQUE_SSR_QUALITY = Opaque Reflection Quality
 option.OPAQUE_SSR_QUALITY.comment = Screen-space indirect specular quality for opaque PBR materials.
 value.OPAQUE_SSR_QUALITY.0 = Environment Only

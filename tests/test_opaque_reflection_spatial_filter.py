@@ -18,8 +18,8 @@ def spatial_radius(roughness, distance, limit):
     )
 
 
-def source_weight(center_environment, sample_environment):
-    return 1.0 if center_environment == sample_environment else 0.0
+def source_mix_weight(center_environment, sample_environment):
+    return 1.0
 
 
 def normalize(weights):
@@ -29,6 +29,17 @@ def normalize(weights):
 
 def stage_candidate_count(tap_radius, stages=3):
     return stages * (2 * tap_radius + 1) ** 2
+
+
+def spatial_kernel_weight(x, y, radius):
+    center = 2.0 if radius == 1 else 6.0
+    adjacent = 1.0 if radius == 1 else 4.0
+
+    def axis_weight(value):
+        value = abs(value)
+        return center if value == 0 else adjacent if value == 1 else 1.0
+
+    return axis_weight(x) * axis_weight(y) / (center * center)
 
 
 class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
@@ -80,6 +91,66 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
         self.assertRegex(settings, r"#define OPAQUE_SSR_SPATIAL_TAP_RADIUS 1")
         self.assertRegex(settings, r"#define OPAQUE_SSR_SPATIAL_TAP_RADIUS 2")
 
+    def test_spatial_filter_is_exposed_and_defaults_enabled(self):
+        settings = read("shaders/lib/contract/settings.glsl")
+        self.assertRegex(settings, r"(?m)^#define OPAQUE_SSR_SPATIAL_FILTER\s*$")
+
+        properties = read("shaders/shaders.properties")
+        lighting_line = next(
+            line
+            for line in properties.splitlines()
+            if line.startswith("screen.LIGHTING =")
+        )
+        self.assertIn("OPAQUE_SSR_SPATIAL_FILTER", lighting_line)
+
+        english = read("shaders/lang/en_us.lang")
+        chinese = read("shaders/lang/zh_cn.lang")
+        for token in (
+            "option.OPAQUE_SSR_SPATIAL_FILTER",
+            "option.OPAQUE_SSR_SPATIAL_FILTER.comment",
+        ):
+            self.assertIn(token, english)
+            self.assertIn(token, chinese)
+
+    def test_spatial_filter_switch_controls_passes_and_shading_source(self):
+        properties = read("shaders/shaders.properties")
+        self.assertIn("#if OPAQUE_SSR_SPATIAL_FILTER", properties)
+        spatial_switch = properties.split("#if OPAQUE_SSR_SPATIAL_FILTER", 1)[1]
+        spatial_block, no_spatial_block = spatial_switch.split("#else", 1)
+        no_spatial_block = no_spatial_block.split("#endif", 1)[0]
+        for world in self.WORLDS:
+            for stage in (3, 4, 5):
+                self.assertRegex(
+                    spatial_block,
+                    rf"program\.{re.escape(world)}/deferred{stage}\.enabled\s*=\s*true",
+                )
+        for world in self.WORLDS:
+            for stage in (3, 4, 5):
+                self.assertRegex(
+                    no_spatial_block,
+                    rf"program\.{re.escape(world)}/deferred{stage}\.enabled\s*=\s*false",
+                )
+
+        shading = read("shaders/program/deferred/deferred_shading.fragment")
+        history_region = re.search(
+            r"#ifdef OPAQUE_SSR\s*\n"
+            r"(?P<body>.*?)"
+            r"\n#endif\s*\n"
+            r"\s*float recursion_decay",
+            shading,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(history_region)
+        body = history_region.group("body")
+        self.assertIn("#ifdef OPAQUE_SSR_SPATIAL_FILTER", body)
+        filtered = body.split("#ifdef OPAQUE_SSR_SPATIAL_FILTER", 1)[1]
+        filtered, unfiltered = filtered.split("#else", 1)
+        unfiltered = unfiltered.split("#endif", 1)[0]
+        self.assertIn("texelFetch(colortex6", filtered)
+        self.assertIn("texelFetch(colortex7", filtered)
+        self.assertIn("texelFetch(colortex3", unfiltered)
+        self.assertIn("texelFetch(colortex11", unfiltered)
+
     def test_compute_pass_uses_shared_tiles_and_disjoint_bindings(self):
         source = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
         for token in (
@@ -116,7 +187,6 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
             "normal_weight",
             "roughness_weight",
             "distance_weight",
-            "source_weight",
         ):
             self.assertIn(token, helpers)
 
@@ -131,19 +201,98 @@ class OpaqueReflectionSpatialFilterContractTests(unittest.TestCase):
 
     def test_filter_support_is_adaptive_and_coarse_to_fine(self):
         compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
-        self.assertIn("tap_distance", compute)
+        self.assertIn("tap_radius", compute)
         self.assertIn("SPATIAL_STRIDE", compute)
         self.assertEqual(stage_candidate_count(1), 27)
         self.assertEqual(stage_candidate_count(2), 75)
+
+    def test_filter_uses_a_full_square_kernel_without_diamond_cutoff(self):
+        compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
+        helpers = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
+
+        self.assertNotIn("length(vec2(tap))", compute)
+        self.assertNotRegex(
+            compute,
+            r"tap_distance\s*>\s*tap_radius",
+        )
+        self.assertIn("OpaqueSpatialKernelWeight", helpers)
+        self.assertIn("kernel_weight", compute)
+
+    def test_spatial_kernel_is_normalized_and_tapered(self):
+        helpers = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
+        self.assertIn("center_weight * center_weight", helpers)
+
+        center = spatial_kernel_weight(0, 0, 2)
+        adjacent = spatial_kernel_weight(1, 0, 2)
+        corner = spatial_kernel_weight(2, 2, 2)
+        self.assertEqual(center, 1.0)
+        self.assertGreater(adjacent, corner)
+        self.assertGreater(corner, 0.0)
+
+    def test_filter_mixes_geometry_and_environment_radiance(self):
+        compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
+
+        for token in (
+            "radiance_sum",
+            "distance_magnitude_sum",
+            "source_sign_sum",
+            "sample_environment ? -1.0 : 1.0",
+        ):
+            self.assertIn(token, compute)
+        self.assertNotIn("geometry_radiance", compute)
+        self.assertNotIn("environment_radiance", compute)
+
+        helpers = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
+        self.assertNotIn("center_environment == sample_environment", helpers)
+
+    def test_valid_reflections_keep_a_minimum_neighborhood(self):
+        helpers = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
+        self.assertRegex(
+            helpers,
+            r"return min\(float\(OPAQUE_SSR_FILTER_RADIUS\),\s*"
+            r"max\(0\.5,\s*support\)\)",
+        )
+
+        compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
+        self.assertIn("ceil(center_radius", compute)
+        self.assertRegex(
+            compute,
+            r"float tap_radius\s*=\s*max\(1\.0,\s*ceil\(",
+        )
+
+    def test_invalid_center_can_pull_valid_neighbor_radiance(self):
+        helpers = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
+        self.assertIn("center_distance <= 0.0", helpers)
+
+        compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
+        self.assertIn("center_surface_valid", compute)
+        self.assertIn("center_source_known", compute)
+        self.assertRegex(compute, r"if \(center_surface_valid\) \{")
+        self.assertNotRegex(
+            compute,
+            r"if \(center_valid\) \{\s*\n\s*float center_radius",
+        )
+
+    def test_filter_preserves_environment_source_class(self):
+        compute = read("shaders/program/deferred/opaque_reflection_spatial_filter.compute")
+        self.assertIn("metadata.x < 0.0", compute)
+        self.assertIn("sample_metadata.w > 0.5", compute)
+        self.assertIn("abs(center_distance)", compute)
+        self.assertIn("center_source_known", compute)
+        self.assertRegex(
+            compute,
+            r"output_sign\s*=\s*center_source_known\s*\?\s*"
+            r"sign\(center_distance\)",
+        )
 
     def test_spatial_radius_is_bounded(self):
         self.assertEqual(spatial_radius(0.2, 4.0, 6.0), 0.2**2 * 2.0)
         self.assertEqual(spatial_radius(1.0, 1000.0, 6.0), 6.0)
 
-    def test_source_classes_do_not_cross_filter(self):
-        self.assertEqual(source_weight(True, False), 0.0)
-        self.assertEqual(source_weight(False, True), 0.0)
-        self.assertEqual(source_weight(True, True), 1.0)
+    def test_source_classes_can_cross_filter(self):
+        self.assertEqual(source_mix_weight(True, False), 1.0)
+        self.assertEqual(source_mix_weight(False, True), 1.0)
+        self.assertEqual(source_mix_weight(True, True), 1.0)
 
     def test_normalized_weights_sum_to_one(self):
         weights = normalize([0.5, 1.0, 1.5])

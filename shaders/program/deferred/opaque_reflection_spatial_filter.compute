@@ -126,36 +126,37 @@ void main() {
         local_center.y][local_center.x];
     vec4 center_geometry = tile_geometry[
         local_center.y][local_center.x];
-    vec3 center_radiance = max(tile_radiance[
-        local_center.y][local_center.x].rgb, vec3(0.0));
     float center_distance = center_metadata.x;
-    float center_confidence = clamp(center_metadata.y, 0.0, 1.0);
-    bool center_valid = center_metadata.z > 0.5
-        && center_confidence > 0.0;
-    bool center_environment = center_metadata.w > 0.5;
+    bool center_source_known = abs(center_distance) > 1e-5;
+    bool center_surface_valid = center_geometry.w < far;
 
-    vec3 result = vec3(0.0);
-    float distance_sum = 0.0;
+    vec3 radiance_sum = vec3(0.0);
+    float distance_magnitude_sum = 0.0;
+    float source_sign_sum = 0.0;
     float confidence_sum = 0.0;
-    float geometry_weight = 0.0;
     float radiance_weight = 0.0;
+    float compatibility_weight = 0.0;
 
-    if (center_valid) {
+    if (center_surface_valid) {
         float center_radius = OpaqueSpatialRadius(
-            center_surface.w, center_distance);
+            center_surface.w, center_source_known
+                ? abs(center_distance) : 0.0);
         int stride = OpaqueSpatialStride(center_radius,
             OPAQUE_SPATIAL_STAGE);
         bool center_only = stride == 0;
+        float tap_radius = max(1.0, ceil(center_radius
+            / float(SPATIAL_STRIDE)));
+        tap_radius = min(tap_radius, float(SPATIAL_TAP_RADIUS));
         for (int oy = -SPATIAL_TAP_RADIUS;
                 oy <= SPATIAL_TAP_RADIUS; ++oy) {
             for (int ox = -SPATIAL_TAP_RADIUS;
                     ox <= SPATIAL_TAP_RADIUS; ++ox) {
                 ivec2 tap = ivec2(ox, oy);
                 if (center_only && any(notEqual(tap, ivec2(0)))) continue;
-                float tap_distance = length(
-                    vec2(tap * SPATIAL_STRIDE));
-                if (tap_distance > max(center_radius,
-                        0.5 * float(SPATIAL_STRIDE))) continue;
+                int kernel_radius = int(tap_radius);
+                float kernel_weight = OpaqueSpatialKernelWeight(
+                    tap, kernel_radius);
+                if (kernel_weight <= 0.0) continue;
 
                 ivec2 sample_tile = local_center
                     + tap * SPATIAL_STRIDE;
@@ -175,33 +176,40 @@ void main() {
                     sample_tile.y][sample_tile.x];
                 vec4 sample_geometry = tile_geometry[
                     sample_tile.y][sample_tile.x];
+                bool sample_environment = sample_metadata.w > 0.5;
                 float compatibility = OpaqueSpatialWeight(
-                    vec2(tap), center_geometry.w, sample_geometry.w,
+                    kernel_weight, center_geometry.w, sample_geometry.w,
                     center_geometry.xyz, sample_geometry.xyz,
                     center_surface.xyz, sample_surface.xyz,
                     center_surface.w, sample_surface.w,
-                    center_distance, sample_metadata.x,
-                    center_environment, sample_metadata.w > 0.5);
+                    center_distance, sample_metadata.x);
                 if (compatibility <= 0.0) continue;
 
-                float source_weight = compatibility * sample_confidence;
-                result += max(sample_radiance, vec3(0.0))
-                    * source_weight;
-                distance_sum += sample_metadata.x * source_weight;
+                float sample_weight = compatibility * sample_confidence;
+                radiance_sum += max(sample_radiance, vec3(0.0))
+                    * sample_weight;
+                distance_magnitude_sum += abs(sample_metadata.x)
+                    * sample_weight;
+                source_sign_sum += (sample_environment ? -1.0 : 1.0)
+                    * sample_weight;
                 confidence_sum += sample_confidence * compatibility;
-                radiance_weight += source_weight;
-                geometry_weight += compatibility;
+                radiance_weight += sample_weight;
+                compatibility_weight += compatibility;
             }
         }
     }
 
-    if (radiance_weight > 1e-5 && geometry_weight > 1e-5) {
+    if (radiance_weight > 1e-5 && compatibility_weight > 1e-5) {
+        vec3 result = radiance_sum / radiance_weight;
+        float output_sign = center_source_known ? sign(center_distance)
+            : source_sign_sum < 0.0 ? -1.0 : 1.0;
+        float output_distance = output_sign
+            * distance_magnitude_sum / radiance_weight;
         float output_confidence = clamp(
-            confidence_sum / geometry_weight, 0.0, 1.0);
-        imageStore(DST_RADIANCE, gid, vec4(
-            result / radiance_weight, 0.0));
+            confidence_sum / compatibility_weight, 0.0, 1.0);
+        imageStore(DST_RADIANCE, gid, vec4(result, 0.0));
         imageStore(DST_METADATA, gid, vec4(
-            distance_sum / radiance_weight, output_confidence, 0.0, 0.0));
+            output_distance, output_confidence, 0.0, 0.0));
     } else {
         imageStore(DST_RADIANCE, gid, vec4(0.0));
         imageStore(DST_METADATA, gid, vec4(0.0));

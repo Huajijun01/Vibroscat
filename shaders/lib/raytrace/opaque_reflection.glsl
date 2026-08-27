@@ -2,10 +2,18 @@
 #define LIB_RAYTRACE_OPAQUE_REFLECTION_GLSL
 
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/lighting/ambient_light.glsl"
 #include "/lib/raytrace/ssr.glsl"
+
+vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
+    if (dot(direction, direction) < 1e-8) return vec3(0.0);
+    return SkyLightFromLm(sky_light)
+        * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
+}
 
 vec2 OpaqueSSRRandom2(ivec2 tx) {
     ivec3 size = textureSize(utex_stbn_scalar, 0);

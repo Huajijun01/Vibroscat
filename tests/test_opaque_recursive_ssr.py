@@ -133,6 +133,31 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         ):
             self.assertNotIn(token, source)
 
+    def test_opaque_trace_keeps_sky_hits_for_environment_filtering(self):
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        self.assertIn("OPAQUE_SSR_STEPS, true);", trace)
+        self.assertNotIn("shared_hit.sky) return", trace)
+        self.assertIn("!shared_hit.valid || shared_hit.sky", trace)
+        self.assertIn("vec2(-environment_distance, 1.0)", trace)
+
+    def test_opaque_trace_writes_environment_fallback_before_filtering(self):
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        opaque = read("shaders/lib/raytrace/opaque_reflection.glsl")
+
+        self.assertRegex(
+            trace,
+            r"if \(!shared_hit\.valid \|\| shared_hit\.sky\)",
+        )
+        self.assertRegex(
+            trace,
+            r"SampleOpaqueEnvironment\(\s*reflection_direction,\s*sky_light\)",
+        )
+        self.assertRegex(
+            trace,
+            r"out_reflection_metadata\s*=\s*vec2\(-environment_distance,\s*1\.0\)",
+        )
+        self.assertIn("vec3 SampleOpaqueEnvironment", opaque)
+
     def test_filter_uses_all_guidance_terms(self):
         source = read("shaders/lib/lighting/opaque_reflection_filter.glsl")
         for token in (
@@ -141,7 +166,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             "normal_weight",
             "roughness_weight",
             "distance_weight",
-            "source_weight",
+            "spatial_weight",
         ):
             self.assertIn(token, source)
 
@@ -213,8 +238,12 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         properties = read("shaders/shaders.properties")
         condition = "#if OPAQUE_SSR_QUALITY > 0"
         self.assertIn(condition, properties)
-        conditional_block = properties.split(condition, 1)[1].split("#endif", 1)[0]
-        enabled_block, disabled_block = conditional_block.split("#else", 1)
+        quality_start = properties.index(condition)
+        disabled_start = properties.index(
+            "#else\nprogram.world0/deferred2.enabled = false", quality_start
+        )
+        enabled_block = properties[quality_start:disabled_start]
+        disabled_block = properties[disabled_start:]
         for world in ("world0", "world1", "world-1"):
             for program in ("deferred2", "deferred3", "deferred4", "deferred5"):
                 self.assertRegex(

@@ -18,7 +18,6 @@ void main() {
     if (depth >= 1.0) return;
 
     vec4 packed_surface = texelFetch(colortex2, tx, 0);
-    float sky_light = texelFetch(colortex4, tx, 0).w;
     vec2 nx_ao = Unpack2x8(packed_surface.r);
     vec2 ny_nz = Unpack2x8(packed_surface.g);
     vec2 rough_selector = Unpack2x8(packed_surface.b);
@@ -47,16 +46,8 @@ void main() {
     float trace_jitter = OpaqueSSRRandom2(tx).y;
     SSRHit shared_hit = TraceScreenSpaceReflection(
         trace_origin, view_direction, trace_jitter,
-        OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);
-    if (!shared_hit.valid || shared_hit.sky) {
-        float environment_distance = shared_hit.valid
-            ? max(shared_hit.path_length, 0.05)
-            : OPAQUE_SSR_MAX_DISTANCE;
-        out_reflection_radiance = SampleOpaqueEnvironment(
-            reflection_direction, sky_light);
-        out_reflection_metadata = vec2(-environment_distance, 1.0);
-        return;
-    }
+        OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, false);
+    if (!shared_hit.valid || shared_hit.sky) return;
 
     float confidence;
     float selected_mip;

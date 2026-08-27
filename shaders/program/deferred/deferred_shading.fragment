@@ -42,6 +42,12 @@ layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
 
+vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
+    if (dot(direction, direction) < 1e-8) return vec3(0.0);
+    return SkyLightFromLm(sky_light)
+        * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
+}
+
 vec3 OpaqueEnvironmentFallbackDirection(vec3 sampled_direction,
         vec3 geo_normal, vec3 V, inout vec3 reflection_half,
         out bool used_geometric_fallback) {
@@ -309,15 +315,9 @@ void main() {
     vec3 history = vec3(0.0);
     float confidence = 0.0;
 #ifdef OPAQUE_SSR
-#ifdef OPAQUE_SSR_SPATIAL_FILTER
-    history = SanitizeOpaqueHistory(
-        texelFetch(colortex6, tx, 0).rgb, smooth_lum);
-    confidence = clamp(texelFetch(colortex7, tx, 0).g, 0.0, 1.0);
-#else
     history = SanitizeOpaqueHistory(
         texelFetch(colortex3, tx, 0).rgb, smooth_lum);
     confidence = clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0);
-#endif
 #endif
     float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
     vec3 incident_radiance = mix(

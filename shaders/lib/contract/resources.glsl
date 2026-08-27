@@ -15,8 +15,6 @@
 //   colortex3   R11F_G11F_B10F   Opaque reflection radiance trace/filter transient
 //   colortex4   RGBA8            Opaque geometric normal (RG) + lightmap (BA) (solid -> deferred2)
 //   colortex5   R11F_G11F_B10F   TAA history
-//   colortex6   R11F_G11F_B10F   Opaque reflection spatial-filter scratch
-//   colortex7   RG16F            Opaque reflection spatial metadata scratch
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (ao, age, 1-depth, A=NaN "not cloud")
@@ -41,8 +39,6 @@ const int colortex2Format  = RGBA16;
 const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;
 const int colortex5Format  = R11F_G11F_B10F;
-const int colortex6Format  = R11F_G11F_B10F;
-const int colortex7Format  = RG16F;
 const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, 1-depth, A=NaN)
 const int colortex11Format = RG16F;
 const int colortex12Format = RGBA16F;
@@ -56,8 +52,6 @@ const bool colortex2Clear  = false;   // GBuffer merged data
 const bool colortex3Clear  = false;   // opaque reflection radiance transient
 const bool colortex4Clear  = false;   // opaque geometric normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
-const bool colortex6Clear  = true;    // opaque reflection spatial scratch
-const bool colortex7Clear  = true;    // opaque reflection spatial metadata scratch
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
 const bool colortex11Clear = false;   // opaque reflection metadata transient
 const bool colortex12Clear = true;   // sequential GBuffer, bloom, and tonemap workspace

@@ -117,8 +117,6 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     float ray_start_depth = LinearDepthFromScreenDepth(start_pos.z);
     float previous_t = 0.0;
     vec3 previous_pos = start_pos;
-    SSRHit sky_candidate = SSRMiss();
-    bool last_sample_sky = false;
 
     for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
         if (i >= budget) break;
@@ -128,23 +126,17 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
                 || any(greaterThan(ray_pos.xy, vec2(1.0)))) break;
 
         float surface_depth = textureLod(depthtex1, ray_pos.xy, 0.0).x;
-        last_sample_sky = allow_sky && surface_depth >= 1.0;
-        if (last_sample_sky) {
-            // Open sky at an intermediate pixel does not prove that the rest
-            // of the projected ray cannot intersect geometry.
-            SSRHit sky_hit;
-            sky_hit.screen = ray_pos;
-            sky_hit.surface_depth = 1.0;
-            sky_hit.path_length = length(
-                NDCToView(ray_pos * 2.0 - 1.0) - view_origin);
-            sky_hit.valid = sky_hit.path_length > 0.05;
-            sky_hit.sky = sky_hit.valid;
-            sky_candidate = sky_hit;
-        } else {
-            sky_candidate = miss;
-        }
-
         if (ray_pos.z >= 1.0) {
+            if (allow_sky && surface_depth >= 1.0) {
+                SSRHit sky_hit;
+                sky_hit.screen = ray_pos;
+                sky_hit.surface_depth = 1.0;
+                sky_hit.path_length = length(
+                    NDCToView(ray_pos * 2.0 - 1.0) - view_origin);
+                sky_hit.valid = true;
+                sky_hit.sky = true;
+                return sky_hit;
+            }
             break;
         }
 
@@ -194,7 +186,6 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
         previous_pos = ray_pos;
         sample_t += step_length;
     }
-    if (last_sample_sky) return sky_candidate;
     return miss;
 }
 

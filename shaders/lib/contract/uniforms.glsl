@@ -52,8 +52,6 @@ uniform sampler2D colortex2;      // opaque GBuffer, then translucent surface da
 uniform sampler2D colortex3;      // opaque reflection radiance transient
 uniform sampler2D colortex4;      // opaque geometric normal (RG) + lightmap (BA)
 uniform sampler2D colortex5;      // TAA / composite history
-uniform sampler2D colortex6;      // opaque reflection spatial scratch radiance
-uniform sampler2D colortex7;      // opaque reflection spatial scratch metadata
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex11;     // opaque reflection path length/confidence
 uniform sampler2D colortex12;     // sequential post workspace

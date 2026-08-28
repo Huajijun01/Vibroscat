@@ -301,49 +301,76 @@ void main() {
     color += diffuse_reflectance * block_color * torch_light * gtao_ao;
 
     // ── Indirect specular ──
-    vec3 reflection_half;
-#ifdef OPAQUE_SSR
-    vec3 reflection_direction = OpaqueReflectionDirection(
-        normal, V, material.perceptual_roughness, tx, reflection_half);
-#else
-    vec3 reflection_direction = reflect(-V, normal);
-    reflection_half = normal;
-#endif
-    bool used_geometric_fallback;
-    reflection_direction = OpaqueEnvironmentFallbackDirection(
-        reflection_direction, geo_normal, V, reflection_half,
-        used_geometric_fallback);
-    vec3 specular_normal = used_geometric_fallback ? geo_normal : normal;
+    // Rough opaque surfaces use the SH environment exclusively. The transition
+    // span keeps the SSR-to-SH change gradual while avoiding SSR work at the
+    // high-roughness end of the range.
+    float sh_weight = smoothstep(
+        OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD
+            - OPAQUE_REFLECTION_ROUGHNESS_TRANSITION,
+        OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD,
+        material.perceptual_roughness);
+    float ssr_weight = 1.0 - sh_weight;
+
+    vec3 sh_reflection_half = normal;
+    vec3 sh_reflection_direction = reflect(-V, normal);
+    bool sh_used_geometric_fallback;
+    sh_reflection_direction = OpaqueEnvironmentFallbackDirection(
+        sh_reflection_direction, geo_normal, V, sh_reflection_half,
+        sh_used_geometric_fallback);
+    vec3 sh_specular_normal = sh_used_geometric_fallback ? geo_normal : normal;
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
-#ifdef OPAQUE_SSR
-    vec3 environment = SampleOpaqueEnvironment(reflection_direction, lm.g);
-#else
     // SH-only reflections are a low-cost environment fallback. Gate them by
     // the raw sky light visibility and AO so dark or occluded surfaces do not
     // retain a uniform plastic specular sheen.
-    vec3 environment = EvalSkyRadiance(reflection_direction)
+    vec3 sh_environment = EvalSkyRadiance(sh_reflection_direction)
         * pow(lm.y, 16.0) * mean_ao * mean_ao * mean_ao;
-#endif
-    vec3 incident_radiance = environment;
-#ifdef OPAQUE_SSR
-    vec3 history = SanitizeOpaqueHistory(
-        texelFetch(colortex3, tx, 0).rgb, smooth_lum);
-    float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
-    incident_radiance = dot(history, vec3(1.0)) > 1e-5
-        ? recursion_decay * history
-        : environment;
-#endif
-    float reflection_ndotv = Max0(dot(specular_normal, V));
-    float reflection_ndotl = Max0(
-        dot(specular_normal, reflection_direction));
-    vec3 indirect_specular = incident_radiance * VisibleGGXThroughput(
+    float sh_reflection_ndotv = Max0(dot(sh_specular_normal, V));
+    float sh_reflection_ndotl = Max0(
+        dot(sh_specular_normal, sh_reflection_direction));
+    vec3 sh_specular = sh_environment * VisibleGGXThroughput(
         material.f0,
-        Max0(dot(V, reflection_half)),
-        reflection_ndotv,
-        reflection_ndotl,
+        Max0(dot(V, sh_reflection_half)),
+        sh_reflection_ndotv,
+        sh_reflection_ndotl,
         material.alpha);
-    indirect_specular *= SpecularOcclusion(
-        reflection_ndotv, mean_ao, material.perceptual_roughness);
+    sh_specular *= SpecularOcclusion(
+        sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
+
+    vec3 indirect_specular = sh_specular;
+#ifdef OPAQUE_SSR
+    if (ssr_weight > 0.0) {
+        vec3 ssr_reflection_half;
+        vec3 ssr_reflection_direction = OpaqueReflectionDirection(
+            normal, V, material.perceptual_roughness, tx,
+            ssr_reflection_half);
+        bool ssr_used_geometric_fallback;
+        ssr_reflection_direction = OpaqueEnvironmentFallbackDirection(
+            ssr_reflection_direction, geo_normal, V, ssr_reflection_half,
+            ssr_used_geometric_fallback);
+        vec3 ssr_specular_normal = ssr_used_geometric_fallback
+            ? geo_normal : normal;
+        vec3 ssr_environment = SampleOpaqueEnvironment(
+            ssr_reflection_direction, lm.g);
+        vec3 history = SanitizeOpaqueHistory(
+            texelFetch(colortex3, tx, 0).rgb, smooth_lum);
+        float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
+        vec3 ssr_incident_radiance = dot(history, vec3(1.0)) > 1e-5
+            ? recursion_decay * history
+            : ssr_environment;
+        float ssr_reflection_ndotv = Max0(dot(ssr_specular_normal, V));
+        float ssr_reflection_ndotl = Max0(
+            dot(ssr_specular_normal, ssr_reflection_direction));
+        vec3 ssr_specular = ssr_incident_radiance * VisibleGGXThroughput(
+            material.f0,
+            Max0(dot(V, ssr_reflection_half)),
+            ssr_reflection_ndotv,
+            ssr_reflection_ndotl,
+            material.alpha);
+        ssr_specular *= SpecularOcclusion(
+            ssr_reflection_ndotv, mean_ao, material.perceptual_roughness);
+        indirect_specular = mix(sh_specular, ssr_specular, ssr_weight);
+    }
+#endif
 #if OPAQUE_SSR_DEBUG == 8
     color = indirect_specular;
 #else

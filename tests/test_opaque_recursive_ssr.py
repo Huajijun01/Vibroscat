@@ -282,30 +282,74 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
                     rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*false\b",
                 )
 
+    def test_opaque_reflection_roughness_threshold_is_configurable(self):
+        settings = read("shaders/lib/contract/settings.glsl")
+        self.assertRegex(
+            settings,
+            r"(?m)^#define OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD\s+0\.5\b",
+        )
+        self.assertRegex(
+            settings,
+            r"(?m)^#define OPAQUE_REFLECTION_ROUGHNESS_TRANSITION\s+0\.1\b",
+        )
+
+        properties = read("shaders/shaders.properties")
+        lighting_line = next(
+            line
+            for line in properties.splitlines()
+            if line.startswith("screen.LIGHTING =")
+        )
+        self.assertIn("OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD", lighting_line)
+        self.assertIn("OPAQUE_REFLECTION_ROUGHNESS_TRANSITION", lighting_line)
+        sliders_line = next(
+            line for line in properties.splitlines() if line.startswith("sliders =")
+        )
+        self.assertIn("OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD", sliders_line)
+        self.assertIn("OPAQUE_REFLECTION_ROUGHNESS_TRANSITION", sliders_line)
+
+        for language in ("shaders/lang/en_us.lang", "shaders/lang/zh_cn.lang"):
+            source = read(language)
+            for token in (
+                "option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD",
+                "option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD.comment",
+                "option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION",
+                "option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION.comment",
+            ):
+                self.assertIn(token, source)
+
+    def test_opaque_reflection_roughness_threshold_skips_ssr_and_blends_to_sh(self):
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        self.assertRegex(
+            trace,
+            r"if\s*\(rough_selector\.x\s*>=\s*"
+            r"OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD\)\s*return;",
+        )
+        trace_call = trace.index("TraceScreenSpaceReflection")
+        threshold_check = trace.index("OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD")
+        self.assertLess(threshold_check, trace_call)
+
+        shading = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertRegex(
+            shading,
+            r"smoothstep\(\s*OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD\s*"
+            r"-\s*OPAQUE_REFLECTION_ROUGHNESS_TRANSITION",
+        )
+        self.assertIn("mix(sh_specular, ssr_specular, ssr_weight)", shading)
+        self.assertIn("EvalSkyRadiance(sh_reflection_direction)", shading)
+        self.assertIn("if (ssr_weight > 0.0)", shading)
+
     def test_disabled_opaque_reflection_uses_environment_only(self):
         settings = read("shaders/lib/contract/settings.glsl")
         self.assertIn("#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0", settings)
 
         shading = read("shaders/program/deferred/deferred_shading.fragment")
-        self.assertIn("#ifdef OPAQUE_SSR\n    vec3 reflection_direction = OpaqueReflectionDirection(", shading)
-        self.assertIn("#else\n    vec3 reflection_direction = reflect(-V, normal);", shading)
-        self.assertIn("#ifdef OPAQUE_SSR\n    vec3 environment = SampleOpaqueEnvironment(", shading)
-        self.assertRegex(
-            shading,
-            r"#else\n(?:\s*//.*\n)*\s*vec3 environment = "
-            r"EvalSkyRadiance\(reflection_direction\)\n"
-            r"\s*\* pow\(lm\.y, 16\.0\) \* mean_ao \* mean_ao \* mean_ao;",
-        )
-        self.assertNotIn("SkyLightFromLm(lm.y)", shading)
-        self.assertIn("vec3 incident_radiance = environment;", shading)
-        environment_block = shading.split(
-            "#ifdef OPAQUE_SSR\n    vec3 environment = SampleOpaqueEnvironment(", 1
-        )[1].split("vec3 incident_radiance = environment;", 1)[0]
-        disabled_environment = environment_block.split("#else", 1)[1]
-        self.assertNotIn("usam_skylut_cloud", disabled_environment)
+        self.assertIn("vec3 sh_reflection_direction = reflect(-V, normal);", shading)
+        self.assertIn("vec3 sh_environment = EvalSkyRadiance(sh_reflection_direction)", shading)
+        self.assertIn("#ifdef OPAQUE_SSR\n    if (ssr_weight > 0.0)", shading)
+        self.assertNotIn("vec3 incident_radiance = environment;", shading)
         sky_light = read("shaders/lib/atmosphere/sky_light.glsl")
         self.assertIn("vec3 EvalSkyRadiance(vec3 direction)", sky_light)
-        self.assertNotIn("EvalSkyLight(reflection_direction)", shading)
+        self.assertNotIn("EvalSkyLight(sh_reflection_direction)", shading)
 
         for source in (
             "shaders/program/deferred/opaque_reflection_trace.fragment",

@@ -19,6 +19,7 @@ void main() {
     vec2 nx_ao = Unpack2x8(packed_surface.r);
     vec2 ny_nz = Unpack2x8(packed_surface.g);
     vec2 rough_selector = Unpack2x8(packed_surface.b);
+    if (rough_selector.x >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
     vec3 normal = normalize(vec3(
         nx_ao.x * 2.0 - 1.0,
         ny_nz.x * 2.0 - 1.0,

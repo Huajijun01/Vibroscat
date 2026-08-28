@@ -92,14 +92,18 @@ float SpecularOcclusion(float ndotv, float ao, float roughness) {
     return clamp(pow(ndotv + ao, exponent) - 1.0 + ao, 0.0, 1.0);
 }
 
+float VisibleGGXVisibility(float ndotv, float ndotl, float alpha) {
+    if (ndotv <= 0.0 || ndotl <= 0.0) {
+        return 0.0;
+    }
+    return clamp(SmithGGXG2Correlated(ndotv, ndotl, alpha)
+        / max(SmithGGXG1(ndotv, alpha), 1e-5), 0.0, 1.0);
+}
+
 vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
         float ndotl, float alpha) {
-    if (ndotv <= 0.0 || ndotl <= 0.0 || vdoth <= 0.0) {
-        return vec3(0.0);
-    }
-    float ratio = clamp(SmithGGXG2Correlated(ndotv, ndotl, alpha)
-        / max(SmithGGXG1(ndotv, alpha), 1e-5), 0.0, 1.0);
-    return FresnelSchlick(vdoth, f0) * ratio;
+    return FresnelSchlick(vdoth, f0)
+        * VisibleGGXVisibility(ndotv, ndotl, alpha);
 }
 
 // ---------------------------------------------------------------------------

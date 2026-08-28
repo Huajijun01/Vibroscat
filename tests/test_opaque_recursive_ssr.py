@@ -187,11 +187,51 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         source = read("shaders/program/deferred/deferred_shading.fragment")
         self.assertNotIn("OpaqueEnvironmentFallbackDirection", source)
         self.assertIn("float sh_reflection_ndotv = Max0(dot(normal, V));", source)
-        self.assertIn("float ssr_reflection_ndotv = Max0(dot(normal, V));", source)
+        self.assertIn("float ssr_reflection_ndotv = sh_reflection_ndotv;", source)
         self.assertNotIn("sh_specular_normal", source)
         self.assertNotIn("ssr_specular_normal", source)
         self.assertNotIn("geo_normal, V, sh_reflection_half", source)
         self.assertNotIn("geo_normal, V, ssr_reflection_half", source)
+
+    def test_opaque_shading_reads_history_before_sampling_sky_fallback(self):
+        source = read("shaders/program/deferred/deferred_shading.fragment")
+        history = source.index("vec3 history = texelFetch(colortex3, tx, 0).rgb;")
+        sky_fallback = source.index(
+            "SampleOpaqueEnvironment(ssr_reflection_direction, lm.g)"
+        )
+        self.assertLess(history, sky_fallback)
+        self.assertIn("if (!history_valid)", source)
+
+    def test_opaque_shading_skips_shadow_filter_for_unlit_non_sss_surfaces(self):
+        source = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertIn(
+            "bool shadow_needed = ndotl > 1.0e-3 || sss_amount > 0.01;",
+            source,
+        )
+        self.assertIn(
+            "if (shadow_needed && all(greaterThanEqual(shadow_proj, vec3(0.0)))",
+            source,
+        )
+
+    def test_sh_reflection_reuses_fresnel_for_ggx_visibility(self):
+        shading = read("shaders/program/deferred/deferred_shading.fragment")
+        brdf = read("shaders/lib/lighting/brdf.glsl")
+        self.assertIn("float VisibleGGXVisibility(", brdf)
+        self.assertIn("vec3 sh_fresnel = FresnelSchlick(", shading)
+        self.assertIn("* VisibleGGXVisibility(", shading)
+        self.assertNotIn(
+            "sh_environment * VisibleGGXThroughput(\n        material.f0",
+            shading,
+        )
+
+    def test_sh_reflection_is_lazy_when_ssr_history_is_valid(self):
+        source = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertIn("bool need_sh =", source)
+        self.assertIn("if (need_sh) {", source)
+        self.assertLess(
+            source.index("vec3 history = texelFetch(colortex3, tx, 0).rgb;"),
+            source.index("vec3 sh_reflection_direction = reflect(-V, normal);"),
+        )
 
     def test_brdf_consumes_rgb_f0(self):
         source = read("shaders/lib/lighting/brdf.glsl")
@@ -343,28 +383,14 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         self.assertIn("EvalSkyRadiance(sh_reflection_direction)", shading)
         self.assertIn("if (ssr_weight > 0.0)", shading)
 
-    def test_sh_reflection_uses_roughness_fresnel_face_attenuation(self):
+    def test_sh_reflection_uses_albedo_face_attenuation(self):
         shading = read("shaders/program/deferred/deferred_shading.fragment")
         self.assertRegex(
             shading,
             r"vec3 sh_fresnel\s*=\s*FresnelSchlick\(\s*"
             r"sh_reflection_ndotv\s*,\s*material\.f0\s*\)",
         )
-        self.assertRegex(
-            shading,
-            r"float sh_roughness_weight\s*=\s*"
-            r"material\.perceptual_roughness\s*\*\s*"
-            r"material\.perceptual_roughness\s*;",
-        )
-        self.assertIn(
-            "vec3 sh_face_attenuation = mix(vec3(0.6), vec3(1.0), sh_fresnel);",
-            shading,
-        )
-        self.assertRegex(
-            shading,
-            r"sh_specular\s*\*=\s*mix\(\s*vec3\(1\.0\)\s*,\s*"
-            r"sh_face_attenuation\s*,\s*sh_roughness_weight\s*\);",
-        )
+        self.assertIn("sh_specular *= mix(vec3(1.0), albedo, 0.8);", shading)
 
     def test_opaque_trace_offsets_origin_outside_geometry(self):
         trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")

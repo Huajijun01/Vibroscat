@@ -219,7 +219,9 @@ void main() {
     float shadow_occlusion = 1.0;
     float sss_thickness_world = 0.0;
     vec3 shadow_proj = ProjectToShadowWithBias(world_pos, geo_ndotl);
-    if (all(greaterThanEqual(shadow_proj, vec3(0.0))) && all(lessThanEqual(shadow_proj, vec3(1.0)))) {
+    bool shadow_needed = ndotl > 1.0e-3 || sss_amount > 0.01;
+    if (shadow_needed && all(greaterThanEqual(shadow_proj, vec3(0.0)))
+            && all(lessThanEqual(shadow_proj, vec3(1.0)))) {
 #ifdef SHADOW_PCSS
         vec3 shadow_clip = ProjectToShadowClip(world_pos);
         shadow_occlusion = ShadowFilterPCSS(shadow_proj, shadow_clip, gl_FragCoord.xy, view_pos, sss_amount, ndotl,
@@ -285,32 +287,42 @@ void main() {
         material.perceptual_roughness);
     float ssr_weight = 1.0 - sh_weight;
 
-    vec3 sh_reflection_direction = reflect(-V, normal);
-    float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
-    // SH-only reflections are a low-cost environment fallback. Gate them by
-    // the raw sky light visibility and AO so dark or occluded surfaces do not
-    // retain a uniform plastic specular sheen.
-    vec3 sh_environment = EvalSkyRadiance(sh_reflection_direction)
-        * pow(lm.y, 16.0) * mean_ao * mean_ao * mean_ao;
     float sh_reflection_ndotv = Max0(dot(normal, V));
-    float sh_reflection_ndotl = Max0(
-        dot(normal, sh_reflection_direction));
-    vec3 sh_specular = sh_environment * VisibleGGXThroughput(
-        material.f0,
-        Max0(dot(V, normal)),
-        sh_reflection_ndotv,
-        sh_reflection_ndotl,
-        material.alpha);
-    sh_specular *= SpecularOcclusion(
-        sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
-    // Broad SH reflections lean toward a diffuse-like face response while
-    // retaining Fresnel lift at grazing angles.
-    vec3 sh_fresnel = FresnelSchlick(
-        sh_reflection_ndotv, material.f0);
-    float sh_roughness_weight = material.perceptual_roughness
-        * material.perceptual_roughness;
-    vec3 sh_face_attenuation = mix(vec3(0.6), vec3(1.0), sh_fresnel);
-    sh_specular *= mix(vec3(1.0), sh_face_attenuation, sh_roughness_weight);
+    float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
+    vec3 sh_specular = vec3(0.0);
+#ifdef OPAQUE_SSR
+    vec3 history = texelFetch(colortex3, tx, 0).rgb;
+    bool history_valid = dot(history, vec3(1.0)) > 1e-5;
+#else
+    bool history_valid = false;
+#endif
+    bool need_sh = true;
+#ifdef OPAQUE_SSR
+    need_sh = ssr_weight < 1.0 || !history_valid;
+#endif
+    if (need_sh) {
+        vec3 sh_reflection_direction = reflect(-V, normal);
+        float sh_reflection_ndotl = Max0(
+            dot(normal, sh_reflection_direction));
+        // SH-only reflections are a low-cost environment fallback. Gate them
+        // by sky light visibility and AO so occluded surfaces do not retain a
+        // uniform plastic specular sheen.
+        vec3 sh_environment = EvalSkyRadiance(sh_reflection_direction)
+            * pow(lm.y, 16.0) * mean_ao * mean_ao * mean_ao;
+        // Broad SH reflections lean toward a diffuse-like face response while
+        // retaining Fresnel lift at grazing angles. Reuse this Fresnel term
+        // for both the GGX visibility path and the face attenuation.
+        vec3 sh_fresnel = FresnelSchlick(
+            sh_reflection_ndotv, material.f0);
+        sh_specular = sh_environment * sh_fresnel
+            * VisibleGGXVisibility(
+                sh_reflection_ndotv,
+                sh_reflection_ndotl,
+                material.alpha);
+        sh_specular *= SpecularOcclusion(
+            sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
+        sh_specular *= mix(vec3(1.0), albedo, 0.8);
+    }
 
     vec3 indirect_specular = sh_specular;
 #ifdef OPAQUE_SSR
@@ -319,14 +331,15 @@ void main() {
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
             normal, V, material.perceptual_roughness, tx,
             ssr_reflection_half);
-        vec3 ssr_environment = SampleOpaqueEnvironment(
-            ssr_reflection_direction, lm.g);
-        vec3 history = texelFetch(colortex3, tx, 0).rgb;
+        vec3 ssr_environment = vec3(0.0);
+        if (!history_valid) {
+            ssr_environment = SampleOpaqueEnvironment(ssr_reflection_direction, lm.g);
+        }
         float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
-        vec3 ssr_incident_radiance = dot(history, vec3(1.0)) > 1e-5
+        vec3 ssr_incident_radiance = history_valid
             ? recursion_decay * history
             : ssr_environment;
-        float ssr_reflection_ndotv = Max0(dot(normal, V));
+        float ssr_reflection_ndotv = sh_reflection_ndotv;
         float ssr_reflection_ndotl = Max0(
             dot(normal, ssr_reflection_direction));
         vec3 ssr_specular = ssr_incident_radiance * VisibleGGXThroughput(

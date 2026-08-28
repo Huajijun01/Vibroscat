@@ -25,6 +25,13 @@ void main() {
         ny_nz.x * 2.0 - 1.0,
         ny_nz.y * 2.0 - 1.0));
 
+    // Move the ray origin off the rasterized geometric surface before
+    // marching. Reflection direction and BRDF still use the material normal;
+    // this offset only prevents the first depth sample from re-hitting this
+    // surface at close range.
+    vec4 geometry_data = texelFetch(colortex4, tx, 0);
+    vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
+
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
 #ifdef TAA
     vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
@@ -41,7 +48,13 @@ void main() {
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(
         mat3(gbufferModelView) * reflection_direction);
-    vec3 trace_origin = view_pos + view_direction * 0.05;
+    // The shared projector marches toward the far plane. A camera-facing ray
+    // would be projected backwards and can re-hit this surface, so opaque SSR
+    // only traces directions with a forward (negative view-space Z) component.
+    if (view_direction.z >= 0.0) return;
+    vec3 trace_origin = view_pos
+        + geo_view_normal * 0.03
+        + view_direction * 0.05;
     float trace_jitter = OpaqueSSRRandom2(tx).y;
     SSRHit shared_hit = TraceScreenSpaceReflection(
         trace_origin, view_direction, trace_jitter,

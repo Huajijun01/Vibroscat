@@ -48,20 +48,6 @@ vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
         * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
 }
 
-vec3 SanitizeOpaqueHistory(vec3 history, float average_luminance) {
-    if (any(isnan(history)) || any(isinf(history))
-            || any(lessThan(history, vec3(0.0)))) {
-        return vec3(0.0);
-    }
-    if (isnan(average_luminance) || isinf(average_luminance)
-            || average_luminance < 0.0) {
-        average_luminance = 1.0;
-    }
-    float luminance = dot(history, vec3(0.2126, 0.7152, 0.0722));
-    float ceiling = max(16.0, average_luminance * 64.0);
-    return history * min(1.0, ceiling / max(luminance, 1e-5));
-}
-
 void main() {
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
@@ -332,8 +318,7 @@ void main() {
         vec3 ssr_specular_normal = normal;
         vec3 ssr_environment = SampleOpaqueEnvironment(
             ssr_reflection_direction, lm.g);
-        vec3 history = SanitizeOpaqueHistory(
-            texelFetch(colortex3, tx, 0).rgb, smooth_lum);
+        vec3 history = texelFetch(colortex3, tx, 0).rgb;
         float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
         vec3 ssr_incident_radiance = dot(history, vec3(1.0)) > 1e-5
             ? recursion_decay * history

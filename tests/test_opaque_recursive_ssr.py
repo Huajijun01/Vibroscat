@@ -341,6 +341,32 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         self.assertIn("EvalSkyRadiance(sh_reflection_direction)", shading)
         self.assertIn("if (ssr_weight > 0.0)", shading)
 
+    def test_opaque_trace_offsets_origin_outside_geometry(self):
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        self.assertIn("DecodeOctahedralNormal(geometry_data.xy)", trace)
+        self.assertRegex(
+            trace,
+            r"trace_origin\s*=\s*view_pos\s*"
+            r"\+\s*geo_view_normal\s*\*\s*0\.03\s*"
+            r"\+\s*view_direction\s*\*\s*0\.05",
+        )
+
+    def test_opaque_trace_skips_cameraward_projection_rays(self):
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        self.assertRegex(
+            trace,
+            r"if\s*\(view_direction\.z\s*>=\s*0\.0\)\s*return;",
+        )
+        self.assertLess(
+            trace.index("view_direction.z"),
+            trace.index("TraceScreenSpaceReflection"),
+        )
+
+    def test_opaque_history_is_sampled_without_sanitization(self):
+        shading = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertNotIn("SanitizeOpaqueHistory", shading)
+        self.assertIn("vec3 history = texelFetch(colortex3, tx, 0).rgb;", shading)
+
     def test_disabled_opaque_reflection_uses_environment_only(self):
         settings = read("shaders/lib/contract/settings.glsl")
         self.assertIn("#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0", settings)

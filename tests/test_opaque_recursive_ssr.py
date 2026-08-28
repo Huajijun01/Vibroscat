@@ -30,7 +30,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
     def test_transient_formats_are_declared(self):
         source = read("shaders/lib/contract/resources.glsl")
         self.assertRegex(source, r"colortex3Format\s*=\s*R11F_G11F_B10F")
-        self.assertRegex(source, r"colortex11Format\s*=\s*RG16F")
+        self.assertNotIn("colortex11Format", source)
 
     def test_pass_wrappers_match_in_all_dimensions(self):
         worlds = {
@@ -42,7 +42,6 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             with self.subTest(world=world):
                 paths = {
                     "trace": f"shaders/{world}/deferred2.fsh",
-                    "filter": f"shaders/{world}/deferred3.fsh",
                     "shade": f"shaders/{world}/deferred4.fsh",
                 }
                 for role, path in paths.items():
@@ -50,13 +49,30 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
                         (ROOT / path).is_file(), f"missing {role} wrapper: {path}"
                     )
                 trace = read(paths["trace"])
-                filt = read(paths["filter"])
                 shade = read(paths["shade"])
                 self.assertIn(define, trace)
-                self.assertIn("colortex5MipmapEnabled = true", trace)
+                self.assertNotIn("colortex5MipmapEnabled", trace)
                 self.assertIn("opaque_reflection_trace.fragment", trace)
-                self.assertIn("opaque_reflection_filter.fragment", filt)
                 self.assertIn("deferred_shading.fragment", shade)
+
+    def test_reflection_filter_is_removed(self):
+        properties = read("shaders/shaders.properties")
+        resources = read("shaders/lib/contract/resources.glsl")
+        self.assertNotIn("opaque_reflection_filter", properties)
+        self.assertNotRegex(properties, r"program\.world(?:0|1|-1)/deferred3\.enabled")
+        self.assertIn("Opaque reflection radiance trace transient", resources)
+        self.assertNotIn("trace/filter", resources)
+
+        paths = [
+            "shaders/program/deferred/opaque_reflection_filter.fragment",
+        ]
+        for world in ("world0", "world1", "world-1"):
+            paths.extend((
+                f"shaders/{world}/deferred3.fsh",
+                f"shaders/{world}/deferred3.vsh",
+            ))
+        for path in paths:
+            self.assertFalse((ROOT / path).exists(), f"stale reflection filter file: {path}")
 
     def test_caustic_flip_follows_final_shading(self):
         props = read("shaders/shaders.properties")
@@ -103,15 +119,13 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             "utex_stbn_scalar",
         ):
             self.assertIn(token, source)
-        self.assertNotIn("texture(colortex5", source)
+        self.assertIn("texture(colortex5", source)
 
     def test_opaque_trace_uses_shared_loose_crossing(self):
         source = read("shaders/lib/raytrace/opaque_reflection.glsl")
         for token in (
-            "OPAQUE_SSR_MAX_DISTANCE",
             "ToPrevious",
-            "OpaqueHistoryMip",
-            "OpaqueHistoryConfidence",
+            "SampleOpaqueHistory",
         ):
             self.assertIn(token, source)
         self.assertIn('#include "/lib/raytrace/ssr.glsl"', source)
@@ -128,36 +142,40 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         ):
             self.assertNotIn(token, source)
 
-    def test_filter_uses_all_guidance_terms(self):
-        source = read(
-            "shaders/program/deferred/opaque_reflection_filter.fragment"
+    def test_opaque_trace_reuses_sky_pixel_hits(self):
+        trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
+        self.assertIn(
+            "OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);",
+            trace,
         )
-        for token in (
-            "FILTER_TAPS",
-            "depth_weight",
-            "normal_weight",
-            "roughness_weight",
-            "distance_weight",
-            "confidence",
-        ):
-            self.assertIn(token, source)
-        self.assertIn("const int FILTER_TAPS = 9", source)
+        self.assertNotIn("|| shared_hit.sky", trace)
+        self.assertIn("SampleOpaqueHistory(", trace)
+        self.assertNotIn("out_reflection_path_length", trace)
 
-    def test_filter_avoids_glsl_reserved_packed_identifier(self):
-        source = read(
-            "shaders/program/deferred/opaque_reflection_filter.fragment"
+    def test_opaque_history_bounds_sky_hits_by_xy_only(self):
+        opaque = read("shaders/lib/raytrace/opaque_reflection.glsl")
+        self.assertIn("SSRScreenInside(previous_hit.xy)", opaque)
+        self.assertIn("frameCounter < 1", opaque)
+        self.assertNotIn(
+            "any(greaterThanEqual(previous_hit, vec3(1.0)))",
+            opaque,
         )
-        self.assertNotRegex(
-            source,
-            r"\b(?:vec[234]|float|int|uint)\s+packed\b",
-        )
+
+    def test_opaque_reflection_path_has_no_filter_confidence(self):
+        for path in (
+            "shaders/lib/raytrace/opaque_reflection.glsl",
+            "shaders/program/deferred/opaque_reflection_trace.fragment",
+            "shaders/program/deferred/deferred_shading.fragment",
+            "shaders/lib/contract/resources.glsl",
+            "shaders/lib/contract/uniforms.glsl",
+        ):
+            self.assertNotIn("confidence", read(path), path)
 
     def test_final_shading_owns_pbr_integration(self):
         source = read("shaders/program/deferred/deferred_shading.fragment")
         for token in (
             "ResolveOpaquePBR",
             "colortex3",
-            "colortex11",
             "OpaqueReflectionDirection",
             "VisibleGGXThroughput",
             "OPAQUE_SSR_RECURSION_DECAY",
@@ -207,6 +225,20 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             self.assertIn(token, chinese)
         self.assertIn("不透明反射质量", chinese)
 
+    def test_opaque_reflection_has_no_path_length_metadata(self):
+        for path in (
+            "shaders/lib/contract/resources.glsl",
+            "shaders/lib/contract/uniforms.glsl",
+            "shaders/program/deferred/opaque_reflection_trace.fragment",
+            "shaders/program/deferred/deferred_shading.fragment",
+            "shaders/lib/raytrace/ssr.glsl",
+        ):
+            source = read(path)
+            self.assertNotIn("colortex11", source, path)
+            self.assertNotIn("out_reflection_path_length", source, path)
+            self.assertNotIn("path_length", source, path)
+        self.assertNotIn("path length", read("shaders/lib/contract/resources.glsl"))
+
     def test_opaque_reflection_switch_is_exposed_and_profiled(self):
         settings = read("shaders/lib/contract/settings.glsl")
         self.assertRegex(settings, r"(?m)^#define OPAQUE_REFLECTION\s+1\b")
@@ -240,7 +272,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         enabled_block, disabled_block = properties.split(condition, 1)[1].split("#else", 1)
         disabled_block = disabled_block.split("#endif", 1)[0]
         for world in ("world0", "world1", "world-1"):
-            for program in ("deferred2", "deferred3"):
+            for program in ("deferred2",):
                 self.assertRegex(
                     enabled_block,
                     rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*true\b",
@@ -262,7 +294,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
             shading,
             r"#else\n(?:\s*//.*\n)*\s*vec3 environment = "
             r"EvalSkyRadiance\(reflection_direction\)\n"
-            r"\s*\* pow\(lm\.y, 8\.0\) \* mean_ao;",
+            r"\s*\* pow\(lm\.y, 16\.0\) \* mean_ao \* mean_ao \* mean_ao;",
         )
         self.assertNotIn("SkyLightFromLm(lm.y)", shading)
         self.assertIn("vec3 incident_radiance = environment;", shading)
@@ -277,18 +309,25 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
 
         for source in (
             "shaders/program/deferred/opaque_reflection_trace.fragment",
-            "shaders/program/deferred/opaque_reflection_filter.fragment",
         ):
             self.assertTrue((ROOT / source).is_file())
 
-    def test_zero_quality_disables_trace_and_filter_programs(self):
+    def test_sky_radiance_floors_channels_at_full_sh_average(self):
+        sky_light = read("shaders/lib/atmosphere/sky_light.glsl")
+        self.assertIn(
+            "vec3 sh_average = max(vec3(skySH_R0.x, skySH_G0.x, skySH_B0.x) * SH_Y0, vec3(0.0));",
+            sky_light,
+        )
+        self.assertIn("return max(radiance, sh_average);", sky_light)
+
+    def test_zero_quality_disables_trace_programs(self):
         properties = read("shaders/shaders.properties")
         condition = "#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0"
         self.assertIn(condition, properties)
         conditional_block = properties.split(condition, 1)[1].split("#endif", 1)[0]
         enabled_block, disabled_block = conditional_block.split("#else", 1)
         for world in ("world0", "world1", "world-1"):
-            for program in ("deferred2", "deferred3"):
+            for program in ("deferred2",):
                 self.assertRegex(
                     enabled_block,
                     rf"program\.{re.escape(world)}/{program}\.enabled\s*=\s*"
@@ -303,7 +342,6 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
     def test_debug_views_remain_internal(self):
         settings = read("shaders/lib/contract/settings.glsl")
         trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
-        filt = read("shaders/program/deferred/opaque_reflection_filter.fragment")
         shade = read("shaders/program/deferred/deferred_shading.fragment")
         self.assertRegex(
             settings,
@@ -313,7 +351,7 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         for debug_value in range(1, 9):
             token = f"OPAQUE_SSR_DEBUG == {debug_value}"
             self.assertTrue(
-                token in trace or token in filt or token in shade,
+                token in trace or token in shade,
                 f"missing opaque debug view {debug_value}",
             )
         properties = read("shaders/shaders.properties")
@@ -347,10 +385,8 @@ class LabPBRReferenceTests(unittest.TestCase):
         self.assertEqual(decode_lab_aux(65), (0.0, 0.0))
         self.assertEqual(decode_lab_aux(255), (0.0, 1.0))
 
-    def test_recursive_gain_is_bounded(self):
-        for confidence in (0.0, 0.25, 0.5, 1.0):
-            with self.subTest(confidence=confidence):
-                self.assertLess(0.92 * confidence, 1.0)
+    def test_recursive_decay_is_bounded(self):
+        self.assertLess(0.92, 1.0)
 
 
 if __name__ == "__main__":

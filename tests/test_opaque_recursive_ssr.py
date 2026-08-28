@@ -341,6 +341,29 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         self.assertIn("EvalSkyRadiance(sh_reflection_direction)", shading)
         self.assertIn("if (ssr_weight > 0.0)", shading)
 
+    def test_sh_reflection_uses_roughness_fresnel_face_attenuation(self):
+        shading = read("shaders/program/deferred/deferred_shading.fragment")
+        self.assertRegex(
+            shading,
+            r"vec3 sh_fresnel\s*=\s*FresnelSchlick\(\s*"
+            r"sh_reflection_ndotv\s*,\s*material\.f0\s*\)",
+        )
+        self.assertRegex(
+            shading,
+            r"float sh_roughness_weight\s*=\s*"
+            r"material\.perceptual_roughness\s*\*\s*"
+            r"material\.perceptual_roughness\s*;",
+        )
+        self.assertIn(
+            "vec3 sh_face_attenuation = mix(vec3(0.6), vec3(1.0), sh_fresnel);",
+            shading,
+        )
+        self.assertRegex(
+            shading,
+            r"sh_specular\s*\*=\s*mix\(\s*vec3\(1\.0\)\s*,\s*"
+            r"sh_face_attenuation\s*,\s*sh_roughness_weight\s*\);",
+        )
+
     def test_opaque_trace_offsets_origin_outside_geometry(self):
         trace = read("shaders/program/deferred/opaque_reflection_trace.fragment")
         self.assertIn("DecodeOctahedralNormal(geometry_data.xy)", trace)

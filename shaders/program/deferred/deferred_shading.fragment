@@ -198,7 +198,6 @@ void main() {
 
     // ── Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) ──
     float block_light = BlockLightFromLm(lm.r);
-    float torch_light = block_light;
 
     // ── Directional light (sun or moon) ──
     vec3 L = (u_world_light_dir);
@@ -240,7 +239,6 @@ void main() {
     vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
     // Sky ambient: remapped sky light × AO-aware blend + AMBIENT_BASE floor (AmbientLight).
     vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
-    vec3 block_color = TORCH_LIGHT_COLOR;              // warm torches
 
     // ── Composite ──
     vec3 color = direct_lighting * sun_color * shadow_occlusion;
@@ -274,7 +272,7 @@ void main() {
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
     color += lambert_brdf * sky_ambient * ao_effective;
-    color += diffuse_reflectance * block_color * torch_light * gtao_ao;
+    color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * gtao_ao;
 
     // ── Indirect specular ──
     // Rough opaque surfaces use the SH environment exclusively. The transition
@@ -287,28 +285,32 @@ void main() {
         material.perceptual_roughness);
     float ssr_weight = 1.0 - sh_weight;
 
-    vec3 sh_reflection_half = normal;
     vec3 sh_reflection_direction = reflect(-V, normal);
-    vec3 sh_specular_normal = normal;
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     // SH-only reflections are a low-cost environment fallback. Gate them by
     // the raw sky light visibility and AO so dark or occluded surfaces do not
     // retain a uniform plastic specular sheen.
     vec3 sh_environment = EvalSkyRadiance(sh_reflection_direction)
         * pow(lm.y, 16.0) * mean_ao * mean_ao * mean_ao;
-    float sh_reflection_ndotv = Max0(dot(sh_specular_normal, V));
+    float sh_reflection_ndotv = Max0(dot(normal, V));
     float sh_reflection_ndotl = Max0(
-        dot(sh_specular_normal, sh_reflection_direction));
+        dot(normal, sh_reflection_direction));
     vec3 sh_specular = sh_environment * VisibleGGXThroughput(
         material.f0,
-        Max0(dot(V, sh_reflection_half)),
+        Max0(dot(V, normal)),
         sh_reflection_ndotv,
         sh_reflection_ndotl,
         material.alpha);
     sh_specular *= SpecularOcclusion(
         sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
-    // improve the reflection look like
-    sh_specular *= mix(vec3(1.0), albedo, 0.7);
+    // Broad SH reflections lean toward a diffuse-like face response while
+    // retaining Fresnel lift at grazing angles.
+    vec3 sh_fresnel = FresnelSchlick(
+        sh_reflection_ndotv, material.f0);
+    float sh_roughness_weight = material.perceptual_roughness
+        * material.perceptual_roughness;
+    vec3 sh_face_attenuation = mix(vec3(0.6), vec3(1.0), sh_fresnel);
+    sh_specular *= mix(vec3(1.0), sh_face_attenuation, sh_roughness_weight);
 
     vec3 indirect_specular = sh_specular;
 #ifdef OPAQUE_SSR
@@ -317,7 +319,6 @@ void main() {
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
             normal, V, material.perceptual_roughness, tx,
             ssr_reflection_half);
-        vec3 ssr_specular_normal = normal;
         vec3 ssr_environment = SampleOpaqueEnvironment(
             ssr_reflection_direction, lm.g);
         vec3 history = texelFetch(colortex3, tx, 0).rgb;
@@ -325,9 +326,9 @@ void main() {
         vec3 ssr_incident_radiance = dot(history, vec3(1.0)) > 1e-5
             ? recursion_decay * history
             : ssr_environment;
-        float ssr_reflection_ndotv = Max0(dot(ssr_specular_normal, V));
+        float ssr_reflection_ndotv = Max0(dot(normal, V));
         float ssr_reflection_ndotl = Max0(
-            dot(ssr_specular_normal, ssr_reflection_direction));
+            dot(normal, ssr_reflection_direction));
         vec3 ssr_specular = ssr_incident_radiance * VisibleGGXThroughput(
             material.f0,
             Max0(dot(V, ssr_reflection_half)),

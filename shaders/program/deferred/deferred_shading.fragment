@@ -48,16 +48,6 @@ vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
         * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
 }
 
-vec3 OpaqueEnvironmentFallbackDirection(vec3 sampled_direction,
-        vec3 geo_normal, vec3 V, inout vec3 reflection_half,
-        out bool used_geometric_fallback) {
-    used_geometric_fallback = dot(geo_normal, sampled_direction) <= 1e-5;
-    if (!used_geometric_fallback) return sampled_direction;
-
-    reflection_half = geo_normal;
-    return reflect(-V, geo_normal);
-}
-
 vec3 SanitizeOpaqueHistory(vec3 history, float average_luminance) {
     if (any(isnan(history)) || any(isinf(history))
             || any(lessThan(history, vec3(0.0)))) {
@@ -313,11 +303,7 @@ void main() {
 
     vec3 sh_reflection_half = normal;
     vec3 sh_reflection_direction = reflect(-V, normal);
-    bool sh_used_geometric_fallback;
-    sh_reflection_direction = OpaqueEnvironmentFallbackDirection(
-        sh_reflection_direction, geo_normal, V, sh_reflection_half,
-        sh_used_geometric_fallback);
-    vec3 sh_specular_normal = sh_used_geometric_fallback ? geo_normal : normal;
+    vec3 sh_specular_normal = normal;
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     // SH-only reflections are a low-cost environment fallback. Gate them by
     // the raw sky light visibility and AO so dark or occluded surfaces do not
@@ -343,12 +329,7 @@ void main() {
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
             normal, V, material.perceptual_roughness, tx,
             ssr_reflection_half);
-        bool ssr_used_geometric_fallback;
-        ssr_reflection_direction = OpaqueEnvironmentFallbackDirection(
-            ssr_reflection_direction, geo_normal, V, ssr_reflection_half,
-            ssr_used_geometric_fallback);
-        vec3 ssr_specular_normal = ssr_used_geometric_fallback
-            ? geo_normal : normal;
+        vec3 ssr_specular_normal = normal;
         vec3 ssr_environment = SampleOpaqueEnvironment(
             ssr_reflection_direction, lm.g);
         vec3 history = SanitizeOpaqueHistory(

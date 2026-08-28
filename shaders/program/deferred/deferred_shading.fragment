@@ -307,6 +307,8 @@ void main() {
         material.alpha);
     sh_specular *= SpecularOcclusion(
         sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
+    // improve the reflection look like
+    sh_specular *= mix(vec3(1.0), albedo, 0.7);
 
     vec3 indirect_specular = sh_specular;
 #ifdef OPAQUE_SSR

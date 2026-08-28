@@ -50,11 +50,23 @@ vec2 EpipolarSliceExit(int slice) {
 // boundary crossing; the ray enters forward or leaves backward; zero dir
 // components → ±inf, tolerated by the slab test).
 vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
-    vec2 inv = 1.0 / dir;
-    vec2 t0 = (-1.0 - origin) * inv;
-    vec2 t1 = ( 1.0 - origin) * inv;
-    vec2 tmin = min(t0, t1);
-    vec2 tmax = max(t0, t1);
+    // Avoid 0 * inf when a line starts on an edge and is parallel to it.
+    // Such NaNs used to leak into endpoint lines near horizontal/vertical
+    // light directions and made the corresponding slice invalid.
+    vec2 tmin = vec2(-1e30);
+    vec2 tmax = vec2( 1e30);
+    if (abs(dir.x) > 1e-6) {
+        vec2 tx = vec2((-1.0 - origin.x) / dir.x,
+                       ( 1.0 - origin.x) / dir.x);
+        tmin.x = min(tx.x, tx.y);
+        tmax.x = max(tx.x, tx.y);
+    }
+    if (abs(dir.y) > 1e-6) {
+        vec2 ty = vec2((-1.0 - origin.y) / dir.y,
+                       ( 1.0 - origin.y) / dir.y);
+        tmin.y = min(ty.x, ty.y);
+        tmax.y = max(ty.x, ty.y);
+    }
     float t_far = min(tmax.x, tmax.y);
     float t_other = t_far > 1e-4 ? t_far : max(tmin.x, tmin.y);
     return origin + dir * t_other;

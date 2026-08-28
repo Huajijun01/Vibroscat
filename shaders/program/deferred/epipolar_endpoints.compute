@@ -28,8 +28,14 @@ void main() {
     vec4 line = vec4(0.0);
     if (sector_valid) {
         vec2 exit = EpipolarSliceExit(int(slice));
-        vec2 entry = pole_in_screen ? pole : EpipolarBoundaryHit(exit, normalize(pole - exit));
-        line = vec4(entry, exit);
+        vec2 pole_delta = pole - exit;
+        float pole_delta_len2 = dot(pole_delta, pole_delta);
+        if (pole_in_screen) {
+            line = vec4(pole, exit);
+        } else if (pole_delta_len2 > 1e-12) {
+            vec2 entry = EpipolarBoundaryHit(exit, pole_delta * inversesqrt(pole_delta_len2));
+            line = vec4(entry, exit);
+        }
     }
     imageStore(uimg_epipolar_endpoints, ivec2(int(slice), 0), line);
 }

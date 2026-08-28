@@ -147,12 +147,10 @@ void main() {
     out_color = texelFetch(colortex3, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 2
-    out_color = vec3(clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0));
+    out_color = texelFetch(colortex3, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 3
-    out_color = vec3(clamp(
-        texelFetch(colortex11, tx, 0).r / OPAQUE_SSR_MAX_DISTANCE,
-        0.0, 1.0));
+    out_color = texelFetch(colortex3, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 4
     out_color = texelFetch(colortex3, tx, 0).rgb;
@@ -324,16 +322,16 @@ void main() {
     // the raw sky light visibility and AO so dark or occluded surfaces do not
     // retain a uniform plastic specular sheen.
     vec3 environment = EvalSkyRadiance(reflection_direction)
-        * pow(lm.y, 8.0) * mean_ao;
+        * pow(lm.y, 16.0) * mean_ao * mean_ao * mean_ao;
 #endif
     vec3 incident_radiance = environment;
 #ifdef OPAQUE_SSR
     vec3 history = SanitizeOpaqueHistory(
         texelFetch(colortex3, tx, 0).rgb, smooth_lum);
-    float confidence = clamp(texelFetch(colortex11, tx, 0).g, 0.0, 1.0);
     float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
-    incident_radiance = mix(
-        environment, recursion_decay * history, confidence);
+    incident_radiance = dot(history, vec3(1.0)) > 1e-5
+        ? recursion_decay * history
+        : environment;
 #endif
     float reflection_ndotv = Max0(dot(specular_normal, V));
     float reflection_ndotl = Max0(

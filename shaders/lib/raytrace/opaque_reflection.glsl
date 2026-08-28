@@ -50,73 +50,20 @@ vec3 OpaqueReflectionDirection(vec3 N, vec3 V,
     return dot(N, L) > 1e-5 ? L : vec3(0.0);
 }
 
-float OpaqueHistoryMip(float path_length, float perceptual_roughness,
-        float origin_view_depth, out float cone_pixels) {
-    cone_pixels = max(1.0,
-        path_length * perceptual_roughness * perceptual_roughness
-            * viewHeight / max(origin_view_depth, 1.0));
-    int mip_count = textureQueryLevels(colortex5);
-    return clamp(log2(cone_pixels), 0.0, float(max(mip_count - 1, 0)));
-}
-
-float OpaqueScreenEdgeWeight(vec2 uv) {
-    vec2 edge_distance = min(uv, vec2(1.0) - uv);
-    return smoothstep(0.005, 0.04, min(edge_distance.x, edge_distance.y));
-}
-
-float OpaqueHistoryConfidence(SSRHit hit, vec3 previous_hit) {
-    if (!hit.valid || frameCounter < 2 || !SSRFinite(previous_hit)) {
-        return 0.0;
-    }
-    if (any(lessThanEqual(previous_hit, vec3(0.0)))
-            || any(greaterThanEqual(previous_hit, vec3(1.0)))) {
-        return 0.0;
-    }
-
-    float distance_weight = 1.0 - smoothstep(
-        OPAQUE_SSR_MAX_DISTANCE * 0.65,
-        OPAQUE_SSR_MAX_DISTANCE, hit.path_length);
-    float edge_weight = OpaqueScreenEdgeWeight(hit.screen.xy)
-        * OpaqueScreenEdgeWeight(previous_hit.xy);
-
-    vec3 camera_delta = cameraPosition - previousCameraPosition;
-    float translation_weight = 1.0 - smoothstep(
-        0.25, 1.0, length(camera_delta));
-    vec3 current_forward = normalize(vec3(
-        gbufferModelView[0][2],
-        gbufferModelView[1][2],
-        gbufferModelView[2][2]));
-    vec3 previous_forward = normalize(vec3(
-        gbufferPreviousModelView[0][2],
-        gbufferPreviousModelView[1][2],
-        gbufferPreviousModelView[2][2]));
-    float rotation_weight = smoothstep(
-        0.5, 0.95, dot(current_forward, previous_forward));
-
-    return clamp(distance_weight * edge_weight
-        * translation_weight * rotation_weight, 0.0, 1.0);
-}
-
-vec3 SampleOpaqueHistory(SSRHit hit, float perceptual_roughness,
-        float origin_view_depth, out float confidence, out float selected_mip) {
-    confidence = 0.0;
-    selected_mip = 0.0;
-    if (!hit.valid) return vec3(0.0);
+bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {
+    history = vec3(0.0);
+    if (!hit.valid || frameCounter < 1) return false;
+    if (!SSRScreenInside(hit.screen.xy)) return false;
 
     vec3 previous_hit = ToPrevious(hit.screen);
-    confidence = OpaqueHistoryConfidence(hit, previous_hit);
-    if (confidence <= 0.0) return vec3(0.0);
+    if (!SSRScreenInside(previous_hit.xy)) return false;
 
-    float cone_pixels;
-    selected_mip = OpaqueHistoryMip(
-        hit.path_length, perceptual_roughness,
-        origin_view_depth, cone_pixels);
-    vec3 history = textureLod(
-        colortex5, previous_hit.xy, selected_mip).rgb;
+    history = texture(colortex5, previous_hit.xy).rgb;
     if (!SSRFinite(history) || any(lessThan(history, vec3(0.0)))) {
-        confidence = 0.0;
-        return vec3(0.0);
+        history = vec3(0.0);
+        return false;
     }
-    return max(history, vec3(0.0));
+    history = max(history, vec3(0.0));
+    return true;
 }
 #endif

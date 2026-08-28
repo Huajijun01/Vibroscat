@@ -133,11 +133,16 @@ void main() {
     if (water_hit.valid) rt_pos = water_hit.screen;
     }
 #endif
-    rt_coord = rt_pos.xy;
-    vec3 prev_coord = ToPrevious(vec3(rt_coord, texture(depthtex0, rt_coord).x));
+    vec3 prev_coord = vec3(0.0);
+    bool history_hit = false;
+    if (frameCounter > 0 && rt_hit_flag && SSRScreenInside(rt_pos.xy)) {
+        rt_coord = rt_pos.xy;
+        prev_coord = ToPrevious(vec3(rt_coord, texture(depthtex0, rt_coord).x));
+        history_hit = SSRScreenInside(prev_coord.xy);
+    }
 
     vec3 reflect_color = vec3(0.0);
-    if(rt_hit_flag) {
+    if(history_hit) {
         reflect_color = texture(colortex5, prev_coord.xy).rgb;
     } else {
         if(isEyeInWater == 1) {
@@ -150,7 +155,7 @@ void main() {
 
     // Sun glint = direct solar reflection; SSR landing on ground reflects
     // that ground instead (tracer classifies the hit, no extra depth fetch).
-    float sun_spec_mask = (rt_hit_flag && !rt_hit_sky) ? 0.0 : 1.0;
+    float sun_spec_mask = (history_hit && !rt_hit_sky) ? 0.0 : 1.0;
 
     // Single hardware-PCF shadow sample (no PCSS needed on water).
     float s = texture(shadowtex1, v_shadow_proj_pos);

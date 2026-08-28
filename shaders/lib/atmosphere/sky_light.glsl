@@ -49,7 +49,11 @@ vec3 EvalSkyRadiance(vec3 direction) {
         dot(skySH_B0, vec4(Y0, Y1, Y2, Y3))
       + dot(skySH_B1, vec4(Y20, y2yz, y2xz, y2xy))
       + skySH_B2.x * y2x2z2);
-    return max(radiance, 0.0);
+    // The spherical average of an un-convolved SH field is its L0 term
+    // multiplied by Y0. Keep every RGB channel at least at that baseline so
+    // negative higher-order lobes cannot turn reflection energy too dark.
+    vec3 sh_average = max(vec3(skySH_R0.x, skySH_G0.x, skySH_B0.x) * SH_Y0, vec3(0.0));
+    return max(radiance, sh_average);
 }
 
 // World-space reconstruction: coefficients baked in the cloud-skybox axes

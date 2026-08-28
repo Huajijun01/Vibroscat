@@ -1,4 +1,4 @@
-/* RENDERTARGETS: 3,11 */
+/* RENDERTARGETS: 3 */
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -7,11 +7,9 @@
 #include "/lib/raytrace/opaque_reflection.glsl"
 
 layout(location = 0) out vec3 out_reflection_radiance;
-layout(location = 1) out vec2 out_reflection_metadata;
 
 void main() {
     out_reflection_radiance = vec3(0.0);
-    out_reflection_metadata = vec2(0.0);
 
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float depth = texelFetch(depthtex0, tx, 0).r;
@@ -46,19 +44,14 @@ void main() {
     float trace_jitter = OpaqueSSRRandom2(tx).y;
     SSRHit shared_hit = TraceScreenSpaceReflection(
         trace_origin, view_direction, trace_jitter,
-        OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, false);
-    if (!shared_hit.valid || shared_hit.sky) return;
+        OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);
+    if (!shared_hit.valid) return;
 
-    float confidence;
-    float selected_mip;
-    vec3 history = SampleOpaqueHistory(
-        shared_hit, rough_selector.x,
-        -view_pos.z, confidence, selected_mip);
 #if OPAQUE_SSR_DEBUG == 4
-    float max_mip = float(max(textureQueryLevels(colortex5) - 1, 1));
-    out_reflection_radiance = vec3(selected_mip / max_mip) * confidence;
+    out_reflection_radiance = vec3(shared_hit.sky ? 1.0 : 0.0);
 #else
+    vec3 history;
+    if (!SampleOpaqueHistory(shared_hit, history)) return;
     out_reflection_radiance = history;
 #endif
-    out_reflection_metadata = vec2(shared_hit.path_length, confidence);
 }

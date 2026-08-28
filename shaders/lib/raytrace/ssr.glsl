@@ -25,7 +25,6 @@
 struct SSRHit {
     vec3 screen;
     float surface_depth;
-    float path_length;
     bool valid;
     bool sky;
 };
@@ -34,7 +33,6 @@ SSRHit SSRMiss() {
     SSRHit hit;
     hit.screen = vec3(0.0);
     hit.surface_depth = 1.0;
-    hit.path_length = 0.0;
     hit.valid = false;
     hit.sky = false;
     return hit;
@@ -42,6 +40,12 @@ SSRHit SSRMiss() {
 
 bool SSRFinite(vec3 value) {
     return !any(isnan(value)) && !any(isinf(value));
+}
+
+bool SSRScreenInside(vec2 uv) {
+    return SSRFinite(vec3(uv, 0.0))
+        && all(greaterThanEqual(uv, vec2(0.0)))
+        && all(lessThanEqual(uv, vec2(1.0)));
 }
 
 SSRHit TraceScreenSpaceReflection(vec3 view_origin,
@@ -54,61 +58,50 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     if (direction_length < 0.999) return miss;
     view_direction /= direction_length;
 
-    // A zero distance means the water path may continue to the far plane.
-    // Opaque reflections pass their finite distance budget here.
-    float ray_length = max_distance > 0.0 ? max_distance : far;
-    if (view_direction.z > 1e-6) {
-        ray_length = min(ray_length,
-            (-near * 1.01 - view_origin.z) / view_direction.z);
-    } else if (view_direction.z < -1e-6) {
-        ray_length = min(ray_length,
-            (-far * 0.999 - view_origin.z) / view_direction.z);
-    }
-    if (ray_length <= 0.05) return miss;
-
-    vec3 view_end = view_origin + view_direction * ray_length;
+    // Project the ray through a second point in front of the origin. This is
+    // the alpha v0.1.0 water path: one straight direction in screen UV/NDC-z
+    // space, then an endpoint at the first screen edge or far plane.
     vec3 start_pos = ViewToNDC(view_origin) * 0.5 + 0.5;
-    vec3 end_pos = ViewToNDC(view_end) * 0.5 + 0.5;
-    if (!SSRFinite(start_pos) || !SSRFinite(end_pos)
-            || any(lessThan(start_pos.xy, vec2(0.0)))
-            || any(greaterThan(start_pos.xy, vec2(1.0)))) {
+    float sample_z = max(1.0, -view_origin.z) + 1.0;
+    float projection_t = abs(view_direction.z) > 1e-6
+        ? clamp((-sample_z - view_origin.z) / view_direction.z,
+            -1.0e6, 1.0e6)
+        : 2.0;
+    vec3 projected_pos = ViewToNDC(
+        view_origin + view_direction * projection_t) * 0.5 + 0.5;
+    vec3 projected_direction = projected_pos - start_pos;
+    if (!SSRFinite(start_pos) || !SSRFinite(projected_pos)
+            || !SSRFinite(projected_direction)
+            || !SSRScreenInside(start_pos.xy)) {
         return miss;
     }
+    float projected_length = length(projected_direction);
+    if (projected_length < 1e-6) return miss;
+    vec3 dir = projected_direction / projected_length;
 
-    // Clip the projected line to the visible rectangle and both depth planes.
-    // This preserves full-path coverage without accepting samples outside the
-    // depth texture.
-    vec3 projected_delta = end_pos - start_pos;
-    float end_fraction = 1.0;
-    if (projected_delta.x > 0.0) {
-        end_fraction = min(end_fraction,
-            (1.0 - start_pos.x) / projected_delta.x);
-    } else if (projected_delta.x < 0.0) {
-        end_fraction = min(end_fraction,
-            (0.0 - start_pos.x) / projected_delta.x);
+    float s_end = 1e20;
+    if (dir.x > 0.0) {
+        s_end = min(s_end, (1.0 - start_pos.x) / dir.x);
+    } else if (dir.x < 0.0) {
+        s_end = min(s_end, (0.0 - start_pos.x) / dir.x);
     }
-    if (projected_delta.y > 0.0) {
-        end_fraction = min(end_fraction,
-            (1.0 - start_pos.y) / projected_delta.y);
-    } else if (projected_delta.y < 0.0) {
-        end_fraction = min(end_fraction,
-            (0.0 - start_pos.y) / projected_delta.y);
+    if (dir.y > 0.0) {
+        s_end = min(s_end, (1.0 - start_pos.y) / dir.y);
+    } else if (dir.y < 0.0) {
+        s_end = min(s_end, (0.0 - start_pos.y) / dir.y);
     }
-    if (projected_delta.z > 0.0) {
-        end_fraction = min(end_fraction,
-            (1.0 - start_pos.z) / projected_delta.z);
-    } else if (projected_delta.z < 0.0) {
-        end_fraction = min(end_fraction,
-            (0.0 - start_pos.z) / projected_delta.z);
+    if (dir.z > 0.0) {
+        s_end = min(s_end, (1.0 - start_pos.z) / dir.z);
     }
-    end_fraction = clamp(end_fraction, 0.0, 1.0);
-    vec3 end_screen = mix(start_pos, end_pos, end_fraction);
-    projected_delta = end_screen - start_pos;
-    float projected_length = max(abs(projected_delta.x),
-        abs(projected_delta.y));
-    float quarter_pixel = 0.25 * max(u_view_pixel_size.x,
-        u_view_pixel_size.y);
-    if (projected_length < quarter_pixel) return miss;
+    if (max_distance > 0.0) {
+        vec3 max_pos = ViewToNDC(
+            view_origin + view_direction * max_distance) * 0.5 + 0.5;
+        if (SSRFinite(max_pos)) {
+            float max_s = dot(max_pos - start_pos, dir);
+            if (max_s > 0.0) s_end = min(s_end, max_s);
+        }
+    }
+    if (!(s_end > 0.0) || !SSRFinite(vec3(s_end))) return miss;
 
     int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
     float step_length = 1.0 / float(max(budget - 1, 1));
@@ -121,9 +114,8 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
         if (i >= budget) break;
         float t = min(sample_t, 1.0);
-        vec3 ray_pos = start_pos + projected_delta * t;
-        if (any(lessThan(ray_pos.xy, vec2(0.0)))
-                || any(greaterThan(ray_pos.xy, vec2(1.0)))) break;
+        vec3 ray_pos = start_pos + dir * (t * s_end);
+        if (!SSRScreenInside(ray_pos.xy)) break;
 
         float surface_depth = textureLod(depthtex1, ray_pos.xy, 0.0).x;
         if (ray_pos.z >= 1.0) {
@@ -131,8 +123,6 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
                 SSRHit sky_hit;
                 sky_hit.screen = ray_pos;
                 sky_hit.surface_depth = 1.0;
-                sky_hit.path_length = length(
-                    NDCToView(ray_pos * 2.0 - 1.0) - view_origin);
                 sky_hit.valid = true;
                 sky_hit.sky = true;
                 return sky_hit;
@@ -151,7 +141,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             vec3 hi_pos = ray_pos;
             for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
                 float mid_t = 0.5 * (lo + hi);
-                vec3 mid_pos = mix(start_pos, end_screen, mid_t);
+                vec3 mid_pos = start_pos + dir * (mid_t * s_end);
                 float mid_surface = LinearDepthFromScreenDepth(
                     textureLod(depthtex1, mid_pos.xy, 0.0).x);
                 float mid_ray = LinearDepthFromScreenDepth(mid_pos.z);
@@ -174,8 +164,6 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
                 SSRHit hit;
                 hit.screen = hit_pos;
                 hit.surface_depth = hit_depth;
-                hit.path_length = length(
-                    NDCToView(hit_pos * 2.0 - 1.0) - view_origin);
                 hit.valid = true;
                 hit.sky = false;
                 return hit;

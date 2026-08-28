@@ -107,7 +107,7 @@ const vec4 ATM_EPS = vec4(1.0e-5);
 
 // ── Ground albedo (Lambertian) ──
 const float ATM_GROUND_ALBEDO_BAKE = 0.25;  // used when baking LUTs
-const float ATM_GROUND_ALBEDO      = 0.01;  // runtime, tweak independently
+const float ATM_GROUND_ALBEDO      = 0.03;  // runtime, tweak independently
 
 // ── Moonlight irradiance (W/m²/nm) ──
 // Re-tinted through the 4-wave CMF matrix: Rec.2020 reads ≈ (0.88, 0.95, 1.18)

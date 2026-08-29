@@ -27,6 +27,22 @@ def decode_lab_aux(value: int):
 
 
 class OpaqueRecursiveSSRContractTests(unittest.TestCase):
+    def test_cloud_view_march_uses_uniform_linear_segments(self):
+        source = read("shaders/lib/cloud/volumetric.glsl")
+        start = source.index("vec3 MarchVolumetricClouds(")
+        march = source[start:]
+
+        self.assertIn(
+            "float segment_start = march_start + interval_length * segment_start_fraction;",
+            march,
+        )
+        self.assertIn(
+            "float segment_end = march_start + interval_length * segment_end_fraction;",
+            march,
+        )
+        self.assertNotIn("segment_start_fraction * segment_start_fraction", march)
+        self.assertNotIn("segment_end_fraction * segment_end_fraction", march)
+
     def test_transient_formats_are_declared(self):
         source = read("shaders/lib/contract/resources.glsl")
         self.assertRegex(source, r"colortex3Format\s*=\s*R11F_G11F_B10F")

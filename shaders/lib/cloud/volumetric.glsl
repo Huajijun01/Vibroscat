@@ -19,7 +19,7 @@
 
 const float CLOUD_MAX_DISTANCE_KM = 180.0;
 const int CLOUD_MS_OCTAVES = 3;
-const float CLOUD_PHI_OMEGA0 = 0.999;
+const float CLOUD_PHI_OMEGA0 = 0.94;
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_PHI_OMEGA0;
 // Isotropic multiple-scattering build rate: sigma_iso ~= (1 - g) * sigma_t
@@ -134,6 +134,38 @@ vec2 CloudDistributionUv(vec2 world_km) {
             frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
 }
 
+// HP boundary confidence uses a cloud-top height proxy, not density or optical
+// depth. This project has no separate weather coverage-height LUT, so mirror
+// the actual top-fade driver used by SampleCloudDensity: the large-scale read
+// controls the lower edge of the top fade over [start, 1]. Its midpoint is the
+// effective top height used for the finite-difference normal.
+float CloudBoundaryHeightProxy(vec2 world_km) {
+    vec2 distribution_uv = CloudDistributionUv(world_km);
+    float large_scale_cloud = texture(utex_cloud_distribution_tex,
+        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
+    float top_fade_start = 0.2 + large_scale_cloud * large_scale_cloud * 0.4;
+    return Saturate(0.5 * (top_fade_start + 1.0));
+}
+
+// HP's boundary term: finite-difference the top height, build the top normal,
+// and apply a wrap(N dot L) response. The caller passes a normalized light dir.
+float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
+    float sample_step = CLOUD_DISTRIBUTION_SCALE_KM
+        / max(float(textureSize(utex_cloud_distribution_tex, 0).x), 1.0);
+    float hL = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
+    float hR = CloudBoundaryHeightProxy(world_km + vec2(sample_step, 0.0));
+    float hD = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
+    float hU = CloudBoundaryHeightProxy(world_km + vec2(0.0, sample_step));
+    float slab_thickness = max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-3);
+    float dHdx = (hR - hL) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
+    float dHdz = (hU - hD) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
+    vec3 top_normal = normalize(vec3(-dHdx, 1.0, -dHdz));
+    float n_dot_l = dot(top_normal, light_dir);
+    const float wrap = 0.5;
+    float boundary_lit = Saturate((n_dot_l + wrap) / (1.0 + wrap));
+    return mix(1.0, boundary_lit, Saturate(CLOUD_MS_BOUNDARY_CONFIDENCE));
+}
+
 CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmosphere_pos
 ) {
     CloudDensitySample result;
@@ -198,9 +230,7 @@ float CloudDirectionalPhase(float cos_theta, float eccentricity_factor) {
 
 // phi_fwd: HPVolumeCloud isotropic multiple-scattering port. See the file
 // header for attribution and the derivation in Docs/PhiFwd_FromRTE.md.
-CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 light_dir, float light_jitter,
-    float height_fraction
-) {
+CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
     CloudLightTransport transport;
     transport.optical_depth = 0.0;
     transport.isotropic_diffuse = 0.0;
@@ -212,12 +242,13 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     float interval_scale = 2.0 * light_distance * inverse_step_count;
     vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
 
-    // Single pass sun-side → receiver; decay to the receiver folded into the
-    // final exp(-totalOD · κ) (no per-step storage). March capped by
-    // CLOUD_LIGHT_MAX_DISTANCE_KM: "entry" = end of the light march.
+    // Single pass sun-side → receiver. The loop runs from the illuminated
+    // entry toward the receiver, so the accumulated phi_fwd sum is attenuated
+    // by each newly crossed segment. This keeps every exponent non-positive;
+    // a positive source carry followed by a zero final decay would overflow
+    // for lower CLOUD_PHI_OMEGA0 values.
     float one_minus_omega0 = 1.0 - CLOUD_PHI_OMEGA0;
     float kappa_per_optical_depth = sqrt(3.0 * one_minus_omega0);
-    float source_carry_rate = kappa_per_optical_depth - one_minus_omega0;
     float total_optical_depth = 0.0;
     float weighted_source_sum = 0.0;
 
@@ -228,8 +259,8 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         float sample_distance = light_distance * x_position * x_position;
         float midpoint_fraction = (float(i) + 0.5) * inverse_step_count;
         float interval_weight = midpoint_fraction * interval_scale;
-        CloudDensitySample density_sample = SampleCloudDensity(atmosphere_position + light_dir * sample_distance,
-            camera_atmosphere_pos);
+        vec3 source_position = atmosphere_position + light_dir * sample_distance;
+        CloudDensitySample density_sample = SampleCloudDensity(source_position, camera_atmosphere_pos);
         float cloud_density = density_sample.density;
         float sigma_t = cloud_density * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY;
         float sigma_s = cloud_density * CLOUD_ALPHA_SCATTERING_SRGB_GRAY;
@@ -238,40 +269,45 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         // 1/D scale.
         float scattering_source = sigma_s * interval_weight;
         float optical_depth_from_entry = total_optical_depth + 0.5 * segment_optical_depth;
-        // exp(-(1 - omega0) * OD) * exp(+kappa * OD) folded into one call;
-        // the +kappa carry is unwrapped by the final exp(-totalOD * kappa).
-        float source_carry = exp(optical_depth_from_entry * source_carry_rate);
         float isotropic_build = 1.0 - exp(-optical_depth_from_entry * CLOUD_PHI_BUILD_SCALE);
         float inverse_distance = 1.0 / max(sample_distance, 0.5 * interval_weight);
-        const float k = 4.0;
-        float height_cof = (1.0 + 1.0 / k) - (1.0 + 1.0 / k) / (1.0 + density_sample.height_fraction * k);
-        weighted_source_sum += source_carry
+        // Boundary confidence is source-local: each source's effective Q/D is
+        // gated before propagation, rather than scaling the completed ray.
+        vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
+        float source_bottom_height = max(density_sample.height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
+        float source_bottom_confidence = 1.0 - exp(-source_bottom_height * CLOUD_MS_DEPTH_POWER);
+        float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
+        // Propagate existing sources through this segment first. The current
+        // source sits at the segment midpoint, so only half its segment is
+        // included in the diffusion attenuation below.
+        weighted_source_sum *= exp(-kappa_per_optical_depth * segment_optical_depth);
+        float source_absorption = exp(-one_minus_omega0 * optical_depth_from_entry);
+        float source_propagation = exp(-kappa_per_optical_depth * 0.5 * segment_optical_depth);
+        weighted_source_sum += source_absorption
+            * source_propagation
             * scattering_source
             * sigma_t
             * isotropic_build
-            * inverse_distance;
+            * inverse_distance
+            * source_bottom_confidence
+            * source_boundary_confidence;
         total_optical_depth += segment_optical_depth;
     }
     transport.optical_depth = total_optical_depth;
 
-    // Bottom confidence suppresses the cloud-base glow.
-    const float od_cof_scale = 4.0;
-    const float od_cof_offset = 1.5;
-    float optical_depth_confidence = 1.0 / max((1.0 - od_cof_offset * od_cof_scale) + transport.optical_depth * od_cof_scale, 1.0);
-    float height_confidence = smoothstep(0.02, 0.15, height_fraction) * 0.9 + 0.1;
-
     transport.isotropic_diffuse = weighted_source_sum
-        * exp(-total_optical_depth * kappa_per_optical_depth)
-        * (1.0 / (4.0 * PI)) * optical_depth_confidence * height_confidence;
+        * (1.0 / (4.0 * PI));
     return transport;
 }
 
 float MapCloudIsotropicDiffuse(float isotropic_diffuse) {
-    float scaled_diffuse = isotropic_diffuse * CLOUD_PHI_INTENSITY;
+    // Apply the soft saturation to the final phi_fwd scalar only. Boundary
+    // confidence and the sun-line integration remain linear inputs to it.
+    float phi_fwd_scalar = isotropic_diffuse * CLOUD_PHI_INTENSITY;
     if (CLOUD_PHI_COMPRESSION > 0.0) {
-        return (1.0 - exp(-scaled_diffuse * CLOUD_PHI_COMPRESSION)) / CLOUD_PHI_COMPRESSION;
+        return (1.0 - exp(-phi_fwd_scalar * CLOUD_PHI_COMPRESSION)) / CLOUD_PHI_COMPRESSION;
     }
-    return scaled_diffuse;
+    return phi_fwd_scalar;
 }
 
 vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dither_coord, int dither_slice,
@@ -319,23 +355,21 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         if (i >= step_count) break;
         float segment_start_fraction = float(i) * inverse_step_count;
         float segment_end_fraction = float(i + 1) * inverse_step_count;
-        float segment_start = march_start + interval_length * (segment_start_fraction * segment_start_fraction);
-        float segment_end = march_start + interval_length * (segment_end_fraction * segment_end_fraction);
+        float segment_start = march_start + interval_length * segment_start_fraction;
+        float segment_end = march_start + interval_length * segment_end_fraction;
         float step_length = max(segment_end - segment_start, 0.0);
         float sample_distance = mix(segment_start, segment_end, view_jitter);
-        if (step_length <= 1.0e-5) continue;
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
         float sample_r2 = dot(sample_position, sample_position);
         CloudDensitySample density_sample = SampleCloudDensity(sample_position, camera_atmosphere_pos);
-        if (density_sample.density < 1.0e-5) continue;
+        if (density_sample.density < 1.0e-4) continue;
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * 0.61803398875);
         float sample_sun_radiance = 0.0;
         float sample_moon_radiance = 0.0;
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, sun_dir)) {
-            CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter,
-                density_sample.height_fraction);
+            CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter);
             float directional_sun_radiance = 0.0;
             for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
                 // 1 / (1 + accumulated optical depth) approximates the
@@ -350,8 +384,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, moon_dir)) {
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
-            CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter,
-                density_sample.height_fraction);
+            CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter);
             float directional_moon_radiance = 0.0;
             for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
                 directional_moon_radiance += moon_phase_weight[octave] / (moon_transport.optical_depth

@@ -84,6 +84,9 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_ATTENUATION 0.5 // [0.25 0.35 0.5 0.65 0.75 0.85 1.0] HanPi per-octave optical depth multiplier.
 #define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] HanPi per-octave energy multiplier.
 #define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] HanPi per-octave phase eccentricity multiplier.
+#define CLOUD_MS_DEPTH_POWER 2.0 // [0.1 0.2 0.3 0.4 0.5 0.6 0.75 1.0 1.25 1.5 2.0] HP bottom-confidence depth exponent.
+#define CLOUD_MS_DEPTH_BIAS -0.04 // [-0.3 -0.15 0.0 0.15 0.3 0.5] HP bottom-confidence normalized-height bias.
+#define CLOUD_MS_BOUNDARY_CONFIDENCE 1.0 // [0.0 0.25 0.5 0.75 1.0] HP wrap boundary backlight confidence.
 #define CLOUD_PHI_INTENSITY 0.1 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Vibroscat phi_fwd initial intensity.
 #define CLOUD_PHI_COMPRESSION 0.0 // [0.0 0.1 0.25 0.5 1.0 2.0] Vibroscat phi_fwd soft compression.
 #define CLOUD_SKY_LIGHT_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
@@ -91,9 +94,9 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 #define CLOUD_CHECKERBOARD_AREA (CLOUD_TEMPORAL_UPSCALING * CLOUD_TEMPORAL_UPSCALING)
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.
-#define CLOUD_HISTORY_GUIDED_END_SCALE 1.1 // [1.0 1.05 1.10 1.15 1.25] centroid-distance safety scale
+#define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.10 1.15 1.25] centroid-distance safety scale
 #define CLOUD_ACCUMULATION_BOX_SAMPLES 9 // box-average the first 9 samples (seed + 8 blends = one checkerboard cycle)
-#define CLOUD_ACCUMULATION_ALPHA 0.2 // steady-state EMA weight after the box phase
+#define CLOUD_ACCUMULATION_ALPHA 0.11 // steady-state EMA weight after the box phase
 #define CLOUD_AGE_LIMIT 240 // cloud age cap in frames; must exceed BOX_SAMPLES * CLOUD_CHECKERBOARD_AREA
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define CLOUD_HISTORY_NO_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
@@ -245,7 +248,7 @@ const float ambientOcclusionLevel = 1.0;
 // AO generation is plain half resolution: every half-res texel is evaluated
 // every frame at its full-res block origin and upsampled bilinearly — one
 // sample per pixel per frame at full convergence speed.
-#define GTAO_AGE_LIMIT 24 // [2 4 6 8 10 16 24 32] history age cap (frames) before full trust
+#define GTAO_AGE_LIMIT 48 // [2 4 6 8 10 16 24 32] history age cap (frames) before full trust
 // AO accumulation matches the cloud temporal scheme: box-average the first
 // AO_ACCUMULATION_BOX_SAMPLES phase samples (one 2x2 checkerboard cycle),
 // then a steady-state EMA with AO_ACCUMULATION_ALPHA. Rejection lifts the

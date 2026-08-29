@@ -230,7 +230,9 @@ float CloudDirectionalPhase(float cos_theta, float eccentricity_factor) {
 
 // phi_fwd: HPVolumeCloud isotropic multiple-scattering port. See the file
 // header for attribution and the derivation in Docs/PhiFwd_FromRTE.md.
-CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
+CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 light_dir, float light_jitter,
+    float receiver_height_fraction
+) {
     CloudLightTransport transport;
     transport.optical_depth = 0.0;
     transport.isotropic_diffuse = 0.0;
@@ -242,19 +244,25 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     float interval_scale = 2.0 * light_distance * inverse_step_count;
     vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
 
-    // Single pass sun-side → receiver. The loop runs from the illuminated
-    // entry toward the receiver, so the accumulated phi_fwd sum is attenuated
-    // by each newly crossed segment. This keeps every exponent non-positive;
-    // a positive source carry followed by a zero final decay would overflow
-    // for lower CLOUD_PHI_OMEGA0 values.
+    // March from the receiver toward the sun, matching HPVolumeCloud's source
+    // semantics. Every source's build/propagation depth is measured from the
+    // receiver, and all exponentials remain non-positive.
     float one_minus_omega0 = 1.0 - CLOUD_PHI_OMEGA0;
     float kappa_per_optical_depth = sqrt(3.0 * one_minus_omega0);
     float total_optical_depth = 0.0;
     float weighted_source_sum = 0.0;
 
+    // HP evaluates both confidence terms at the receiver and applies the
+    // resulting source confidence to every light-ray source.
+    float receiver_bottom_height = max(receiver_height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
+    float receiver_bottom_confidence = 1.0 - exp(-receiver_bottom_height * CLOUD_MS_DEPTH_POWER);
+    vec2 receiver_world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
+    float receiver_boundary_confidence = CloudBoundaryBacklight(receiver_world_km, light_dir);
+    float source_confidence = receiver_bottom_confidence * receiver_boundary_confidence;
+
     // Transform uniform x samples by x^2. The analytic Jacobian keeps the
     // constant-density optical depth unbiased while concentrating work nearby.
-    for (int i = CLOUD_LIGHT_STEPS - 1; i >= 0; --i) {
+    for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
         float x_position = (float(i) + light_jitter) * inverse_step_count;
         float sample_distance = light_distance * x_position * x_position;
         float midpoint_fraction = (float(i) + 0.5) * inverse_step_count;
@@ -268,29 +276,20 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
         // 1/D scale.
         float scattering_source = sigma_s * interval_weight;
-        float optical_depth_from_entry = total_optical_depth + 0.5 * segment_optical_depth;
-        float isotropic_build = 1.0 - exp(-optical_depth_from_entry * CLOUD_PHI_BUILD_SCALE);
+        float optical_depth_from_receiver = total_optical_depth + 0.5 * segment_optical_depth;
+        float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
         float inverse_distance = 1.0 / max(sample_distance, 0.5 * interval_weight);
-        // Boundary confidence is source-local: each source's effective Q/D is
-        // gated before propagation, rather than scaling the completed ray.
-        vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
-        float source_bottom_height = max(density_sample.height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
-        float source_bottom_confidence = 1.0 - exp(-source_bottom_height * CLOUD_MS_DEPTH_POWER);
-        float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
-        // Propagate existing sources through this segment first. The current
-        // source sits at the segment midpoint, so only half its segment is
-        // included in the diffusion attenuation below.
-        weighted_source_sum *= exp(-kappa_per_optical_depth * segment_optical_depth);
-        float source_absorption = exp(-one_minus_omega0 * optical_depth_from_entry);
-        float source_propagation = exp(-kappa_per_optical_depth * 0.5 * segment_optical_depth);
+        // HP's T_cum is the receiver-to-source absorption before this
+        // segment; propagation reaches the source midpoint.
+        float source_absorption = exp(-one_minus_omega0 * total_optical_depth);
+        float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);
         weighted_source_sum += source_absorption
             * source_propagation
             * scattering_source
             * sigma_t
             * isotropic_build
             * inverse_distance
-            * source_bottom_confidence
-            * source_boundary_confidence;
+            * source_confidence;
         total_optical_depth += segment_optical_depth;
     }
     transport.optical_depth = total_optical_depth;
@@ -369,7 +368,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         float sample_sun_radiance = 0.0;
         float sample_moon_radiance = 0.0;
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, sun_dir)) {
-            CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter);
+            CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter,
+                density_sample.height_fraction);
             float directional_sun_radiance = 0.0;
             for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
                 // 1 / (1 + accumulated optical depth) approximates the
@@ -384,7 +384,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, moon_dir)) {
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
-            CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter);
+            CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter,
+                density_sample.height_fraction);
             float directional_moon_radiance = 0.0;
             for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
                 directional_moon_radiance += moon_phase_weight[octave] / (moon_transport.optical_depth

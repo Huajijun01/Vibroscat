@@ -36,7 +36,7 @@ vec3 DepthOfField(vec2 uv) {
     for (int i = 0; i < DOF_SAMPLES; i++) {
         float t = (float(i) + dither) * inv_n;
         float r = sqrt(t);
-        float theta = angle_offset + TAU * float(i) * phi;
+        float theta = angle_offset + TAU * float(i) * golden_ratio;
         vec2 offset = vec2(cos(theta), sin(theta)) * r * blur_radius * u_view_pixel_size;
         dof += texture(colortex0, uv + offset).rgb;
     }

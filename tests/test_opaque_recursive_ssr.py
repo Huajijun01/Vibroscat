@@ -43,6 +43,30 @@ class OpaqueRecursiveSSRContractTests(unittest.TestCase):
         self.assertNotIn("segment_start_fraction * segment_start_fraction", march)
         self.assertNotIn("segment_end_fraction * segment_end_fraction", march)
 
+    def test_phi_fwd_builds_from_receiver_side(self):
+        source = read("shaders/lib/cloud/volumetric.glsl")
+        start = source.index("CloudLightTransport SampleCloudLightTransport(")
+        end = source.index("float MapCloudIsotropicDiffuse(", start)
+        light = source[start:end]
+
+        self.assertIn(
+            "for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i)",
+            light,
+        )
+        self.assertNotIn(
+            "for (int i = CLOUD_LIGHT_STEPS - 1; i >= 0; --i)",
+            light,
+        )
+        self.assertIn("optical_depth_from_receiver", light)
+        self.assertIn(
+            "float isotropic_build = 1.0 - exp(-optical_depth_from_receiver",
+            light,
+        )
+        self.assertNotIn("source_carry", light)
+        self.assertNotIn("exp(optical_depth_from_entry", light)
+        self.assertIn("float source_absorption = exp(-one_minus_omega0 * total_optical_depth);", light)
+        self.assertIn("float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);", light)
+
     def test_transient_formats_are_declared(self):
         source = read("shaders/lib/contract/resources.glsl")
         self.assertRegex(source, r"colortex3Format\s*=\s*R11F_G11F_B10F")

@@ -273,7 +273,12 @@ void main() {
         albedo, material.f0, material.diffuse_weight);
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
+#ifdef RECURSIVE_GI
+    vec3 gi_ambient = texelFetch(colortex9, tx, 0).rgb;
+    color += lambert_brdf * gi_ambient;
+#else
     color += lambert_brdf * sky_ambient * ao_effective;
+#endif
     color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * gtao_ao;
 
     // ── Indirect specular ──

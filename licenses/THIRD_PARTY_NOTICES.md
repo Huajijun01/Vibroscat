@@ -161,6 +161,14 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 
 `lib/atmosphere/core.glsl` 的 4-波谱大气模型（410/480/560/630 nm）为包作者的离线拟合实现（HSPEAtmosCreator 工具，不入库），密度/相位函数参考 Hillaire 2020（见第 7 节）。此前注释中 "sky-tracer" 字样指向来源未记录的参考渲染器，已从代码注释移除；若作者确认具体来源与许可，追加到本节。
 
+## 16. GT-VBGI / ReferenceGI（CC0 1.0）
+
+`shaders/program/deferred/recursive_gi.fragment` 的屏幕空间可见性位掩码 GI 基于
+GT-VBGI / ReferenceGI 参考源码重新适配。该参考源码声明可在 CC0 1.0 Universal
+或 MIT License 中任选其一；本包依据 CC0 1.0 Universal 使用：
+https://creativecommons.org/publicdomain/zero/1.0/ 。参考源码中的快速反正切近似另标注
+来源为 https://www.shadertoy.com/view/lXBfWm 。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

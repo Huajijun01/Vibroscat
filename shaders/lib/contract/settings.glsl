@@ -12,6 +12,8 @@
 #define TAA
 //#define DOF
 //#define MOTION_BLUR
+// Screen-space recursive diffuse GI; replaces SH diffuse ambient.
+//#define RECURSIVE_GI
 #define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
 #define BLOOM
@@ -225,10 +227,10 @@ const float ambientOcclusionLevel = 1.0;
 // hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
 // generator, deferred1 full-res temporal accumulation and deferred2 apply.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
-#if AO_MODE == 1
+#if AO_MODE == 1 && !defined(RECURSIVE_GI)
 #define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
 #endif
-#if AO_MODE == 2
+#if AO_MODE == 2 && !defined(RECURSIVE_GI)
 #define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
 #endif
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel

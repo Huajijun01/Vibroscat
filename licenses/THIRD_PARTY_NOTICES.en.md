@@ -161,6 +161,16 @@ The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage
 
 The 4-wave spectral atmosphere model (410/480/560/630 nm) in `lib/atmosphere/core.glsl` is the pack author's offline-fit implementation (the HSPEAtmosCreator tool is not shipped), with density/phase functions referencing Hillaire 2020 (see section 7). A previous "sky-tracer" comment pointing to an undocumented reference renderer has been removed from the code comments; if the author confirms the specific source and license, it will be appended to this section.
 
+## 16. GT-VBGI / ReferenceGI (CC0 1.0)
+
+The screen-space visibility-bitmask GI in
+`shaders/program/deferred/recursive_gi.fragment` is a clean adaptation of the
+GT-VBGI / ReferenceGI reference source. That source offers a choice of CC0 1.0
+Universal or the MIT License; this pack uses it under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/. The fast arctangent
+approximation in the reference source separately cites
+https://www.shadertoy.com/view/lXBfWm.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

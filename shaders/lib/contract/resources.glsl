@@ -18,7 +18,8 @@
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (ao, age, 1-depth, A=NaN "not cloud")
-//   colortex9   RGBA16F          Recursive GI current-frame output
+//   colortex9   R11F_G11F_B10F   Recursive GI temporal irradiance history
+//   colortex10  R32UI            Recursive GI history metadata (8-bit age, 24-bit reverse depth)
 //   colortex12  RGBA16F          Translucent layer (premultiplied color + alpha):
 //                                1. translucent gbuffers blend off = nearest surface wins
 //                                2. composite1 refracts, fogs and over-composites once
@@ -40,7 +41,8 @@ const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;
 const int colortex5Format  = R11F_G11F_B10F;
 const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, 1-depth, A=NaN)
-const int colortex9Format  = RGBA16F;  // recursive GI current-frame output
+const int colortex9Format  = R11F_G11F_B10F; // recursive GI temporal irradiance history
+const int colortex10Format = R32UI;           // recursive GI age/depth metadata history
 const int colortex12Format = RGBA16F;
 */
 
@@ -53,7 +55,8 @@ const bool colortex3Clear  = false;   // opaque reflection radiance transient
 const bool colortex4Clear  = false;   // opaque geometric normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
-const bool colortex9Clear  = true;    // recursive GI current-frame output
+const bool colortex9Clear  = false;   // recursive GI temporal history
+const bool colortex10Clear = false;   // recursive GI age/depth metadata history
 const bool colortex12Clear = true;   // sequential GBuffer, bloom, and tonemap workspace
 
 #endif // LIB_CONTRACT_RESOURCES_GLSL

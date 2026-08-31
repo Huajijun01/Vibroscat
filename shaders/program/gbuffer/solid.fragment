@@ -30,7 +30,7 @@
 //
 // Vertex variants (solid.vertex) selected by the same #defines.
 
-/* RENDERTARGETS: 1,2,4 */
+/* RENDERTARGETS: 1,2,4,12 */
 
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/packing.glsl"
@@ -50,6 +50,7 @@ in vec3 v_world_bitangent;
 layout(location = 0) out vec4 gbuf1;
 layout(location = 1) out vec4 gbuf2;
 layout(location = 2) out vec4 gbuf4;
+layout(location = 3) out vec4 out_translucent_layer;
 
 // Terrain programs do not alpha test, so they can run early depth tests.
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID)
@@ -135,4 +136,6 @@ void main() {
     // colortex4 (RGBA8): octahedral view-space geometric normal in RG, lightmap in BA
     vec3 geo_view_n = normalize(mat3(gbufferModelView) * v_world_normal);
     gbuf4 = vec4(EncodeOctahedralNormal(geo_view_n), v_lmcoord.xy);
+    // Opaque coverage clears the translucent workspace before later layers.
+    out_translucent_layer = vec4(0.0, 0.0, 0.0, 0.0);
 }

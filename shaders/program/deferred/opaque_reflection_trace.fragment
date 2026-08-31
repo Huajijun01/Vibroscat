@@ -8,6 +8,9 @@
 
 layout(location = 0) out vec3 out_reflection_radiance;
 
+// Reject near-coplanar self-hits; 0.95 corresponds to about 18.2 degrees.
+const float OPAQUE_SSR_GEOMETRIC_NORMAL_DOT_MAX = 0.99;
+
 void main() {
     out_reflection_radiance = vec3(0.0);
 
@@ -48,10 +51,6 @@ void main() {
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(
         mat3(gbufferModelView) * reflection_direction);
-    // The shared projector marches toward the far plane. A camera-facing ray
-    // would be projected backwards and can re-hit this surface, so opaque SSR
-    // only traces directions with a forward (negative view-space Z) component.
-    if (view_direction.z >= 0.0) return;
     vec3 trace_origin = view_pos
         + geo_view_normal * 0.03
         + view_direction * 0.05;
@@ -60,6 +59,16 @@ void main() {
         trace_origin, view_direction, trace_jitter,
         OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);
     if (!shared_hit.valid) return;
+    if (!shared_hit.sky) {
+        ivec2 gbuffer_size = textureSize(colortex4, 0);
+        ivec2 hit_tx = clamp(
+            ivec2(shared_hit.screen.xy * vec2(gbuffer_size)),
+            ivec2(0), gbuffer_size - ivec2(1));
+        vec3 hit_geo_view_normal = DecodeOctahedralNormal(
+            texelFetch(colortex4, hit_tx, 0).xy);
+        float normal_dot = dot(geo_view_normal, hit_geo_view_normal);
+        if (normal_dot >= OPAQUE_SSR_GEOMETRIC_NORMAL_DOT_MAX) return;
+    }
 
 #if OPAQUE_SSR_DEBUG == 4
     out_reflection_radiance = vec3(shared_hit.sky ? 1.0 : 0.0);

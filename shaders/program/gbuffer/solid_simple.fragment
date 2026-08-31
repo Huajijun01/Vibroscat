@@ -1,0 +1,45 @@
+/* RENDERTARGETS: 12,2 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/filters.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/brdf.glsl"
+
+flat in vec3 v_normal;
+flat in vec3 v_sun_light_col;
+in vec3 v_view_pos;
+in vec3 v_ambient_col;
+in vec3 v_shadow_proj_pos;
+in vec4 v_color;
+in vec4 v_texcoord;
+
+layout(location = 0) out vec4 out_layer_color;
+layout(location = 1) out vec4 out_surface_data;
+
+void main() {
+    vec4 albedo = texture(gtexture, v_texcoord.xy) * v_color;
+    if (albedo.a < 0.01) discard;
+
+    vec3 base_color = ToLinear(albedo.rgb);
+    float alpha = albedo.a;
+    vec3 surface_normal_view = normalize(v_normal);
+#ifdef PROGRAM_GBUFFERS_PARTICLES
+    surface_normal_view = vec3(0.0, 1.0, 0.0);
+#endif
+    vec3 view_to_eye = -normalize(v_view_pos);
+    vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
+    vec3 direct_lighting;
+    vec3 lambert_brdf;
+    vec3 diffuse_reflectance;
+    EvaluateBRDF(base_color, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
+
+    float shadow = texture(shadowtex1, v_shadow_proj_pos);
+    float torch_light = BlockLightFromLm(v_texcoord.z);
+    vec3 lit = direct_lighting * v_sun_light_col * shadow + lambert_brdf * v_ambient_col
+             + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
+    out_layer_color = vec4(lit * alpha, alpha);
+    out_surface_data = vec4(surface_normal_view * 0.5 + 0.5, 0.0);
+}

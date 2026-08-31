@@ -30,9 +30,9 @@ void main() {
 
     bool is_opaque_hand = IsOpaqueHand(tx);
     if (is_opaque_hand) {
-        // TAA has no previous hand animation transform; do not smear the
-        // view-model with a world-space motion vector.
-        velocity = vec2(0.0);
+        // The view-model has no world-space motion vector; keep it sharp.
+        out_color = JitterR11G11B10F(scene, gl_FragCoord.xy, COLOR_JITTER_SEED);
+        return;
     }
 
     float vel_len = length(velocity * u_screen_res);

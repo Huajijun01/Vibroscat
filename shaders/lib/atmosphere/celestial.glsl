@@ -2,11 +2,11 @@
 #define LIB_ATMOSPHERE_CELESTIAL_GLSL
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/color/color.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
+#include "/lib/color/color.glsl"
 
 // Sun/moon discs in linear HDR: TOA irradiance / disc solid angle,
 // attenuated by the view-ray transmittance (dims + reddens near the

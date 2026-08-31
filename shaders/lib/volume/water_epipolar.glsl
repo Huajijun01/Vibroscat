@@ -7,11 +7,11 @@
 // declares its own uniforms (Iris injects the shared ones).
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/math_scalar.glsl"
-#include "/lib/volume/epipolar_core.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/volume/epipolar_core.glsl"
 
 #ifdef EPIPOLAR_WATER
 

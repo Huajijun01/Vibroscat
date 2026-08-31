@@ -1,6 +1,9 @@
 #ifndef LIB_CORE_GBUFFER_VERTEX_GLSL
 #define LIB_CORE_GBUFFER_VERTEX_GLSL
 
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+
 out vec2 v_texcoord;
 out vec2 v_lmcoord;
 out vec4 v_color;
@@ -19,9 +22,6 @@ in vec4 at_tangent;
 #endif
 #ifdef HAS_ENTITY_ID
 #endif
-
-#include "/lib/contract/settings.glsl"
-#include "/lib/contract/uniforms.glsl"
 
 void SetupGbufferVertex() {
     vec4 view_pos = gl_ModelViewMatrix * gl_Vertex;

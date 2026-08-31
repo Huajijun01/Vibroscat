@@ -1,10 +1,11 @@
 #ifndef LIB_CLOUD_VOLUMETRIC_GLSL
 #define LIB_CLOUD_VOLUMETRIC_GLSL
 #include "/lib/contract/settings.glsl"
-#include "/lib/core/noise.glsl"
-#include "/lib/atmosphere/core.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
 
 // Vibroscat volumetric clouds.
 //
@@ -14,8 +15,6 @@
 //   Docs/PhiFwd_FromRTE.md (upstream repo)
 // HPVolumeCloud is MIT licensed with an additional attribution requirement;
 // see licenses/THIRD_PARTY_NOTICES.md section 2.
-
-#include "/lib/atmosphere/atmosphere_geometry.glsl"
 
 const float CLOUD_MAX_DISTANCE_KM = 180.0;
 const int CLOUD_MS_OCTAVES = 3;

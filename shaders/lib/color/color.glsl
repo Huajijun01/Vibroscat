@@ -1,7 +1,7 @@
-#include "/lib/contract/settings.glsl"
 #ifndef LIB_COLOR_COLOR_GLSL
 #define LIB_COLOR_COLOR_GLSL
 
+#include "/lib/contract/settings.glsl"
 
 
 

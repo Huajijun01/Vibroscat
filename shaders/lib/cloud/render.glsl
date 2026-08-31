@@ -8,9 +8,9 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/cloud/volumetric.glsl"
-#include "/lib/cloud/cirrus.glsl"
 #include "/lib/atmosphere/core.glsl"
+#include "/lib/cloud/cirrus.glsl"
+#include "/lib/cloud/volumetric.glsl"
 
 // Atmospheric transmittance along the camera→cloud-surface ray (UE
 // GetTransmittance scheme; (r, mu) camera, (r_d, mu_d) surface, same ray):

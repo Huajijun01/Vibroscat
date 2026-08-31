@@ -1,11 +1,11 @@
 #ifndef LIB_LIGHTING_GTAO_GLSL
 #define LIB_LIGHTING_GTAO_GLSL
 #include "/lib/contract/settings.glsl"
-#include "/lib/core/noise.glsl"
-#include "/lib/core/packing.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/core/packing.glsl"
 
 // ════════════════════════════════════════════════════════════════════════════
 // GTAO — horizon-based ambient occlusion (Jimenez et al. 2016)

@@ -156,8 +156,6 @@ option.CLOUD_MS_DEPTH_POWER = 多重散射底部深度幂
 option.CLOUD_MS_DEPTH_POWER.comment = HP 底部置信度深度指数。
 option.CLOUD_MS_DEPTH_BIAS = 多重散射底部深度偏移
 option.CLOUD_MS_DEPTH_BIAS.comment = HP 底部置信度归一化高度偏移。
-option.CLOUD_MS_BOTTOM_SOFT = 多重散射底部软化高度
-option.CLOUD_MS_BOTTOM_SOFT.comment = HP 底部置信度软化高度尺度。
 option.CLOUD_MS_BOUNDARY_CONFIDENCE = 多重散射边界背光
 option.CLOUD_MS_BOUNDARY_CONFIDENCE.comment = HP wrap 边界背光置信度，仅作用于各向同性多重散射。
 option.CLOUD_PHI_INTENSITY = Phi 强度
@@ -297,6 +295,8 @@ option.AIR_FOG_SHADOWS.comment = 雾内太阳阴影可见性（极线阴影项�
 #Lighting
 option.OPAQUE_REFLECTION = 不透明反射
 option.OPAQUE_REFLECTION.comment = 开启不透明屏幕空间反射；关闭时只使用天空 SH 环境光。
+value.OPAQUE_REFLECTION.0 = 关闭
+value.OPAQUE_REFLECTION.1 = 开启
 option.OPAQUE_SSR_QUALITY = 不透明反射质量
 option.OPAQUE_SSR_QUALITY.comment = 不透明 PBR 材质的屏幕空间间接镜面反射质量。
 value.OPAQUE_SSR_QUALITY.0 = 仅环境

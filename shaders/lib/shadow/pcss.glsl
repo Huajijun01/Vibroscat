@@ -1,10 +1,10 @@
 #ifndef LIB_SHADOW_PCSS_GLSL
 #define LIB_SHADOW_PCSS_GLSL
 #include "/lib/contract/settings.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
 
 // Percentage-Closer Soft Shadows.
 //

@@ -1,6 +1,11 @@
 #ifndef LIB_WATER_FOG_GLSL
 #define LIB_WATER_FOG_GLSL
 
+#include "/lib/color/color.glsl"
+#include "/lib/contract/sky_light_data.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
+
 // Beer-Lambert water column parameters shared by the translucent layer and
 // the blend pass (above/underwater consistent).
 // Defaults: clear freshwater mapped to RGB (650/550/450 nm):
@@ -18,11 +23,6 @@
 const vec3 WATER_ABSORPTION = vec3(0.34, 0.06, 0.04);
 const vec3 WATER_SCATTERING = vec3(0.022, 0.026, 0.032);
 const vec3 WATER_EXTINCTION = WATER_ABSORPTION + WATER_SCATTERING;
-#include "/lib/color/color.glsl"
-#include "/lib/contract/sky_light_data.glsl"
-#include "/lib/contract/uniforms.glsl"
-#include "/lib/core/math_scalar.glsl"
-
 // In-water sunlight path per metre of vertical drop (flat-surface
 // refraction, air→water IOR 1.333 inlined — no IOR config needed).
 float WaterLightPathPerMetre() {

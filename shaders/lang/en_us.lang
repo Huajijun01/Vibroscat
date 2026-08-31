@@ -156,8 +156,6 @@ option.CLOUD_MS_DEPTH_POWER = MS Bottom Depth Power
 option.CLOUD_MS_DEPTH_POWER.comment = HP bottom-confidence depth exponent.
 option.CLOUD_MS_DEPTH_BIAS = MS Bottom Depth Bias
 option.CLOUD_MS_DEPTH_BIAS.comment = HP bottom-confidence normalized-height bias.
-option.CLOUD_MS_BOTTOM_SOFT = MS Bottom Soft Height
-option.CLOUD_MS_BOTTOM_SOFT.comment = HP bottom-confidence soft-height scale.
 option.CLOUD_MS_BOUNDARY_CONFIDENCE = MS Boundary Backlight
 option.CLOUD_MS_BOUNDARY_CONFIDENCE.comment = HP wrap boundary backlight confidence for isotropic multiple scattering.
 option.CLOUD_PHI_INTENSITY = Phi Intensity
@@ -297,6 +295,8 @@ option.AIR_FOG_SHADOWS.comment = Sun shadow visibility inside the fog (epipolar 
 #Lighting
 option.OPAQUE_REFLECTION = Opaque Reflections
 option.OPAQUE_REFLECTION.comment = Enable opaque screen-space reflections; off uses sky SH environment lighting only.
+value.OPAQUE_REFLECTION.0 = Off
+value.OPAQUE_REFLECTION.1 = On
 option.OPAQUE_SSR_QUALITY = Opaque Reflection Quality
 option.OPAQUE_SSR_QUALITY.comment = Screen-space indirect specular quality for opaque PBR materials.
 value.OPAQUE_SSR_QUALITY.0 = Environment Only

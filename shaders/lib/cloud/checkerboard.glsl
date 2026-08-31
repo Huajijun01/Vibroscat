@@ -1,7 +1,7 @@
-#include "/lib/contract/settings.glsl"
 #ifndef LIB_CLOUD_CHECKERBOARD_GLSL
 #define LIB_CLOUD_CHECKERBOARD_GLSL
 
+#include "/lib/contract/settings.glsl"
 
 // n×n checkerboard phase for the low-res cloud grid: every sub-pixel
 // sampled once per n² frames (each full-res pixel accumulates its own raw

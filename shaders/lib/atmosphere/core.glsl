@@ -1,3 +1,10 @@
+#ifndef LIB_ATMOSPHERE_CORE_GLSL
+#define LIB_ATMOSPHERE_CORE_GLSL
+
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
+
 // ═══════════════════════════════════════════════════════════════
 // Atmosphere Sky — 4-Wave Spectral (GLSL 430 desktop)
 // Optimal wavelengths: 410, 480, 560, 630 nm
@@ -7,20 +14,12 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ── Custom Texture bindings (registered in shaders.properties) ──
-#ifndef LIB_ATMOSPHERE_CORE_GLSL
-#define LIB_ATMOSPHERE_CORE_GLSL
-
 
 #define TRANSMITTANCE_LUT utex_tslut
 #define MULTISCATTER_LUT utex_mslut
 
-#include "/lib/contract/uniforms.glsl"
-#include "/lib/core/math_scalar.glsl"
-
 // MS LUT: raw 4-wave radiance in RGBA16F (32x32), no per-channel
 // normalization — sampled values are absolute spectral radiance.
-
-#include "/lib/atmosphere/atmosphere_geometry.glsl"
 
 // ═══════════════════════════════════════════════════════════════
 // Baked Constants

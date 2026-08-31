@@ -8,10 +8,10 @@
 // Beer-Lambert + powder term, multi-octave phase scattering, sky ambient,
 // camera-above/below blend ordering.
 
-#include "/lib/atmosphere/core.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
 
 
 const float CIRRUS_HEIGHT_KM = 7.0;

@@ -9,6 +9,13 @@ const float COLOR_JITTER_SEED = 71.0;
 
 layout(location = 0) out vec3 out_color;
 
+bool IsOpaqueHand(ivec2 texel) {
+    ivec2 sample_texel = clamp(texel, ivec2(0), textureSize(colortex1, 0) - 1);
+    float depth = texelFetch(depthtex0, sample_texel, 0).r;
+    int material_id = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
+    return depth < 1.0 && material_id == 64;
+}
+
 void main() {
 #if !defined(MOTION_BLUR) || !defined(TAA)
     vec3 passthrough_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
@@ -20,6 +27,13 @@ void main() {
 
     vec2 velocity = texelFetch(colortex0, tx, 0).rg;
     vec3 scene = texelFetch(colortex5, tx, 0).rgb;
+
+    bool is_opaque_hand = IsOpaqueHand(tx);
+    if (is_opaque_hand) {
+        // TAA has no previous hand animation transform; do not smear the
+        // view-model with a world-space motion vector.
+        velocity = vec2(0.0);
+    }
 
     float vel_len = length(velocity * u_screen_res);
     if (vel_len < 0.5) {

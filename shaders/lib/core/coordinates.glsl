@@ -42,20 +42,27 @@ vec3 DepthToWorldPos(vec2 texcoord, float depth) {
     return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 
-// Reprojects a closest-to-camera point (NDC xy + linear depth z) into the
-// previous frame's UV space. The camera-parallax term applies only to
-// foreground pixels (z >= 0.56 of the clip depth) so distant sky samples do
-// not swim.
-vec3 ToPrevious(vec3 closest_to_camera) {
+// Reprojects a closest-to-camera point (screen xy + screen depth z) into the
+// previous frame's UV space. Camera-relative world positions apply the camera
+// delta; view-model positions such as the first-person hand do not.
+vec3 ToPrevious(vec3 closest_to_camera, bool apply_camera_delta) {
     vec4 pos = vec4(closest_to_camera * 2.0 - 1.0, 1.0);
     pos = gbufferProjectionInverse * pos;
     pos /= pos.w;
     pos = gbufferModelViewInverse * pos;
-    pos.xyz += (cameraPosition - previousCameraPosition) * step(0.56, closest_to_camera.z);
+    if (apply_camera_delta) {
+        pos.xyz += cameraPosition - previousCameraPosition;
+    }
     pos = gbufferPreviousModelView * pos;
     pos = gbufferPreviousProjection * pos;
     pos /= pos.w;
     return pos.xyz * 0.5 + 0.5;
+}
+
+// Legacy callers without material classification retain the foreground
+// heuristic. Hand-aware callers must use the explicit overload above.
+vec3 ToPrevious(vec3 closest_to_camera) {
+    return ToPrevious(closest_to_camera, closest_to_camera.z >= 0.56);
 }
 
 // Previous-frame screen coordinates [0,1]3 to previous view space.

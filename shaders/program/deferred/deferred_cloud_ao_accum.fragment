@@ -63,7 +63,7 @@ void main() {
             int pixel_age = int(imageLoad(uimg_clouds_age, tx).r * 255.0 + 0.5);
             int new_age;
             CloudNeighborhoodStats neighborhood = CloudSampleCurrentNeighborhood(tx);
-            CloudFrame filtered_current = CloudNeighborhoodMean(neighborhood);
+            CloudFrame filtered_current = CloudSampleCurrentBilinear(tx);
             CloudFrame fresh = CloudSampleFresh(tx);
             CloudFrame held_history = CloudHistoryLoad(tx);
             bool has_fresh = CloudHasFreshSample(tx);
@@ -90,10 +90,14 @@ void main() {
                         accumulated = filtered_current;
                         new_age = 0;
                     } else {
-                        CloudFrame clipped_history = CloudClipHistoryToNeighborhood(
-                            reprojected_history, neighborhood, CLOUD_VARIANCE_CLIP_STRENGTH);
+                        // Only refresh pixels receive the spatial outlier clip;
+                        // untouched pixels keep their sharp reprojected value.
+                        CloudFrame clipped_history = has_fresh
+                            ? CloudClipHistoryToNeighborhood(reprojected_history, neighborhood,
+                                CLOUD_VARIANCE_CLIP_STRENGTH)
+                            : reprojected_history;
                         accumulated = has_fresh ? CloudAccumulate(fresh, clipped_history, pixel_age)
-                            : clipped_history;
+                            : reprojected_history;
                         new_age = min(pixel_age + 1, CLOUD_AGE_LIMIT);
                     }
                 }

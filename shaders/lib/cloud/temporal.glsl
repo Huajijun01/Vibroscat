@@ -85,11 +85,6 @@ CloudNeighborhoodStats CloudSampleCurrentNeighborhood(ivec2 full_res_texel) {
     );
     vec2 lattice = (vec2(full_res_texel) - vec2(phase_offset))
         / float(CLOUD_TEMPORAL_UPSCALING);
-    vec2 phase_jitter = vec2(
-        SampleSTBN(full_res_texel, frameCounter),
-        SampleSTBN(full_res_texel + ivec2(37, 17), frameCounter + 13)
-    ) - 0.5;
-    lattice += phase_jitter * 0.25;
     ivec2 lattice_base = ivec2(floor(lattice));
 
     CloudNeighborhoodStats stats;

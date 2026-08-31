@@ -117,11 +117,6 @@ void main() {
     }
     vec3 clamped = clamp(history, clip_min, clip_max);
     float blend_weight = GetBlendWeight(history, current_color, clamped, velocity);
-    if (is_opaque_hand) {
-        // Refresh the history with the current hand frame; stale animation
-        // cannot be reprojected without a previous hand transform.
-        blend_weight = 1.0;
-    }
 
     vec3 result = HDRDecompress(mix(HDRCompress(clamped), HDRCompress(current_color), blend_weight));
     vec3 jittered_result = JitterR11G11B10F(result, gl_FragCoord.xy, COLOR_JITTER_SEED);

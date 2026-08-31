@@ -160,7 +160,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
         vec2 sample_uv = origin_coord + step_dir * step_size;
         step_size *= step_scale;
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThanEqual(sample_uv, vec2(1.0)))) break;
-        float sample_depth = texture(depthtex0, sample_uv).r;
+        float sample_depth = texture(depthtex2, sample_uv).r;
         if (sample_depth >= 1.0) continue;
         vec3 sample_view = vec3(sample_uv * 2.0 - 1.0, 1.0);
 #ifdef TAA
@@ -297,32 +297,45 @@ vec3 GITemporalFilter(
 void main() {
     ivec2 tx = ivec2(gl_FragCoord.xy);
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
-    float depth = texelFetch(depthtex0, tx, 0).r;
-    if (depth >= 1.0) {
+    vec4 material_data = texelFetch(colortex1, tx, 0);
+    vec4 geometry_data = texelFetch(colortex4, tx, 0);
+    vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
+    vec3 fallback_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
+    vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
+    int material_id = int(material_data.a * 255.0 + 0.5);
+    bool is_opaque_hand = material_id == 64;
+    float depth = texelFetch(depthtex2, tx, 0).r;
+    if (depth >= 1.0 && !is_opaque_hand) {
         out_gi = vec3(0.0);
         out_gi_metadata = 0u;
         return;
     }
-    vec4 geometry_data = texelFetch(colortex4, tx, 0);
-    vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
-    vec3 view_position = SceneToViewSpace(DepthToWorldPos(uv, depth));
     vec3 raw_gi;
-    float coverage;
-    raw_gi = GITrace(view_position + normal_view * 0.003, normal_view, coverage);
-    vec3 fallback_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
-    vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
-    float miss_fraction = 1.0 - coverage;
-    raw_gi += fallback * miss_fraction;
-    raw_gi = clamp(raw_gi, vec3(0.0), vec3(GI_RADIANCE_LIMIT));
+    float temporal_depth = depth;
+    if (is_opaque_hand) {
+        // Keep the hand on the temporal path, but use its corrected depth only
+        // for reprojection. GI ray geometry remains depthtex2-only.
+        float hand_depth = texelFetch(depthtex1, tx, 0).r;
+        float hand_ndc_depth = (hand_depth * 2.0 - 1.0) / MC_HAND_DEPTH;
+        temporal_depth = hand_ndc_depth * 0.5 + 0.5;
+        raw_gi = fallback;
+    } else {
+        vec3 view_position = SceneToViewSpace(DepthToWorldPos(uv, depth));
+        float coverage;
+        raw_gi = GITrace(view_position + normal_view * 0.003, normal_view, coverage);
+        float miss_fraction = 1.0 - coverage;
+        raw_gi += fallback * miss_fraction;
+        raw_gi = clamp(raw_gi, vec3(0.0), vec3(GI_RADIANCE_LIMIT));
+    }
 #ifdef GI_TEMPORAL_DENOISE
     float history_age;
-    vec3 filtered_gi = GITemporalFilter(uv, depth, normal_view, raw_gi, history_age);
+    vec3 filtered_gi = GITemporalFilter(uv, temporal_depth, normal_view, raw_gi, history_age);
     out_gi = filtered_gi;
 #else
     float history_age = 1.0;
     out_gi = raw_gi;
 #endif
-    float reverse_depth = 1.0 - depth;
+    float reverse_depth = 1.0 - temporal_depth;
     uint depth_bits = uint(round(reverse_depth * 16777215.0));
     uint age_bits = uint(round(clamp(history_age, 0.0, 255.0)));
     out_gi_metadata = (age_bits << 24u) | depth_bits;

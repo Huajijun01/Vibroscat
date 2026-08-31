@@ -19,7 +19,7 @@
 // (same pipeline as GTAO) is the denoiser.
 //
 // Shared plumbing from gtao.glsl (guarded); depth source matches GTAO
-// (depthtex1: opaque + hand, no transparent).
+// (depthtex2: opaque non-hand, no transparent).
 // ============================================================================
 
 #include "/lib/contract/settings.glsl"
@@ -32,7 +32,7 @@
 // Screen-space SSAO at one pixel (full-res UV and texel). Returns AO in [0,1].
 float ComputeSSAO(vec2 uv, vec2 texel, int frame) {
     ivec2 center_texel = ivec2(texel);
-    float center_depth = texelFetch(depthtex1, center_texel, 0).r;
+    float center_depth = texelFetch(depthtex2, center_texel, 0).r;
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
     }
@@ -67,7 +67,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, int frame) {
         // Clamp the 1.0 edge (the integer texel would be out of bounds).
         ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
             * vec2(viewWidth, viewHeight));
-        float sample_depth = texelFetch(depthtex1, sample_texel, 0).r;
+        float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         if (sample_depth >= 1.0) {
             continue;  // sky: not an occluder
         }

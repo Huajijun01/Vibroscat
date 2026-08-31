@@ -108,6 +108,8 @@ void main() {
     // -- GBuffer decode --
     vec4 g1 = texelFetch(colortex1, tx, 0);
     vec4 g2 = texelFetch(colortex2, tx, 0);
+    int material_id = int(g1.a * 255.0 + 0.5);
+    bool is_opaque_hand = material_id == 64;
     vec2 nx_ao = Unpack2x8(g2.r);
     vec2 ny_nz = Unpack2x8(g2.g);
     vec2 rough_selector = Unpack2x8(g2.b);
@@ -158,7 +160,7 @@ void main() {
     vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
-    float sss_amount = SSSAmountForId(int(g1.a * 255.0 + 0.5));
+    float sss_amount = SSSAmountForId(material_id);
 
     // -- World position (for shadow) --
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
@@ -195,6 +197,11 @@ void main() {
     }
     ao_effective = gtao_ao_rgb;
 #endif
+    if (is_opaque_hand) {
+        ao_effective = vec3(1.0);
+        gtao_ao = 1.0;
+        gtao_ao_rgb = vec3(1.0);
+    }
 
     // -- Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) --
     float block_light = BlockLightFromLm(lm.r);

@@ -84,7 +84,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
             break;
         }
         ivec2 sample_texel = ivec2(sample_uv * vec2(viewWidth, viewHeight));
-        float sample_depth = texelFetch(depthtex1, sample_texel, 0).r;
+        float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         if (sample_depth >= 1.0) {
             continue;  // sky: not an occluder
         }
@@ -114,7 +114,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
 // Screen-space GTAO at one pixel (full-res UV and texel). Returns AO in [0,1].
 float ComputeGTAO(vec2 uv, vec2 texel, int frame) {
     ivec2 center_texel = ivec2(texel);
-    float center_depth = texelFetch(depthtex1, center_texel, 0).r;
+    float center_depth = texelFetch(depthtex2, center_texel, 0).r;
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
     }

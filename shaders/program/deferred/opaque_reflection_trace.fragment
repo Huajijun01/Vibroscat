@@ -8,7 +8,7 @@
 
 layout(location = 0) out vec3 out_reflection_radiance;
 
-// Reject near-coplanar self-hits; 0.95 corresponds to about 18.2 degrees.
+// Reject near-coplanar self-hits; 0.99 corresponds to about 8.1 degrees.
 const float OPAQUE_SSR_GEOMETRIC_NORMAL_DOT_MAX = 0.99;
 
 void main() {

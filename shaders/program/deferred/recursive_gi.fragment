@@ -103,12 +103,16 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
         horizontal01 = horizontal01 * remap_mul + remap_add;
         uint sample_mask = GIVisibilityMaskFromRange(horizontal01.x, horizontal01.y);
         uint visible = sample_mask & (~occupied);
-        if (visible != 0u) {
+        vec3 previous_sample = ToPrevious(vec3(sample_uv, sample_depth));
+        bool previous_sample_valid = all(greaterThanEqual(previous_sample.xy, vec2(0.0)))
+            && all(lessThan(previous_sample.xy, vec2(1.0)));
+        if (visible != 0u && previous_sample_valid) {
+            ivec2 previous_sample_tx = ivec2(previous_sample.xy * u_screen_res);
             float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
             // The visibility mask estimates a normalized cosine-weighted
             // hemisphere average (E / PI). Store irradiance so deferred4
             // consumes it with the same unit as AmbientLight().
-            gi += texelFetch(colortex5, sample_tx, 0).rgb * visible_weight * PI;
+            gi += texelFetch(colortex5, previous_sample_tx, 0).rgb * visible_weight * PI;
             hit_coverage += visible_weight;
         }
         occupied |= sample_mask;

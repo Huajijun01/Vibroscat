@@ -1,6 +1,6 @@
 /* RENDERTARGETS: 12,2 */
 
-// ── Water shading switches ──
+// -- Water shading switches --
 // Water normal evaluation (0 = geometry normal only, no POM/noise).
 #define WATER_NORMAL_ENABLED 1
 // SSR march (0 = bypass).
@@ -215,7 +215,7 @@ void main() {
     vec3 env_reflect = v_id == 1 ? vec3(0.0) : v_ambient_col * base_color;
 
     // Surface reflections stay at full strength (not modulated by the layer
-    // alpha); only the scattered/transmitted terms are alpha-modulated — the
+    // alpha); only the scattered/transmitted terms are alpha-modulated - the
     // blend pass adds them on top of the transmitted background.
     vec3 comp_light = sun_reflect + sky_reflect + env_reflect * Saturate(out_alpha);
     out_layer_color = vec4(comp_light, Saturate(out_alpha));

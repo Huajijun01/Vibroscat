@@ -147,8 +147,8 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 screen_pos, vec3 view_pos,
         return 0.0;
     }
 
-    // Step 2: penumbra. width = gap · tan(angular radius); gap from the NDC
-    // delta + ortho z scale → texels (blur tracks shadow length, not the
+    // Step 2: penumbra. width = gap * tan(angular radius); gap from the NDC
+    // delta + ortho z scale -> texels (blur tracks shadow length, not the
     // absolute blocker depth).
     float depth_delta = max(sp.z - blocker_depth, 0.0);
     float ortho_width_scale = abs(shadowProjection[0].x);

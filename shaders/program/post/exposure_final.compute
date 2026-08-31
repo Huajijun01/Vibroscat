@@ -1,4 +1,4 @@
-// Phase 2: combine the 64 partial sums → avgLum → update smoothLum &
+// Phase 2: combine the 64 partial sums -> avgLum -> update smoothLum &
 // exposure
 
 #include "/lib/contract/exposure_data.glsl"

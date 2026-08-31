@@ -1,5 +1,5 @@
 // Phase 1: 64 workgroups, each processing every 64th pixel (uniform
-// count) → 64 partial sums in SSBO[2..65]; phase 2
+// count) -> 64 partial sums in SSBO[2..65]; phase 2
 // (exposure_final.compute) combines them
 
 #include "/lib/contract/exposure_data.glsl"

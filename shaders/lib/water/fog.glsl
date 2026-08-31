@@ -18,13 +18,13 @@
 //                 2004), molecular per Morel 1974. lambda^-3 is the
 //                 backscatter slope, NOT the total-particle slope.
 // Runtime values from u_water_absorption/u_water_scattering
-// (shaders.properties): swamp → murky Taupo data, ocean → open-ocean data,
+// (shaders.properties): swamp -> murky Taupo data, ocean -> open-ocean data,
 // all other biomes keep the clear defaults.
 const vec3 WATER_ABSORPTION = vec3(0.34, 0.06, 0.04);
 const vec3 WATER_SCATTERING = vec3(0.022, 0.026, 0.032);
 const vec3 WATER_EXTINCTION = WATER_ABSORPTION + WATER_SCATTERING;
 // In-water sunlight path per metre of vertical drop (flat-surface
-// refraction, air→water IOR 1.333 inlined — no IOR config needed).
+// refraction, air->water IOR 1.333 inlined - no IOR config needed).
 float WaterLightPathPerMetre() {
     vec3 light_dir = normalize(u_world_light_dir);
     vec3 refracted = refract(-light_dir, vec3(0.0, 1.0, 0.0), 1.0 / 1.333);
@@ -54,8 +54,8 @@ vec3 WaterExtinctionTransmittance(float dist) {
 }
 
 // Analytic single-scattering integral over a segment of length S, sunlight
-// path varying linearly lightPath1 → lightPath2:
-//   integral_0^S sigma_s · exp(-sigma_t · (t + L(t))) dt
+// path varying linearly lightPath1 -> lightPath2:
+//   integral_0^S sigma_s * exp(-sigma_t * (t + L(t))) dt
 // (column attenuation inside the closed form, not a post-multiplier).
 vec3 WaterScatteringIntegral(float segment_length, float light_path1, float light_path2) {
     vec3 extinction = u_water_absorption + u_water_scattering;
@@ -72,7 +72,7 @@ vec3 WaterScatteringIntegral(float segment_length, float light_path1, float ligh
 
 // Approximate multiple scattering (uniform-phase geometric-series;
 // concept after Hillaire EGSR 2020). Per-order fraction = albedo
-// ω = σs/(σs+σa), so σs/σa sums all orders. Medium constant (not
+// omega = sigmas/(sigmas+sigmaa), so sigmas/sigmaa sums all orders. Medium constant (not
 // raylen-dependent) avoids perspective inconsistency. Epipolar visibility
 // softened to 0.8R+0.2 (scattering leaks into shadows).
 

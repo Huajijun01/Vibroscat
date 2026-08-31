@@ -1,6 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════════
-// Unified GBuffer fill — all opaque gbuffer programs route here
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// Unified GBuffer fill - all opaque gbuffer programs route here
+// ============================================================================
 //
 // Program dispatch via #define (set in world*/ stub .fsh files):
 //   PROGRAM_GBUFFERS_TERRAIN       terrain, terrain_solid, terrain_cutout, block
@@ -25,8 +25,8 @@
 // never sampled in the gbuffer pass (sampled in deferred).
 //
 // Attribute availability matrix:
-//   at_tangent → terrain, entities, block (but NOT hand, basic, textured, particles)
-//   mc_Entity  → terrain, block (NOT entities — use entityId uniform instead)
+//   at_tangent -> terrain, entities, block (but NOT hand, basic, textured, particles)
+//   mc_Entity  -> terrain, block (NOT entities - use entityId uniform instead)
 //
 // Vertex variants (solid.vertex) selected by the same #defines.
 
@@ -60,17 +60,17 @@ void main() {
     vec4 albedo_tex = texture(gtexture, v_texcoord);
     float alpha = albedo_tex.a;
 
-    // ── alpha test (controlled by USE_DISCARD in the gbuffer wrapper) ──
+    // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
 #ifdef USE_DISCARD
     if (alpha < 0.1) discard;
 #endif
 
-    // ── albedo = texture × vertex color ──
+    // -- albedo = texture x vertex color --
     vec3 albedo = albedo_tex.rgb * v_color.rgb;
 
     int mat_id = v_material_id;
 
-    // ── program-specific overrides ──
+    // -- program-specific overrides --
 #ifdef PROGRAM_GBUFFERS_ENTITIES
     // entityColor is a tint overlay (e.g. sheep wool, dyed leather armor)
     albedo = mix(albedo, entityColor.rgb, entityColor.a);
@@ -86,7 +86,7 @@ void main() {
     mat_id = 112; // emissive class
 #endif
 
-    // ── TBN: tangent → world-space normal ──
+    // -- TBN: tangent -> world-space normal --
     // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
     // Programs without at_tangent cannot interpret tangent-space normal maps.
     vec3 w_normal = normalize(v_world_normal);
@@ -111,7 +111,7 @@ void main() {
     w_normal = vec3(0.0, 1.0, 0.0);
 #endif
 
-    // ── Material from specular map ──
+    // -- Material from specular map --
     // The explicit zero default is rough, non-metallic and non-emissive.
     vec4 spec_tex = vec4(0.0);
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord);
@@ -124,7 +124,7 @@ void main() {
     mat.emission = 1.0;
 #endif
 
-    // ── Write GBuffer ──
+    // -- Write GBuffer --
     gbuf1.rgb = albedo;
     gbuf1.a   = float(mat_id) / 255.0;
     gbuf2 = vec4(

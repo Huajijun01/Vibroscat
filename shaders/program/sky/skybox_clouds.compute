@@ -50,7 +50,7 @@ void main() {
         if (!full_init && any(notEqual(offset, phase_offset))) continue;
 
         // Equal-area cylindrical mapping at the texel center: u = azimuth,
-        // v = sin(elevation) (constant solid angle 4π/N², no per-pixel
+        // v = sin(elevation) (constant solid angle 4pi/N2, no per-pixel
         // Jacobian for SH). World-aligned: +X at u = 0.5, zenith at v = 1.
         ivec2 texel = cell * 2 + offset;
         float mu = 2.0 * (float(texel.y) + 0.5) / float(CLOUD_SKYBOX_SIZE) - 1.0;

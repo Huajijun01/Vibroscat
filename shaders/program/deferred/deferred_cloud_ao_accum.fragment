@@ -1,8 +1,8 @@
-// ════════════════════════════════════════════════════════════════════════════
-// Deferred cloud/AO accumulation fragment — full-res temporal upsampling +
+// ============================================================================
+// Deferred cloud/AO accumulation fragment - full-res temporal upsampling +
 // accumulation for clouds and screen-space AO (GTAO or SSAO, selected by
 // AO_MODE).
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 // Runs after the deferred1 computes (clouds_render, ao.compute) in the same
 // program: compute produces the low-res fresh inputs, this fragment
 // accumulates at full res and writes one merged history frame to colortex8.
@@ -45,7 +45,7 @@ void main() {
     float depth = texelFetch(depthtex0, tx, 0).r;
 
     if (depth >= 1.0) {
-        // ── Sky: cloud temporal upsampling + accumulation ──
+        // -- Sky: cloud temporal upsampling + accumulation --
 #ifdef VOLUMETRIC_CLOUDS
         vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
         vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
@@ -106,7 +106,7 @@ void main() {
         return;
     }
 
-    // ── Geometry: AO temporal accumulation; cloud history invalid ──
+    // -- Geometry: AO temporal accumulation; cloud history invalid --
 #if defined(GTAO) || defined(SSAO)
 #if defined(GTAO_TEMPORAL) || defined(SSAO)
     {

@@ -42,7 +42,7 @@ vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
 }
 
 float GetBlendWeight(vec3 previous_color, vec3 current_color, vec3 clipped_color, vec2 velocity) {
-	float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / Luminance(previous_color))
+    float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / Luminance(previous_color))
                      * clamp(length(velocity * u_screen_res), 0.0, 1.0);
     const float basic_blend_weight = 0.1;
     return clamp(movement + basic_blend_weight, 0.0, 1.0);

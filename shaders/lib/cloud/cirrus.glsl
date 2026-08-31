@@ -21,7 +21,7 @@ const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 const float CIRRUS_ASYM = 0.5;
 const float NOISE2D_SIZE = 64.0;
 
-// Reference cirrus shape algorithm. TIME → frameTimeCounter; ps =
+// Reference cirrus shape algorithm. TIME -> frameTimeCounter; ps =
 // planet-centered position (km), horizontal zx plane only. Noise lattice
 // baked into the periodic 64x64 R8 texture; uv = fract((pos + 0.5)/64),
 // linear + repeat. pos kept in [0, 64) via mod (octave transforms must not

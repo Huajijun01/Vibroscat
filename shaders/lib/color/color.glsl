@@ -61,7 +61,7 @@ vec3 OKLABToRGB(vec3 c) {
 // AgX display rendering transform.
 // Concept: [SOB22] Sobotka, Troy. AgX. 2022. https://github.com/sobotka/AgX
 // Curve: AgX-S2O3 analytical implementation, [LIN24] linlin, AgX. 2024, MIT
-// — ported from the upstream AgX-S2O3 Slang shader (
+// - ported from the upstream AgX-S2O3 Slang shader (
 // github.com/bWFuanVzYWth/AgX @ 0796e1b4). Linear sRGB in/out, 0.18 anchor.
 vec3 AgXInset(vec3 color) {
     float neutral = dot(color, AGX_NEUTRAL_WEIGHTS);
@@ -127,7 +127,7 @@ vec3 TonemapAGX(vec3 linear_rgb) {
 }
 
 // ===========================================================================
-// DRT family — display rendering transforms ported from the DRT Bench tool
+// DRT family - display rendering transforms ported from the DRT Bench tool
 // (github.com/bWFuanVzYWth/DRT).
 // Provenance:
 //   - Oklab DRT: Björn Ottosson "A display rendering transform" (2021); the
@@ -394,7 +394,7 @@ vec3 TonemapReinhardGamut(vec3 linear_rgb) {
 
 
 // ACES 1.0 RRT+ODT fitted curve (rrtAndODTFit, Narkowicz 2016), linear
-// sRGB → ACEScg → fit → sRGB.
+// sRGB -> ACEScg -> fit -> sRGB.
 const mat3 SRGB_TO_ACESCG = mat3(
     vec3(0.613097, 0.070194, 0.020616),
     vec3(0.339523, 0.916154, 0.109570),
@@ -404,7 +404,7 @@ const mat3 ACESCG_TO_SRGB = mat3(
     vec3(-0.621793, 1.140803, -0.128969),
     vec3(-0.083258, -0.010549, 1.152972));
 
-// Pre-scale: f(k·0.18) = 0.18 (mid-grey anchor shared with the other
+// Pre-scale: f(k*0.18) = 0.18 (mid-grey anchor shared with the other
 // tonemap modes).
 const float ACES_MID_GREY_SCALE = 0.72317081;
 
@@ -449,10 +449,10 @@ vec3 HDRDecompress(vec3 y) {
     return 0.427205 * y / (1.0 - 0.903453 * y);
 }
 
-// LogLuv32 → linear sRGB, per [ERI07] Ericson, Christer. "Converting RGB to
+// LogLuv32 -> linear sRGB, per [ERI07] Ericson, Christer. "Converting RGB to
 // LogLuv in a fragment shader". 2007; matrices as in Alpha Piscium v1.9.1
-// (GPLv3; licenses/THIRD_PARTY_NOTICES.md §10). R = u', G = v', B = int(Le),
-// A = frac(Le), Le = 2·log2(Y) + 127. Decodes LogLuv32 RGBA8 HDR textures
+// (GPLv3; licenses/THIRD_PARTY_NOTICES.md section10). R = u', G = v', B = int(Le),
+// A = frac(Le), Le = 2*log2(Y) + 127. Decodes LogLuv32 RGBA8 HDR textures
 // (e.g. the night star map).
 const mat3 LOGLUV32_INVERSE_M = mat3(6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268);
 

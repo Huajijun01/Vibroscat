@@ -1,9 +1,9 @@
 #ifndef LIB_POST_BLOOM_GLSL
 #define LIB_POST_BLOOM_GLSL
 
-// ════════════════════════════════════════════════════════════════════════════
-// Bloom mip-map tile layout — 7 mip levels packed into a single atlas texture
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// Bloom mip-map tile layout - 7 mip levels packed into a single atlas texture
+// ============================================================================
 //
 // Mip layout (each level is half the resolution of the previous):
 //   mip1: top-left quarter                  (full/2  x full/2)

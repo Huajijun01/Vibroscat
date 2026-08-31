@@ -26,7 +26,7 @@ vec2 CloudSkyboxUV(vec3 dir) {
     return vec2(u, v);
 }
 
-// ── Sampling: view_dir + sun_dir → LUT UV ──
+// -- Sampling: view_dir + sun_dir -> LUT UV --
 vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir, float planet_r, float altitude) {
     float theta_h = asin(planet_r / (planet_r + altitude)) - PI * 0.5;
     float theta = asin(view_dir.y);

@@ -1,8 +1,8 @@
-// ════════════════════════════════════════════════════════════════════════════
-// Shadow pass — fragment shader
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// Shadow pass - fragment shader
+// ============================================================================
 //
-// alphaTest off in shaders.properties → manual discard of alpha < 0.5.
+// alphaTest off in shaders.properties -> manual discard of alpha < 0.5.
 // rgb = tinted albedo, a = texture alpha (colored / stochastic shadows).
 // Depth is written by Iris to shadowtex0.
 

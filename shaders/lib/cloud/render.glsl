@@ -12,7 +12,7 @@
 #include "/lib/cloud/cirrus.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
-// Atmospheric transmittance along the camera→cloud-surface ray (UE
+// Atmospheric transmittance along the camera->cloud-surface ray (UE
 // GetTransmittance scheme; (r, mu) camera, (r_d, mu_d) surface, same ray):
 //   ground miss:  T = T_lut(r, mu)      / T_lut(r_d, mu_d)
 //   ground hit:   T = T_lut(r_d, -mu_d) / T_lut(r, -mu)   (reciprocity)
@@ -50,7 +50,7 @@ vec3 CloudSurfaceTransmittance(vec3 surface_pos, vec3 view_dir) {
 }
 
 // Re-light unlit cloud radiance with the current sun/moon; the consumer
-// adds skyColor · cloudData.z afterwards.
+// adds skyColor * cloudData.z afterwards.
 const float MOON_DARKEN = 0.4;
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
     vec3 sun_dir = normalize(u_world_sun_dir);

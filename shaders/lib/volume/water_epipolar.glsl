@@ -53,17 +53,17 @@ bool EpipolarWaterSegment(ivec2 texel, vec2 uv01, out vec3 start_scene, out vec3
 
 // Shadow-weighted direct-scattering ratio: estimates the transmittance-
 // weighted average shadow visibility along the column. The NUMERATOR is a
-// Riemann sum of the render-pass integrand (exp(-extinction·(t+L(t)))) with
+// Riemann sum of the render-pass integrand (exp(-extinction*(t+L(t)))) with
 // per-step shadow; the DENOMINATOR is the analytic full-column integral in
 // the SAME closed form the fragment fog uses (WaterScatteringIntegral,
-// σs omitted — it cancels). Beyond the march cap the column is taken
+// sigmas omitted - it cancels). Beyond the march cap the column is taken
 // unshadowed analytically, so a shadowed near field darkens only the near
 // part instead of zeroing the whole analytic fog (which integrates over the
 // full ray length).
 vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, float light_path2,
                          vec3 extinction, ivec2 rand_coord) {
     // Interpolate in undistorted shadow clip space (the distortion is
-    // nonlinear — mixing warped UVs would curve the march); re-apply
+    // nonlinear - mixing warped UVs would curve the march); re-apply
     // distortion + protected depth per step.
     vec3 s = ProjectToShadowClip(start_scene);
     vec3 e = ProjectToShadowClip(end_scene);
@@ -109,8 +109,8 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
         } else {
             u = -log(max(t_sample, 1e-6)) / tau;
             u = clamp(u, 0.0, 1.0);
-            // Jacobian of the inverse CDF: du/dp = (1-t_end)/(tau·t_sample),
-            // so the Riemann cell width in t is S·du.
+            // Jacobian of the inverse CDF: du/dp = (1-t_end)/(tau*t_sample),
+            // so the Riemann cell width in t is S*du.
             du = (1.0 - t_end) / (tau * max(t_sample, 1e-6)) * inv_steps;
         }
         vec3 clip = mix(s, e, u);
@@ -123,8 +123,8 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     }
 
     // Analytic full-column denominator, same closed form as
-    // WaterScatteringIntegral with σs omitted: integral of
-    // exp(-ext·(t + L(t))) over [0, S_full], L linear light_path1 → lp2_full.
+    // WaterScatteringIntegral with sigmas omitted: integral of
+    // exp(-ext*(t + L(t))) over [0, S_full], L linear light_path1 -> lp2_full.
     float delta_full = lp2_full - light_path1 + full_segment_length;
     vec3 den;
     if (abs(delta_full) < 1.0e-3 * max(full_segment_length, light_path1 + lp2_full + 1.0)) {
@@ -135,7 +135,7 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     }
 
     // Unshadowed analytic tail beyond the cap: integral over [S, S_full]
-    // with V = 1, same closed form (L(S) = light_path1 + d_l_full·scale).
+    // with V = 1, same closed form (L(S) = light_path1 + d_l_full*scale).
     float lp_at_cap = light_path1 + (lp2_full - light_path1) * scale;
     float tail_len = full_segment_length - segment_length;
     float delta_tail = lp2_full - lp_at_cap + tail_len;

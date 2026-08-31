@@ -111,7 +111,7 @@ bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 pre
 }
 
 // Light below the local horizon is planet-occluded: near sphere intersection
-// only (no far root); caller passes r² to share the dot product.
+// only (no far root); caller passes r2 to share the dot product.
 bool CloudLightBlockedByEarth(vec3 atmosphere_position, float atmosphere_r2, vec3 light_dir
 ) {
     float b = 2.0 * dot(atmosphere_position, light_dir);

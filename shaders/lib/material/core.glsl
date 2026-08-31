@@ -1,9 +1,9 @@
 #ifndef LIB_MATERIAL_CORE_GLSL
 #define LIB_MATERIAL_CORE_GLSL
 
-// ════════════════════════════════════════════════════════════════════════════
-// Material model — oldPBR/seusPBR-style specular map convention
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// Material model - oldPBR/seusPBR-style specular map convention
+// ============================================================================
 //
 // Specular map channels used by this shader pack:
 //   R = smoothness  (0=dull, 1=polished)
@@ -104,7 +104,7 @@ float SSSAmountForId(int id) {
     return 0.0;
 }
 
-// ── Normal-map decoding ──
+// -- Normal-map decoding --
 // LabPBR format (default since MC 1.14): X and Y channels store the 2D
 // tangent-space normal (Z reconstructed). Compatible with OptiFine / Iris
 // LabPBR normal maps (normal.xy remapped from [0,1] to [-1,1]).

@@ -1,8 +1,8 @@
 #ifndef LIB_ATMOSPHERE_SKY_LIGHT_GLSL
 #define LIB_ATMOSPHERE_SKY_LIGHT_GLSL
 
-// Sky SH irradiance — full-sphere diffuse L=0,1,2: radiance coeffs (SSBO,
-// from sky_spherical_harmonics.compute / prepare2, cloud skybox) ×
+// Sky SH irradiance - full-sphere diffuse L=0,1,2: radiance coeffs (SSBO,
+// from sky_spherical_harmonics.compute / prepare2, cloud skybox) x
 // Ramamoorthi A_l.
 
 #include "/lib/contract/sky_light_data.glsl"
@@ -57,7 +57,7 @@ vec3 EvalSkyRadiance(vec3 direction) {
 }
 
 // World-space reconstruction: coefficients baked in the cloud-skybox axes
-// (+X azimuth 0, +Y up, +Z +90°), so a world normal maps directly (no
+// (+X azimuth 0, +Y up, +Z +90deg), so a world normal maps directly (no
 // sun-azimuth rotation); all 9 terms kept (clouds break the sun-azimuth
 // mirror symmetry).
 vec3 EvalSkyLight(vec3 normal) {

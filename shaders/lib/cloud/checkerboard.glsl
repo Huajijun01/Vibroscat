@@ -3,9 +3,9 @@
 
 #include "/lib/contract/settings.glsl"
 
-// n×n checkerboard phase for the low-res cloud grid: every sub-pixel
-// sampled once per n² frames (each full-res pixel accumulates its own raw
-// samples). 3x3/4x4 orderings coarse-to-fine (corners → center → edges:
+// nxn checkerboard phase for the low-res cloud grid: every sub-pixel
+// sampled once per n2 frames (each full-res pixel accumulates its own raw
+// samples). 3x3/4x4 orderings coarse-to-fine (corners -> center -> edges:
 // early frames stay spatially spread).
 const ivec2[1] CloudCheckerboardOffsets1x1 = ivec2[1](ivec2(0, 0));
 

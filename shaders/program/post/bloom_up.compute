@@ -14,7 +14,7 @@ shared vec4 tile[21][21];
 
 // 5x5 Gaussian bloom upsample, pixel-center aligned: separable Gaussian
 // (sigma ~0.866, [1,4,6,4,1]/16) on the output's source position. Even axis
-// = 5-tap binomial; odd axis needs a 6th tap (half-texel centre — a
+// = 5-tap binomial; odd axis needs a 6th tap (half-texel centre - a
 // truncated 5-tap drifts ~0.045 texel/level through the cascade).
 void main() {
     ivec2 full_size = imageSize(colorimg12);

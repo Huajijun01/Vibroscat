@@ -1,7 +1,7 @@
 #ifndef LIB_LIGHTING_AMBIENT_LIGHT_GLSL
 #define LIB_LIGHTING_AMBIENT_LIGHT_GLSL
 
-// lmcoord → lighting helpers shared by deferred2 and the translucent passes
+// lmcoord -> lighting helpers shared by deferred2 and the translucent passes
 // (same remap curves + sky ambient). Vanilla lightmap = (blockLight,
 // skyLight) in 0..1: deferred2 from colortex4.zw, translucent from
 // v_texcoord.zw.
@@ -21,7 +21,7 @@ float BlockLightFromLm(float lm_block) {
     return (light - light_zero) / (1.0 - light_zero);
 }
 
-// Sky light: quadratic falloff — outdoor areas ramp quickly with sky access.
+// Sky light: quadratic falloff - outdoor areas ramp quickly with sky access.
 float SkyLightFromLm(float lm_sky) {
     return lm_sky * lm_sky;
 }

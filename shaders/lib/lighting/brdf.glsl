@@ -108,7 +108,7 @@ vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
 
 // ---------------------------------------------------------------------------
 // GGX spherical area light approximation (Guerrilla's Decima Engine, SIGGRAPH
-// 2017 "Advances in Lighting and AA" — Johan Andersson [DEC17]):
+// 2017 "Advances in Lighting and AA" - Johan Andersson [DEC17]):
 //   https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf
 // Bent-light Newton iteration from the presentation; implements its getNoH().
 // ---------------------------------------------------------------------------

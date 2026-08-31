@@ -24,7 +24,7 @@ AirFogMedium AirFogMediumAtCamera() {
     return AirFogMedium(ray + mie, ray, mie);
 }
 
-// Closed form of ∫₀^S σs·exp(-σt·t) dt; no light-direction OD
+// Closed form of integral0^S sigmas*exp(-sigmat*t) dt; no light-direction OD
 // (groundLight approximates the active light reaching the scene).
 vec4 AirScatteringIntegral(float segment_length, vec4 sigma_s, vec4 sigma_t) {
     return sigma_s * (vec4(1.0) - exp(-sigma_t * segment_length)) / sigma_t;
@@ -98,7 +98,7 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     result.in_scattering += sca_rgb * (1.0 / (4.0 * PI))
         * EvalSkyLight(world_dir)
         * AIR_FOG_SKY_STRENGTH;
-    
+
     result.transmittance = trans_rgb;
     return result;
 }

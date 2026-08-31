@@ -1,18 +1,18 @@
 #ifndef LIB_LIGHTING_SSAO_GLSL
 #define LIB_LIGHTING_SSAO_GLSL
 
-// ════════════════════════════════════════════════════════════════════════════
-// SSAO — Monte-Carlo hemisphere ambient occlusion (Crytek 2007)
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// SSAO - Monte-Carlo hemisphere ambient occlusion (Crytek 2007)
+// ============================================================================
 //
 // The AO integral
-//   A(P) = (1/π) ∫_Ωn V(P,ω) ⟨ω,n⟩ dω
+//   A(P) = (1/pi) integral_Omegan V(P,omega) <omega,n> domega
 // is estimated by importance sampling with N cosine-weighted hemisphere
 // directions:
 //   A(P) = (1/N) sum_k V(P,w_k),   Var(A) = A(1-A)/N  (eq. 2-3)
-// Each sample projects Q = P + R·ω back to the screen; the visibility test
+// Each sample projects Q = P + R*omega back to the screen; the visibility test
 // (cosine-weighted): the offset must point inside the center's
-// normal hemisphere (⟨offset, n⟩ > 0) — flat planes never pass, walls and
+// normal hemisphere (<offset, n> > 0) - flat planes never pass, walls and
 // corners do. Radius window smoothed, no hard cut.
 //
 // Variance is NOT spatially filtered: the deferred1 temporal accumulation
@@ -20,7 +20,7 @@
 //
 // Shared plumbing from gtao.glsl (guarded); depth source matches GTAO
 // (depthtex1: opaque + hand, no transparent).
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -49,7 +49,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, int frame) {
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
         // Cosine-weighted hemisphere sample: uniform disk point
-        // (r = √u1) lifted onto the hemisphere; azimuth dithered per block
+        // (r = sqrtu1) lifted onto the hemisphere; azimuth dithered per block
         // and stratified per sample (golden angle).
         float u1 = (float(k) + noise.y) / float(SSAO_SAMPLES);
         float u2 = fract(noise.x + float(k) * 0.61803398875);

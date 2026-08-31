@@ -7,33 +7,33 @@
 #include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 
-// ════════════════════════════════════════════════════════════════════════════
-// GTAO — horizon-based ambient occlusion (Jimenez et al. 2016)
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// GTAO - horizon-based ambient occlusion (Jimenez et al. 2016)
+// ============================================================================
 //
 // Math contract. The AO integral
-//   A(P) = (1/π) ∫_Ωn V(P,ω) ⟨ω,n⟩ dω
+//   A(P) = (1/pi) integral_Omegan V(P,omega) <omega,n> domega
 // is decomposed per azimuthal slice (Fubini). In the slice plane, directions
-// are parametrized by the angle θ from the toward-camera axis v, the normal
-// projects to θn = atan2(⟨n,t⟩, ⟨n,v⟩), and the visible arc is bounded by
+// are parametrized by the angle theta from the toward-camera axis v, the normal
+// projects to thetan = atan2(<n,t>, <n,v>), and the visible arc is bounded by
 // the horizon angles h1,h2 found by marching the projected radius through
 // the depth buffer. Clamping to the cosine-positive hemisphere of n and
 // integrating exactly gives, per slice,
-//   I(φ) = sin(θhi − θn) − sin(θlo − θn),
-//   θlo = max(h1, θn − π/2),   θhi = min(h2, θn + π/2),
-// and A(P) = (1/2S) Σ_s I(φ_s) (open space: I = 2, A = 1; fully occluded:
-// θhi ≤ θlo, I = 0).
+//   I(phi) = sin(thetahi - thetan) - sin(thetalo - thetan),
+//   thetalo = max(h1, thetan - pi/2),   thetahi = min(h2, thetan + pi/2),
+// and A(P) = (1/2S) Sigma_s I(phi_s) (open space: I = 2, A = 1; fully occluded:
+// thetahi <= thetalo, I = 0).
 //
 // Horizon search conventions (validated against the height-field case that
-// dominates Minecraft): the search inits fully open at ±π and skips sky and
+// dominates Minecraft): the search inits fully open at +/-pi and skips sky and
 // same-surface samples, so open surfaces read exactly 1.0 for every normal
 // tilt, while walls in front clamp the arc and produce contact darkening.
-// Samples beyond the radius fade toward the open state (paper §4.3).
+// Samples beyond the radius fade toward the open state (paper section4.3).
 //
 // Slice rotation is dithered per block and per frame with the STBN
 // blue-noise texture (point-sampled); the pack's TAA converges the residual
 // noise (STBN dithered, converged by TAA).
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 
 
 // Per-block STBN: x = slice rotation, y = horizon-step dither. Point-sampled
@@ -65,8 +65,8 @@ vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, out float radius_px) {
     return delta / radius_px;
 }
 
-// March one horizon direction; returns the horizon angle in [0, π] (acos of
-// the max sample cosine; init π = fully open). Steps dense near the pixel,
+// March one horizon direction; returns the horizon angle in [0, pi] (acos of
+// the max sample cosine; init pi = fully open). Steps dense near the pixel,
 // quadratic spread, per-pixel dither.
 float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
                         float radius_px, float center_depth, vec3 view_axis,
@@ -99,7 +99,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
         if (offset_len < 1.0e-3) {
             continue;
         }
-        // Near-field fade (Jimenez §4.3): linear band [FALLOFF_START·R, R]
+        // Near-field fade (Jimenez section4.3): linear band [FALLOFF_START*R, R]
         // applied to the sample cosine (no hard cut at the radius).
         float fade = clamp(
             (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)

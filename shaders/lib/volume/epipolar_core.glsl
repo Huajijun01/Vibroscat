@@ -48,7 +48,7 @@ vec2 EpipolarSliceExit(int slice) {
 
 // Other rect crossing of the line through origin and dir (origin = one
 // boundary crossing; the ray enters forward or leaves backward; zero dir
-// components → ±inf, tolerated by the slab test).
+// components -> +/-inf, tolerated by the slab test).
 vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
     // Avoid 0 * inf when a line starts on an edge and is parallel to it.
     // Such NaNs used to leak into endpoint lines near horizontal/vertical
@@ -72,8 +72,8 @@ vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
     return origin + dir * t_other;
 }
 
-// Slice coordinate of a screen point: exit sector of the pole→pixel ray,
-// same parametrization as EpipolarSliceExit; ∈ [0, EPIPOLAR_SLICES).
+// Slice coordinate of a screen point: exit sector of the pole->pixel ray,
+// same parametrization as EpipolarSliceExit; in [0, EPIPOLAR_SLICES).
 float EpipolarSliceOf(vec2 ndc, vec2 pole) {
     vec2 dir = ndc - pole;
     float len = length(dir);
@@ -172,7 +172,7 @@ float EpipolarEdgeWeight(float pixel_key, float sample_key) {
     return w2 * w2;
 }
 
-// Value-aware sharpening: strong candidate difference = real shadow edge →
+// Value-aware sharpening: strong candidate difference = real shadow edge ->
 // strengthen the contrast of the blend weight continuously (no hard snap:
 // step() at low resolution turns sparse samples into blocky edges).
 float EpipolarSharpen(float w, float a, float b) {

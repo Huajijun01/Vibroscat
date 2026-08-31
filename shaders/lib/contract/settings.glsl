@@ -7,7 +7,7 @@
 // only this file.
 
 // ==========================================================================
-// POST — Post / tonemap
+// POST - Post / tonemap
 // ==========================================================================
 #define TAA
 //#define DOF
@@ -62,7 +62,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define TONEMAP_RG_HUE_RETENTION 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Reinhard-Gamut original-hue retention (shortest hue angle)
 
 // ==========================================================================
-// CLOUDS — Volumetric clouds
+// CLOUDS - Volumetric clouds
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
 #define CLOUD_VIEW_MIN_STEPS 32 // [24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
@@ -106,7 +106,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_HISTORY_NO_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 
 // ==========================================================================
-// SHADOWS — Shadows / PCSS / SSS
+// SHADOWS - Shadows / PCSS / SSS
 // ==========================================================================
 const int shadowMapResolution = 2048; // [1024 1536 2048 3072 4096 6144 8192]
 const bool shadowHardwareFiltering = true;
@@ -146,7 +146,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_SSS_FADE_START 0.75 // [0.0 0.5 0.6 0.7 0.75 0.8 0.9 0.95]
 
 // ==========================================================================
-// WATER — Water / epipolar
+// WATER - Water / epipolar
 // ==========================================================================
 
 // Opaque recursive screen-space indirect specular. This budget is separate
@@ -208,7 +208,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
 
 // ==========================================================================
-// FOG — Air fog
+// FOG - Air fog
 // ==========================================================================
 const float eyeBrightnessHalflife = 3.0;
 
@@ -220,7 +220,7 @@ const float eyeBrightnessHalflife = 3.0;
 #define AIR_FOG_SHADOWS
 
 // ==========================================================================
-// AO — Ambient occlusion
+// AO - Ambient occlusion
 // ==========================================================================
 const float ambientOcclusionLevel = 1.0;
 
@@ -250,7 +250,7 @@ const float ambientOcclusionLevel = 1.0;
 // age-capped exponential blend.
 #define GTAO_TEMPORAL // temporal toggle: enables the history accumulation
 // AO generation is plain half resolution: every half-res texel is evaluated
-// every frame at its full-res block origin and upsampled bilinearly — one
+// every frame at its full-res block origin and upsampled bilinearly - one
 // sample per pixel per frame at full convergence speed.
 #define GTAO_AGE_LIMIT 48 // [2 4 6 8 10 16 24 32] history age cap (frames) before full trust
 // AO accumulation matches the cloud temporal scheme: box-average the first
@@ -262,7 +262,7 @@ const int AO_ACCUMULATION_BOX_SAMPLES = 4;   // box-average the first 4 phase sa
 const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after the box phase
 // Darkening slowdown: while the fresh sample is darker than the history
 // (AO darkening in progress) the fresh weight is scaled by
-// AO_DARKEN_SLOWDOWN so black AO fades in slowly — the eye is sensitive to
+// AO_DARKEN_SLOWDOWN so black AO fades in slowly - the eye is sensitive to
 // darkening, and a sudden dark jump reads as noise. The condition is the
 // darkening state itself, not the per-frame rejection: the slow rate is
 // carried by the age (base alpha keeps dropping toward the steady state),
@@ -278,7 +278,7 @@ const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after th
 #define GTAO_HISTORY_NORMAL_DOT_MIN 0.866 // [0.94 0.91 0.87 0.82 0.71 0.5] history rejection: min normal dot (cos 30 deg)
 
 // ==========================================================================
-// LIGHTING — Lighting constants
+// LIGHTING - Lighting constants
 // ==========================================================================
 
 // Warm artificial-light palette, shared by deferred2 and the forward

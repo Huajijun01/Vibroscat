@@ -48,7 +48,7 @@ const ValueNoiseWave VALUE_NOISE_WAVES[VALUE_NOISE_LAYERS] = ValueNoiseWave[](
 const float VALUE_NOISE_EPS = 0.1; // central-difference step (m)
 
 // Single hardware bilinear fetch with smoothstep-equivalent weights (uv
-// pre-distorted: w = f²(3 - 2f)).
+// pre-distorted: w = f2(3 - 2f)).
 float ValueNoiseSample(vec2 pos) {
     vec2 f = fract(pos);
     vec2 p = floor(pos) + f * f * (3.0 - 2.0 * f);
@@ -120,9 +120,9 @@ float OceanValueNoisePOMHeight(vec2 xz, float time) {
 }
 
 // Ray/surface intersection: for a camera above the water (view.y < 0) the
-// visible point satisfies h(xz0 + d·dir) = d (dir = view.xz/view.y toward
+// visible point satisfies h(xz0 + d*dir) = d (dir = view.xz/view.y toward
 // camera; bumps displace toward camera, troughs away). Scan from the camera
-// side, interpolate the first crossing; none found → keep the plane sample
+// side, interpolate the first crossing; none found -> keep the plane sample
 // (no over-shift on flat water).
 vec2 OceanPOMOffset(vec2 xz, vec3 view_world, float time) {
     if (view_world.y >= 0.0) {

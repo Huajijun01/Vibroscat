@@ -1,16 +1,16 @@
-// ════════════════════════════════════════════════════════════════════════════
-// Deferred shading — reads GBuffer, computes diffuse + environment light
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// Deferred shading - reads GBuffer, computes diffuse + environment light
+// ============================================================================
 //
 // Lighting model:
 //   1. Sky pixels (depth >= 1.0): sample Sky View LUT directly
-//   2. Surface pixels: decode GBuffer → directional + ambient + torch
+//   2. Surface pixels: decode GBuffer -> directional + ambient + torch
 //
 // Direct: Burley diffuse + Cook-Torrance GGX specular
 // Ambient: SH irradiance from the cloud skybox (sky_light.glsl, L0-2,
-//          projected by prepare2), × skyLight × AO, Lambertian
+//          projected by prepare2), x skyLight x AO, Lambertian
 // Torch: blockLight masked by (1-skyLight), warm tint, Lambertian
-// Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance → irradiance.
+// Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance -> irradiance.
 
 /* RENDERTARGETS: 0,2,5 */
 
@@ -55,8 +55,8 @@ void main() {
     // Last opaque-gbuffer consumer: colortex2 freed for translucent water data.
     out_gbuf_clear = vec4(0.0);
 
-    // ── Sky (far plane) ──
-    // Depth 1.0 = far plane → Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
+    // -- Sky (far plane) --
+    // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
     if (depth >= 1.0) {
 #if OPAQUE_SSR_DEBUG > 0
         out_color = vec3(0.0);
@@ -105,7 +105,7 @@ void main() {
 #endif
     }
 
-    // ── GBuffer decode ──
+    // -- GBuffer decode --
     vec4 g1 = texelFetch(colortex1, tx, 0);
     vec4 g2 = texelFetch(colortex2, tx, 0);
     vec2 nx_ao = Unpack2x8(g2.r);
@@ -114,7 +114,7 @@ void main() {
     vec2 emission_aux = Unpack2x8(g2.a);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
 
-    vec3 albedo   = ToLinear(g1.rgb);    // sRGB → linear
+    vec3 albedo   = ToLinear(g1.rgb);    // sRGB -> linear
     PBRMaterial material = ResolveOpaquePBR(
         albedo, rough_selector.x, rough_selector.y,
         emission_aux.x, emission_aux.y);
@@ -153,14 +153,14 @@ void main() {
 #if defined(GTAO) || defined(SSAO)
     gtao_ao = texture(colortex8, (vec2(tx) + 0.5) * u_view_pixel_size).r;
 #endif
-    // decode geometric view normal from colortex4 (octahedral) → world-space
+    // decode geometric view normal from colortex4 (octahedral) -> world-space
     vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
     vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
     float sss_amount = SSSAmountForId(int(g1.a * 255.0 + 0.5));
 
-    // ── World position (for shadow) ──
+    // -- World position (for shadow) --
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
 #ifdef TAA
     vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
@@ -196,10 +196,10 @@ void main() {
     ao_effective = gtao_ao_rgb;
 #endif
 
-    // ── Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) ──
+    // -- Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) --
     float block_light = BlockLightFromLm(lm.r);
 
-    // ── Directional light (sun or moon) ──
+    // -- Directional light (sun or moon) --
     vec3 light_direction = (u_world_light_dir);
     vec3 half_vector = view_to_eye + light_direction;
     vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
@@ -215,7 +215,7 @@ void main() {
         ndotv, ndotl, ndoth, vdoth, ldoth);
     vec3 direct_lighting = direct_brdf * ndotl;
 
-    // ── Shadow ──
+    // -- Shadow --
     float shadow_occlusion = 1.0;
     float sss_thickness_world = 0.0;
     vec3 shadow_proj = ProjectToShadowWithBias(world_pos, geo_ndotl);
@@ -237,12 +237,12 @@ void main() {
     }
     out_direct_brdf = direct_lighting * shadow_occlusion;
 
-    // ── Light color sources (same colors as the gbuffer translucent passes) ──
+    // -- Light color sources (same colors as the gbuffer translucent passes) --
     vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
-    // Sky ambient: remapped sky light × AO-aware blend + AMBIENT_BASE floor (AmbientLight).
+    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_BASE floor (AmbientLight).
     vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
 
-    // ── Composite ──
+    // -- Composite --
     vec3 color = direct_lighting * sun_color * shadow_occlusion;
 
     // Plant SSS: transmission through the PCSS-measured foliage thickness,
@@ -281,7 +281,7 @@ void main() {
 #endif
     color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * gtao_ao;
 
-    // ── Indirect specular ──
+    // -- Indirect specular --
     // Rough opaque surfaces use the SH environment exclusively. The transition
     // span keeps the SSR-to-SH change gradual while avoiding SSR work at the
     // high-roughness end of the range.
@@ -364,7 +364,7 @@ void main() {
     color += indirect_specular;
 #endif
 
-    // ── Emissive ──
+    // -- Emissive --
     color += albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 
     out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);

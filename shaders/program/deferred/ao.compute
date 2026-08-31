@@ -1,12 +1,12 @@
-// ════════════════════════════════════════════════════════════════════════════
-// AO generation (half resolution, full evaluation) — writes the uimg_ao
+// ============================================================================
+// AO generation (half resolution, full evaluation) - writes the uimg_ao
 // custom image (R8).
-// ════════════════════════════════════════════════════════════════════════════
-// Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view·0.5/8),
+// ============================================================================
+// Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/8),
 // local 8x8). Each invocation covers one 2x2 full-res block, evaluates the
 // kernel (ComputeGTAO / ComputeSSAO) at the block origin; the deferred1
 // fragment upsamples bilinearly, one sample/pixel/frame. Every texel is
-// evaluated EVERY frame (no checkerboard phase — full convergence speed).
+// evaluated EVERY frame (no checkerboard phase - full convergence speed).
 // Runs after the cloud compute in deferred1 (suffixless first, _a second).
 //
 // Storage: single-copy custom image (no flip), compute-written,

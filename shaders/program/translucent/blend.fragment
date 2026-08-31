@@ -97,7 +97,7 @@ vec3 CausticLightContribution(vec3 caustic_world_pos, vec3 caustic_brdf, vec3 tr
     vec2 caustic_uv = caustic_entry.xz / CAUSTIC_WORLD_SCALE;
     float caustic_time = fract(frameTimeCounter * CAUSTIC_TIME_SPEED);
     float caustic_path = CausticWaterPath(caustic_world_pos, caustic_surface_y, light_dir);
-    // Unmap → normalize by reference → blend bracketing 1/4/9/16 m layers
+    // Unmap -> normalize by reference -> blend bracketing 1/4/9/16 m layers
     // by path length.
     vec4 caustic_rel = CausticUnmap(CausticSampleBspline(caustic_uv, caustic_time)) / CAUSTIC_REFERENCE;
     float caustic_mixed = CausticDepthBlend(caustic_rel, caustic_path);

@@ -4,7 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// View space ↔ camera-relative player space.
+// View space <-> camera-relative player space.
 vec3 ViewToSceneSpace(vec3 vp) {
     return (gbufferModelViewInverse * vec4(vp, 1.0)).xyz;
 }
@@ -58,7 +58,7 @@ vec3 ToPrevious(vec3 closest_to_camera) {
     return pos.xyz * 0.5 + 0.5;
 }
 
-// Previous-frame screen coordinates [0,1]³ to previous view space.
+// Previous-frame screen coordinates [0,1]3 to previous view space.
 vec3 PreviousScreenToView(vec3 screen_position) {
     vec3 projected = screen_position * 2.0 - 1.0;
     projected.xy += gbufferPreviousProjection[2].xy;
@@ -82,7 +82,7 @@ float ScreenDepthFromLinearDepth(float depth) {
     return depth * 0.5 + 0.5;
 }
 
-// ── Shadow-space transforms (world → shadow clip / NDC, distortion, bias) ──
+// -- Shadow-space transforms (world -> shadow clip / NDC, distortion, bias) --
 
 // Analytic shadow distortion: compresses clip-space XY toward center.
 #define DISTORT_FACTOR 0.9
@@ -109,10 +109,10 @@ float ShadowDepthGapFromWorld(float world_gap) {
     return 0.5 * SHADOW_DEPTH_SCALE * abs(shadowProjection[2].z) * world_gap;
 }
 
-// ── Distort-branch shadow bias ──
+// -- Distort-branch shadow bias --
 // Texel size from the distortion Jacobian
 // (uv = clip/(2*factor)+0.5, so d(uv)/d(clip) = (1-D)/(2*factor^2)),
-// then slope-scaled + constant bias → NDC depth offset.
+// then slope-scaled + constant bias -> NDC depth offset.
 float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels) {
     float shadow_e = shadowProjection[2].z;
     float shadow_a = shadowProjection[0].x;
@@ -137,12 +137,12 @@ float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels
         / max(clamped_ndotl, 1e-4);
     float const_world = texel_world_size * const_bias_texels;
 
-    float depth_scale = 0.5 * abs(shadow_e);    // view-space m → NDC depth
+    float depth_scale = 0.5 * abs(shadow_e);    // view-space m -> NDC depth
 
     return (slope_world + const_world) * depth_scale * smoothstep(0.0, 0.05, ndotl);
 }
 
-// World position → shadow NDC [0,1]³ (orthographic projection uses only the
+// World position -> shadow NDC [0,1]3 (orthographic projection uses only the
 // diagonal components: 3 mul + 3 add), with the analytic distortion and the
 // protected depth remap applied.
 vec3 ProjectToShadow(vec3 world_pos) {
@@ -157,7 +157,7 @@ vec3 ProjectToShadow(vec3 world_pos) {
     return vec3(clip_pos.xy * 0.5 + 0.5, ProtectShadowDepth(clip_pos.z * 0.5 + 0.5));
 }
 
-// World position → shadow NDC [0,1]³ with a slope-scaled depth bias.
+// World position -> shadow NDC [0,1]3 with a slope-scaled depth bias.
 vec3 ProjectToShadowWithBias(vec3 world_pos, float ndotl) {
     vec3 view_pos = mat3(shadowModelView) * world_pos + shadowModelView[3].xyz;
 

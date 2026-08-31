@@ -16,10 +16,10 @@ void main() {
     vec3 hdr = texture(colortex0, uv).rgb;
 
 #ifdef BLOOM
-    // Final half-res → full-res step: bilinear sample of the mip1 tile with
+    // Final half-res -> full-res step: bilinear sample of the mip1 tile with
     // a half-texel center offset (screen texel i reads tile i/2, pixel-center
     // aligned). The atlas packs mip2/mip3 right/below mip1 (uv 0.5); edge
-    // texels would otherwise blend 50% of the neighbour tile — clamp to
+    // texels would otherwise blend 50% of the neighbour tile - clamp to
     // mip1's texel-centre range so edges read the tile edge, not the seam.
     vec2 bloom_uv = uv * 0.5 + 0.5 * u_view_pixel_size;
     bloom_uv = clamp(bloom_uv, 0.5 * u_view_pixel_size, vec2(0.5) - 0.5 * u_view_pixel_size);

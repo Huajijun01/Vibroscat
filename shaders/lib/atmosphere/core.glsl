@@ -5,52 +5,52 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 
-// ═══════════════════════════════════════════════════════════════
-// Atmosphere Sky — 4-Wave Spectral (GLSL 430 desktop)
+// ===============================================================
+// Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
 // Optimal wavelengths: 410, 480, 560, 630 nm
 // Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 7),
 // offline 4-wave spectral fit (HSPEAtmosCreator tool).
 // Provenance: licenses/THIRD_PARTY_NOTICES.md section 15.
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
-// ── Custom Texture bindings (registered in shaders.properties) ──
+// -- Custom Texture bindings (registered in shaders.properties) --
 
 #define TRANSMITTANCE_LUT utex_tslut
 #define MULTISCATTER_LUT utex_mslut
 
 // MS LUT: raw 4-wave radiance in RGBA16F (32x32), no per-channel
-// normalization — sampled values are absolute spectral radiance.
+// normalization - sampled values are absolute spectral radiance.
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // Baked Constants
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
-// ── Geometry ──
+// -- Geometry --
 const float ATM_H = sqrt(ATM_ATMO_R2 - ATM_PLANET_R2);
 const float ATM_ATMO_MINUS_P = ATM_ATMO_R - ATM_PLANET_R;
 const float ATM_RCP_ATMO_MINUS_P = 1.0 / ATM_ATMO_MINUS_P;
 
-// ── Rayleigh density: exp(-A * h^B) ──
+// -- Rayleigh density: exp(-A * h^B) --
 const float ATM_RAY_EXP_A = 0.07771971;
 const float ATM_RAY_EXP_B = 1.16364243;
 
-// ── Rayleigh scattering base (km⁻¹ at sea level, per wavelength) ──
+// -- Rayleigh scattering base (km-^1 at sea level, per wavelength) --
 const vec4 ATM_SIGMA_S_RAY = vec4(0.0478, 0.02545, 0.01374, 0.008576);
 
-// ── Ozone: lognormal centred at ~25.1 km ──
+// -- Ozone: lognormal centred at ~25.1 km --
 const float ATM_OZONE_CENTER_LOG = 3.22261;
 const float ATM_OZONE_INV_VAR = 5.55555555;
 const float ATM_OZONE_DENS_SCALE = 3.78547397e+20;
 
-// ── Ozone cross-section * Dobson  (pre-merged) ──
+// -- Ozone cross-section * Dobson  (pre-merged) --
 const vec4 ATM_OZONE_SIGMA = 381.0 * vec4(2.91000003e-27, 7.11000026e-26, 3.88000004e-25, 3.43e-25);
 
-// ── Aerosol ──
+// -- Aerosol --
 const float ATM_AERO_SCALE = 8.0;
 const float ATM_AERO_SMOOTH_LO = 1.0;
 const float ATM_AERO_SMOOTH_HI = 2.0;
 
-// ── Aerosol base density (g/m³ at sea level, Rural) ──
+// -- Aerosol base density (g/m3 at sea level, Rural) --
 const float ATM_WASO_BASE = 1.48999998e-05;
 const float ATM_WASO_BG   = 4.57099986e-07;
 const float ATM_INSO_BASE = 1.00999996e-05;
@@ -58,7 +58,7 @@ const float ATM_INSO_BG   = 2.2910001e-06;
 const float ATM_SOOT_BASE = 5.31000012e-07;
 const float ATM_SOOT_BG   = 1.36200002e-08;
 
-// ── Aerosol sigma_sca per species (km⁻¹ per g/m³) ──
+// -- Aerosol sigma_sca per species (km-^1 per g/m3) --
 const float ATM_WASO_SCA_0 = 4612.52978516;
 const float ATM_WASO_SCA_1 = 3786.26000977;
 const float ATM_WASO_SCA_2 = 3034.39990234;
@@ -72,7 +72,7 @@ const float ATM_SOOT_SCA_1 = 2652.76000977;
 const float ATM_SOOT_SCA_2 = 1860.20996094;
 const float ATM_SOOT_SCA_3 = 1397.32995605;
 
-// ── Mie combined (compile-time folded from per-species data) ──
+// -- Mie combined (compile-time folded from per-species data) --
 // GetSigmaSMie(h) = exp(-h/AERO_SCALE) * (SM_A + smoothstep(lo,hi,h) * SM_B)
 const vec4 ATM_SM_A = vec4(
     ATM_WASO_BASE * ATM_WASO_SCA_0 + ATM_INSO_BASE * ATM_INSO_SCA_0 + ATM_SOOT_BASE * ATM_SOOT_SCA_0,
@@ -86,10 +86,10 @@ const vec4 ATM_SM_B = vec4(
     (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_SCA_3 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_SCA_3 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_SCA_3
 );
 
-// ── Solar irradiance (W/m²/nm at TOA) ──
+// -- Solar irradiance (W/m2/nm at TOA) --
 const vec4 ATM_SOLAR = vec4(1.74769998, 2.05660009, 1.85350001, 1.65419996);
 
-// ── Phase ──
+// -- Phase --
 const float ATM_G = 0.7;
 const float ATM_G2 = ATM_G * ATM_G;
 const float ATM_MIE_K1 = ATM_G2 + 1.0;
@@ -97,25 +97,25 @@ const float ATM_MIE_K2 = -2.0 * ATM_G;
 const float ATM_PHASE_RAY_SCALE = 0.0596831;
 const float ATM_PHASE_MIE_K = 0.0244485;
 
-// ── Display ──
+// -- Display --
 const float ATM_EXPOSURE = 0.05;  // from the 4-wave offline fit
 
-// ── Integration ──
+// -- Integration --
 const float ATM_NUM_STEPS = 128.0;
 const vec4 ATM_EPS = vec4(1.0e-5);
 
-// ── Ground albedo (Lambertian) ──
+// -- Ground albedo (Lambertian) --
 const float ATM_GROUND_ALBEDO_BAKE = 0.25;  // used when baking LUTs
 const float ATM_GROUND_ALBEDO      = 0.03;  // runtime, tweak independently
 
-// ── Moonlight irradiance (W/m²/nm) ──
-// Re-tinted through the 4-wave CMF matrix: Rec.2020 reads ≈ (0.88, 0.95, 1.18)
-// vs neutral — cooler moonlight.
+// -- Moonlight irradiance (W/m2/nm) --
+// Re-tinted through the 4-wave CMF matrix: Rec.2020 reads ~= (0.88, 0.95, 1.18)
+// vs neutral - cooler moonlight.
 const vec4 ATM_MOON_IRR = vec4(0.1522710, 0.2695135, 0.1635034, 0.1553021) * 0.6;
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 float DensityRay(float r) {
     float h = max(r - ATM_PLANET_R, 0.0);
@@ -128,9 +128,9 @@ float DensityOzone(float r) {
     return ATM_OZONE_DENS_SCALE * (1.0 / h) * exp(-t * t * ATM_OZONE_INV_VAR);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // Scattering & extinction per wavelength  (vec4 = [410,480,560,630])
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 vec4 GetSigmaSRay(float h) {
     float d = DensityRay(ATM_PLANET_R + h);
@@ -155,13 +155,13 @@ vec4 GetScattering(float h) {
     return GetSigmaSRay(h) + GetSigmaSMie(h);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // Geometry
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // LUT UV mapping
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 vec2 GetTransmittanceLUTUV(float r, float r2, float mu) {
     float rho = sqrt(r2 - ATM_PLANET_R2);
@@ -171,7 +171,7 @@ vec2 GetTransmittanceLUTUV(float r, float r2, float mu) {
     float d_max = rho + ATM_H;
     float x_mu = (d - d_min) / max(d_max - d_min, 1.0e-5);
     float x_r  = rho / max(ATM_H, 1.0e-5);
-    x_mu = x_mu * x_mu;  // square remap → more resolution near horizon
+    x_mu = x_mu * x_mu;  // square remap -> more resolution near horizon
     return vec2(x_mu, x_r);
 }
 
@@ -179,9 +179,9 @@ vec2 GetMultiScatterLUTUV(float r, float mu) {
     return vec2(mu * 0.5 + 0.5, (r - ATM_PLANET_R) * ATM_RCP_ATMO_MINUS_P);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // LUT Sampling
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 vec4 SampleTransmittance(sampler2D lut_tex, float r, float r2, float mu) {
     vec2 uv = GetTransmittanceLUTUV(r, r2, mu);
@@ -192,9 +192,9 @@ vec4 SampleMultiScatter(sampler2D lut_tex, float r, float mu) {
     return textureLod(lut_tex, GetMultiScatterLUTUV(r, mu), 0.0);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // Phase functions  (Cornette-Shanks for Mie, matched to the pack's 4-wave spectral fit)
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 float PhaseRayleigh(float cos_theta) {
     return (cos_theta * cos_theta + 1.0) * ATM_PHASE_RAY_SCALE;
@@ -214,9 +214,9 @@ float PhaseCornetteShanks(float cos_theta, float eccentricity) {
     return (3.0 / (8.0 * PI)) * ((1.0 - eccentricity * eccentricity) * (1.0 + cos_theta * cos_theta)) / ((2.0 + eccentricity * eccentricity) * p * sqrt(p));
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Spectral → linear sRGB  (4×3 manually expanded, FMA-friendly)
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
+// Spectral -> linear sRGB  (4x3 manually expanded, FMA-friendly)
+// ===============================================================
 
 vec3 SpectralToLinearSRGB(vec4 spectral_radiance) {
     return vec3(dot(spectral_radiance, vec4(6.321843624, -26.517091751, 30.142539978, 118.707962036)),
@@ -224,13 +224,13 @@ vec3 SpectralToLinearSRGB(vec4 spectral_radiance) {
         dot(spectral_radiance, vec4(39.173206329, 71.765632629, -12.650737762, -1.295249343)));
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Spectral → linear Rec.2020  (4×3, solar-white-balanced to D65)
+// ===============================================================
+// Spectral -> linear Rec.2020  (4x3, solar-white-balanced to D65)
 //
 // Linear Rec.2020 working space (smaller CMF negative weights); columns
-// pre-multiplied by a Bradford solar-white→D65 adaptation. Convert back
+// pre-multiplied by a Bradford solar-white->D65 adaptation. Convert back
 // with Rec2020ToSRGB() at the scene boundary.
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 vec3 SpectralToLinearRec2020(vec4 spectral_radiance) {
     return vec3(dot(spectral_radiance, vec4(3.845798926, -7.86893214, 48.567284779, 70.210607852)),
@@ -245,7 +245,7 @@ vec3 Rec2020ToSRGB(vec3 rgb) {
                 -0.072838260, -0.008349570, 1.118998170) * rgb;
 }
 
-// Spectral transmittance → linear sRGB, normalized so T = 1 maps to white
+// Spectral transmittance -> linear sRGB, normalized so T = 1 maps to white
 // under the incident light spectrum; pass equal-energy for unknown light.
 vec3 TransmittanceToLinearSRGB(vec4 t, vec4 light) {
     vec4 safe_light = max(light, vec4(1.0e-4));
@@ -262,13 +262,13 @@ vec3 TransmittanceToLinearRec2020(vec4 t, vec4 light) {
         / max(white, vec3(1.0e-4)), vec3(0.0), vec3(1.0));
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // Sky Integration  (midpoint + analytic, vec4 spectral)
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 ) {
-    // ── sphere intersection ──
+    // -- sphere intersection --
     float t0, t1;
     if (!RayIntersectSphere(camera_pos, view_dir, ATM_ATMO_R, t0, t1)) return vec4(0.0);
 
@@ -282,7 +282,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     }
     if (max_dist <= 0.0) return vec4(0.0);
 
-    // ── phase (loop-invariant) ──
+    // -- phase (loop-invariant) --
     float cos_vs = dot(view_dir, sun_dir);
     float pr   = PhaseRayleigh(cos_vs);
     float pm   = PhaseMieHG(cos_vs, 0.76);
@@ -299,7 +299,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     vec4 acc_ray_moon = vec4(0.0);
     vec4 acc_mie_moon = vec4(0.0);
 
-    // ── midpoint stepping: sample at segment centre, analytic extinction ──
+    // -- midpoint stepping: sample at segment centre, analytic extinction --
     float t_prev = 0.0;
 
     for (float i = 1.0; i <= ATM_NUM_STEPS; i += 1.0) {
@@ -332,7 +332,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec4 rs_moon_mid = ts_moon_mid * sr_mid;
         vec4 ms_moon_mid = ts_moon_mid * sm_mid;
 
-        // ── analytic integral with midpoint extinction ──
+        // -- analytic integral with midpoint extinction --
         vec4 od        = sigma_t_mid * dt_seg;
         vec4 step_trans = exp(-od);
         vec4 integral  = (vec4(1.0) - step_trans) * (dt_seg / max(od, ATM_EPS));
@@ -348,7 +348,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         t_prev  = t_cur;
     }
 
-    // ── ground albedo (sun + moon) ──
+    // -- ground albedo (sun + moon) --
     vec4 ground_sun_radiance = vec4(0.0);
     vec4 ground_moon_radiance = vec4(0.0);
     if (t_ground > 0.0) {
@@ -357,12 +357,12 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float r2_g = r_g * r_g;
         float mu_sun_g = dot(ground_pos, sun_dir) / ATM_PLANET_R;
 
-        // sunlight → ground
+        // sunlight -> ground
         vec4 trans_sun_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, mu_sun_g);
         vec4 ms_g = SampleMultiScatter(MULTISCATTER_LUT, r_g, mu_sun_g);
         ground_sun_radiance = (trans_sun_g + ms_g) * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
 
-        // moonlight → ground (no multiscat)
+        // moonlight -> ground (no multiscat)
         vec4 trans_moon_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, -mu_sun_g);
         ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
     }
@@ -371,9 +371,9 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
          + ATM_MOON_IRR * (pr * acc_ray_moon + pm_moon * acc_mie_moon + ground_moon_radiance);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SkyViewLookup — 4-wave spectral → ACES tonemapped sRGB
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
+// SkyViewLookup - 4-wave spectral -> ACES tonemapped sRGB
+// ===============================================================
 
 vec3 SkyViewLookup(vec3 camera_pos, vec3 view_dir, vec3 sun_dir) {
     vec4 spectral_radiance = ComputeSkyRadiance(camera_pos, view_dir, sun_dir);
@@ -383,9 +383,9 @@ vec3 SkyViewLookup(vec3 camera_pos, vec3 view_dir, vec3 sun_dir) {
     return pow(clamp(sky_radiance, 0.0, 1.0), vec3(0.45454545));
 }
 
-// ═══════════════════════════════════════════════════════════════
-// GetAmbientColor — sky ambient light (linear HDR, no tonemap)
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
+// GetAmbientColor - sky ambient light (linear HDR, no tonemap)
+// ===============================================================
 
 vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
     float r = length(camera_pos);

@@ -5,9 +5,9 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/packing.glsl"
 
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 // AO temporal accumulation helpers (used by deferred1).
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 // History in the merged colortex8 (R = AO, G = age, B = 1 - depth,
 // A = NaN "not cloud"); this module provides per-pixel math only. Generation
 // is half-res, bilinear upsample, one sample/pixel/frame (full convergence).
@@ -26,12 +26,12 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv) {
         && all(lessThanEqual(previous_uv, vec2(1.0)));
 }
 
-// History trust ∈ [0, 1], product of two checks:
+// History trust in [0, 1], product of two checks:
 //  - distance: static geometry = zero displacement (full trust); beyond
-//    GTAO_HISTORY_DISTANCE_LIMIT → smooth 0.
+//    GTAO_HISTORY_DISTANCE_LIMIT -> smooth 0.
 //  - normal: current-frame normal at the reprojected position stands in for
 //    the previous (no previous-normal buffer); disagreement beyond
-//    GTAO_HISTORY_NORMAL_DOT_MIN → 0.
+//    GTAO_HISTORY_NORMAL_DOT_MIN -> 0.
 float GTAOHistoryWeight(vec3 world_pos, vec3 view_normal, vec2 history_uv, vec4 history) {
     // Distance consistency (world-space displacement).
     vec4 previous_view_h = inverse(gbufferPreviousProjection)
@@ -57,7 +57,7 @@ float GTAOHistoryWeight(vec3 world_pos, vec3 view_normal, vec2 history_uv, vec4 
 // One accumulation per frame (age = sample count). Fresh weight: box
 // average 1/(samples+1) over the first AO_ACCUMULATION_BOX_SAMPLES, then
 // steady-state AO_ACCUMULATION_ALPHA; rejection lifts it toward 1 (untrusted
-// history replaced quickly). Full rejection → fresh sample, age reset.
+// history replaced quickly). Full rejection -> fresh sample, age reset.
 float GTAOAccumulate(float fresh_ao, float hist_ao, float hist_age,
                      float rejection, out float next_age) {
     float pixel_age = min(hist_age, GTAO_AGE_LIMIT) * rejection;

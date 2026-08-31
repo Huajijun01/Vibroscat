@@ -26,7 +26,7 @@ bool CloudHasFreshSample(ivec2 full_res_texel) {
 // Raw sample for this pixel's low-res cell (downscaled render). No
 // interpolation, no snapping.
 CloudFrame CloudSampleFresh(ivec2 full_res_texel) {
-    // Low-res march samples cell·n + currentOffset; history-less seeds snap
+    // Low-res march samples cell*n + currentOffset; history-less seeds snap
     // to the nearest marched sample (aligned with the checkerboard grid, not
     // shifted by up to n-1 px).
     ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
@@ -47,7 +47,7 @@ CloudFrame CloudSampleFresh(ivec2 full_res_texel) {
 // the texelFetch lattice to (i + 0.5)/size.
 CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
-    // Continuous lattice coordinate; the low-res grid sits at id·n + offset.
+    // Continuous lattice coordinate; the low-res grid sits at id*n + offset.
     vec2 coord = (vec2(full_res_texel) - vec2(offset)) / float(CLOUD_TEMPORAL_UPSCALING);
     vec2 uv = (coord + 0.5) / vec2(textureSize(usam_clouds_current, 0));
     vec4 value = texture(usam_clouds_current, uv);

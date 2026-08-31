@@ -58,6 +58,17 @@ vec3 ToPrevious(vec3 closest_to_camera) {
     return pos.xyz * 0.5 + 0.5;
 }
 
+// Previous-frame screen coordinates [0,1]³ to previous view space.
+vec3 PreviousScreenToView(vec3 screen_position) {
+    vec3 projected = screen_position * 2.0 - 1.0;
+    projected.xy += gbufferPreviousProjection[2].xy;
+    projected.x /= gbufferPreviousProjection[0].x;
+    projected.y /= gbufferPreviousProjection[1].y;
+    float view_depth = gbufferPreviousProjection[3].z
+        / (projected.z + gbufferPreviousProjection[2].z);
+    return vec3(projected.xy * view_depth, -view_depth);
+}
+
 // Screen depth [0,1] to linear depth (|view z|), via the analytic inverse of
 // the perspective projection (sparse-matrix form of NDCToView).
 float LinearDepthFromScreenDepth(float depth) {

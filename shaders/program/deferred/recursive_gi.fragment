@@ -19,124 +19,18 @@ const float GI_HISTORY_MAX_FRAMES = 20.0;
 layout(location = 0) out vec3 out_gi;
 layout(location = 1) out uint out_gi_metadata;
 
-float GiArcTan11(vec2 direction) {
-    float x = abs(direction.x);
-    float u = 2.0 + x * (1.27324 + x * (-0.189431 + (0.08204 - 0.0242564 * x) * x));
-    float value = direction.y / u;
-    if (direction.x < 0.0) value = (direction.y < 0.0 ? -1.0 : 1.0) - value;
-    return value;
-}
-
-float GiACosPoly(float x) {
-    return 1.5707963267948966 + (-0.20491203466059038 + 0.04832927023878897 * x) * x;
-}
-
-float GiACos(float x) {
-    x = clamp(x, -1.0, 1.0);
-    float u = GiACosPoly(abs(x)) * sqrt(1.0 - abs(x));
-    return x < 0.0 ? PI - u : u;
-}
-
-vec2 GiComplexMul(vec2 a, vec2 b) {
-    return vec2(a.x * b.x - a.y * b.y, a.y * b.x + a.x * b.y);
-}
-
-float GiPartialSlice(float x, float sin_view_normal) {
-    if (abs(x) >= 1.0 || x == 0.0) return x;
-    bool negative = x < 0.0;
-    x = abs(x);
-    float s = sin_view_normal;
-    float o = s - s * s;
-    float slope0 = 1.0 / (1.0 + (PI - 1.0) * (s - o * 0.30546));
-    float slope1 = 1.0 / (1.0 - (1.0 - exp2(-20.0)) * (s + o * mix(0.5, 0.785, s)));
-    float k = mix(0.1, 0.25, s);
-    float a = 1.0 - (PI - 2.0) / (PI - 1.0);
-    float b = 1.0 / (PI - 1.0);
-    float d0 = a - slope0 * b;
-    float d1 = 1.0 - slope1;
-    float f0 = d0 * (PI * x - (0.5 * PI - GiACos(x)));
-    float f1 = d1 * (x - 1.0);
-    float kk = k * k;
-    float h0 = sqrt(f0 * f0 + kk) - k;
-    float h1 = sqrt(f1 * f1 + kk) - k;
-    float hh = (h0 * h1) / max(h0 + h1, 1.0e-6);
-    float y = x - sqrt(max(hh * (hh + 2.0 * k), 0.0));
-    return negative ? -y : y;
-}
-
-vec2 GiSampleSliceDirection(vec3 view_space_normal, float random_value) {
-    float angle = random_value * TAU;
-    vec2 direction = vec2(cos(angle), sin(angle));
-    float normal_xy_length = length(view_space_normal.xy);
-    if (normal_xy_length > 1.0e-5) {
-        vec2 n = view_space_normal.xy / normal_xy_length;
-        direction = GiComplexMul(direction, n * vec2(1.0, -1.0));
-        float slice_angle = GiPartialSlice(GiArcTan11(direction), normal_xy_length) * PI;
-        direction = GiComplexMul(vec2(cos(slice_angle), sin(slice_angle)), n);
-    }
-    return direction;
-}
-
-vec2 GiSliceRelCDF(vec2 x, float angle_normal, float sin_normal) {
-    vec2 phi = x * TAU - PI;
-    return -cos(angle_normal - phi) - phi * sin_normal;
-}
-
-vec4 GiQuaternionToView(vec3 to) {
-    vec3 xyz = vec3(to.y, -to.x, 0.0);
-    float s = -to.z;
-    float inv = inversesqrt(max(s * 0.5 + 0.5, 0.0));
-    return vec4(xyz * inv * 0.5, 1.0 / inv);
-}
-
-vec3 GiRotateZ0(vec3 value, vec4 q) {
-    float k = value.y * q.x - value.x * q.y;
-    float g = 2.0 * (value.z * q.w + k);
-    vec3 result;
-    result.xy = value.xy + q.yx * vec2(g, -g);
-    result.z = value.z + 2.0 * (q.w * k - value.z * dot(q.xy, q.xy));
-    return result;
-}
-
-vec3 GiRotateXY0(vec2 value, vec4 q) {
-    float o = q.x * value.y;
-    float c = q.y * value.x;
-    vec3 basis = vec3(o - c, -o + c, o - c);
-    return vec3(value, 0.0) + 2.0 * (basis * q.yxw);
-}
-
-uint GiMaskRange(float a, float b) {
-    uvec2 horizontal_int = (uvec2(floatBitsToUint(a), floatBitsToUint(b)) >> 17u) & 0x3Fu;
-    uint ia = horizontal_int.x;
-    uint ib = horizontal_int.y;
-    uint left = ia < 32u ? 0xFFFFFFFFu << ia : 0u;
-    uint right = ib != 0u ? 0xFFFFFFFFu >> (32u - ib) : 0u;
-    return left & right;
-}
-
-float GiScreenEdge(vec4 origin, vec4 direction) {
-    vec2 t1 = (vec2(1.0) * origin.w - origin.xy) / (direction.xy - vec2(1.0) * direction.w);
-    vec2 t2 = (vec2(-1.0) * origin.w - origin.xy) / (direction.xy - vec2(-1.0) * direction.w);
-    float edge = far + 32.0;
-    if (t1.x > 0.0) edge = min(edge, t1.x);
-    if (t1.y > 0.0) edge = min(edge, t1.y);
-    if (t2.x > 0.0) edge = min(edge, t2.x);
-    if (t2.y > 0.0) edge = min(edge, t2.y);
-    return edge;
-}
-
-vec3 GiTrace(vec3 origin_view_position, vec3 origin_normal_view, out float coverage) {
+vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, out float coverage) {
     vec3 view_direction = -normalize(origin_view_position);
-    vec4 q_to_view = GiQuaternionToView(view_direction);
+    vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
-    vec3 normal_vvs = GiRotateZ0(origin_normal_view, q_from_view);
+    vec3 normal_vvs = GIRotateVectorByQuaternion(origin_normal_view, q_from_view);
     vec2 noise = vec2(
         SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter),
         SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + 32));
     noise = fract(noise + vec2(0.7548776662, 0.7548776662 * 0.7548776662)
         * float(frameCounter & 63));
-    vec2 slice_direction = GiSampleSliceDirection(normal_vvs, noise.x);
-    vec3 ray_direction = GiRotateXY0(slice_direction, q_to_view);
+    vec2 slice_direction = GISampleSliceDirection(normal_vvs, noise.x);
+    vec3 ray_direction = GIRotateSliceDirectionByQuaternion(slice_direction, q_to_view);
 
     vec3 projection_diag = vec3(gbufferProjection[0].x, gbufferProjection[1].y, gbufferProjection[2].z);
     vec4 origin_proj = vec4(projection_diag * origin_view_position + gbufferProjection[3].xyz, -origin_view_position.z);
@@ -145,7 +39,7 @@ vec3 GiTrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
 #endif
     vec4 projected_direction = vec4(projection_diag * ray_direction, -ray_direction.z);
     projected_direction.xy += gbufferProjection[2].xy * ray_direction.z;
-    float trace_length = GiScreenEdge(origin_proj, projected_direction);
+    float trace_length = GITraceScreenEdge(origin_proj, projected_direction, far);
     vec2 origin_coord = origin_proj.xy * (0.5 / origin_proj.w) + 0.5;
     vec4 target_proj = origin_proj + projected_direction * trace_length;
     vec2 target_coord = target_proj.xy / target_proj.w * 0.5 + 0.5;
@@ -163,7 +57,7 @@ vec3 GiTrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
     projected_normal *= inversesqrt(dot(projected_normal, projected_normal));
     vec3 tangent = cross(slice_normal, projected_normal);
     float cos_normal = dot(projected_normal, view_direction);
-    float angle_normal = (dot(view_direction, tangent) < 0.0 ? -1.0 : 1.0) * GiACos(cos_normal);
+    float angle_normal = (dot(view_direction, tangent) < 0.0 ? -1.0 : 1.0) * GIApproxAcos(cos_normal);
     float sin_normal = sin(angle_normal);
     float denom = cos_normal + angle_normal * sin_normal;
     float w0 = clamp((sin_normal / denom) * (PI * 0.25) + 0.5, 0.0, 1.0);
@@ -202,11 +96,12 @@ vec3 GiTrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
             * 0.1;
         float front_cos = dot(delta_front, view_direction) * inversesqrt(max(dot(delta_front, delta_front), 1.0e-6));
         float back_cos = dot(delta_back, view_direction) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
-        vec2 horizontal = vec2(GiACos(front_cos), GiACos(back_cos));
+        vec2 horizontal = vec2(GIApproxAcos(front_cos), GIApproxAcos(back_cos));
         vec2 horizontal01 = clamp((horizontal + angle_normal) / PI + 0.5, 0.0, 1.0);
-        horizontal01 = GiSliceRelCDF(horizontal01, angle_normal, sin_normal);
+        vec2 phi = horizontal01 * TAU - PI;
+        horizontal01 = -cos(angle_normal - phi) - phi * sin_normal;
         horizontal01 = horizontal01 * remap_mul + remap_add;
-        uint sample_mask = GiMaskRange(horizontal01.x, horizontal01.y);
+        uint sample_mask = GIVisibilityMaskFromRange(horizontal01.x, horizontal01.y);
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
             float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
@@ -224,17 +119,7 @@ vec3 GiTrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
 }
 
 #ifdef GI_TEMPORAL_DENOISE
-vec3 GiPreviousScreenToView(vec3 screen_position) {
-    vec3 projected = screen_position * 2.0 - 1.0;
-    projected.xy += gbufferPreviousProjection[2].xy;
-    projected.x /= gbufferPreviousProjection[0].x;
-    projected.y /= gbufferPreviousProjection[1].y;
-    float view_depth = gbufferPreviousProjection[3].z
-        / (projected.z + gbufferPreviousProjection[2].z);
-    return vec3(projected.xy * view_depth, -view_depth);
-}
-
-vec3 GiTemporalFilter(
+vec3 GITemporalFilter(
     vec2 uv,
     float depth,
     vec3 normal_view,
@@ -252,7 +137,7 @@ vec3 GiTemporalFilter(
         return raw_gi;
     }
 
-    vec3 previous_view_position = GiPreviousScreenToView(previous_screen);
+    vec3 previous_view_position = PreviousScreenToView(previous_screen);
     vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
     vec3 previous_normal_view = normalize(mat3(gbufferPreviousModelView) * world_normal);
     vec2 history_texel = previous_screen.xy * u_screen_res - 0.5;
@@ -278,7 +163,7 @@ vec3 GiTemporalFilter(
             float history_reverse_depth = float(history_metadata & 0xFFFFFFu)
                 * (1.0 / 16777215.0);
             float history_screen_depth = 1.0 - history_reverse_depth;
-            vec3 history_view_position = GiPreviousScreenToView(
+            vec3 history_view_position = PreviousScreenToView(
                 vec3((vec2(history_tx) + 0.5) * u_view_pixel_size, history_screen_depth));
             vec3 position_difference = history_view_position - previous_view_position;
             float position_distance = abs(dot(position_difference, previous_normal_view))
@@ -334,7 +219,7 @@ void main() {
     vec3 view_position = SceneToViewSpace(DepthToWorldPos(uv, depth));
     vec3 raw_gi;
     float coverage;
-    raw_gi = GiTrace(view_position + normal_view * 0.003, normal_view, coverage);
+    raw_gi = GITrace(view_position + normal_view * 0.003, normal_view, coverage);
     vec3 fallback_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
     vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     float miss_fraction = 1.0 - coverage;
@@ -342,7 +227,7 @@ void main() {
     raw_gi = clamp(raw_gi, vec3(0.0), vec3(GI_RADIANCE_LIMIT));
 #ifdef GI_TEMPORAL_DENOISE
     float history_age;
-    vec3 filtered_gi = GiTemporalFilter(uv, depth, normal_view, raw_gi, history_age);
+    vec3 filtered_gi = GITemporalFilter(uv, depth, normal_view, raw_gi, history_age);
     out_gi = filtered_gi;
 #else
     float history_age = 1.0;

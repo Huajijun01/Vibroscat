@@ -15,6 +15,17 @@ struct CloudFrame {
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
 };
 
+struct CloudNeighborhoodStats {
+    vec3 mean;
+    vec3 moment2;
+    vec3 minimum;
+    vec3 maximum;
+    float surface_distance;
+    float surface_distance_minimum;
+    float surface_distance_maximum;
+    float weight_sum;
+};
+
 // True only for the one full-res pixel per cell that this frame's low-res
 // render sampled.
 bool CloudHasFreshSample(ivec2 full_res_texel) {
@@ -56,6 +67,66 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     CloudFrame frame;
     frame.radiance = value.rgb;
     frame.surface_distance = nearest.surface_distance;
+    return frame;
+}
+
+// Gather a transient 4x4 low-resolution footprint. The first two channels are
+// linear radiance; transmittance is represented as optical depth (log T) so
+// partially cloudy taps do not bias the reconstructed clear sky.
+CloudNeighborhoodStats CloudSampleCurrentNeighborhood(ivec2 full_res_texel) {
+    ivec2 current_size = textureSize(usam_clouds_current, 0);
+    ivec2 phase_offset = CloudCheckerboardOffset(
+        uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA)
+    );
+    vec2 lattice = (vec2(full_res_texel) - vec2(phase_offset))
+        / float(CLOUD_TEMPORAL_UPSCALING);
+    ivec2 lattice_base = ivec2(floor(lattice));
+
+    CloudNeighborhoodStats stats;
+    stats.mean = vec3(0.0);
+    stats.moment2 = vec3(0.0);
+    stats.minimum = vec3(1.0e30);
+    stats.maximum = vec3(-1.0e30);
+    stats.surface_distance_minimum = 1.0e30;
+    stats.surface_distance_maximum = -1.0e30;
+    stats.weight_sum = 0.0;
+
+    for (int y = -1; y <= 2; ++y) {
+        for (int x = -1; x <= 2; ++x) {
+            ivec2 sample_texel = clamp(lattice_base + ivec2(x, y),
+                ivec2(0), current_size - ivec2(1));
+            vec4 sample = texelFetch(usam_clouds_current, sample_texel, 0);
+            vec3 signal = vec3(max(sample.x, 0.0), max(sample.y, 0.0),
+                log(max(sample.z, 1.0e-4)));
+            vec2 delta = vec2(sample_texel) - lattice;
+            float weight = 1.0 / (1.0 + dot(delta, delta));
+            stats.mean += signal * weight;
+            stats.moment2 += signal * signal * weight;
+            stats.minimum = min(stats.minimum, signal);
+            stats.maximum = max(stats.maximum, signal);
+            if (sample.a > 0.0 && !isnan(sample.a)) {
+                stats.surface_distance_minimum = min(stats.surface_distance_minimum, sample.a);
+                stats.surface_distance_maximum = max(stats.surface_distance_maximum, sample.a);
+            }
+            stats.weight_sum += weight;
+        }
+    }
+
+    stats.weight_sum = max(stats.weight_sum, 1.0e-6);
+    stats.mean /= stats.weight_sum;
+    stats.moment2 /= stats.weight_sum;
+    if (!(stats.surface_distance_minimum < 1.0e29)) {
+        stats.surface_distance_minimum = CloudSampleFresh(full_res_texel).surface_distance;
+        stats.surface_distance_maximum = stats.surface_distance_minimum;
+    }
+    stats.surface_distance = CloudSampleFresh(full_res_texel).surface_distance;
+    return stats;
+}
+
+CloudFrame CloudNeighborhoodMean(CloudNeighborhoodStats stats) {
+    CloudFrame frame;
+    frame.radiance = vec3(stats.mean.x, stats.mean.y, exp(stats.mean.z));
+    frame.surface_distance = stats.surface_distance;
     return frame;
 }
 

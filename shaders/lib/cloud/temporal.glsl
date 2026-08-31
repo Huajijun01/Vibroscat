@@ -57,18 +57,16 @@ CloudFrame CloudSampleFresh(ivec2 full_res_texel) {
     return frame;
 }
 
-// Sharp reconstruction of the low-res frame for empty/rejected history slots:
-// use the same Catmull-Rom family as history sampling instead of seeding from
-// a broad neighborhood mean. Distance is a location, so it keeps the nearest
-// marched sample. UV maps the texelFetch lattice to (i + 0.5)/size.
-CloudFrame CloudSampleCurrentReconstructed(ivec2 full_res_texel) {
+// Bilinear reconstruction of the low-res frame for empty history slots:
+// radiance filtered by hardware bilinear (usam_clouds_current declared
+// linear); distance is a location, keeps the nearest marched sample. UV maps
+// the texelFetch lattice to (i + 0.5)/size.
+CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
     // Continuous lattice coordinate; the low-res grid sits at id*n + offset.
     vec2 coord = (vec2(full_res_texel) - vec2(offset)) / float(CLOUD_TEMPORAL_UPSCALING);
     vec2 uv = (coord + 0.5) / vec2(textureSize(usam_clouds_current, 0));
-    vec2 texel = 1.0 / vec2(textureSize(usam_clouds_current, 0));
-    vec2 clamped_uv = clamp(uv, 2.0 * texel, 1.0 - 2.0 * texel);
-    vec4 value = FastCatmullRom5Tap(usam_clouds_current, clamped_uv, texel, 0.5);
+    vec4 value = texture(usam_clouds_current, uv);
 
     CloudFrame nearest = CloudSampleFresh(full_res_texel);
     CloudFrame frame;
@@ -160,17 +158,9 @@ CloudFrame CloudClipHistoryToNeighborhood(CloudFrame history,
 
     vec3 signal = vec3(max(history.radiance.x, 0.0), max(history.radiance.y, 0.0),
         log(max(history.radiance.z, 1.0e-4)));
-    // Project the history delta onto a variance ellipsoid. This follows the
-    // Alpha-style directional clip: unlike a per-channel box, it preserves
-    // correlated radiance/transmittance detail while still rejecting outliers.
     vec3 variance = max(stats.moment2 - stats.mean * stats.mean, vec3(0.0));
-    vec3 radius = max(sqrt(variance) * max(clip_strength, 0.0), vec3(1.0e-4));
-    vec3 delta = signal - stats.mean;
-    float ellipsoid_distance = length(delta / radius);
-    if (ellipsoid_distance > 1.0) {
-        delta /= ellipsoid_distance;
-    }
-    vec3 clipped = stats.mean + delta;
+    vec3 deviation = sqrt(variance) * max(clip_strength, 0.0);
+    vec3 clipped = clamp(signal, stats.mean - deviation, stats.mean + deviation);
     clipped = clamp(clipped, stats.minimum, stats.maximum);
 
     CloudFrame result;

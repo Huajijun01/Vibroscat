@@ -63,7 +63,7 @@ void main() {
             int pixel_age = int(imageLoad(uimg_clouds_age, tx).r * 255.0 + 0.5);
             int new_age;
             CloudNeighborhoodStats neighborhood = CloudSampleCurrentNeighborhood(tx);
-            CloudFrame filtered_current = CloudSampleCurrentReconstructed(tx);
+            CloudFrame filtered_current = CloudSampleCurrentBilinear(tx);
             CloudFrame fresh = CloudSampleFresh(tx);
             CloudFrame held_history = CloudHistoryLoad(tx);
             bool has_fresh = CloudHasFreshSample(tx);

@@ -70,8 +70,8 @@ void main() {
     vec4 c01 = vec4(0.0);
     vec4 c11 = vec4(0.0);
     for (int j = 0; j < 6; j++) {
-        c01 += h_e[j] * WO[j];
-        c11 += h_o[j] * WO[j];
+        c01 += h_e[j] * weights_odd[j];
+        c11 += h_o[j] * weights_odd[j];
     }
 
     if (all(lessThan(out_base, dst_size)))

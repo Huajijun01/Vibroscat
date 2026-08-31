@@ -68,14 +68,14 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     vec3 s = ProjectToShadowClip(start_scene);
     vec3 e = ProjectToShadowClip(end_scene);
     vec3 diff = end_scene - start_scene;
-    float S_full = length(diff);
-    if (S_full < 1e-4) return vec3(1.0);
+    float full_segment_length = length(diff);
+    if (full_segment_length < 1e-4) return vec3(1.0);
     float lp2_full = light_path2; // full-column end (the fragment fog uses this)
     // March-distance cap: clamp the marched interval to
     // WATER_EPIPOLAR_MAX_DISTANCE; endpoint and marched light path rescale
     // with it (light path is linear in t).
-    float S = min(S_full, WATER_EPIPOLAR_MAX_DISTANCE);
-    float scale = S / S_full;
+    float segment_length = min(full_segment_length, WATER_EPIPOLAR_MAX_DISTANCE);
+    float scale = segment_length / full_segment_length;
     if (scale < 1.0) {
         e = ProjectToShadowClip(start_scene + diff * scale);
         light_path2 = light_path1 + (light_path2 - light_path1) * scale;
@@ -84,7 +84,7 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     // Importance sampling: steps placed so the max-channel transmittance
     // decays arithmetically (inverse-CDF of the exponential attenuation),
     // concentrating samples where the scattering weight is large.
-    float seg_optical = S + d_l; // per-channel optical depth = extinction * segOptical
+    float seg_optical = segment_length + d_l; // per-channel optical depth = extinction * segOptical
     vec3 t_end_vec = exp(-extinction * seg_optical);
     float t_end = max(max(t_end_vec.r, t_end_vec.g), t_end_vec.b);
     float tau = -log(max(t_end, 1e-6));
@@ -118,32 +118,32 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
         float depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
         float shadow = texture(shadowtex1, vec3(uv, depth));
         float light_path = light_path1 + d_l * u;
-        vec3 weight = exp(-extinction * (u * S + light_path));
-        num += weight * shadow * (S * du);
+        vec3 weight = exp(-extinction * (u * segment_length + light_path));
+        num += weight * shadow * (segment_length * du);
     }
 
     // Analytic full-column denominator, same closed form as
     // WaterScatteringIntegral with σs omitted: integral of
     // exp(-ext·(t + L(t))) over [0, S_full], L linear light_path1 → lp2_full.
-    float delta_full = lp2_full - light_path1 + S_full;
+    float delta_full = lp2_full - light_path1 + full_segment_length;
     vec3 den;
-    if (abs(delta_full) < 1.0e-3 * max(S_full, light_path1 + lp2_full + 1.0)) {
-        den = S_full * exp(-extinction * light_path1);
+    if (abs(delta_full) < 1.0e-3 * max(full_segment_length, light_path1 + lp2_full + 1.0)) {
+        den = full_segment_length * exp(-extinction * light_path1);
     } else {
-        den = S_full * (exp(-extinction * light_path1) - exp(-extinction * (lp2_full + S_full)))
+        den = full_segment_length * (exp(-extinction * light_path1) - exp(-extinction * (lp2_full + full_segment_length)))
             / max(extinction * delta_full, vec3(1e-6));
     }
 
     // Unshadowed analytic tail beyond the cap: integral over [S, S_full]
     // with V = 1, same closed form (L(S) = light_path1 + d_l_full·scale).
     float lp_at_cap = light_path1 + (lp2_full - light_path1) * scale;
-    float tail_len = S_full - S;
+    float tail_len = full_segment_length - segment_length;
     float delta_tail = lp2_full - lp_at_cap + tail_len;
     vec3 tail;
     if (tail_len < 1e-6 || abs(delta_tail) < 1.0e-3 * max(tail_len, lp_at_cap + lp2_full + 1.0)) {
-        tail = tail_len * exp(-extinction * (lp_at_cap + S));
+        tail = tail_len * exp(-extinction * (lp_at_cap + segment_length));
     } else {
-        tail = tail_len * (exp(-extinction * (lp_at_cap + S)) - exp(-extinction * (lp2_full + S_full)))
+        tail = tail_len * (exp(-extinction * (lp_at_cap + segment_length)) - exp(-extinction * (lp2_full + full_segment_length)))
             / max(extinction * delta_tail, vec3(1e-6));
     }
 

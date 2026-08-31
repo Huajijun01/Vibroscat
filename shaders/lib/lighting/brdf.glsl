@@ -57,10 +57,10 @@ vec3 EvaluateDirectBRDF(vec3 albedo, vec3 f0, float diffuse_weight,
         float roughness, float ndotv, float ndotl, float ndoth,
         float vdoth, float ldoth) {
     float alpha = max(roughness * roughness, 0.002);
-    vec3 F = FresnelSchlick(vdoth, f0);
-    vec3 diffuse = albedo * (vec3(1.0) - F) * diffuse_weight
+    vec3 fresnel = FresnelSchlick(vdoth, f0);
+    vec3 diffuse = albedo * (vec3(1.0) - fresnel) * diffuse_weight
         * DiffuseBurley(ndotv, ndotl, ldoth, roughness);
-    return diffuse + F * DistributionGGX(ndoth, alpha)
+    return diffuse + fresnel * DistributionGGX(ndoth, alpha)
         * VisibilitySmithGGXCorrelated(ndotv, ndotl, alpha)
         * step(1e-5, ndotv);
 }
@@ -192,19 +192,19 @@ float DistributionGGXNdotH2(float ndoth2, float alpha) {
 // Forward translucent lighting retains the legacy scalar-metalness material
 // path. Its overloads delegate to the same F0-explicit BRDF implementation;
 // N, V and L must use the same space (view space in the gbuffer passes).
-void EvaluateBRDF(vec3 albedo, vec2 texcoord, vec3 N, vec3 V, vec3 L, out vec3 direct_lighting,
+void EvaluateBRDF(vec3 albedo, vec2 texcoord, vec3 normal_view, vec3 view_direction, vec3 light_direction, out vec3 direct_lighting,
     out vec3 lambert_brdf, out vec3 diffuse_reflectance
 ) {
     vec4 spec_tex = vec4(0.0);
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, texcoord);
     Material mat = MaterialDefaults(0, spec_tex);
 
-    vec3 H = normalize(V + L);
-    float ndotv = Max0(dot(N, V));
-    float ndotl = Max0(dot(N, L));
-    float ndoth = Max0(dot(N, H));
-    float vdoth = Max0(dot(V, H));
-    float ldoth = Max0(dot(L, H));
+    vec3 half_direction = normalize(view_direction + light_direction);
+    float ndotv = Max0(dot(normal_view, view_direction));
+    float ndotl = Max0(dot(normal_view, light_direction));
+    float ndoth = Max0(dot(normal_view, half_direction));
+    float vdoth = Max0(dot(view_direction, half_direction));
+    float ldoth = Max0(dot(light_direction, half_direction));
 
     direct_lighting = EvaluateDirectBRDF(albedo, mat.roughness, mat.metalness, ndotv, ndotl, ndoth, vdoth, ldoth) * ndotl;
     lambert_brdf = EvaluateLambertBRDF(albedo, mat.metalness);

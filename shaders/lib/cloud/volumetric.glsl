@@ -151,14 +151,14 @@ float CloudBoundaryHeightProxy(vec2 world_km) {
 float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
     float sample_step = CLOUD_DISTRIBUTION_SCALE_KM
         / max(float(textureSize(utex_cloud_distribution_tex, 0).x), 1.0);
-    float hL = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
-    float hR = CloudBoundaryHeightProxy(world_km + vec2(sample_step, 0.0));
-    float hD = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
-    float hU = CloudBoundaryHeightProxy(world_km + vec2(0.0, sample_step));
+    float height_left = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
+    float height_right = CloudBoundaryHeightProxy(world_km + vec2(sample_step, 0.0));
+    float height_down = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
+    float height_up = CloudBoundaryHeightProxy(world_km + vec2(0.0, sample_step));
     float slab_thickness = max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-3);
-    float dHdx = (hR - hL) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    float dHdz = (hU - hD) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    vec3 top_normal = normalize(vec3(-dHdx, 1.0, -dHdz));
+    float height_gradient_x = (height_right - height_left) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
+    float height_gradient_z = (height_up - height_down) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
+    vec3 top_normal = normalize(vec3(-height_gradient_x, 1.0, -height_gradient_z));
     float n_dot_l = dot(top_normal, light_dir);
     const float wrap = 0.5;
     float boundary_lit = Saturate((n_dot_l + wrap) / (1.0 + wrap));

@@ -42,21 +42,21 @@ void main() {
     // Separable 5x5 Gaussian on the output's source position: even axis
     // 5-tap binomial; odd axis 6 taps at half offsets (centre stays at
     // k+1/2).
-    const float WE[5] = float[5](0.0625, 0.25, 0.375, 0.25, 0.0625);
-    const float WO[6] = float[6](0.007144, 0.102815, 0.390041, 0.390041, 0.102815, 0.007144);
+    const float weights_even[5] = float[5](0.0625, 0.25, 0.375, 0.25, 0.0625);
+    const float weights_odd[6] = float[6](0.007144, 0.102815, 0.390041, 0.390041, 0.102815, 0.007144);
 
     vec4 h_e[6];
     vec4 h_o[6];
     for (int j = 0; j < 6; j++) {
         vec4 e = vec4(0.0);
         for (int i = 0; i < 5; i++) {
-            e += tile[local.y + j][local.x + i] * WE[i];
+            e += tile[local.y + j][local.x + i] * weights_even[i];
         }
         h_e[j] = e;
 
         vec4 o = vec4(0.0);
         for (int i = 0; i < 6; i++) {
-            o += tile[local.y + j][local.x + i] * WO[i];
+            o += tile[local.y + j][local.x + i] * weights_odd[i];
         }
         h_o[j] = o;
     }
@@ -64,8 +64,8 @@ void main() {
     vec4 c00 = vec4(0.0);
     vec4 c10 = vec4(0.0);
     for (int j = 0; j < 5; j++) {
-        c00 += h_e[j] * WE[j];
-        c10 += h_o[j] * WE[j];
+        c00 += h_e[j] * weights_even[j];
+        c10 += h_o[j] * weights_even[j];
     }
     vec4 c01 = vec4(0.0);
     vec4 c11 = vec4(0.0);

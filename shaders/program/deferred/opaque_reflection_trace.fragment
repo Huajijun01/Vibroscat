@@ -38,12 +38,12 @@ void main() {
 #else
     vec3 world_pos = DepthToWorldPos(uv, depth);
 #endif
-    vec3 V = normalize(EyePositionSceneSpace() - world_pos);
-    if (dot(normal, V) <= 1e-5) return;
+    vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
+    if (dot(normal, view_to_eye) <= 1e-5) return;
 
-    vec3 H;
+    vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
-        normal, V, rough_selector.x, tx, H);
+        normal, view_to_eye, rough_selector.x, tx, half_vector);
 
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(

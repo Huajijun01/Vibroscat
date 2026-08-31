@@ -26,14 +26,14 @@ AirFogMedium AirFogMediumAtCamera() {
 
 // Closed form of ∫₀^S σs·exp(-σt·t) dt; no light-direction OD
 // (groundLight approximates the active light reaching the scene).
-vec4 AirScatteringIntegral(float S, vec4 sigma_s, vec4 sigma_t) {
-    return sigma_s * (vec4(1.0) - exp(-sigma_t * S)) / sigma_t;
+vec4 AirScatteringIntegral(float segment_length, vec4 sigma_s, vec4 sigma_t) {
+    return sigma_s * (vec4(1.0) - exp(-sigma_t * segment_length)) / sigma_t;
 }
 
 // View-ray length clamped to `far` (sphere approx of the loaded area;
 // shared by air_fog.fragment and epipolar_integrate_air.compute).
-bool AirFogSegment(float depth_dist, float radius, out float S) {
-    S = min(depth_dist, radius);
+bool AirFogSegment(float depth_dist, float radius, out float segment_length) {
+    segment_length = min(depth_dist, radius);
     return true;
 }
 
@@ -64,17 +64,17 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     result.transmittance = vec3(1.0);
     result.in_scattering = vec3(0.0);
 
-    float S;
-    if (!AirFogSegment(depth_dist, radius, S)) {
+    float segment_length;
+    if (!AirFogSegment(depth_dist, radius, segment_length)) {
         return result;
     }
 
-    vec4 trans_spectral = exp(-medium.extinction * S);
+    vec4 trans_spectral = exp(-medium.extinction * segment_length);
 
     // Full analytic single scattering: Rayleigh and Mie integrated separately
     // against the shared extinction, each with its own phase.
-    vec4 ray_int = AirScatteringIntegral(S, medium.scattering_ray, medium.extinction);
-    vec4 mie_int = AirScatteringIntegral(S, medium.scattering_mie, medium.extinction);
+    vec4 ray_int = AirScatteringIntegral(segment_length, medium.scattering_ray, medium.extinction);
+    vec4 mie_int = AirScatteringIntegral(segment_length, medium.scattering_mie, medium.extinction);
     vec3 ray_rgb = SpectralFractionToLinearSRGB(ray_int) * AIR_FOG_INTENSITY;
     vec3 mie_rgb = SpectralFractionToLinearSRGB(mie_int) * AIR_FOG_INTENSITY;
     vec3 sca_rgb = ray_rgb + mie_rgb;

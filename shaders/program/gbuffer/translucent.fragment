@@ -56,13 +56,13 @@ void main() {
     if (v_id != 1 && v_glass != 1) {
         if (diffuse.a < 0.01) discard;
         // Same BRDF configuration as deferred2 (shared BRDF helper).
-        vec3 N = normalize(v_normal);
-        vec3 V = -normalize(v_view_pos);
-        vec3 L = mat3(gbufferModelView) * normalize(u_world_light_dir);
+        vec3 surface_normal_view = normalize(v_normal);
+        vec3 view_to_eye = -normalize(v_view_pos);
+        vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
         vec3 direct_lighting;
         vec3 lambert_brdf;
         vec3 diffuse_reflectance;
-        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, N, V, L, direct_lighting, lambert_brdf, diffuse_reflectance);
+        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
         float s = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
         float torch_light = BlockLightFromLm(v_texcoord.z);
@@ -160,16 +160,16 @@ void main() {
     // Single hardware-PCF shadow sample (no PCSS needed on water).
     float s = texture(shadowtex1, v_shadow_proj_pos);
 
-    vec3 V = -view_dir;
-    vec3 N = current_normal;
-    vec3 L = mat3(gbufferModelView) * normalize(u_world_light_dir);
+    vec3 view_to_eye = -view_dir;
+    vec3 surface_normal_view = current_normal;
+    vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
 
-    vec3 H = normalize(V + L);
+    vec3 half_direction = normalize(view_to_eye + light_direction);
 
-    float ndotv = Saturate(dot(N, V));
-    float ndotl = Saturate(dot(N, L));
-    float ldotv = dot(L, V);
-    float ldoth = dot(L, H);
+    float ndotv = Saturate(dot(surface_normal_view, view_to_eye));
+    float ndotl = Saturate(dot(surface_normal_view, light_direction));
+    float ldotv = dot(light_direction, view_to_eye);
+    float ldoth = dot(light_direction, half_direction);
     vec3 sun_light = v_sun_light_col * s;
     vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
 

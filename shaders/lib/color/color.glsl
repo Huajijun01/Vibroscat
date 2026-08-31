@@ -459,11 +459,11 @@ const mat3 LOGLUV32_INVERSE_M = mat3(6.0014, -2.7008, -1.7996, -1.3320, 3.1029, 
 vec3 LogLuv32ToLinear(vec4 v_log_luv) {
     if (all(lessThanEqual(v_log_luv, vec4(0.0)))) return vec3(0.0);
     float le = v_log_luv.z * 255.0 + v_log_luv.w;
-    vec3 Xp_Y_XYZp;
-    Xp_Y_XYZp.y = exp2((le - 127.0) * 0.5);
-    Xp_Y_XYZp.z = Xp_Y_XYZp.y / max(v_log_luv.y, 1.0e-6);
-    Xp_Y_XYZp.x = v_log_luv.x * Xp_Y_XYZp.z;
-    return max(LOGLUV32_INVERSE_M * Xp_Y_XYZp, vec3(0.0));
+    vec3 xyz_prime;
+    xyz_prime.y = exp2((le - 127.0) * 0.5);
+    xyz_prime.z = xyz_prime.y / max(v_log_luv.y, 1.0e-6);
+    xyz_prime.x = v_log_luv.x * xyz_prime.z;
+    return max(LOGLUV32_INVERSE_M * xyz_prime, vec3(0.0));
 }
 
 #endif // COLOR_GLSL

@@ -63,14 +63,14 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
     vec2 tc0 = base - rcp_resolution;
     vec2 tc3 = base + 2.0 * rcp_resolution;
 
-    vec4 A = textureLod(utex_starmap, vec2(m0.x, clamp(tc0.y, 0.0, 1.0)), 0.0);
-    vec4 B = textureLod(utex_starmap, vec2(tc0.x, clamp(m0.y, 0.0, 1.0)), 0.0);
-    vec4 C = textureLod(utex_starmap, vec2(m0.x, clamp(m0.y, 0.0, 1.0)), 0.0);
-    vec4 D = textureLod(utex_starmap, vec2(tc3.x, clamp(m0.y, 0.0, 1.0)), 0.0);
-    vec4 E = textureLod(utex_starmap, vec2(m0.x, clamp(tc3.y, 0.0, 1.0)), 0.0);
+    vec4 sample_a = textureLod(utex_starmap, vec2(m0.x, clamp(tc0.y, 0.0, 1.0)), 0.0);
+    vec4 sample_b = textureLod(utex_starmap, vec2(tc0.x, clamp(m0.y, 0.0, 1.0)), 0.0);
+    vec4 sample_c = textureLod(utex_starmap, vec2(m0.x, clamp(m0.y, 0.0, 1.0)), 0.0);
+    vec4 sample_d = textureLod(utex_starmap, vec2(tc3.x, clamp(m0.y, 0.0, 1.0)), 0.0);
+    vec4 sample_e = textureLod(utex_starmap, vec2(m0.x, clamp(tc3.y, 0.0, 1.0)), 0.0);
 
-    return (0.5 * (A + B) * w0.x + A * s0.x + 0.5 * (A + B) * w3.x) * w0.y + (B * w0.x + C * s0.x + D * w3.x) * s0.y
-         + (0.5 * (B + E) * w0.x + E * s0.x + 0.5 * (D + E) * w3.x) * w3.y;
+    return (0.5 * (sample_a + sample_b) * w0.x + sample_a * s0.x + 0.5 * (sample_a + sample_b) * w3.x) * w0.y + (sample_b * w0.x + sample_c * s0.x + sample_d * w3.x) * s0.y
+         + (0.5 * (sample_b + sample_e) * w0.x + sample_e * s0.x + 0.5 * (sample_d + sample_e) * w3.x) * w3.y;
 }
 
 // Star map rigidly attached to the celestial sphere: rotation about world Y

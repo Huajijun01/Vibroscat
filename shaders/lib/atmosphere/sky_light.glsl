@@ -29,30 +29,30 @@ vec3 EvalSkyRadiance(vec3 direction) {
     float y = unit_direction.y;
     float z = unit_direction.z;
 
-    float Y0 = SH_Y0;
-    float Y1 = SH_Y1 * y;
-    float Y2 = SH_Y1 * z;
-    float Y3 = SH_Y1 * x;
-    float Y20 = SH_Y20 * (3.0 * y * y - 1.0);
+    float basis_y0 = SH_Y0;
+    float basis_y1 = SH_Y1 * y;
+    float basis_y2 = SH_Y1 * z;
+    float basis_y3 = SH_Y1 * x;
+    float basis_y20 = SH_Y20 * (3.0 * y * y - 1.0);
     float y2yz = SH_Y21 * y * z;
     float y2xz = SH_Y21 * x * z;
     float y2xy = SH_Y21 * x * y;
     float y2x2z2 = SH_Y22 * (x * x - z * z);
 
     vec3 radiance = vec3(
-        dot(skySH_R0, vec4(Y0, Y1, Y2, Y3))
-      + dot(skySH_R1, vec4(Y20, y2yz, y2xz, y2xy))
-      + skySH_R2.x * y2x2z2,
-        dot(skySH_G0, vec4(Y0, Y1, Y2, Y3))
-      + dot(skySH_G1, vec4(Y20, y2yz, y2xz, y2xy))
-      + skySH_G2.x * y2x2z2,
-        dot(skySH_B0, vec4(Y0, Y1, Y2, Y3))
-      + dot(skySH_B1, vec4(Y20, y2yz, y2xz, y2xy))
-      + skySH_B2.x * y2x2z2);
+        dot(sky_sh_r0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
+      + dot(sky_sh_r1, vec4(basis_y20, y2yz, y2xz, y2xy))
+      + sky_sh_r2.x * y2x2z2,
+        dot(sky_sh_g0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
+      + dot(sky_sh_g1, vec4(basis_y20, y2yz, y2xz, y2xy))
+      + sky_sh_g2.x * y2x2z2,
+        dot(sky_sh_b0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
+      + dot(sky_sh_b1, vec4(basis_y20, y2yz, y2xz, y2xy))
+      + sky_sh_b2.x * y2x2z2);
     // The spherical average of an un-convolved SH field is its L0 term
     // multiplied by Y0. Keep every RGB channel at least at that baseline so
     // negative higher-order lobes cannot turn reflection energy too dark.
-    vec3 sh_average = max(vec3(skySH_R0.x, skySH_G0.x, skySH_B0.x) * SH_Y0, vec3(0.0));
+    vec3 sh_average = max(vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * SH_Y0, vec3(0.0));
     return max(radiance, sh_average);
 }
 
@@ -66,25 +66,25 @@ vec3 EvalSkyLight(vec3 normal) {
     float z = normal.z;
 
     // L=0,1 basis
-    float Y0 = SH_Y0;
-    float Y1 = SH_Y1 * y;
-    float Y2 = SH_Y1 * z;
-    float Y3 = SH_Y1 * x;
+    float basis_y0 = SH_Y0;
+    float basis_y1 = SH_Y1 * y;
+    float basis_y2 = SH_Y1 * z;
+    float basis_y3 = SH_Y1 * x;
 
     // L=2 basis (5 terms)
-    float Y20 = SH_Y20 * (3.0 * y * y - 1.0);
+    float basis_y20 = SH_Y20 * (3.0 * y * y - 1.0);
     float y2yz = SH_Y21 * y * z;
     float y2xz = SH_Y21 * x * z;
     float y2xy = SH_Y21 * x * y;
     float y2x2z2 = SH_Y22 * (x * x - z * z);
 
     // Full-sphere irradiance (radiance coeffs x A_l convolution)
-    vec3 irradiance = vec3(dot(skySH_R0, vec4(Y0 * SH_A0, Y1 * SH_A1, Y2 * SH_A1, Y3 * SH_A1))
-      + dot(skySH_R1, vec4(Y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + skySH_R2.x * y2x2z2 * SH_A2,
-        dot(skySH_G0, vec4(Y0 * SH_A0, Y1 * SH_A1, Y2 * SH_A1, Y3 * SH_A1))
-      + dot(skySH_G1, vec4(Y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + skySH_G2.x * y2x2z2 * SH_A2,
-        dot(skySH_B0, vec4(Y0 * SH_A0, Y1 * SH_A1, Y2 * SH_A1, Y3 * SH_A1))
-      + dot(skySH_B1, vec4(Y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + skySH_B2.x * y2x2z2 * SH_A2);
+    vec3 irradiance = vec3(dot(sky_sh_r0, vec4(basis_y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
+      + dot(sky_sh_r1, vec4(basis_y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + sky_sh_r2.x * y2x2z2 * SH_A2,
+        dot(sky_sh_g0, vec4(basis_y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
+      + dot(sky_sh_g1, vec4(basis_y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + sky_sh_g2.x * y2x2z2 * SH_A2,
+        dot(sky_sh_b0, vec4(basis_y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
+      + dot(sky_sh_b1, vec4(basis_y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + sky_sh_b2.x * y2x2z2 * SH_A2);
 
     return max(irradiance, 0.0);
 }
@@ -93,7 +93,7 @@ vec3 EvalSkyLight(vec3 normal) {
 // multiple-scattered air/water fog, where the scattered light is treated as
 // direction-independent instead of using the view-direction irradiance.
 vec3 EvalSkyLightAverage() {
-    return max(vec3(skySH_R0.x, skySH_G0.x, skySH_B0.x) * (SH_Y0 * SH_A0), vec3(0.0));
+    return max(vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * (SH_Y0 * SH_A0), vec3(0.0));
 }
 
 #endif

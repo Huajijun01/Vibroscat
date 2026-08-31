@@ -20,12 +20,12 @@ vec2 OpaqueSSRRandom2(ivec2 tx) {
     return clamp(vec2(u0, u1), vec2(1e-6), vec2(1.0 - 1e-6));
 }
 
-mat3 BuildOrthonormalBasis(vec3 N) {
-    vec3 up = abs(N.z) < 0.999
+mat3 BuildOrthonormalBasis(vec3 normal) {
+    vec3 up = abs(normal.z) < 0.999
         ? vec3(0.0, 0.0, 1.0)
         : vec3(1.0, 0.0, 0.0);
-    vec3 T = normalize(cross(up, N));
-    return mat3(T, cross(N, T), N);
+    vec3 tangent = normalize(cross(up, normal));
+    return mat3(tangent, cross(normal, tangent), normal);
 }
 
 vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
@@ -38,16 +38,16 @@ vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
     return normalize(vec3(wm_std.xy * alpha, wm_std.z));
 }
 
-vec3 OpaqueReflectionDirection(vec3 N, vec3 V,
-        float perceptual_roughness, ivec2 tx, out vec3 H) {
+vec3 OpaqueReflectionDirection(vec3 normal, vec3 view_direction,
+        float perceptual_roughness, ivec2 tx, out vec3 half_direction) {
     float alpha = max(perceptual_roughness * perceptual_roughness, 0.002);
-    mat3 frame = BuildOrthonormalBasis(N);
-    vec3 local_v = transpose(frame) * V;
+    mat3 frame = BuildOrthonormalBasis(normal);
+    vec3 local_v = transpose(frame) * view_direction;
     vec3 local_h = SampleVisibleGGX(
         local_v, alpha, OpaqueSSRRandom2(tx));
-    H = normalize(frame * local_h);
-    vec3 L = normalize(reflect(-V, H));
-    return dot(N, L) > 1e-5 ? L : vec3(0.0);
+    half_direction = normalize(frame * local_h);
+    vec3 light_direction = normalize(reflect(-view_direction, half_direction));
+    return dot(normal, light_direction) > 1e-5 ? light_direction : vec3(0.0);
 }
 
 bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {

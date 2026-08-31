@@ -57,17 +57,17 @@ vec3 WaterExtinctionTransmittance(float dist) {
 // path varying linearly lightPath1 → lightPath2:
 //   integral_0^S sigma_s · exp(-sigma_t · (t + L(t))) dt
 // (column attenuation inside the closed form, not a post-multiplier).
-vec3 WaterScatteringIntegral(float S, float light_path1, float light_path2) {
+vec3 WaterScatteringIntegral(float segment_length, float light_path1, float light_path2) {
     vec3 extinction = u_water_absorption + u_water_scattering;
     // Closed form valid for any sign of L2-L1+S; only the exact degenerate
     // case needs the limit (exponentials cancel).
-    float delta = light_path2 - light_path1 + S;
-    if (abs(delta) < 1.0e-3 * max(S, light_path1 + light_path2 + 1.0)) {
+    float delta = light_path2 - light_path1 + segment_length;
+    if (abs(delta) < 1.0e-3 * max(segment_length, light_path1 + light_path2 + 1.0)) {
         // t + L(t) constant along the segment: exponent = lightPath1.
-        return u_water_scattering * S * exp(-extinction * light_path1);
+        return u_water_scattering * segment_length * exp(-extinction * light_path1);
     }
-    vec3 v = exp(-extinction * light_path1) - exp(-extinction * (light_path2 + S));
-    return u_water_scattering * S * v / (extinction * delta);
+    vec3 v = exp(-extinction * light_path1) - exp(-extinction * (light_path2 + segment_length));
+    return u_water_scattering * segment_length * v / (extinction * delta);
 }
 
 // Approximate multiple scattering (uniform-phase geometric-series;

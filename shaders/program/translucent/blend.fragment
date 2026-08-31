@@ -80,10 +80,10 @@ float CausticDepthBlend(vec4 lin, float path) {
 // the signed delta scaled by the surface BRDF. Caller supplies the surface
 // height (water fragment above water; sky-lightmap estimate underwater).
 float CausticWaterPath(vec3 world_pos, float caustic_surface_y, vec3 light_dir) {
-    const float CAUSTIC_WATER_IOR = 1.333; // air -> water, flat surface
+    const float caustic_water_ior = 1.333; // air -> water, flat surface
     // Refraction bends the path toward vertical: path = vertical drop /
     // refracted y component.
-    vec3 refracted = refract(-light_dir, vec3(0.0, 1.0, 0.0), 1.0 / CAUSTIC_WATER_IOR);
+    vec3 refracted = refract(-light_dir, vec3(0.0, 1.0, 0.0), 1.0 / caustic_water_ior);
     float path_per_metre = 1.0 / max(-refracted.y, 1.0e-3);
     return max(caustic_surface_y - world_pos.y, 0.0) * path_per_metre;
 }

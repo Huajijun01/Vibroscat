@@ -52,24 +52,24 @@ void main() {
         float dz = cy * col_sin_tid;
 
         // World-space orthonormal SH basis, L = 0..2, 9 terms.
-        float Y0 = SH_Y0;
-        float Y1 = SH_Y1 * sy;
-        float Y2 = SH_Y1 * dz;
-        float Y3 = SH_Y1 * dx;
-        float Y20 = SH_Y20 * (3.0 * sy * sy - 1.0);
+        float basis_y0 = SH_Y0;
+        float basis_y1 = SH_Y1 * sy;
+        float basis_y2 = SH_Y1 * dz;
+        float basis_y3 = SH_Y1 * dx;
+        float basis_y20 = SH_Y20 * (3.0 * sy * sy - 1.0);
         float y2yz = SH_Y21 * sy * dz;
         float y2xz = SH_Y21 * dx * dz;
         float y2xy = SH_Y21 * dx * sy;
         float y2x2z2 = SH_Y22 * (dx * dx - dz * dz);
 
-        sh_r01 += color.r * vec4(Y0, Y1, Y2, Y3);
-        sh_r2 += color.r * vec4(Y20, y2yz, y2xz, y2xy);
+        sh_r01 += color.r * vec4(basis_y0, basis_y1, basis_y2, basis_y3);
+        sh_r2 += color.r * vec4(basis_y20, y2yz, y2xz, y2xy);
         sh_r24 += color.r * y2x2z2;
-        sh_g01 += color.g * vec4(Y0, Y1, Y2, Y3);
-        sh_g2 += color.g * vec4(Y20, y2yz, y2xz, y2xy);
+        sh_g01 += color.g * vec4(basis_y0, basis_y1, basis_y2, basis_y3);
+        sh_g2 += color.g * vec4(basis_y20, y2yz, y2xz, y2xy);
         sh_g24 += color.g * y2x2z2;
-        sh_b01 += color.b * vec4(Y0, Y1, Y2, Y3);
-        sh_b2 += color.b * vec4(Y20, y2yz, y2xz, y2xy);
+        sh_b01 += color.b * vec4(basis_y0, basis_y1, basis_y2, basis_y3);
+        sh_b2 += color.b * vec4(basis_y20, y2yz, y2xz, y2xy);
         sh_b24 += color.b * y2x2z2;
     }
 
@@ -95,9 +95,9 @@ void main() {
             out24 = reduce_24[0] * SH_SOLID_ANGLE; \
         }
 
-    REDUCE_COLOR(sh_r01, sh_r2, sh_r24, skySH_R0, skySH_R1, skySH_R2.x)
-    REDUCE_COLOR(sh_g01, sh_g2, sh_g24, skySH_G0, skySH_G1, skySH_G2.x)
-    REDUCE_COLOR(sh_b01, sh_b2, sh_b24, skySH_B0, skySH_B1, skySH_B2.x)
+    REDUCE_COLOR(sh_r01, sh_r2, sh_r24, sky_sh_r0, sky_sh_r1, sky_sh_r2.x)
+    REDUCE_COLOR(sh_g01, sh_g2, sh_g24, sky_sh_g0, sky_sh_g1, sky_sh_g2.x)
+    REDUCE_COLOR(sh_b01, sh_b2, sh_b24, sky_sh_b0, sky_sh_b1, sky_sh_b2.x)
 
     if (tid == 0u) {
         // Ground light = direct sun/moon color via transmittance LUT.

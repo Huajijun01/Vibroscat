@@ -114,21 +114,21 @@ float ShadowDepthGapFromWorld(float world_gap) {
 // (uv = clip/(2*factor)+0.5, so d(uv)/d(clip) = (1-D)/(2*factor^2)),
 // then slope-scaled + constant bias → NDC depth offset.
 float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels) {
-    float E = shadowProjection[2].z;
-    float A = shadowProjection[0].x;
-    float B = shadowProjection[1].y;
-    float C = shadowProjection[3].x;
-    float D_mat = shadowProjection[3].y;
+    float shadow_e = shadowProjection[2].z;
+    float shadow_a = shadowProjection[0].x;
+    float shadow_b = shadowProjection[1].y;
+    float shadow_c = shadowProjection[3].x;
+    float shadow_d = shadowProjection[3].y;
 
-    float x = A * view_pos.x + C;
-    float y = B * view_pos.y + D_mat;
+    float x = shadow_a * view_pos.x + shadow_c;
+    float y = shadow_b * view_pos.y + shadow_d;
 
     float one_minus_d = 1.0 - DISTORT_FACTOR;
     float fx = one_minus_d + DISTORT_FACTOR * abs(x);
     float fy = one_minus_d + DISTORT_FACTOR * abs(y);
 
-    float dx_view = (2.0 * fx * fx) / (abs(A) * one_minus_d * float(shadowMapResolution) + 1e-5);
-    float dy_view = (2.0 * fy * fy) / (abs(B) * one_minus_d * float(shadowMapResolution) + 1e-5);
+    float dx_view = (2.0 * fx * fx) / (abs(shadow_a) * one_minus_d * float(shadowMapResolution) + 1e-5);
+    float dy_view = (2.0 * fy * fy) / (abs(shadow_b) * one_minus_d * float(shadowMapResolution) + 1e-5);
     float texel_world_size = max(dx_view, dy_view);
 
     float clamped_ndotl = clamp(ndotl, 0.0, 1.0);
@@ -137,7 +137,7 @@ float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels
         / max(clamped_ndotl, 1e-4);
     float const_world = texel_world_size * const_bias_texels;
 
-    float depth_scale = 0.5 * abs(E);    // view-space m → NDC depth
+    float depth_scale = 0.5 * abs(shadow_e);    // view-space m → NDC depth
 
     return (slope_world + const_world) * depth_scale * smoothstep(0.0, 0.05, ndotl);
 }

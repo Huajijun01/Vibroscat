@@ -218,10 +218,10 @@ float PhaseCornetteShanks(float cos_theta, float eccentricity) {
 // Spectral → linear sRGB  (4×3 manually expanded, FMA-friendly)
 // ═══════════════════════════════════════════════════════════════
 
-vec3 SpectralToLinearSRGB(vec4 L) {
-    return vec3(dot(L, vec4(6.321843624, -26.517091751, 30.142539978, 118.707962036)),
-        dot(L, vec4(-5.534153461, 17.321765900, 98.470054626, -8.898775101)),
-        dot(L, vec4(39.173206329, 71.765632629, -12.650737762, -1.295249343)));
+vec3 SpectralToLinearSRGB(vec4 spectral_radiance) {
+    return vec3(dot(spectral_radiance, vec4(6.321843624, -26.517091751, 30.142539978, 118.707962036)),
+        dot(spectral_radiance, vec4(-5.534153461, 17.321765900, 98.470054626, -8.898775101)),
+        dot(spectral_radiance, vec4(39.173206329, 71.765632629, -12.650737762, -1.295249343)));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -232,10 +232,10 @@ vec3 SpectralToLinearSRGB(vec4 L) {
 // with Rec2020ToSRGB() at the scene boundary.
 // ═══════════════════════════════════════════════════════════════
 
-vec3 SpectralToLinearRec2020(vec4 L) {
-    return vec3(dot(L, vec4(3.845798926, -7.86893214, 48.567284779, 70.210607852)),
-        dot(L, vec4(-4.264385887, 15.066919918, 93.470569559, -0.049300629)),
-        dot(L, vec4(35.719363513, 67.276565483, -2.226660272, 0.023773354)));
+vec3 SpectralToLinearRec2020(vec4 spectral_radiance) {
+    return vec3(dot(spectral_radiance, vec4(3.845798926, -7.86893214, 48.567284779, 70.210607852)),
+        dot(spectral_radiance, vec4(-4.264385887, 15.066919918, 93.470569559, -0.049300629)),
+        dot(spectral_radiance, vec4(35.719363513, 67.276565483, -2.226660272, 0.023773354)));
 }
 
 vec3 Rec2020ToSRGB(vec3 rgb) {
@@ -349,8 +349,8 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     }
 
     // ── ground albedo (sun + moon) ──
-    vec4 L_ground_sun = vec4(0.0);
-    vec4 L_ground_moon = vec4(0.0);
+    vec4 ground_sun_radiance = vec4(0.0);
+    vec4 ground_moon_radiance = vec4(0.0);
     if (t_ground > 0.0) {
         vec3 ground_pos = camera_pos + view_dir * t_ground;
         float r_g  = ATM_PLANET_R + 0.01;
@@ -360,15 +360,15 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // sunlight → ground
         vec4 trans_sun_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, mu_sun_g);
         vec4 ms_g = SampleMultiScatter(MULTISCATTER_LUT, r_g, mu_sun_g);
-        L_ground_sun = (trans_sun_g + ms_g) * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
+        ground_sun_radiance = (trans_sun_g + ms_g) * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
 
         // moonlight → ground (no multiscat)
         vec4 trans_moon_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, -mu_sun_g);
-        L_ground_moon = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
+        ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
     }
 
-    return ATM_SOLAR   * (pr * acc_ray + pm * acc_mie + acc_x + L_ground_sun)
-         + ATM_MOON_IRR * (pr * acc_ray_moon + pm_moon * acc_mie_moon + L_ground_moon);
+    return ATM_SOLAR   * (pr * acc_ray + pm * acc_mie + acc_x + ground_sun_radiance)
+         + ATM_MOON_IRR * (pr * acc_ray_moon + pm_moon * acc_mie_moon + ground_moon_radiance);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -376,11 +376,11 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 // ═══════════════════════════════════════════════════════════════
 
 vec3 SkyViewLookup(vec3 camera_pos, vec3 view_dir, vec3 sun_dir) {
-    vec4 L_spec = ComputeSkyRadiance(camera_pos, view_dir, sun_dir);
-    vec3 L = max(Rec2020ToSRGB(SpectralToLinearRec2020(L_spec)), vec3(0.0));
-    L *= ATM_EXPOSURE;
-    L = (L * (2.51 * L + 0.03)) / (L * (2.43 * L + 0.59) + 0.14);
-    return pow(clamp(L, 0.0, 1.0), vec3(0.45454545));
+    vec4 spectral_radiance = ComputeSkyRadiance(camera_pos, view_dir, sun_dir);
+    vec3 sky_radiance = max(Rec2020ToSRGB(SpectralToLinearRec2020(spectral_radiance)), vec3(0.0));
+    sky_radiance *= ATM_EXPOSURE;
+    sky_radiance = (sky_radiance * (2.51 * sky_radiance + 0.03)) / (sky_radiance * (2.43 * sky_radiance + 0.59) + 0.14);
+    return pow(clamp(sky_radiance, 0.0, 1.0), vec3(0.45454545));
 }
 
 // ═══════════════════════════════════════════════════════════════

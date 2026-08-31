@@ -29,8 +29,8 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     vec3 s = ProjectToShadowClip(start_scene);
     vec3 e = ProjectToShadowClip(end_scene);
     vec3 diff = end_scene - start_scene;
-    float S = length(diff);
-    float seg_optical = S;
+    float segment_length = length(diff);
+    float seg_optical = segment_length;
     float t_end = exp(-extinction * seg_optical);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
@@ -57,7 +57,7 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
         vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
         float depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
         float shadow = texture(shadowtex1, vec3(uv, depth));
-        vec3 weight = vec3(exp(-extinction * (u * S)));
+        vec3 weight = vec3(exp(-extinction * (u * segment_length)));
         num += weight * shadow;
         den += weight;
     }

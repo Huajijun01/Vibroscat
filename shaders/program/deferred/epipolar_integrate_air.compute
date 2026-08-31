@@ -41,9 +41,9 @@ void main() {
                 vec3 air_end = EpipolarViewToScene(uv01, depth0);
                 vec3 world_dir = normalize(air_end - air_start);
                 float depth_dist = length(air_end - air_start);
-                float S;
-                if (AirFogSegment(depth_dist, far, S)) {
-                    vec3 clamped_end = air_start + world_dir * S;
+                float segment_length;
+                if (AirFogSegment(depth_dist, far, segment_length)) {
+                    vec3 clamped_end = air_start + world_dir * segment_length;
                     air_e = EpipolarAirShadowRatio(
                         air_start, clamped_end, AirExtinction(),
                         ivec2(int(slice), int(sample_index)));

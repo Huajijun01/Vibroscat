@@ -170,7 +170,7 @@ void main() {
     // Eye-space receiver position: distance responses and the view vector
     // use the eye, not the feet-space origin.
     vec3 view_pos = SceneToViewSpace(world_pos);
-    vec3 V = normalize(EyePositionSceneSpace() - world_pos);
+    vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
 
     // Catmull-Rom history overshoot at AO edges must be clamped (would
     // brighten ambient past fully-open along silhouettes).
@@ -200,15 +200,15 @@ void main() {
     float block_light = BlockLightFromLm(lm.r);
 
     // ── Directional light (sun or moon) ──
-    vec3 L = (u_world_light_dir);
-    vec3 half_vector = V + L;
-    vec3 H = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
-    float ndotl = Max0(dot(normal, L));
-    float ndotv = Max0(dot(normal, V));
-    float ndoth = Max0(dot(normal, H));
-    float vdoth = Max0(dot(V, H));
-    float ldoth = Max0(dot(L, H));
-    float geo_ndotl = dot(geo_normal, L);
+    vec3 light_direction = (u_world_light_dir);
+    vec3 half_vector = view_to_eye + light_direction;
+    vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
+    float ndotl = Max0(dot(normal, light_direction));
+    float ndotv = Max0(dot(normal, view_to_eye));
+    float ndoth = Max0(dot(normal, half_direction));
+    float vdoth = Max0(dot(view_to_eye, half_direction));
+    float ldoth = Max0(dot(light_direction, half_direction));
+    float geo_ndotl = dot(geo_normal, light_direction);
     vec3 direct_brdf = EvaluateDirectBRDF(
         albedo, material.f0, material.diffuse_weight,
         material.perceptual_roughness,
@@ -253,7 +253,7 @@ void main() {
         float shadow_ndc_edge = max(abs(shadow_proj.x * 2.0 - 1.0), abs(shadow_proj.y * 2.0 - 1.0));
         float shadow_dist_ratio = length(view_pos) / effective_shadow_distance;
         float sss_availability = smoothstep(1.0, 0.9, shadow_ndc_edge) * smoothstep(0.8, 0.7, shadow_dist_ratio);
-        float ldotv = dot(L, V);
+        float ldotv = dot(light_direction, view_to_eye);
         // Normalized HG: back-lit peak stays 1 (preserves brightness scale).
         float hg_phase = PhaseMieHG(-ldotv, SHADOW_SSS_PHASE_G);
         float effective_thickness = sss_thickness_world * sss_availability;
@@ -292,7 +292,7 @@ void main() {
         material.perceptual_roughness);
     float ssr_weight = 1.0 - sh_weight;
 
-    float sh_reflection_ndotv = Max0(dot(normal, V));
+    float sh_reflection_ndotv = Max0(dot(normal, view_to_eye));
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     vec3 sh_specular = vec3(0.0);
 #ifdef OPAQUE_SSR
@@ -306,7 +306,7 @@ void main() {
     need_sh = ssr_weight < 1.0 || !history_valid;
 #endif
     if (need_sh) {
-        vec3 sh_reflection_direction = reflect(-V, normal);
+        vec3 sh_reflection_direction = reflect(-view_to_eye, normal);
         float sh_reflection_ndotl = Max0(
             dot(normal, sh_reflection_direction));
         // SH-only reflections are a low-cost environment fallback. Gate them
@@ -334,7 +334,7 @@ void main() {
     if (ssr_weight > 0.0) {
         vec3 ssr_reflection_half;
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
-            normal, V, material.perceptual_roughness, tx,
+            normal, view_to_eye, material.perceptual_roughness, tx,
             ssr_reflection_half);
         vec3 ssr_environment = vec3(0.0);
         if (!history_valid) {
@@ -349,7 +349,7 @@ void main() {
             dot(normal, ssr_reflection_direction));
         vec3 ssr_specular = ssr_incident_radiance * VisibleGGXThroughput(
             material.f0,
-            Max0(dot(V, ssr_reflection_half)),
+            Max0(dot(view_to_eye, ssr_reflection_half)),
             ssr_reflection_ndotv,
             ssr_reflection_ndotl,
             material.alpha);

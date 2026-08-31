@@ -1,10 +1,10 @@
 #ifndef LIB_WATER_FOG_GLSL
 #define LIB_WATER_FOG_GLSL
 
-#include "/lib/color/color.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/color/color.glsl"
 
 // Beer-Lambert water column parameters shared by the translucent layer and
 // the blend pass (above/underwater consistent).

@@ -5,8 +5,8 @@
 #include "/lib/core/filters.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/color/color.glsl"
-#include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/brdf.glsl"
 
 flat in vec3 v_normal;
 flat in vec3 v_sun_light_col;

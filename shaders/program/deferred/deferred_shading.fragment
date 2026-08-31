@@ -14,9 +14,9 @@
 
 /* RENDERTARGETS: 0,2,5 */
 
+#include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/contract/exposure_data.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -30,8 +30,8 @@
 #include "/lib/cloud/volumetric.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/color/dither.glsl"
-#include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/brdf.glsl"
 #include "/lib/material/core.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/shadow/pcss.glsl"

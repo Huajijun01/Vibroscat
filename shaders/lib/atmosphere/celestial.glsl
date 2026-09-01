@@ -78,7 +78,7 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
 // so sunDir.x/y give the path angle without an atan2 branch cut). Gated by
 // view-ray transmittance; the cloud compositor multiplies the contribution
 // by real cloud transmittance.
-vec3 RenderStarMap(vec3 view_dir) {
+vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
     vec3 sun_dir = normalize(u_world_sun_dir);
 
     // Day/night fade based on sun elevation (smoothstep transition).
@@ -106,13 +106,12 @@ vec3 RenderStarMap(vec3 view_dir) {
     vec3 star_color = LogLuv32ToLinear(SampleStarMapFastBicubic(vec2(u, v)));
 
     // View-ray transmittance: dims and reddens stars toward the horizon.
-    float mu = dot(camera_pos, view_dir) / r;
-    vec3 transmittance = TransmittanceToLinearSRGB(SampleTransmittance(TRANSMITTANCE_LUT, r, r2, mu), vec4(1.0));
+    vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, vec4(1.0));
 
     return star_color * transmittance * night_fade * STAR_MAP_INTENSITY;
 }
 
-vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color) {
+vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance) {
     vec3 camera_pos = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
     float r = length(camera_pos);
     float r2 = r * r;
@@ -130,8 +129,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color) {
     float cos_sun = dot(view_dir, sun_dir);
     if (cos_sun > cos(SUN_GLOW_RADIUS)
             && !CelestialBlockedByEarth(camera_pos, r2, sun_dir)) {
-        float mu = dot(camera_pos, sun_dir) / r;
-        vec3 transmittance = TransmittanceToLinearRec2020(SampleTransmittance(TRANSMITTANCE_LUT, r, r2, mu), ATM_SOLAR);
+        vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_SOLAR);
         vec3 sun_radiance = SpectralToLinearRec2020(ATM_SOLAR)
             / (PI * SUN_DISC_RADIUS * SUN_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
         contribution += sun_radiance * transmittance
@@ -141,8 +139,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color) {
     float cos_moon = dot(view_dir, moon_dir);
     if (cos_moon > cos(MOON_GLOW_RADIUS)
             && !CelestialBlockedByEarth(camera_pos, r2, moon_dir)) {
-        float mu = dot(camera_pos, moon_dir) / r;
-        vec3 transmittance = TransmittanceToLinearRec2020(SampleTransmittance(TRANSMITTANCE_LUT, r, r2, mu), ATM_MOON_IRR);
+        vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_MOON_IRR);
         vec3 moon_radiance = SpectralToLinearRec2020(ATM_MOON_IRR)
             / (PI * MOON_DISC_RADIUS * MOON_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
         contribution += moon_radiance * transmittance

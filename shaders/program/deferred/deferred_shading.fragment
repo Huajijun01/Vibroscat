@@ -70,9 +70,13 @@ void main() {
         vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
         vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
         // Discs stay out of the LUT so clouds attenuate them by real transmittance.
-        vec3 celestial = vec3(0.0);
-        celestial = RenderCelestialDiscs(view_dir, vec3(0.0));
-        celestial += RenderStarMap(view_dir);
+        vec3 camera_pos = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
+        float camera_r = length(camera_pos);
+        vec4 view_transmittance = SampleTransmittance(
+            TRANSMITTANCE_LUT, camera_r, camera_r * camera_r,
+            dot(camera_pos, view_dir) / camera_r);
+        vec3 celestial = RenderStarMap(view_dir, view_transmittance);
+        celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance);
 #ifdef VOLUMETRIC_CLOUDS
         vec3 camera_atm_pos = AtmosphereCameraPosition();
         float cloud_entry;

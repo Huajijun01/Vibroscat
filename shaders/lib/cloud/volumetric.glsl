@@ -18,7 +18,7 @@
 
 const float CLOUD_MAX_DISTANCE_KM = 180.0;
 const int CLOUD_MS_OCTAVES = 3;
-const float CLOUD_PHI_OMEGA0 = 0.9;
+const float CLOUD_PHI_OMEGA0 = 0.8;
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_PHI_OMEGA0;
 // Isotropic multiple-scattering build rate: sigma_iso ~= (1 - g) * sigma_t
@@ -352,13 +352,10 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
 
     for (int i = 0; i < CLOUD_VIEW_MAX_STEPS; ++i) {
         if (i >= step_count) break;
-        float segment_start_fraction = float(i) * inverse_step_count;
-        float segment_end_fraction = float(i + 1) * inverse_step_count;
-        float segment_start = march_start + interval_length * segment_start_fraction;
-        float segment_end = march_start + interval_length * segment_end_fraction;
-        float step_length = max(segment_end - segment_start, 0.0);
-        float segment_jitter = fract(view_jitter + (float(i) + 0.5) * 0.61803398875);
-        float sample_distance = mix(segment_start, segment_end, segment_jitter);
+        float step_length = interval_length * inverse_step_count;
+        // Shift the complete ray-march sequence by one shared jittered step;
+        // independent per-segment offsets can line up with cloud height bands.
+        float sample_distance = march_start + (float(i) + view_jitter) * step_length;
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
         float sample_r2 = dot(sample_position, sample_position);

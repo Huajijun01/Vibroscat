@@ -238,7 +238,6 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     if (light_distance <= 1.0e-5) return transport;
 
     float inverse_step_count = 1.0 / float(CLOUD_LIGHT_STEPS);
-    float interval_scale = 2.0 * light_distance * inverse_step_count;
     vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
 
     // March from the receiver toward the sun, matching HPVolumeCloud's source
@@ -249,13 +248,17 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     float total_optical_depth = 0.0;
     float weighted_source_sum = 0.0;
 
-    // Transform uniform x samples by x^2. Use the Jacobian at the jittered
-    // sample, not the interval midpoint, so the Monte Carlo estimator remains
-    // unbiased when the sample is moved within its stratum.
+    // Transform fixed x^2 strata into physical distance. Jitter moves the
+    // source within each stratum while the segment width remains deterministic;
+    // this keeps prefix optical depth stable for the nonlinear phi_fwd terms.
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
-        float x_position = (float(i) + light_jitter) * inverse_step_count;
-        float sample_distance = light_distance * x_position * x_position;
-        float interval_weight = 2.0 * light_distance * x_position * inverse_step_count;
+        float x0 = float(i) * inverse_step_count;
+        float x1 = float(i + 1) * inverse_step_count;
+        float segment_start = light_distance * x0 * x0;
+        float segment_end = light_distance * x1 * x1;
+        float interval_weight = segment_end - segment_start;
+        float sample_distance = mix(segment_start, segment_end, light_jitter);
+        float sample_offset = sample_distance - segment_start;
         vec3 source_position = atmosphere_position + light_dir * sample_distance;
         CloudDensitySample density_sample = SampleCloudDensity(source_position, camera_atmosphere_pos);
         float cloud_density = density_sample.density;
@@ -265,10 +268,9 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
         // 1/D scale.
         float scattering_source = sigma_s * interval_weight;
-        float optical_depth_from_receiver = total_optical_depth
-            + 0.5 * segment_optical_depth;
+        float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
         float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
-        float inverse_distance = 1.0 / max(max(sample_distance, 0.5 * interval_weight), 1.0e-4);
+        float inverse_distance = 1.0 / max(sample_distance, 1.0e-4);
         // HP's source confidence is evaluated at each light-ray source. The
         // bottom term uses the local source height; the boundary term uses
         // that source's XZ position.
@@ -278,7 +280,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
         float source_confidence = source_bottom_confidence * source_boundary_confidence;
         // HP's T_cum is the receiver-to-source absorption before this
-        // segment; propagation reaches the source midpoint.
+        // segment; propagation reaches the jittered source point.
         float source_absorption = exp(-one_minus_omega0 * total_optical_depth);
         float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);
         weighted_source_sum += source_absorption
@@ -355,7 +357,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         float segment_start = march_start + interval_length * segment_start_fraction;
         float segment_end = march_start + interval_length * segment_end_fraction;
         float step_length = max(segment_end - segment_start, 0.0);
-        float sample_distance = mix(segment_start, segment_end, view_jitter);
+        float segment_jitter = fract(view_jitter + (float(i) + 0.5) * 0.61803398875);
+        float sample_distance = mix(segment_start, segment_end, segment_jitter);
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
         float sample_r2 = dot(sample_position, sample_position);

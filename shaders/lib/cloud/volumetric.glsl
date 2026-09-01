@@ -160,7 +160,7 @@ float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
     float height_gradient_z = (height_up - height_down) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
     vec3 top_normal = normalize(vec3(-height_gradient_x, 1.0, -height_gradient_z));
     float n_dot_l = dot(top_normal, light_dir);
-    const float wrap = 0.0;
+    const float wrap = 0.5;
     float boundary_lit = Saturate((n_dot_l + wrap) / (1.0 + wrap));
     return mix(1.0, boundary_lit, Saturate(CLOUD_MS_BOUNDARY_CONFIDENCE));
 }
@@ -249,13 +249,13 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     float total_optical_depth = 0.0;
     float weighted_source_sum = 0.0;
 
-    // Transform uniform x samples by x^2. The analytic Jacobian keeps the
-    // constant-density optical depth unbiased while concentrating work nearby.
+    // Transform uniform x samples by x^2. Use the Jacobian at the jittered
+    // sample, not the interval midpoint, so the Monte Carlo estimator remains
+    // unbiased when the sample is moved within its stratum.
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
         float x_position = (float(i) + light_jitter) * inverse_step_count;
         float sample_distance = light_distance * x_position * x_position;
-        float midpoint_fraction = (float(i) + 0.5) * inverse_step_count;
-        float interval_weight = midpoint_fraction * interval_scale;
+        float interval_weight = 2.0 * light_distance * x_position * inverse_step_count;
         vec3 source_position = atmosphere_position + light_dir * sample_distance;
         CloudDensitySample density_sample = SampleCloudDensity(source_position, camera_atmosphere_pos);
         float cloud_density = density_sample.density;
@@ -265,9 +265,10 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
         // 1/D scale.
         float scattering_source = sigma_s * interval_weight;
-        float optical_depth_from_receiver = total_optical_depth + 0.5 * segment_optical_depth;
+        float optical_depth_from_receiver = total_optical_depth
+            + 0.5 * segment_optical_depth;
         float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
-        float inverse_distance = 1.0 / max(sample_distance, 0.5 * interval_weight);
+        float inverse_distance = 1.0 / max(max(sample_distance, 0.5 * interval_weight), 1.0e-4);
         // HP's source confidence is evaluated at each light-ray source. The
         // bottom term uses the local source height; the boundary term uses
         // that source's XZ position.

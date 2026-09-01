@@ -1,34 +1,19 @@
-#ifndef LIB_CLOUD_TEMPORAL_GLSL
-#define LIB_CLOUD_TEMPORAL_GLSL
+#ifndef CLOUD_TEMPORAL_GLSL
+#define CLOUD_TEMPORAL_GLSL
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/contract/uniforms.glsl"
 #include "/lib/core/filters.glsl"
-#include "/lib/core/noise.glsl"
-#include "/lib/cloud/checkerboard.glsl"
 #include "/lib/cloud/volumetric.glsl"
+#include "/lib/cloud/checkerboard.glsl"
 
-// Previous-frame camera transforms are shared with TAA and GTAO temporal
-// accumulation through the contract uniform declarations.
-
-const float CLOUD_VARIANCE_CLIP_STRENGTH = 1.5;
-const float CLOUD_MAX_HISTORY_WEIGHT = 16.0;
-const float CLOUD_DISTANCE_REJECTION_RELATIVE = 0.35;
+// Previous-frame camera transforms, shared with TAA and the GTAO temporal
+// accumulation (temporal_ao.glsl); declared in uniforms.glsl so both
+// include cleanly.
+#include "/lib/contract/uniforms.glsl"
 
 struct CloudFrame {
     vec3 radiance;   // x = sun, y = moon, z = transmittance
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
-};
-
-struct CloudNeighborhoodStats {
-    vec3 mean;
-    vec3 moment2;
-    vec3 minimum;
-    vec3 maximum;
-    float surface_distance;
-    float surface_distance_minimum;
-    float surface_distance_maximum;
-    float weight_sum;
 };
 
 // True only for the one full-res pixel per cell that this frame's low-res
@@ -42,7 +27,7 @@ bool CloudHasFreshSample(ivec2 full_res_texel) {
 // Raw sample for this pixel's low-res cell (downscaled render). No
 // interpolation, no snapping.
 CloudFrame CloudSampleFresh(ivec2 full_res_texel) {
-    // Low-res march samples cell*n + currentOffset; history-less seeds snap
+    // Low-res march samples cell·n + currentOffset; history-less seeds snap
     // to the nearest marched sample (aligned with the checkerboard grid, not
     // shifted by up to n-1 px).
     ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
@@ -63,7 +48,7 @@ CloudFrame CloudSampleFresh(ivec2 full_res_texel) {
 // the texelFetch lattice to (i + 0.5)/size.
 CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
-    // Continuous lattice coordinate; the low-res grid sits at id*n + offset.
+    // Continuous lattice coordinate; the low-res grid sits at id·n + offset.
     vec2 coord = (vec2(full_res_texel) - vec2(offset)) / float(CLOUD_TEMPORAL_UPSCALING);
     vec2 uv = (coord + 0.5) / vec2(textureSize(usam_clouds_current, 0));
     vec4 value = texture(usam_clouds_current, uv);
@@ -72,66 +57,6 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     CloudFrame frame;
     frame.radiance = value.rgb;
     frame.surface_distance = nearest.surface_distance;
-    return frame;
-}
-
-// Gather a transient 4x4 low-resolution footprint. The first two channels are
-// linear radiance; transmittance is represented as optical depth (log T) so
-// partially cloudy taps do not bias the reconstructed clear sky.
-CloudNeighborhoodStats CloudSampleCurrentNeighborhood(ivec2 full_res_texel) {
-    ivec2 current_size = textureSize(usam_clouds_current, 0);
-    ivec2 phase_offset = CloudCheckerboardOffset(
-        uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA)
-    );
-    vec2 lattice = (vec2(full_res_texel) - vec2(phase_offset))
-        / float(CLOUD_TEMPORAL_UPSCALING);
-    ivec2 lattice_base = ivec2(floor(lattice));
-
-    CloudNeighborhoodStats stats;
-    stats.mean = vec3(0.0);
-    stats.moment2 = vec3(0.0);
-    stats.minimum = vec3(1.0e30);
-    stats.maximum = vec3(-1.0e30);
-    stats.surface_distance_minimum = 1.0e30;
-    stats.surface_distance_maximum = -1.0e30;
-    stats.weight_sum = 0.0;
-
-    for (int y = -1; y <= 2; ++y) {
-        for (int x = -1; x <= 2; ++x) {
-            ivec2 sample_texel = clamp(lattice_base + ivec2(x, y),
-                ivec2(0), current_size - ivec2(1));
-            vec4 sample_value = texelFetch(usam_clouds_current, sample_texel, 0);
-            vec3 signal = vec3(max(sample_value.x, 0.0), max(sample_value.y, 0.0),
-                log(max(sample_value.z, 1.0e-4)));
-            vec2 delta = vec2(sample_texel) - lattice;
-            float weight = 1.0 / (1.0 + dot(delta, delta));
-            stats.mean += signal * weight;
-            stats.moment2 += signal * signal * weight;
-            stats.minimum = min(stats.minimum, signal);
-            stats.maximum = max(stats.maximum, signal);
-            if (sample_value.a > 0.0 && !isnan(sample_value.a)) {
-                stats.surface_distance_minimum = min(stats.surface_distance_minimum, sample_value.a);
-                stats.surface_distance_maximum = max(stats.surface_distance_maximum, sample_value.a);
-            }
-            stats.weight_sum += weight;
-        }
-    }
-
-    stats.weight_sum = max(stats.weight_sum, 1.0e-6);
-    stats.mean /= stats.weight_sum;
-    stats.moment2 /= stats.weight_sum;
-    if (!(stats.surface_distance_minimum < 1.0e29)) {
-        stats.surface_distance_minimum = CloudSampleFresh(full_res_texel).surface_distance;
-        stats.surface_distance_maximum = stats.surface_distance_minimum;
-    }
-    stats.surface_distance = CloudSampleFresh(full_res_texel).surface_distance;
-    return stats;
-}
-
-CloudFrame CloudNeighborhoodMean(CloudNeighborhoodStats stats) {
-    CloudFrame frame;
-    frame.radiance = vec3(stats.mean.x, stats.mean.y, exp(stats.mean.z));
-    frame.surface_distance = stats.surface_distance;
     return frame;
 }
 
@@ -147,36 +72,6 @@ CloudFrame CloudHistoryLoad(ivec2 texel) {
 // True when this history slot has no usable data (never written / cleared).
 bool CloudHistoryInvalid(CloudFrame history) {
     return any(isnan(history.radiance)) || isnan(history.surface_distance) || !(history.surface_distance > 0.0);
-}
-
-// Clamp reprojected history to the current transient neighborhood. Moments are
-// deliberately not persisted: they only describe the low-res samples that are
-// available in this frame and keep refresh patches from importing outliers.
-CloudFrame CloudClipHistoryToNeighborhood(CloudFrame history,
-    CloudNeighborhoodStats stats, float clip_strength) {
-    if (CloudHistoryInvalid(history)) return history;
-
-    vec3 signal = vec3(max(history.radiance.x, 0.0), max(history.radiance.y, 0.0),
-        log(max(history.radiance.z, 1.0e-4)));
-    vec3 variance = max(stats.moment2 - stats.mean * stats.mean, vec3(0.0));
-    vec3 deviation = sqrt(variance) * max(clip_strength, 0.0);
-    vec3 clipped = clamp(signal, stats.mean - deviation, stats.mean + deviation);
-    clipped = clamp(clipped, stats.minimum, stats.maximum);
-
-    CloudFrame result;
-    result.radiance = vec3(clipped.x, clipped.y, exp(clipped.z));
-    result.surface_distance = history.surface_distance;
-    return result;
-}
-
-bool CloudHistoryDistanceConsistent(CloudFrame history,
-    CloudNeighborhoodStats stats) {
-    float distance_span = max(stats.surface_distance_maximum
-        - stats.surface_distance_minimum, 1.0e-3);
-    float tolerance = max(distance_span,
-        max(abs(history.surface_distance), 1.0e-3) * CLOUD_DISTANCE_REJECTION_RELATIVE);
-    return history.surface_distance >= stats.surface_distance_minimum - tolerance
-        && history.surface_distance <= stats.surface_distance_maximum + tolerance;
 }
 
 // Reproject the cloud point at distanceKm along viewDirWorld to the previous
@@ -211,22 +106,19 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
 }
 
 // Age-based history blending: the first samples after seeding are box-
-// averaged with equal weight, then the effective history sample count grows
-// until it reaches a bounded steady state. Radiance is mixed, distance is
-// never EMA-mixed.
+// averaged with equal weight, then the weight switches to the steady-state
+// EMA alpha. Radiance is mixed, distance is never EMA-mixed.
 CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
 ) {
     // Single NaN guard so a never-initialized history cannot poison the EMA.
     if (any(isnan(history.radiance)) || isnan(history.surface_distance)) {
         return current;
     }
+    // Sample count since seeding: floor(age / CLOUD_CHECKERBOARD_AREA) + 1
+    // (one phase-matched blend per cycle, phase-alignment independent).
+    // Box-average 1/(n+1) while n < box samples, then steady-state EMA.
     float fresh_samples = floor(float(pixel_age) / float(CLOUD_CHECKERBOARD_AREA)) + 1.0;
-    float current_weight = 1.0;
-    float history_weight = min(fresh_samples, CLOUD_MAX_HISTORY_WEIGHT);
-    if (fresh_samples < CLOUD_ACCUMULATION_BOX_SAMPLES) {
-        history_weight = fresh_samples;
-    }
-    float alpha = current_weight / (current_weight + history_weight);
+    float alpha = fresh_samples < CLOUD_ACCUMULATION_BOX_SAMPLES ? 1.0 / max(fresh_samples + 1.0, 1.0) : CLOUD_ACCUMULATION_ALPHA;
     CloudFrame result;
     // Radiance mixes linearly; transmittance is nonlinear (T = exp(-OD)),
     // so it mixes in log space (unbiased). Distance is a hit location, keeps

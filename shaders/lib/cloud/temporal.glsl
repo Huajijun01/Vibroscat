@@ -3,8 +3,8 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/filters.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/cloud/volumetric.glsl"
-#include "/lib/cloud/checkerboard.glsl"
 
 // Previous-frame camera transforms, shared with TAA and the GTAO temporal
 // accumulation (temporal_ao.glsl); declared in uniforms.glsl so both
@@ -16,56 +16,40 @@ struct CloudFrame {
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
 };
 
-// True only for the one full-res pixel per cell that this frame's low-res
-// render sampled.
-bool CloudHasFreshSample(ivec2 full_res_texel) {
-    ivec2 local = full_res_texel % CLOUD_TEMPORAL_UPSCALING;
-    ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
-    return all(equal(local, offset));
+// Return the full-resolution pixel's coordinate on the moving low-res lattice.
+// The low-res texel centers are at (id + r2_offset) * cell_size in full-res
+// pixel coordinates, so integer lattice coordinates are valid sample centers.
+vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
+    vec2 full_size = vec2(textureSize(depthtex0, 0));
+    vec2 low_size = vec2(textureSize(usam_clouds_current, 0));
+    vec2 cell_size = full_size / low_size;
+#if CLOUD_TEMPORAL_UPSCALING == 1
+    vec2 r2_offset = vec2(0.5);
+#else
+    vec2 r2_offset = CloudR2Offset(frameCounter);
+#endif
+    return (vec2(full_res_texel) + 0.5) / cell_size - r2_offset;
 }
 
-// Raw sample for this pixel's low-res cell (downscaled render). No
-// interpolation, no snapping.
-CloudFrame CloudSampleFresh(ivec2 full_res_texel) {
-    // Low-res march samples cell·n + currentOffset; history-less seeds snap
-    // to the nearest marched sample (aligned with the checkerboard grid, not
-    // shifted by up to n-1 px).
-    ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
-    ivec2 nearest_sample_pos = full_res_texel - offset + CLOUD_TEMPORAL_UPSCALING / 2;
-    ivec2 low_res_texel = ivec2(floor(vec2(nearest_sample_pos) / float(CLOUD_TEMPORAL_UPSCALING)));
-    // Clamp partial edge cells to the last valid low-res texel.
-    low_res_texel = clamp(low_res_texel, ivec2(0), textureSize(usam_clouds_current, 0) - 1);
-    vec4 value = texelFetch(usam_clouds_current, low_res_texel, 0);
-    CloudFrame frame;
-    frame.radiance = value.rgb;
-    frame.surface_distance = value.a;
-    return frame;
-}
-
-// Bilinear reconstruction of the low-res frame for empty history slots:
-// radiance filtered by hardware bilinear (usam_clouds_current declared
-// linear); distance is a location, keeps the nearest marched sample. UV maps
-// the texelFetch lattice to (i + 0.5)/size.
+// Reconstruct the current low-res cloud frame for every full-res sky pixel.
+// Radiance uses the filtered current neighborhood; distance remains the
+// nearest sample location so reprojection does not invent a surface depth.
 CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
-    ivec2 offset = CloudCheckerboardOffset(uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA));
-    // Continuous lattice coordinate; the low-res grid sits at id·n + offset.
-    vec2 coord = (vec2(full_res_texel) - vec2(offset)) / float(CLOUD_TEMPORAL_UPSCALING);
-    vec2 uv = (coord + 0.5) / vec2(textureSize(usam_clouds_current, 0));
-    vec4 value = texture(usam_clouds_current, uv);
+    vec2 low_size = vec2(textureSize(usam_clouds_current, 0));
+    vec2 low_texel_size = 1.0 / low_size;
+    vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
+    vec2 current_uv = (grid_position + 0.5) * low_texel_size;
+    current_uv = clamp(current_uv, 0.5 * low_texel_size, vec2(1.0) - 0.5 * low_texel_size);
+    vec4 value = texture(usam_clouds_current, current_uv);
 
-    CloudFrame nearest = CloudSampleFresh(full_res_texel);
+    ivec2 nearest_texel = clamp(
+        ivec2(floor(grid_position + 0.5)),
+        ivec2(0),
+        ivec2(low_size) - ivec2(1)
+    );
     CloudFrame frame;
     frame.radiance = value.rgb;
-    frame.surface_distance = nearest.surface_distance;
-    return frame;
-}
-
-// Same-pixel history load. No reprojection.
-CloudFrame CloudHistoryLoad(ivec2 texel) {
-    vec4 history = texelFetch(colortex8, texel, 0);
-    CloudFrame frame;
-    frame.radiance = history.rgb;
-    frame.surface_distance = history.a;
+    frame.surface_distance = texelFetch(usam_clouds_current, nearest_texel, 0).a;
     return frame;
 }
 
@@ -114,11 +98,11 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
     if (any(isnan(history.radiance)) || isnan(history.surface_distance)) {
         return current;
     }
-    // Sample count since seeding: floor(age / CLOUD_CHECKERBOARD_AREA) + 1
-    // (one phase-matched blend per cycle, phase-alignment independent).
-    // Box-average 1/(n+1) while n < box samples, then steady-state EMA.
-    float fresh_samples = floor(float(pixel_age) / float(CLOUD_CHECKERBOARD_AREA)) + 1.0;
-    float alpha = fresh_samples < CLOUD_ACCUMULATION_BOX_SAMPLES ? 1.0 / max(fresh_samples + 1.0, 1.0) : CLOUD_ACCUMULATION_ALPHA;
+    // Age is the number of consecutive accepted frames. Box-average the first
+    // samples, then use the bounded steady-state EMA every frame.
+    float alpha = pixel_age < CLOUD_ACCUMULATION_BOX_SAMPLES
+        ? 1.0 / float(pixel_age + 1)
+        : CLOUD_ACCUMULATION_ALPHA;
     CloudFrame result;
     // Radiance mixes linearly; transmittance is nonlinear (T = exp(-OD)),
     // so it mixes in log space (unbiased). Distance is a hit location, keeps

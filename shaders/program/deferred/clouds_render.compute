@@ -3,7 +3,6 @@
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
 #include "/lib/core/noise.glsl"
-#include "/lib/cloud/checkerboard.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -84,18 +83,22 @@ void main() {
     ivec2 render_size = imageSize(uimg_clouds_current);
     if (any(greaterThanEqual(id, render_size))) return;
 
-    ivec2 checker_offset = CloudCheckerboardOffset(
-        uint(frameCounter) % uint(CLOUD_CHECKERBOARD_AREA)
+    vec2 full_resolution = vec2(textureSize(depthtex0, 0));
+    vec2 cell_size = full_resolution / vec2(render_size);
+#if CLOUD_TEMPORAL_UPSCALING == 1
+    vec2 r2_offset = vec2(0.5);
+#else
+    vec2 r2_offset = CloudR2Offset(frameCounter);
+#endif
+    // The R2 offset moves the complete low-res lattice continuously inside
+    // each full-res cell. This is the only ray per low-res texel per frame.
+    vec2 sample_pos = (vec2(id) + r2_offset) * cell_size;
+    ivec2 sample_pos_i = clamp(
+        ivec2(floor(sample_pos)),
+        ivec2(0),
+        ivec2(full_resolution) - ivec2(1)
     );
-    ivec2 sample_pos_i = id * CLOUD_TEMPORAL_UPSCALING + checker_offset;
-    vec2 sample_pos = vec2(sample_pos_i);
-    // Keep the checkerboard cell and march budget unchanged while decorrelating
-    // the reconstruction phase with a small STBN offset inside that cell.
-    vec2 phase_jitter = vec2(
-        SampleSTBN(sample_pos_i, frameCounter),
-        SampleSTBN(sample_pos_i + ivec2(37, 17), frameCounter + 13)
-    ) - 0.5;
-    vec2 uv = (sample_pos + 0.5 + phase_jitter * 0.25) * u_view_pixel_size;
+    vec2 uv = sample_pos * u_view_pixel_size;
     vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
     vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
     vec3 view_dir = normalize(
@@ -147,7 +150,7 @@ void main() {
             camera_atmosphere_pos,
             view_dir,
             sample_pos_i,
-            int((frameCounter / CLOUD_CHECKERBOARD_AREA) & 63),
+            frameCounter,
             march_start,
             march_end,
             step_count,

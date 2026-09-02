@@ -335,8 +335,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
             eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
         }
     }
-    // STBN 3D blue noise: the screen pass advances the time slice per
-    // checkerboard cycle, the skybox pins slice 0 (temporal stability).
+    // STBN 3D blue noise: the screen pass advances the time slice per frame;
+    // the skybox pins slice 0 (temporal stability).
     // View/light use R2-separated read offsets (decorrelated).
     ivec2 stbn_base = dither_coord & ivec2(127, 127);
     int stbn_frame = dither_slice & 63;

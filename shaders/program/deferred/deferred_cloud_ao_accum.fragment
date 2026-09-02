@@ -17,7 +17,7 @@
 // Type switches reset cleanly: cloud validation rejects NaN (AO pixels);
 // the AO side reseeds when the history is not AO-marked. AO generation is
 // half-res, bilinear upsample, one sample per pixel per frame (no
-// checkerboard phase). SSAO always uses the temporal path; GTAO_TEMPORAL off
+// cloud checkerboard phase). SSAO always uses the temporal path; GTAO_TEMPORAL off
 // passes the fresh AO through bilinearly.
 
 /* RENDERTARGETS: 8 */
@@ -61,33 +61,22 @@ void main() {
         }
         if (cloud_visible) {
             int pixel_age = int(imageLoad(uimg_clouds_age, tx).r * 255.0 + 0.5);
-            int new_age;
-            CloudFrame fresh = CloudSampleFresh(tx);
-            CloudFrame held_history = CloudHistoryLoad(tx);
-            bool has_fresh = CloudHasFreshSample(tx);
-            CloudFrame accumulated;
-            if (CloudHistoryInvalid(held_history)) {
-                // Empty history: reconstruct via hardware-bilinear sample
-                // (smooth entry); phase-matched updates refine.
-                accumulated = CloudSampleCurrentBilinear(tx);
-                new_age = 0;
-            } else {
-                float distance_for_reprojection = has_fresh ? fresh.surface_distance : held_history.surface_distance;
+            int new_age = 1;
+            CloudFrame current_frame = CloudSampleCurrentBilinear(tx);
+            CloudFrame accumulated = current_frame;
+            if (!CloudHistoryInvalid(current_frame) && frameCounter > 0) {
                 vec2 previous_uv;
-                if (!CloudReprojectToPrevious(view_dir, distance_for_reprojection, previous_uv
+                if (!CloudReprojectToPrevious(view_dir, current_frame.surface_distance, previous_uv
                 )) {
                     // UV out of range / behind previous camera: reject history.
-                    accumulated = fresh;
-                    new_age = 0;
+                    accumulated = current_frame;
                 } else {
                     CloudFrame reprojected_history = CloudHistorySample(previous_uv);
                     if (CloudHistoryInvalid(reprojected_history)) {
-                        // Reprojected slot has no data: force current trace.
-                        accumulated = fresh;
-                        new_age = 0;
+                        // Reprojected slot has no data: seed from current.
+                        accumulated = current_frame;
                     } else {
-                        accumulated = has_fresh ? CloudAccumulate(fresh, reprojected_history, pixel_age)
-                            : reprojected_history;
+                        accumulated = CloudAccumulate(current_frame, reprojected_history, pixel_age);
                         new_age = min(pixel_age + 1, CLOUD_AGE_LIMIT);
                     }
                 }

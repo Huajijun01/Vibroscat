@@ -19,4 +19,14 @@ float InterleavedGradientNoise(vec2 pixel) {
         * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
 }
 
+// Continuous R2 offset for sub-resolution grids. The first frame starts at
+// the cell center; subsequent frames cover the cell without a finite phase
+// table.
+vec2 CloudR2Offset(int frame) {
+    return fract(vec2(0.5) + float(frame) * vec2(
+        1.0 / 1.3247179572,
+        1.0 / 1.7548776662
+    ));
+}
+
 #endif

@@ -94,12 +94,11 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_SKY_LIGHT_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
-#define CLOUD_CHECKERBOARD_AREA (CLOUD_TEMPORAL_UPSCALING * CLOUD_TEMPORAL_UPSCALING)
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.
 #define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.10 1.15 1.25] centroid-distance safety scale
-#define CLOUD_ACCUMULATION_BOX_SAMPLES 9 // box-average the first 9 samples (seed + 8 blends = one checkerboard cycle)
+#define CLOUD_ACCUMULATION_BOX_SAMPLES 9 // box-average the first 9 accepted frames
 #define CLOUD_ACCUMULATION_ALPHA 0.11 // steady-state EMA weight after the box phase
-#define CLOUD_AGE_LIMIT 240 // cloud age cap in frames; must exceed BOX_SAMPLES * CLOUD_CHECKERBOARD_AREA
+#define CLOUD_AGE_LIMIT 240 // cloud age cap in accepted frames
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define CLOUD_HISTORY_NO_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 

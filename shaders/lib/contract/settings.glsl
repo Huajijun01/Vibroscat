@@ -96,9 +96,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.
 #define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.10 1.15 1.25] centroid-distance safety scale
-#define CLOUD_ACCUMULATION_BOX_SAMPLES 9 // box-average the first 9 accepted frames
-#define CLOUD_ACCUMULATION_ALPHA 0.11 // steady-state EMA weight after the box phase
-#define CLOUD_AGE_LIMIT 240 // cloud age cap in accepted frames
+#define CLOUD_AGE_LIMIT 24 // [8 12 16 24 32 48] accepted-frame/history-weight cap
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define CLOUD_HISTORY_NO_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 

@@ -18,7 +18,7 @@
 
 const float CLOUD_MAX_DISTANCE_KM = 180.0;
 const int CLOUD_MS_OCTAVES = 3;
-const float CLOUD_PHI_OMEGA0 = 0.8;
+const float CLOUD_PHI_OMEGA0 = 0.75;
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_PHI_OMEGA0;
 // Isotropic multiple-scattering build rate: sigma_iso ~= (1 - g) * sigma_t

@@ -86,10 +86,10 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_ATTENUATION 0.5 // [0.25 0.35 0.5 0.65 0.75 0.85 1.0] HanPi per-octave optical depth multiplier.
 #define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] HanPi per-octave energy multiplier.
 #define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] HanPi per-octave phase eccentricity multiplier.
-#define CLOUD_MS_DEPTH_POWER 2.5 // [0.1 0.2 0.3 0.4 0.5 0.6 0.75 1.0 1.25 1.5 2.0] HP bottom-confidence depth exponent.
-#define CLOUD_MS_DEPTH_BIAS -0.05 // [-0.3 -0.15 0.0 0.15 0.3 0.5] HP bottom-confidence normalized-height bias.
+#define CLOUD_MS_DEPTH_POWER 1.5 // [0.1 0.2 0.3 0.4 0.5 0.6 0.75 1.0 1.25 1.5 2.0] HP bottom-confidence depth exponent.
+#define CLOUD_MS_DEPTH_BIAS -0.07 // [-0.3 -0.15 0.0 0.15 0.3 0.5] HP bottom-confidence normalized-height bias.
 #define CLOUD_MS_BOUNDARY_CONFIDENCE 1.0 // [0.0 0.25 0.5 0.75 1.0] HP wrap boundary backlight confidence.
-#define CLOUD_PHI_INTENSITY 0.3 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Vibroscat phi_fwd initial intensity.
+#define CLOUD_PHI_INTENSITY 0.5 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Vibroscat phi_fwd initial intensity.
 #define CLOUD_PHI_COMPRESSION 0.5 // [0.0 0.1 0.25 0.5 1.0 2.0] Vibroscat phi_fwd soft compression.
 #define CLOUD_SKY_LIGHT_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
 

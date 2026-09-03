@@ -341,7 +341,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
     ivec2 stbn_base = dither_coord & ivec2(127, 127);
     int stbn_frame = dither_slice & 63;
     float view_jitter = SampleSTBN(stbn_base, stbn_frame);
-    float light_jitter_base = SampleSTBN(stbn_base + ivec2(64), stbn_frame);
+    float light_jitter_base = SampleSTBN(stbn_base, stbn_frame + 32);
     float interval_length = march_end - march_start;
     float direct_sun_radiance = 0.0;
     float direct_moon_radiance = 0.0;

@@ -23,40 +23,26 @@ vec3 FetchDepthPosition(sampler2D depth, ivec2 texel) {
     return vec3(sample_uv, texelFetch(depth, sample_texel, 0).r);
 }
 
-bool IsOpaqueHand(ivec2 texel) {
-    ivec2 sample_texel = ClampTexel(texel, textureSize(colortex1, 0));
-    float depth = texelFetch(depthtex0, sample_texel, 0).r;
-    int material_id = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
-    return depth < 1.0 && material_id == 64;
-}
-
-float CorrectHandScreenDepth(float screen_depth) {
-    float hand_ndc_depth = (screen_depth * 2.0 - 1.0) / MC_HAND_DEPTH;
-    return hand_ndc_depth * 0.5 + 0.5;
-}
-
 vec3 FetchColorClamped(sampler2D color, ivec2 texel) {
     ivec2 sample_texel = ClampTexel(texel, textureSize(color, 0));
     return texelFetch(color, sample_texel, 0).rgb;
 }
 
-vec3 GetClosestToCamera(sampler2D depth, ivec2 tx, bool current_is_hand) {
+vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
     vec3 center     = FetchDepthPosition(depth, tx);
     vec3 down_left  = FetchDepthPosition(depth, tx + ivec2(-2, -2));
     vec3 up_right   = FetchDepthPosition(depth, tx + ivec2( 2,  2));
     vec3 up_left    = FetchDepthPosition(depth, tx + ivec2( 2, -2));
     vec3 down_right = FetchDepthPosition(depth, tx + ivec2(-2,  2));
-    if (!current_is_hand) {
-        if (!IsOpaqueHand(tx + ivec2(-2, -2)) && down_left.z < center.z) center = down_left;
-        if (!IsOpaqueHand(tx + ivec2( 2,  2)) && up_right.z < center.z) center = up_right;
-        if (!IsOpaqueHand(tx + ivec2( 2, -2)) && up_left.z < center.z) center = up_left;
-        if (!IsOpaqueHand(tx + ivec2(-2,  2)) && down_right.z < center.z) center = down_right;
-    }
+    if (down_left.z  < center.z) center = down_left;
+    if (up_right.z   < center.z) center = up_right;
+    if (up_left.z    < center.z) center = up_left;
+    if (down_right.z < center.z) center = down_right;
     return center;
 }
 
 float GetBlendWeight(vec3 previous_color, vec3 current_color, vec3 clipped_color, vec2 velocity) {
-    float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / Luminance(previous_color))
+	float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / Luminance(previous_color))
                      * clamp(length(velocity * u_screen_res), 0.0, 1.0);
     const float basic_blend_weight = 0.1;
     return clamp(movement + basic_blend_weight, 0.0, 1.0);
@@ -74,19 +60,10 @@ void main() {
     vec2 texcoord = gl_FragCoord.xy * pixel_size;
     ivec2 tx = ivec2(gl_FragCoord.xy);
 
-    bool is_opaque_hand = IsOpaqueHand(tx);
-    vec3 closest_to_camera = GetClosestToCamera(depthtex0, tx, is_opaque_hand);
-    if (is_opaque_hand) {
-        closest_to_camera.z = CorrectHandScreenDepth(closest_to_camera.z);
-    }
-    vec3 position = ToPrevious(closest_to_camera, !is_opaque_hand);
+    vec3 closest_to_camera = GetClosestToCamera(depthtex0, tx);
+    vec3 position = ToPrevious(closest_to_camera);
 
     vec2 velocity = position.xy - closest_to_camera.xy;
-    if (is_opaque_hand) {
-        // The first-person hand has no world-space camera velocity. Its
-        // animation is not represented by gbufferPreviousModelView.
-        velocity = vec2(0.0);
-    }
     vec2 history_uv = texcoord + velocity;
 
     vec2 unjitter_uv = texcoord + u_taa_offset * 0.5;
@@ -121,7 +98,7 @@ void main() {
     vec3 result = HDRDecompress(mix(HDRCompress(clamped), HDRCompress(current_color), blend_weight));
     vec3 jittered_result = JitterR11G11B10F(result, gl_FragCoord.xy, COLOR_JITTER_SEED);
 #ifdef MOTION_BLUR
-    out_color = vec3(velocity, 0.0);
+    out_color = vec3(velocity * step(0.56, closest_to_camera.z), 0.0);
 #else
     out_color = jittered_result;
 #endif

@@ -3,6 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
 #include "/lib/core/packing.glsl"
 
 // ============================================================================
@@ -34,9 +35,7 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv) {
 //    GTAO_HISTORY_NORMAL_DOT_MIN -> 0.
 float GTAOHistoryWeight(vec3 world_pos, vec3 view_normal, vec2 history_uv, vec4 history) {
     // Distance consistency (world-space displacement).
-    vec4 previous_view_h = inverse(gbufferPreviousProjection)
-        * vec4(history_uv * 2.0 - 1.0, (1.0 - history.b) * 2.0 - 1.0, 1.0);
-    vec3 previous_view = previous_view_h.xyz / previous_view_h.w;
+    vec3 previous_view = PreviousScreenToView(vec3(history_uv, 1.0 - history.b));
     vec3 previous_scene = (inverse(gbufferPreviousModelView) * vec4(previous_view, 1.0)).xyz;
     vec3 previous_in_current = previous_scene - (cameraPosition - previousCameraPosition);
     float displacement = length(previous_in_current - world_pos);

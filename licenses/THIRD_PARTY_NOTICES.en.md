@@ -15,7 +15,7 @@ The "Photon-style" / "Photon default" comments remaining in the source are param
 
 ## 2. HanPi Volume Cloud (derived code, MIT + additional attribution)
 
-The isotropic multiple-scattering field (phi_fwd) in `shaders/lib/cloud/volumetric.glsl` is derived from HanPi Volume Cloud (AshenOneArt), MIT licensed with an additional attribution requirement:
+The former isotropic multiple-scattering field (phi_fwd) in `shaders/lib/cloud/volumetric.glsl` was derived from HanPi Volume Cloud (AshenOneArt). In September 2026 its source sum, distance kernel, boundary confidence and compression were replaced by an independently derived finite-slab P1 diffusion solution. The cloud integration's provenance and the upstream MIT license with additional attribution are retained here:
 
 > MIT License
 >

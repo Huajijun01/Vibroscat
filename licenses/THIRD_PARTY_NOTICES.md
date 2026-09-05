@@ -15,7 +15,7 @@ Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义�
 
 ## 2. HanPi Volume Cloud（派生代码，MIT + 附加署名）
 
-`shaders/lib/cloud/volumetric.glsl` 的各向同性多重散射场（phi_fwd）派生自 HanPi Volume Cloud（AshenOneArt），MIT 许可并附额外署名要求：
+`shaders/lib/cloud/volumetric.glsl` 原有的各向同性多重散射场（phi_fwd）派生自 HanPi Volume Cloud（AshenOneArt）。2026 年 9 月，其源项求和、距离核、边界置信度和压缩被独立推导的有限平板 P1 扩散解替代。此处保留云积分实现的来源记录，以及上游 MIT 许可和附加署名要求：
 
 > MIT License
 >

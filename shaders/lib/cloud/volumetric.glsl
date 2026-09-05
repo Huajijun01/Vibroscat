@@ -17,7 +17,9 @@
 // see licenses/THIRD_PARTY_NOTICES.md section 2.
 
 const float CLOUD_MAX_DISTANCE_KM = 180.0;
-const int CLOUD_MS_OCTAVES = 3;
+const float CLOUD_PHASE_FORWARD_WEIGHT = 0.95;
+const float CLOUD_PHASE_MEAN_G = CLOUD_PHASE_FORWARD_WEIGHT * CLOUD_PHASE_FORWARD_G
+    - (1.0 - CLOUD_PHASE_FORWARD_WEIGHT) * CLOUD_PHASE_BACKWARD_G;
 const float CLOUD_PHI_OMEGA0 = 0.75;
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_PHI_OMEGA0;
@@ -193,9 +195,14 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     return result;
 }
 
-float CloudDirectionalPhase(float cos_theta, float eccentricity_factor) {
-    return PhaseMieHG(cos_theta, CLOUD_PHASE_FORWARD_G * eccentricity_factor) + PhaseMieHG(cos_theta,
-        -CLOUD_PHASE_BACKWARD_G * eccentricity_factor);
+float CloudDirectionalPhase(float cos_theta) {
+    return mix(PhaseMieHG(cos_theta, -CLOUD_PHASE_BACKWARD_G),
+        PhaseMieHG(cos_theta, CLOUD_PHASE_FORWARD_G), CLOUD_PHASE_FORWARD_WEIGHT);
+}
+
+float CloudMultipleScatteringPhase(float low_order_phase, float optical_depth) {
+    float direction_memory = exp(-CLOUD_PHI_BUILD_SCALE * optical_depth);
+    return mix(1.0 / (4.0 * PI), low_order_phase, direction_memory);
 }
 
 // phi_fwd: HPVolumeCloud isotropic multiple-scattering port. See the file
@@ -284,24 +291,13 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
     // exact negation of the sun's. Each light is gated by earth occlusion below.
     vec3 moon_dir = -sun_dir;
     float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
-    // Phase terms depend only on the fixed cosine + constant octave factors:
-    // evaluated once per ray.
-    float sun_phase_weight[CLOUD_MS_OCTAVES];
-    float moon_phase_weight[CLOUD_MS_OCTAVES];
-    float octave_attenuation[CLOUD_MS_OCTAVES];
-    {
-        float attenuation_factor = 1.0;
-        float contribution_factor = 1.0;
-        float eccentricity_factor = 1.0;
-        for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-            sun_phase_weight[octave] = CloudDirectionalPhase(sun_cos_theta, eccentricity_factor) * contribution_factor;
-            moon_phase_weight[octave] = CloudDirectionalPhase(-sun_cos_theta, eccentricity_factor) * contribution_factor;
-            octave_attenuation[octave] = attenuation_factor;
-            attenuation_factor *= CLOUD_MS_ATTENUATION;
-            contribution_factor *= CLOUD_MS_CONTRIBUTION;
-            eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
-        }
-    }
+    // HG evaluation is invariant along the view ray. The second-order lobe
+    // matches the squared first angular moment of the normalized dual HG.
+    float sun_phase = CloudDirectionalPhase(sun_cos_theta);
+    float moon_phase = CloudDirectionalPhase(-sun_cos_theta);
+    float second_order_g = CLOUD_PHASE_MEAN_G * CLOUD_PHASE_MEAN_G;
+    float sun_ms_phase = PhaseMieHG(sun_cos_theta, second_order_g);
+    float moon_ms_phase = PhaseMieHG(-sun_cos_theta, second_order_g);
     // STBN 3D blue noise: the screen pass advances the time slice per frame;
     // the skybox pins slice 0 (temporal stability).
     // View/light use R2-separated read offsets (decorrelated).
@@ -334,29 +330,17 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         float sample_moon_radiance = 0.0;
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, sun_dir)) {
             CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter);
-            float directional_sun_radiance = 0.0;
-            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-                // 1 / (1 + accumulated optical depth) approximates the
-                // falloff of additional scattering orders.
-                directional_sun_radiance += sun_phase_weight[octave] / (sun_transport.optical_depth
-                        * octave_attenuation[octave] + 1.0);
-            }
-            sample_sun_radiance = directional_sun_radiance
-                * CLOUD_PHI_OMEGA0
-                + MapCloudIsotropicDiffuse(sun_transport.isotropic_diffuse);
+            sample_sun_radiance = CLOUD_PHI_OMEGA0 * sun_phase * exp(-sun_transport.optical_depth)
+                + MapCloudIsotropicDiffuse(sun_transport.isotropic_diffuse) * (4.0 * PI)
+                    * CloudMultipleScatteringPhase(sun_ms_phase, sun_transport.optical_depth);
         }
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, moon_dir)) {
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
             CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter);
-            float directional_moon_radiance = 0.0;
-            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-                directional_moon_radiance += moon_phase_weight[octave] / (moon_transport.optical_depth
-                        * octave_attenuation[octave] + 1.0);
-            }
-            sample_moon_radiance = directional_moon_radiance
-                * CLOUD_PHI_OMEGA0
-                + MapCloudIsotropicDiffuse(moon_transport.isotropic_diffuse);
+            sample_moon_radiance = CLOUD_PHI_OMEGA0 * moon_phase * exp(-moon_transport.optical_depth)
+                + MapCloudIsotropicDiffuse(moon_transport.isotropic_diffuse) * (4.0 * PI)
+                    * CloudMultipleScatteringPhase(moon_ms_phase, moon_transport.optical_depth);
         }
         float optical_depth = density_sample.density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY

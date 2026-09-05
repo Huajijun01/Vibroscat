@@ -90,9 +90,6 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] HanPi forward HG eccentricity.
 #define CLOUD_PHASE_BACKWARD_G 0.3 // [0.15 0.2 0.25 0.3 0.35 0.4] HanPi backward HG eccentricity.
-#define CLOUD_MS_ATTENUATION 0.5 // [0.25 0.35 0.5 0.65 0.75 0.85 1.0] HanPi per-octave optical depth multiplier.
-#define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] HanPi per-octave energy multiplier.
-#define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] HanPi per-octave phase eccentricity multiplier.
 #define CLOUD_MS_DEPTH_POWER 1.5 // [0.1 0.2 0.3 0.4 0.5 0.6 0.75 1.0 1.25 1.5 2.0] HP bottom-confidence depth exponent.
 #define CLOUD_MS_DEPTH_BIAS -0.07 // [-0.3 -0.15 0.0 0.15 0.3 0.5] HP bottom-confidence normalized-height bias.
 #define CLOUD_MS_BOUNDARY_CONFIDENCE 1.0 // [0.0 0.25 0.5 0.75 1.0] HP wrap boundary backlight confidence.

@@ -278,12 +278,11 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
         float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
         float source_confidence = source_bottom_confidence * source_boundary_confidence;
-        // HP's T_cum is the receiver-to-source absorption before this
-        // segment; propagation reaches the jittered source point.
-        float source_absorption = exp(-one_minus_omega0 * total_optical_depth);
-        float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);
-        weighted_source_sum += source_absorption
-            * source_propagation
+        // Both attenuation terms must reach the same quadrature point.
+        // Using the segment start for absorption biases coarse steps bright.
+        float source_transport = exp(-(one_minus_omega0 + kappa_per_optical_depth)
+            * optical_depth_from_receiver);
+        weighted_source_sum += source_transport
             * scattering_source
             * sigma_t
             * isotropic_build

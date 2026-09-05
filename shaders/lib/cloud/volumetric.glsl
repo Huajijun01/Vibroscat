@@ -24,13 +24,8 @@ const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY 
 // Isotropic multiple-scattering build rate: sigma_iso ~= (1 - g) * sigma_t
 // (PhiFwd_FromRTE.md section 5.3), using the forward HG eccentricity as g.
 const float CLOUD_PHI_BUILD_SCALE = 0.15;
-// The distribution atlas is sampled twice: a large-scale coverage read and a
-// detail read. The offset and scale keep the two reads decorrelated.
-const float CLOUD_DISTRIBUTION_UV_OFFSET = 0.114514;
+// Coverage uses the weather map at this scale; erosion is sampled separately.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
-// Large-scale coverage modulates the base coverage by this linear boost.
-const float CLOUD_COVERAGE_BOOST_BASE = -0.1;
-const float CLOUD_COVERAGE_BOOST_RANGE = 0.1;
 
 struct CloudDensitySample {
     float density;
@@ -133,32 +128,10 @@ vec2 CloudDistributionUv(vec2 world_km) {
             frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
 }
 
-// HP boundary confidence uses a cloud-top height proxy, not density or optical
-// depth. This project has no separate weather coverage-height LUT, so mirror
-// the actual top-fade driver used by SampleCloudDensity: the large-scale read
-// controls the lower edge of the top fade over [start, 1]. Its midpoint is the
-// effective top height used for the finite-difference normal.
-float CloudBoundaryHeightProxy(vec2 world_km) {
-    vec2 distribution_uv = CloudDistributionUv(world_km);
-    float large_scale_cloud = texture(utex_cloud_distribution_tex,
-        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
-    float top_fade_start = 0.2 + large_scale_cloud * large_scale_cloud * 0.4;
-    return Saturate(0.5 * (top_fade_start + 1.0));
-}
-
-// HP's boundary term: finite-difference the top height, build the top normal,
-// and apply a wrap(N dot L) response. The caller passes a normalized light dir.
-float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
-    float sample_step = CLOUD_DISTRIBUTION_SCALE_KM
-        / max(float(textureSize(utex_cloud_distribution_tex, 0).x), 1.0);
-    float height_left = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
-    float height_right = CloudBoundaryHeightProxy(world_km + vec2(sample_step, 0.0));
-    float height_down = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
-    float height_up = CloudBoundaryHeightProxy(world_km + vec2(0.0, sample_step));
-    float slab_thickness = max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-3);
-    float height_gradient_x = (height_right - height_left) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    float height_gradient_z = (height_up - height_down) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    vec3 top_normal = normalize(vec3(-height_gradient_x, 1.0, -height_gradient_z));
+// The current density profile has a fixed spherical top fade. Its envelope
+// normal is radial; this does not resolve the eroded cloud's side boundaries.
+float CloudBoundaryBacklight(vec3 atmosphere_position, vec3 light_dir) {
+    vec3 top_normal = normalize(atmosphere_position);
     float n_dot_l = dot(top_normal, light_dir);
     const float wrap = 0.5;
     float boundary_lit = Saturate((n_dot_l + wrap) / (1.0 + wrap));
@@ -179,7 +152,6 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
     vec2 distribution_uv = CloudDistributionUv(world_km);
-    // float large_scale_cloud = texture(utex_cloud_distribution_tex, distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
     float coverage = (CLOUD_COVERAGE) * (1.0 - u_rain_strength) + u_rain_strength;
@@ -187,7 +159,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     float bottom_ramp = smoothstep(0.0, 0.15, result.height_fraction);
     // Push density away from the very bottom of the layer to keep the base soft.
     float height_penalty = Saturate((result.height_fraction - 0.15) / 0.85) * 0.5;
-    // Fade the layer top; larger clouds get a thicker, softer cap.
+    // Fade the fixed spherical layer top.
     float top_fade = 1.0 - smoothstep(0.7, 1.0, result.height_fraction);
     float macro_density = Saturate(distribution_density - height_penalty)
         * bottom_ramp
@@ -270,13 +242,10 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
         float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
         float inverse_distance = 1.0 / max(sample_distance, 1.0e-4);
-        // HP's source confidence is evaluated at each light-ray source. The
-        // bottom term uses the local source height; the boundary term uses
-        // that source's XZ position.
+        // Both envelope terms are evaluated at the light-ray source.
         float source_bottom_height = max(density_sample.height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
         float source_bottom_confidence = 1.0 - exp(-source_bottom_height * CLOUD_MS_DEPTH_POWER);
-        vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
-        float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
+        float source_boundary_confidence = CloudBoundaryBacklight(source_position, light_dir);
         float source_confidence = source_bottom_confidence * source_boundary_confidence;
         // Both attenuation terms must reach the same quadrature point.
         // Using the segment start for absorption biases coarse steps bright.

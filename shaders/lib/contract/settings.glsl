@@ -18,8 +18,8 @@
 #define GI_HISTORY_FRAMES 24 // [4 8 16 24 31]
 #define RSM_SAMPLES 16 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
-#define RSM_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
-#define RSM_SKY_OCCLUSION_FLOOR 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
+#define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define RSM_SKY_OCCLUSION_FLOOR 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
 #define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
@@ -78,11 +78,11 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_THICKNESS_KM 1.5 // [0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud layer vertical thickness (km).
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
 #define CLOUD_COVERAGE 0.5 // [0.35 0.4 0.45 0.5 0.55 0.58 0.62 0.66 0.7 0.75] Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
-#define CLOUD_DISTRIBUTION_SCALE_KM 64.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
+#define CLOUD_DISTRIBUTION_SCALE_KM 280.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
 #define CLOUD_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
 #define CLOUD_FINE_WIND_FACTOR 2.0 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0] Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
-#define CLOUD_EROSION_SCALE_KM 1.5 // [2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Worley fBm erosion texture world-space scale for a full wrap (km).
-#define CLOUD_EROSION_STRENGTH 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] Composite low-frequency erosion channel total strength.
+#define CLOUD_EROSION_SCALE_KM 1.5 // [2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Perlin-Worley erosion texture world-space scale for a full wrap (km).
+#define CLOUD_EROSION_STRENGTH 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] Pure Perlin-Worley low-frequency erosion strength.
 #define CLOUD_FINE_EROSION_SCALE_KM 0.4 // [0.4 0.5 0.65 0.8 1.0 1.25 1.5 2.0] Channel A independent detail noise scale for a full wrap (km).
 #define CLOUD_FINE_EROSION_STRENGTH 0.1 // [0.0 0.05 0.1 0.15 0.18 0.2 0.25 0.3 0.4] Channel A independent curl distortion detail erosion strength.
 #define CLOUD_FINE_EROSION_HEIGHT 0.3 // [0.15 0.25 0.35 0.45 0.55 0.7 0.85 1.0] Normalized height for fine erosion to grow from base to full strength.

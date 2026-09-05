@@ -179,21 +179,20 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
     vec2 distribution_uv = CloudDistributionUv(world_km);
-    float large_scale_cloud = texture(utex_cloud_distribution_tex, distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
+    // float large_scale_cloud = texture(utex_cloud_distribution_tex, distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
-    float coverage = Saturate(CLOUD_COVERAGE + CLOUD_COVERAGE_BOOST_BASE + CLOUD_COVERAGE_BOOST_RANGE * large_scale_cloud
-    ) * (1.0 - u_rain_strength) + u_rain_strength;
+    float coverage = (CLOUD_COVERAGE) * (1.0 - u_rain_strength) + u_rain_strength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
-    float bottom_ramp = smoothstep(0.0, 0.2 - large_scale_cloud * 0.1, result.height_fraction);
+    float bottom_ramp = smoothstep(0.0, 0.15, result.height_fraction);
     // Push density away from the very bottom of the layer to keep the base soft.
     float height_penalty = Saturate((result.height_fraction - 0.15) / 0.85) * 0.5;
     // Fade the layer top; larger clouds get a thicker, softer cap.
-    float top_fade = 1.0 - smoothstep(0.2 + large_scale_cloud * large_scale_cloud * 0.4, 1.0, result.height_fraction);
+    float top_fade = 1.0 - smoothstep(0.7, 1.0, result.height_fraction);
     float macro_density = Saturate(distribution_density - height_penalty)
         * bottom_ramp
         * top_fade;
-    if (macro_density <= 0.0) {
+    if (macro_density <= 0.01) {
         return result;
     }
     vec3 erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_EROSION_SCALE_KM;
@@ -202,7 +201,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     // threshold). Stronger erosion higher in the layer, base floor.
     float height_exposure = smoothstep(0.0, 0.2, result.height_fraction) * 0.95 + 0.05;
     float broad_density = macro_density;
-    float erosion_threshold = low_freq_erosion
+    float erosion_threshold = (1.0 - low_freq_erosion)
         * CLOUD_EROSION_STRENGTH
         * height_exposure;
     broad_density = RemapCloudErosion(broad_density, erosion_threshold);

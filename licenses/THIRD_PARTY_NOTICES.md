@@ -169,6 +169,23 @@ GT-VBGI / ReferenceGI 参考源码重新适配。该参考源码声明可在 CC0
 https://creativecommons.org/publicdomain/zero/1.0/ 。参考源码中的快速反正切近似另标注
 来源为 https://www.shadertoy.com/view/lXBfWm 。
 
+## 17. Reflective Shadow Maps 与时域重建（算法引用）
+
+`shaders/lib/lighting/rsm_data.glsl`、`reflective_shadow_map.glsl` 和
+`gi_history.glsl`、`gi_denoise.glsl` 中的 RSM 数据编码、采样与 GI 重建为 Vibroscat 独立实现。
+
+- Carsten Dachsbacher、Marc Stamminger，*Reflective Shadow Maps*，I3D 2005，
+  [DOI: 10.1145/1053427.1053460](https://doi.org/10.1145/1053427.1053460)：
+  从光源可见表面构造虚拟点光源。
+- Christoph Schied 等，*Spatiotemporal Variance-Guided Filtering:
+  Real-Time Reconstruction for Path-Traced Global Illumination*，HPG 2017，
+  [作者发布页及论文](https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced)，
+  [DOI: 10.1145/3105762.3105770](https://doi.org/10.1145/3105762.3105770)：
+  去除材质调制的辐照度、逐采样历史有效性检查和边缘感知重建。本包并未实现完整 SVGF。
+- iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）及 Revelation
+  （`diffuse/Accumulate.frag`）仅用于架构比较。iterationT 的再分发许可未经确认，
+  Revelation 为 Apache-2.0。本次变更未复制上述两包的源码或资产。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

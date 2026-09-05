@@ -171,6 +171,26 @@ https://creativecommons.org/publicdomain/zero/1.0/. The fast arctangent
 approximation in the reference source separately cites
 https://www.shadertoy.com/view/lXBfWm.
 
+## 17. Reflective Shadow Maps and temporal reconstruction (algorithmic references)
+
+The RSM source encoding, sampling and reconstruction in
+`shaders/lib/lighting/rsm_data.glsl`, `reflective_shadow_map.glsl` and
+`gi_history.glsl` and `gi_denoise.glsl` are independent implementations for Vibroscat.
+
+- Carsten Dachsbacher and Marc Stamminger, *Reflective Shadow Maps*, I3D 2005,
+  [DOI: 10.1145/1053427.1053460](https://doi.org/10.1145/1053427.1053460):
+  virtual point lights from the light-visible surfaces.
+- Christoph Schied et al., *Spatiotemporal Variance-Guided Filtering:
+  Real-Time Reconstruction for Path-Traced Global Illumination*, HPG 2017,
+  [author publication and paper](https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced),
+  [DOI: 10.1145/3105762.3105770](https://doi.org/10.1145/3105762.3105770):
+  demodulated irradiance, independently validated history taps, and edge-aware
+  reconstruction. This pack does not implement the full SVGF filter.
+- iterationT 3.2.0 (`GlobalIllumination.glsl` and shadow outputs) and Revelation
+  (`diffuse/Accumulate.frag`) were examined for architecture comparison only.
+  iterationT's redistribution permission was not established; Revelation is
+  Apache-2.0. No source or assets from either pack are included in this change.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

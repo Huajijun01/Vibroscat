@@ -35,6 +35,7 @@ Vibroscat profile.
   shafts, and moving caustics
 - Soft sun shadows, contact detail, ambient shading, and light passing through
   foliage
+- Selectable SSGI or reflective shadow map GI, with optional temporal and spatial denoising
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
   sharpening, and filmic color
 

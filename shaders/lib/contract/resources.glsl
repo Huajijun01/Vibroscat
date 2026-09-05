@@ -18,8 +18,9 @@
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (ao, age, 1-depth, A=NaN "not cloud")
-//   colortex9   R11F_G11F_B10F   Recursive GI temporal irradiance history
-//   colortex10  R32UI            Recursive GI history metadata (8-bit age, 24-bit reverse depth)
+//   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
+//   colortex9   RGB16F          GI irradiance including uncovered SH; optional temporal history
+//   colortex10  R32UI            shared GI half depth, oct5 normal, age, source tag
 //   colortex12  RGBA16F          Translucent layer (premultiplied color + alpha):
 //                                1. translucent gbuffers blend off = nearest surface wins
 //                                2. composite1 refracts, fogs and over-composites once
@@ -41,9 +42,10 @@ const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;
 const int colortex5Format  = R11F_G11F_B10F;
 const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, 1-depth, A=NaN)
-const int colortex9Format  = R11F_G11F_B10F; // recursive GI temporal irradiance history
+const int colortex9Format  = RGB16F; // recursive GI temporal irradiance history
 const int colortex10Format = R32UI;           // recursive GI age/depth metadata history
 const int colortex12Format = RGBA16F;
+const int shadowcolor0Format = RGBA8;
 */
 
 // ── Clear flags ──

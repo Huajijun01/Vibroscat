@@ -53,8 +53,8 @@ uniform sampler2D colortex3;      // opaque reflection radiance transient
 uniform sampler2D colortex4;      // opaque geometric normal (RG) + lightmap (BA)
 uniform sampler2D colortex5;      // TAA / composite history
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
-uniform sampler2D colortex9;      // recursive GI irradiance history
-uniform usampler2D colortex10;    // recursive GI history metadata (8-bit age, 24-bit reverse depth)
+uniform sampler2D colortex9;      // selected GI irradiance including uncovered SH
+uniform usampler2D colortex10;    // shared depth/normal/age/source metadata in gi_history.glsl
 uniform sampler2D colortex12;     // sequential post workspace
 
 // -- Shadow bindings and transforms --
@@ -62,6 +62,7 @@ uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform sampler2D shadowtex0;       // raw depth (texelFetch / B-spline)
 uniform sampler2DShadow shadowtex1; // hardware PCF comparison
+uniform sampler2D shadowcolor0;    // RSM: RGB565 diffuse reflectance + oct8 shadow-view normal
 
 // -- Custom textures (customTexture bindings, shaders.properties) --
 uniform sampler2D utex_starmap;               // NASA star map (LogLuv32 RGBA8)
@@ -93,6 +94,7 @@ uniform vec4 entityColor;
 uniform vec3 u_world_light_dir;   // active light direction, world space
 uniform vec3 u_world_sun_dir;     // sun direction only (LUT / SH reference frame)
 uniform vec2 u_taa_offset;        // NDC jitter applied by opaque GBuffer vertices
+uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for RSM history
 uniform vec2 u_screen_res;        // viewport resolution in pixels
 uniform float u_rain_strength;
 uniform float u_wetness;

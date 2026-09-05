@@ -3,13 +3,25 @@
 // ============================================================================
 //
 // alphaTest off in shaders.properties -> manual discard of alpha < 0.5.
-// rgb = tinted albedo, a = texture alpha (colored / stochastic shadows).
+// RSM reuses the existing color attachment; depth remains an ordinary shadow map.
 // Depth is written by Iris to shadowtex0.
 
+/* RENDERTARGETS: 0 */
+
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#if GI_MODE == 2
+#include "/lib/color/color.glsl"
+#include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/rsm_data.glsl"
+#include "/lib/material/core.glsl"
+#endif
 
 in vec2 v_texcoord;
 in vec4 v_color;
+#if GI_MODE == 2
+in vec3 v_normal_shadow;
+#endif
 
 layout(location = 0) out vec4 out_color;
 
@@ -24,7 +36,29 @@ void main() {
     if (albedo.a < 0.5) discard;
 #endif
 
+#if GI_MODE == 2
+    // Translucent depth in shadowtex0 must never pick up an opaque VPL's payload.
+#ifdef PROGRAM_SHADOW_WATER
+    out_color = vec4(0.0);
+#else
+    vec3 tinted_albedo = albedo.rgb * v_color.rgb;
+#ifdef PROGRAM_SHADOW_ENTITIES
+    tinted_albedo = mix(tinted_albedo, entityColor.rgb, entityColor.a);
+#endif
+    vec3 linear_albedo = ToLinear(tinted_albedo);
+    OpaqueMaterial encoded_material = DecodeOpaqueMaterial(texture(specular, v_texcoord));
+    PBRMaterial material = ResolveOpaquePBR(linear_albedo, encoded_material.perceptual_roughness,
+        encoded_material.specular_selector, encoded_material.emission, encoded_material.auxiliary);
+    vec3 normal_shadow = normalize(v_normal_shadow);
+    vec3 light_shadow = normalize(mat3(shadowModelView) * u_world_light_dir);
+    vec3 reflectance = EvaluateDiffuseReflectance(linear_albedo, material.f0, material.diffuse_weight);
+    // Back-facing surfaces do not reflect the directional source toward a VPL.
+    reflectance *= float(dot(normal_shadow, light_shadow) > 0.0);
+    out_color = EncodeRSMSource(reflectance, normal_shadow);
+#endif
+#else
     out_color = vec4(albedo.rgb, albedo.a);
+#endif
 
     // Depth protection lives in shadow.vertex (clip-z scale); no fragment
     // depth write here (early-Z).

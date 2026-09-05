@@ -12,8 +12,15 @@
 #define TAA
 //#define DOF
 //#define MOTION_BLUR
-// Screen-space recursive diffuse GI; replaces SH diffuse ambient.
-//#define RECURSIVE_GI
+// Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
+#define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
+#define GI_DENOISE
+#define GI_HISTORY_FRAMES 24 // [4 8 16 24 31]
+#define RSM_SAMPLES 16 // [8 16 32 64]
+#define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
+#define RSM_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define RSM_SKY_OCCLUSION_FLOOR 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
+#define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
 #define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
 #define BLOOM
@@ -224,10 +231,10 @@ const float ambientOcclusionLevel = 1.0;
 // hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
 // generator, deferred1 full-res temporal accumulation and deferred2 apply.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
-#if AO_MODE == 1 && !defined(RECURSIVE_GI)
+#if AO_MODE == 1 && GI_MODE != 1
 #define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
 #endif
-#if AO_MODE == 2 && !defined(RECURSIVE_GI)
+#if AO_MODE == 2 && GI_MODE != 1
 #define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
 #endif
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel

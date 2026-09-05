@@ -6,7 +6,14 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/color/color.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/gi_denoise.glsl"
+#include "/lib/lighting/gi_history.glsl"
+#if GI_MODE == 2
+#include "/lib/lighting/ambient_occlusion.glsl"
+#include "/lib/lighting/reflective_shadow_map.glsl"
+#endif
 
 // Clean adaptation of the supplied CC0/MIT ReferenceGI and Sundial-Lite
 // visibility-bitmask method. colortex5 is read-only scene radiance from the
@@ -19,6 +26,7 @@ layout(location = 0) out vec3 out_gi;
 layout(location = 1) out uint out_gi_metadata;
 
 
+#if GI_MODE == 1
 float GIPartialSlice(float x, float sin_view_normal) {
     if (abs(x) >= 1.0 || x == 0.0) return x;
     bool negative = x < 0.0;
@@ -103,7 +111,9 @@ float GITraceScreenEdge(vec4 origin_projection, vec4 projected_direction, float 
 }
 
 
-vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, out float coverage) {
+vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
+        out float coverage, out float second_moment) {
+    second_moment = 0.0;
     vec3 view_direction = -normalize(origin_view_position);
     vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
@@ -194,8 +204,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred4
                 // consumes it with the same unit as AmbientLight().
-                gi += texture(colortex5, previous_uv).rgb
-                    * visible_weight * PI;
+                vec3 incident_irradiance = texture(colortex5, previous_uv).rgb * PI;
+                gi += incident_irradiance * visible_weight;
+                float sample_luminance = Luminance(incident_irradiance);
+                second_moment += sample_luminance * sample_luminance * visible_weight;
                 hit_coverage += visible_weight;
             }
         }
@@ -206,6 +218,8 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, out float cover
     return gi;
 }
 
+#endif
+
 void main() {
     ivec2 tx = ivec2(gl_FragCoord.xy);
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
@@ -213,36 +227,59 @@ void main() {
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
     vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
     vec3 fallback_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
-    vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
+#if GI_MODE != 0
     int material_id = int(material_data.a * 255.0 + 0.5);
-    bool is_opaque_hand = material_id == 64;
     float depth = texelFetch(depthtex2, tx, 0).r;
-    if (depth >= 1.0 && !is_opaque_hand) {
-        out_gi = vec3(0.0);
-        out_gi_metadata = 0u;
+    out_gi = vec3(0.0);
+    out_gi_metadata = 0u;
+    if (depth >= 1.0 && material_id != 64) return;
+    vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
+    // The hand has camera-relative motion; keep its stable SH fallback out
+    // of world-space reprojection and spatial filtering for both GI sources.
+    if (material_id == 64) {
+        out_gi = fallback;
         return;
     }
+    vec2 reconstruction_uv = uv;
+#ifdef TAA
+    reconstruction_uv -= u_taa_offset * 0.5;
+#endif
+    vec3 receiver_world = DepthToWorldPos(reconstruction_uv, depth);
     vec3 raw_gi;
-    float temporal_depth = depth;
-    if (is_opaque_hand) {
-        // Keep the hand on the temporal path, but use its corrected depth only
-        // for reprojection. GI ray geometry remains depthtex2-only.
-        float hand_depth = texelFetch(depthtex1, tx, 0).r;
-        float hand_ndc_depth = (hand_depth * 2.0 - 1.0) / MC_HAND_DEPTH;
-        temporal_depth = hand_ndc_depth * 0.5 + 0.5;
-        raw_gi = fallback;
-    } else {
-        vec3 view_position = SceneToViewSpace(DepthToWorldPos(uv, depth));
-        float coverage;
-        raw_gi = GITrace(view_position + normal_view * 0.003, normal_view, coverage);
-        float miss_fraction = 1.0 - coverage;
-        raw_gi += fallback * miss_fraction;
-        raw_gi = clamp(raw_gi, vec3(0.0), vec3(GI_RADIANCE_LIMIT));
-    }
-    float history_age = 1.0;
+    float sample_sigma;
+#if GI_MODE == 2
+    vec4 surface_data = texelFetch(colortex2, tx, 0);
+    vec2 nx_ao = Unpack2x8(surface_data.r);
+    vec2 ny_nz = Unpack2x8(surface_data.g);
+    vec3 sky_normal = normalize(vec3(nx_ao.x, ny_nz) * 2.0 - 1.0);
+    float screen_ao;
+    vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), nx_ao.y, false, screen_ao);
+    fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
+    raw_gi = GatherRSM(receiver_world, fallback_normal, tx, fallback, sample_sigma);
+#else
+    vec3 view_position = SceneToViewSpace(receiver_world);
+    float coverage;
+    float second_moment;
+    raw_gi = GITrace(view_position + normal_view * 0.003, normal_view, coverage, second_moment);
+    float miss_fraction = 1.0 - coverage;
+    raw_gi += fallback * miss_fraction;
+    // A single random slice has correlated angular bins. Use their spread
+    // as a conservative clipping scale, not as independent sample counts.
+    float fallback_luminance = Luminance(fallback);
+    float mean_luminance = Luminance(raw_gi);
+    sample_sigma = sqrt(max(second_moment + fallback_luminance * fallback_luminance * miss_fraction
+        - mean_luminance * mean_luminance, 0.0));
+    raw_gi = clamp(raw_gi, vec3(0.0), vec3(GI_RADIANCE_LIMIT));
+#endif
+#ifdef GI_DENOISE
+    float history_age;
+    out_gi = AccumulateGI(raw_gi, sample_sigma, receiver_world, fallback_normal, history_age);
+    out_gi_metadata = EncodeGIHistory(-SceneToViewSpace(receiver_world).z, fallback_normal, history_age);
+#else
     out_gi = raw_gi;
-    float reverse_depth = 1.0 - temporal_depth;
-    uint depth_bits = uint(round(reverse_depth * 16777215.0));
-    uint age_bits = uint(round(clamp(history_age, 0.0, 255.0)));
-    out_gi_metadata = (age_bits << 24u) | depth_bits;
+#endif
+#else
+    out_gi = vec3(0.0);
+    out_gi_metadata = 0u;
+#endif
 }

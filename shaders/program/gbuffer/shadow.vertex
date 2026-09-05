@@ -12,6 +12,9 @@
 // -- Outputs --
 out vec2 v_texcoord;
 out vec4 v_color;
+#if GI_MODE == 2
+out vec3 v_normal_shadow;
+#endif
 
 // -- Inputs --
 in vec4 mc_Entity;
@@ -19,6 +22,9 @@ in vec4 mc_Entity;
 void main() {
     v_texcoord = gl_MultiTexCoord0.xy;
     v_color    = gl_Color;
+#if GI_MODE == 2
+    v_normal_shadow = normalize(gl_NormalMatrix * gl_Normal);
+#endif
 
     // world -> shadowView -> shadowClip (orthographic, diagonal-only matrix multiply)
     vec3 shadow_view_pos = mat3(gl_ModelViewMatrix) * vec3(gl_Vertex) + gl_ModelViewMatrix[3].xyz;

@@ -31,7 +31,12 @@
 #include "/lib/color/color.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/ambient_occlusion.glsl"
 #include "/lib/lighting/brdf.glsl"
+#if GI_MODE != 0
+#include "/lib/lighting/gi_denoise.glsl"
+#include "/lib/lighting/gi_history.glsl"
+#endif
 #include "/lib/material/core.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/shadow/pcss.glsl"
@@ -58,7 +63,7 @@ void main() {
     // -- Sky (far plane) --
     // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
     if (depth >= 1.0) {
-#if OPAQUE_SSR_DEBUG > 0
+#if OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
         out_color = vec3(0.0);
         return;
 #else
@@ -149,16 +154,8 @@ void main() {
 #endif
     vec3 normal   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
     float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
-    // Screen-space AO: read the flipped deferred1 history (R); multibounce +
-    // strength curve after the temporal blend (not time-averaged).
-    float gtao_ao = 1.0;
-    vec3 gtao_ao_rgb = vec3(1.0);   // multibounce (per-albedo-channel) result
-    // AO on: screen-space replaces vanilla vertex AO; baked AO kept as
-    // AO-off fallback. Multibounce is per-channel (vec3).
-    vec3 ao_effective = vec3(ao);
-#if defined(GTAO) || defined(SSAO)
-    gtao_ao = texture(colortex8, (vec2(tx) + 0.5) * u_view_pixel_size).r;
-#endif
+    float gtao_ao;
+    vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, gtao_ao);
     // decode geometric view normal from colortex4 (octahedral) -> world-space
     vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
     vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
@@ -177,35 +174,6 @@ void main() {
     // use the eye, not the feet-space origin.
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
-
-    // Catmull-Rom history overshoot at AO edges must be clamped (would
-    // brighten ambient past fully-open along silhouettes).
-#if defined(GTAO) || defined(SSAO)
-    gtao_ao = Saturate(gtao_ao);
-    // Strength curve on the raw accumulated value (SSAO looks lighter, so
-    // its exponent defaults steeper).
-#ifdef SSAO
-    gtao_ao = pow(gtao_ao, SSAO_STRENGTH);
-#else
-    gtao_ao = pow(gtao_ao, GTAO_STRENGTH);
-#endif
-    if (GTAO_MULTIBOUNCE) {
-        // Jimenez et al. 2016 RGB-polynomial: per-channel boost so corners
-        // pick up surface colour; applied after the blend (field stays linear).
-        vec3 multibounce_a = 2.0404 * albedo - 0.3324;
-        vec3 multibounce_b = -4.7951 * albedo + 0.6417;
-        vec3 multibounce_c = 2.7552 * albedo + 0.6903;
-        gtao_ao_rgb = max(vec3(gtao_ao), ((gtao_ao * multibounce_a + multibounce_b) * gtao_ao + multibounce_c) * gtao_ao);
-    } else {
-        gtao_ao_rgb = vec3(gtao_ao);
-    }
-    ao_effective = gtao_ao_rgb;
-#endif
-    if (is_opaque_hand) {
-        ao_effective = vec3(1.0);
-        gtao_ao = 1.0;
-        gtao_ao_rgb = vec3(1.0);
-    }
 
     // -- Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) --
     float block_light = BlockLightFromLm(lm.r);
@@ -284,9 +252,32 @@ void main() {
         albedo, material.f0, material.diffuse_weight);
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
-#ifdef RECURSIVE_GI
+#if GI_MODE != 0
     vec3 gi_ambient = texelFetch(colortex9, tx, 0).rgb;
+#ifdef GI_DENOISE
+    vec2 gi_uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+#ifdef TAA
+    gi_uv -= u_taa_offset * 0.5;
+#endif
+    vec3 gi_receiver_world = DepthToWorldPos(gi_uv, texelFetch(depthtex2, tx, 0).r);
+    gi_ambient = is_opaque_hand ? gi_ambient : FilterGI(tx, gi_receiver_world, geo_normal);
+#endif
+#if GI_MODE == 2 && RSM_DEBUG > 0
+#if RSM_DEBUG == 4
+    out_color = vec3(GIHistoryAge(texelFetch(colortex10, tx, 0).r) / float(GI_HISTORY_FRAMES));
+#else
+    out_color = gi_ambient;
+#endif
+    return;
+#endif
+    // Both GI estimators already include SH for uncovered directions.
+#if GI_MODE == 2
+    // RSM solid-angle coverage is not a receiver visibility mask. Retain
+    // local AO for occluders missing from its first-surface shadow map.
+    color += lambert_brdf * gi_ambient * ao_effective;
+#else
     color += lambert_brdf * gi_ambient;
+#endif
 #else
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif

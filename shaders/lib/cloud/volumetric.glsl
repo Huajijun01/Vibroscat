@@ -20,12 +20,13 @@ const float CLOUD_MAX_DISTANCE_KM = 180.0;
 const float CLOUD_PHASE_FORWARD_WEIGHT = 0.95;
 const float CLOUD_PHASE_MEAN_G = CLOUD_PHASE_FORWARD_WEIGHT * CLOUD_PHASE_FORWARD_G
     - (1.0 - CLOUD_PHASE_FORWARD_WEIGHT) * CLOUD_PHASE_BACKWARD_G;
-const float CLOUD_PHI_OMEGA0 = 0.75;
-const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
-const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_PHI_OMEGA0;
-// Isotropic multiple-scattering build rate: sigma_iso ~= (1 - g) * sigma_t
-// (PhiFwd_FromRTE.md section 5.3), using the forward HG eccentricity as g.
-const float CLOUD_PHI_BUILD_SCALE = 0.15;
+// Visible-band water droplets: all transport coefficients share one material.
+const float CLOUD_SINGLE_SCATTER_ALBEDO = 0.999;
+const float CLOUD_EXTINCTION_PER_KM = 100.0;
+const float CLOUD_TRANSPORT_RATIO = 1.0 - CLOUD_SINGLE_SCATTER_ALBEDO * CLOUD_PHASE_MEAN_G;
+const float CLOUD_DIFFUSION_DECAY = sqrt(3.0 * (1.0 - CLOUD_SINGLE_SCATTER_ALBEDO)
+    * CLOUD_TRANSPORT_RATIO);
+const float CLOUD_PHI_BUILD_SCALE = CLOUD_SINGLE_SCATTER_ALBEDO * (1.0 - CLOUD_PHASE_MEAN_G);
 // Coverage uses the weather map at this scale; erosion is sampled separately.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
 
@@ -221,8 +222,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     // March from the receiver toward the sun, matching HPVolumeCloud's source
     // semantics. Every source's build/propagation depth is measured from the
     // receiver, and all exponentials remain non-positive.
-    float one_minus_omega0 = 1.0 - CLOUD_PHI_OMEGA0;
-    float kappa_per_optical_depth = sqrt(3.0 * one_minus_omega0);
+    float one_minus_omega0 = 1.0 - CLOUD_SINGLE_SCATTER_ALBEDO;
     float total_optical_depth = 0.0;
     float weighted_source_sum = 0.0;
 
@@ -240,11 +240,11 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         vec3 source_position = atmosphere_position + light_dir * sample_distance;
         CloudDensitySample density_sample = SampleCloudDensity(source_position, camera_atmosphere_pos);
         float cloud_density = density_sample.density;
-        float sigma_t = cloud_density * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY;
-        float sigma_s = cloud_density * CLOUD_ALPHA_SCATTERING_SRGB_GRAY;
+        float sigma_t = cloud_density * CLOUD_EXTINCTION_PER_KM;
+        float sigma_s = sigma_t * CLOUD_SINGLE_SCATTER_ALBEDO;
         float segment_optical_depth = sigma_t * interval_weight;
-        // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
-        // 1/D scale.
+        // The diffusion kernel scales with transport extinction. Its constant
+        // normalization remains folded into the temporary HP intensity.
         float scattering_source = sigma_s * interval_weight;
         float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
         float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
@@ -256,11 +256,11 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         float source_confidence = source_bottom_confidence * source_boundary_confidence;
         // Both attenuation terms must reach the same quadrature point.
         // Using the segment start for absorption biases coarse steps bright.
-        float source_transport = exp(-(one_minus_omega0 + kappa_per_optical_depth)
+        float source_transport = exp(-(one_minus_omega0 + CLOUD_DIFFUSION_DECAY)
             * optical_depth_from_receiver);
         weighted_source_sum += source_transport
             * scattering_source
-            * sigma_t
+            * (sigma_t * CLOUD_TRANSPORT_RATIO)
             * isotropic_build
             * inverse_distance
             * source_confidence;
@@ -330,7 +330,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         float sample_moon_radiance = 0.0;
         if (!CloudLightBlockedByEarth(sample_position, sample_r2, sun_dir)) {
             CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter);
-            sample_sun_radiance = CLOUD_PHI_OMEGA0 * sun_phase * exp(-sun_transport.optical_depth)
+            sample_sun_radiance = CLOUD_SINGLE_SCATTER_ALBEDO * sun_phase * exp(-sun_transport.optical_depth)
                 + MapCloudIsotropicDiffuse(sun_transport.isotropic_diffuse) * (4.0 * PI)
                     * CloudMultipleScatteringPhase(sun_ms_phase, sun_transport.optical_depth);
         }
@@ -338,12 +338,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
             CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter);
-            sample_moon_radiance = CLOUD_PHI_OMEGA0 * moon_phase * exp(-moon_transport.optical_depth)
+            sample_moon_radiance = CLOUD_SINGLE_SCATTER_ALBEDO * moon_phase * exp(-moon_transport.optical_depth)
                 + MapCloudIsotropicDiffuse(moon_transport.isotropic_diffuse) * (4.0 * PI)
                     * CloudMultipleScatteringPhase(moon_ms_phase, moon_transport.optical_depth);
         }
         float optical_depth = density_sample.density
-            * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
+            * CLOUD_EXTINCTION_PER_KM
             * step_length;
         float segment_transmittance = exp(-optical_depth);
         float step_transmittance = view_transmittance;

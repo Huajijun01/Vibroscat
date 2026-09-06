@@ -4,6 +4,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/raytrace/ssr.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 
 layout(location = 0) out vec3 out_reflection_radiance;

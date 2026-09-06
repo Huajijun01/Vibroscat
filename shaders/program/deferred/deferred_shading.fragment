@@ -296,8 +296,10 @@ void main() {
 #endif
     bool need_sh = true;
 #ifdef OPAQUE_SSR
-    need_sh = ssr_weight < 1.0 || !history_valid;
+    need_sh = ssr_weight < 1.0;
 #endif
+    float specular_occlusion = SpecularOcclusion(
+        sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
     if (need_sh) {
         vec3 sh_reflection_direction = reflect(-view_to_eye, normal);
         float sh_reflection_ndotl = Max0(
@@ -305,11 +307,11 @@ void main() {
         // SH-only reflections are a low-cost environment fallback. Gate them
         // by sky light visibility and AO so occluded surfaces do not retain a
         // uniform plastic specular sheen.
-        vec3 sh_environment = EvalSkyRadiance(sh_reflection_direction)
-            * pow(lm.y, 16.0) * mean_ao * mean_ao * mean_ao;
-        // Broad SH reflections lean toward a diffuse-like face response while
-        // retaining Fresnel lift at grazing angles. Reuse this Fresnel term
-        // for both the GGX visibility path and the face attenuation.
+        vec3 sh_environment = EvalSkyRadiance(
+            sh_reflection_direction, material.perceptual_roughness)
+            * SkyLightFromLm(lm.g);
+        // Broad SH reflections retain Fresnel lift at grazing angles. The
+        // environment has already been roughness-convolved in SH space.
         vec3 sh_fresnel = FresnelSchlick(
             sh_reflection_ndotv, material.f0);
         sh_specular = sh_environment * sh_fresnel
@@ -317,9 +319,7 @@ void main() {
                 sh_reflection_ndotv,
                 sh_reflection_ndotl,
                 material.alpha);
-        sh_specular *= SpecularOcclusion(
-            sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
-        sh_specular *= mix(vec3(1.0), albedo, 0.9);
+        sh_specular *= specular_occlusion;
     }
 
     vec3 indirect_specular = sh_specular;
@@ -346,8 +346,7 @@ void main() {
             ssr_reflection_ndotv,
             ssr_reflection_ndotl,
             material.alpha);
-        ssr_specular *= SpecularOcclusion(
-            ssr_reflection_ndotv, mean_ao, material.perceptual_roughness);
+        ssr_specular *= specular_occlusion;
         indirect_specular = mix(sh_specular, ssr_specular, ssr_weight);
     }
 #endif

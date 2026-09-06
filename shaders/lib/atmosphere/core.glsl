@@ -86,6 +86,30 @@ const vec4 ATM_SM_B = vec4(
     (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_SCA_3 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_SCA_3 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_SCA_3
 );
 
+// Aerosol absorption (km^-1 per g/m3), folded from OPAC species data.
+const float ATM_WASO_ABS_0 = 87.64557617;
+const float ATM_WASO_ABS_1 = 74.40373230;
+const float ATM_WASO_ABS_2 = 71.74945068;
+const float ATM_WASO_ABS_3 = 67.95589447;
+const float ATM_INSO_ABS_0 = 70.23886871;
+const float ATM_INSO_ABS_1 = 67.22508240;
+const float ATM_INSO_ABS_2 = 63.19934082;
+const float ATM_INSO_ABS_3 = 59.32960892;
+const float ATM_SOOT_ABS_0 = 10068.87792969;
+const float ATM_SOOT_ABS_1 = 8693.68359375;
+const float ATM_SOOT_ABS_2 = 7045.56591797;
+const float ATM_SOOT_ABS_3 = 5828.49169922;
+const vec4 ATM_AA_A = vec4(
+    ATM_WASO_BASE * ATM_WASO_ABS_0 + ATM_INSO_BASE * ATM_INSO_ABS_0 + ATM_SOOT_BASE * ATM_SOOT_ABS_0,
+    ATM_WASO_BASE * ATM_WASO_ABS_1 + ATM_INSO_BASE * ATM_INSO_ABS_1 + ATM_SOOT_BASE * ATM_SOOT_ABS_1,
+    ATM_WASO_BASE * ATM_WASO_ABS_2 + ATM_INSO_BASE * ATM_INSO_ABS_2 + ATM_SOOT_BASE * ATM_SOOT_ABS_2,
+    ATM_WASO_BASE * ATM_WASO_ABS_3 + ATM_INSO_BASE * ATM_INSO_ABS_3 + ATM_SOOT_BASE * ATM_SOOT_ABS_3);
+const vec4 ATM_AA_B = vec4(
+    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_0 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_0 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_0,
+    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_1 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_1 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_1,
+    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_2 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_2 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_2,
+    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_3 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_3 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_3);
+
 // -- Solar irradiance (W/m2/nm at TOA) --
 const vec4 ATM_SOLAR = vec4(1.74769998, 2.05660009, 1.85350001, 1.65419996);
 
@@ -148,7 +172,9 @@ vec4 GetSigmaAOzone(float h) {
 }
 
 vec4 GetExtinction(float h) {
-    return GetSigmaSRay(h) + GetSigmaSMie(h) + GetSigmaAOzone(h);
+    float t = smoothstep(ATM_AERO_SMOOTH_LO, ATM_AERO_SMOOTH_HI, h);
+    vec4 sigma_a_aero = exp(-h / ATM_AERO_SCALE) * (ATM_AA_A + t * ATM_AA_B);
+    return GetSigmaSRay(h) + GetSigmaSMie(h) + sigma_a_aero + GetSigmaAOzone(h);
 }
 
 vec4 GetScattering(float h) {

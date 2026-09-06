@@ -28,9 +28,6 @@ const float CLOUD_PHI_BUILD_SCALE = 0.15;
 // detail read. The offset and scale keep the two reads decorrelated.
 const float CLOUD_DISTRIBUTION_UV_OFFSET = 0.114514;
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
-// Large-scale coverage modulates the base coverage by this linear boost.
-const float CLOUD_COVERAGE_BOOST_BASE = -0.1;
-const float CLOUD_COVERAGE_BOOST_RANGE = 0.1;
 
 struct CloudDensitySample {
     float density;
@@ -140,24 +137,23 @@ vec2 CloudDistributionUv(vec2 world_km) {
 // effective top height used for the finite-difference normal.
 float CloudBoundaryHeightProxy(vec2 world_km) {
     vec2 distribution_uv = CloudDistributionUv(world_km);
-    float large_scale_cloud = texture(utex_cloud_distribution_tex,
-        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
-    float top_fade_start = 0.2 + large_scale_cloud * large_scale_cloud * 0.4;
-    return Saturate(0.5 * (top_fade_start + 1.0));
+    float d = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
+    return d;
 }
 
 // HP's boundary term: finite-difference the top height, build the top normal,
 // and apply a wrap(N dot L) response. The caller passes a normalized light dir.
 float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
-    float sample_step = CLOUD_DISTRIBUTION_SCALE_KM
-        / max(float(textureSize(utex_cloud_distribution_tex, 0).x), 1.0);
-    float height_left = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
+    // return 1.0;
+    const float sample_step = 3.0 / 1024.0 * (1.0 / CLOUD_DISTRIBUTION_UV_SCALE);
+    float height = CloudBoundaryHeightProxy(world_km);
+    // float height_left = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
     float height_right = CloudBoundaryHeightProxy(world_km + vec2(sample_step, 0.0));
-    float height_down = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
+    // float height_down = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
     float height_up = CloudBoundaryHeightProxy(world_km + vec2(0.0, sample_step));
     float slab_thickness = max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-3);
-    float height_gradient_x = (height_right - height_left) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    float height_gradient_z = (height_up - height_down) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
+    float height_gradient_x = (height_right - height) * slab_thickness / max(sample_step, 1.0e-3);
+    float height_gradient_z = (height_up - height) * slab_thickness / max(sample_step, 1.0e-3);
     vec3 top_normal = normalize(vec3(-height_gradient_x, 1.0, -height_gradient_z));
     float n_dot_l = dot(top_normal, light_dir);
     const float wrap = 0.5;
@@ -188,7 +184,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     // Push density away from the very bottom of the layer to keep the base soft.
     float height_penalty = Saturate((result.height_fraction - 0.15) / 0.85) * 0.5;
     // Fade the layer top; larger clouds get a thicker, softer cap.
-    float top_fade = 1.0 - smoothstep(0.7, 1.0, result.height_fraction);
+    float top_fade = 1.0 - smoothstep(0.5, 1.0, result.height_fraction);
     float macro_density = Saturate(distribution_density - height_penalty)
         * bottom_ramp
         * top_fade;
@@ -199,7 +195,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     float low_freq_erosion = texture(utex_cloud_erosion_tex, erosion_uv).r;
     // R bakes the weighted darkness sum of the erosion stages (single
     // threshold). Stronger erosion higher in the layer, base floor.
-    float height_exposure = smoothstep(0.0, 0.2, result.height_fraction) * 0.95 + 0.05;
+    float height_exposure = smoothstep(0.0, 0.4, result.height_fraction) * 0.9 + 0.1;
     float broad_density = macro_density;
     float erosion_threshold = (1.0 - low_freq_erosion)
         * CLOUD_EROSION_STRENGTH

@@ -220,6 +220,14 @@ void main() {
         float contact_shadow = ContactShadowOcclusion(view_pos, ivec2(gl_FragCoord.xy), 0);
 #endif
         shadow_occlusion = min(shadow_occlusion, contact_shadow);
+#if CONTACT_SHADOW_DEBUG > 0
+        // Debug view: raw visibility factor or boosted darkness. Pixels that
+        // skip the march (back faces, weak direct light) keep scene color.
+        out_color = vec3(CONTACT_SHADOW_DEBUG == 1
+            ? contact_shadow
+            : min((1.0 - contact_shadow) * 4.0, 1.0));
+        return;
+#endif
     }
 #endif
     out_direct_brdf = direct_lighting * shadow_occlusion;

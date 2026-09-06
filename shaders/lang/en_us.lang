@@ -228,6 +228,11 @@ option.CONTACT_SHADOW_DARKNESS = Contact Shadow Darkness
 option.CONTACT_SHADOW_DARKNESS.comment = Darkest contact visibility; 1.0 darkens to black.
 option.CONTACT_SHADOW_SOFTNESS = Contact Shadow Softness
 option.CONTACT_SHADOW_SOFTNESS.comment = Contact edge falloff; lower values spread softer edges.
+option.CONTACT_SHADOW_DEBUG = Contact Shadow Debug
+option.CONTACT_SHADOW_DEBUG.comment = Diagnostic view of the screen-space contact shadow. 1 shows the raw visibility factor, 2 shows boosted darkness; pixels that skip the march keep scene color.
+value.CONTACT_SHADOW_DEBUG.0 = Off
+value.CONTACT_SHADOW_DEBUG.1 = Raw Mask
+value.CONTACT_SHADOW_DEBUG.2 = Boosted
 
 #AO
 option.AO_MODE = Ambient Occlusion Mode

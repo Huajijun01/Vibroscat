@@ -88,6 +88,8 @@ option.BLOOM_STRENGTH = Bloom Strength
 option.BLOOM_STRENGTH.comment = Intensity of the bloom contribution.
 option.AE = Auto Exposure
 option.AE.comment = Enable automatic eye adaptation; off uses manual exposure only.
+option.AE_TARGET_LUMINANCE = Auto Exposure Target
+option.AE_TARGET_LUMINANCE.comment = Target scene-linear luminance for automatic exposure; 0.18 matches middle gray.
 
 #Post: antialiasing
 option.TAA = TAA

@@ -5,6 +5,7 @@
 // al., "Photographic Tone Reproduction for Digital Images" (SIGGRAPH 2002).
 
 #include "/lib/contract/exposure_data.glsl"
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
 layout(local_size_x = 64) in;
@@ -54,11 +55,11 @@ void main() {
         float p90_ev = HistogramPercentile(0.90, histogram_weight);
         float key_ev = mix(log_average - log2(0.18), median_ev, 0.35);
         float key_lum = exp2(key_ev) * 0.18;
-        float target_exposure = 0.18 / max(key_lum, 1.0e-4);
+        float target_exposure = AE_TARGET_LUMINANCE / max(key_lum, 1.0e-4);
         float p90_lum = 0.18 * exp2(p90_ev);
         target_exposure = min(target_exposure, 0.80 / max(p90_lum, 1.0e-4));
         target_exposure = clamp(target_exposure, 0.03125, 32.0);
-        float target_lum = 0.18 / max(target_exposure, 1.0e-4);
+        float target_lum = AE_TARGET_LUMINANCE / max(target_exposure, 1.0e-4);
 
         // Bright adaptation is quick; dark adaptation is deliberately slower,
         // matching the asymmetric cone/rod response of the human eye.

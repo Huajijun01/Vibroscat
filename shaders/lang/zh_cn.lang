@@ -88,6 +88,8 @@ option.BLOOM_STRENGTH = 泛光强度
 option.BLOOM_STRENGTH.comment = 泛光贡献的强度。
 option.AE = 自动曝光
 option.AE.comment = 启用自动眼部适应；关闭时仅使用手动曝光。
+option.AE_TARGET_LUMINANCE = 自动曝光目标亮度
+option.AE_TARGET_LUMINANCE.comment = 自动曝光的场景线性目标亮度；0.18 对应中灰。
 
 #Post: antialiasing
 option.TAA = TAA

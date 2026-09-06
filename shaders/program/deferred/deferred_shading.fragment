@@ -331,6 +331,24 @@ void main() {
         indirect_specular = mix(sh_specular, ssr_specular, ssr_weight);
     }
 #endif
+    // Sundial-style rough-material gate: dielectric reflection reaches zero
+    // at the configured roughness cutoff, while metalness moves that cutoff
+    // toward rougher materials. The same weight applies to SH and SSR.
+    float reflection_roughness = clamp(
+        material.perceptual_roughness, 0.0, 1.0);
+    float reflection_smoothness = 1.0 - reflection_roughness;
+    float reflection_threshold = clamp(
+        OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD, 1e-3, 1.0);
+    float threshold_ratio = (1.0 - reflection_threshold)
+        / reflection_threshold;
+    float reflection_metalness = 1.0 - clamp(
+        material.diffuse_weight, 0.0, 1.0);
+    float reflection_gate = reflection_smoothness
+        - reflection_roughness * threshold_ratio
+            * (1.0 - 0.6666 * reflection_metalness);
+    float reflection_strength = (1.0 - pow(reflection_roughness, 5.0))
+        * sqrt(clamp(reflection_gate, 0.0, 1.0));
+    indirect_specular *= reflection_strength;
 #if OPAQUE_SSR_DEBUG == 8
     color = indirect_specular;
 #else

@@ -57,10 +57,12 @@ vec3 EvalSkyRadiance(vec3 direction, float perceptual_roughness) {
         dot(sky_sh_b0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
       + dot(sky_sh_b1, vec4(basis_y20, y2yz, y2xz, y2xy))
       + sky_sh_b2.x * y2x2z2);
-    // The spherical average of an un-convolved SH field is its L0 term
-    // multiplied by Y0. Keep every RGB channel at least at that baseline so
-    // negative higher-order lobes cannot turn reflection energy too dark.
-    vec3 sh_average = max(vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * SH_Y0, vec3(0.0));
+    // Low-order SH truncation can produce negative lobes. Keep each channel
+    // above its spherical-average baseline so those lobes do not create dark
+    // or color-shifted reflection artifacts.
+    vec3 sh_average = max(
+        vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * SH_Y0,
+        vec3(0.0));
     return max(radiance, sh_average);
 }
 

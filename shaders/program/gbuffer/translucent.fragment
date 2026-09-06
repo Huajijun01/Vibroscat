@@ -118,7 +118,7 @@ void main() {
     bool rt_hit_sky = false;
     vec3 reflect_dir = reflect(view_dir, current_normal);
 
-#ifdef WATER_SSR
+#ifdef WATER_SSR_ENABLED
     bool ssr_allowed = (v_id == 1 || v_glass == 1);
 #if WATER_SSR_SKY_SKIP
     if (ssr_allowed && reflect_dir.z < 0.0)

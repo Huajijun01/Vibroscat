@@ -173,6 +173,9 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define OPAQUE_PBR_EMISSION_SCALE 10.0
 
 #define WATER_SSR
+#ifdef WATER_SSR
+#define WATER_SSR_ENABLED
+#endif
 
 // Screen-space reflections march budget: samples along the full reflection
 // path (McGuire & Mara 2014). Quality/perf knob for the water forward pass.
@@ -251,6 +254,9 @@ const float ambientOcclusionLevel = 1.0;
 // merged colortex8 buffer with reprojection, soft depth rejection and an
 // age-capped exponential blend.
 #define GTAO_TEMPORAL // temporal toggle: enables the history accumulation
+#ifdef GTAO_TEMPORAL
+#define GTAO_TEMPORAL_ENABLED
+#endif
 // AO generation is plain half resolution: every half-res texel is evaluated
 // every frame at its full-res block origin and upsampled bilinearly - one
 // sample per pixel per frame at full convergence speed.

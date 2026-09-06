@@ -38,6 +38,7 @@
 #endif
 #include "/lib/material/core.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
+#include "/lib/shadow/contact_shadow.glsl"
 #include "/lib/shadow/pcss.glsl"
 
 const float COLOR_JITTER_SEED = 11.0;
@@ -207,6 +208,20 @@ void main() {
             sss_thickness_world);
 #endif
     }
+#if CONTACT_SHADOWS == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
+    if (shadow_needed) {
+        // Screen-space contact shadows, evaluated inline on the receiver: an
+        // upper bound on the shadow-map result. The march fills PCF seam
+        // leaks along contact lines and keeps directional occlusion past the
+        // shadow-map boundary.
+#ifdef TAA
+        float contact_shadow = ContactShadowOcclusion(view_pos, ivec2(gl_FragCoord.xy), frameCounter);
+#else
+        float contact_shadow = ContactShadowOcclusion(view_pos, ivec2(gl_FragCoord.xy), 0);
+#endif
+        shadow_occlusion = min(shadow_occlusion, contact_shadow);
+    }
+#endif
     out_direct_brdf = direct_lighting * shadow_occlusion;
 
     // -- Light color sources (same colors as the gbuffer translucent passes) --

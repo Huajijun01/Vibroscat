@@ -214,6 +214,20 @@ option.SHADOW_SSS_PHASE_G = SSS 相位 G
 option.SHADOW_SSS_PHASE_G.comment = 透射光的 Henyey-Greenstein 相位。
 option.SHADOW_SSS_FADE_START = SSS 衰减起点
 option.SHADOW_SSS_FADE_START.comment = SSS 透射开始淡出的阴影贴图边缘比例。
+option.CONTACT_SHADOWS = 屏幕空间接触阴影
+option.CONTACT_SHADOWS.comment = 屏幕空间短程阴影，补全阴影贴图接触处接缝并在阴影贴图范围外维持方向光遮蔽。
+value.CONTACT_SHADOWS.0 = 关闭
+value.CONTACT_SHADOWS.1 = 开启
+option.CONTACT_SHADOW_STEPS = 接触阴影步数
+option.CONTACT_SHADOW_STEPS.comment = 每半分辨率像素沿接触行进方向的深度采样数。
+option.CONTACT_SHADOW_MAX_DISTANCE = 接触阴影距离
+option.CONTACT_SHADOW_MAX_DISTANCE.comment = 接触行进的世界空间距离（米）。
+option.CONTACT_SHADOW_THICKNESS = 接触阴影厚度
+option.CONTACT_SHADOW_THICKNESS.comment = 遮挡物厚度板（米）；数值越大接触阴影越柔和。
+option.CONTACT_SHADOW_DARKNESS = 接触阴影深度
+option.CONTACT_SHADOW_DARKNESS.comment = 接触阴影最暗可见度；1.0 表示完全变黑。
+option.CONTACT_SHADOW_SOFTNESS = 接触阴影柔和度
+option.CONTACT_SHADOW_SOFTNESS.comment = 接触边缘衰减；数值越低边缘越柔和。
 
 #AO
 option.AO_MODE = 环境光遮蔽模式

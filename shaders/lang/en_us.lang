@@ -214,6 +214,20 @@ option.SHADOW_SSS_PHASE_G = SSS Phase G
 option.SHADOW_SSS_PHASE_G.comment = Henyey-Greenstein phase for the transmitted light.
 option.SHADOW_SSS_FADE_START = SSS Fade Start
 option.SHADOW_SSS_FADE_START.comment = Shadow-map edge fraction where the SSS transmission starts fading out.
+option.CONTACT_SHADOWS = Contact Shadows
+option.CONTACT_SHADOWS.comment = Screen-space short-range shadows that fill shadow-map contact seams and extend past the shadow-map boundary.
+value.CONTACT_SHADOWS.0 = Off
+value.CONTACT_SHADOWS.1 = On
+option.CONTACT_SHADOW_STEPS = Contact Shadow Steps
+option.CONTACT_SHADOW_STEPS.comment = Depth samples per half-resolution pixel along the contact march.
+option.CONTACT_SHADOW_MAX_DISTANCE = Contact Shadow Distance
+option.CONTACT_SHADOW_MAX_DISTANCE.comment = World-space reach of the contact march in metres.
+option.CONTACT_SHADOW_THICKNESS = Contact Shadow Thickness
+option.CONTACT_SHADOW_THICKNESS.comment = Occluder thickness slab in metres; wider values soften the contact shadow.
+option.CONTACT_SHADOW_DARKNESS = Contact Shadow Darkness
+option.CONTACT_SHADOW_DARKNESS.comment = Darkest contact visibility; 1.0 darkens to black.
+option.CONTACT_SHADOW_SOFTNESS = Contact Shadow Softness
+option.CONTACT_SHADOW_SOFTNESS.comment = Contact edge falloff; lower values spread softer edges.
 
 #AO
 option.AO_MODE = Ambient Occlusion Mode

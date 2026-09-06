@@ -215,9 +215,11 @@ void main() {
         // leaks along contact lines and keeps directional occlusion past the
         // shadow-map boundary.
 #ifdef TAA
-        float contact_shadow = ContactShadowOcclusion(view_pos, ivec2(gl_FragCoord.xy), frameCounter);
+        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_n, geo_ndotl,
+            ivec2(gl_FragCoord.xy), frameCounter);
 #else
-        float contact_shadow = ContactShadowOcclusion(view_pos, ivec2(gl_FragCoord.xy), 0);
+        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_n, geo_ndotl,
+            ivec2(gl_FragCoord.xy), 0);
 #endif
         shadow_occlusion = min(shadow_occlusion, contact_shadow);
 #if CONTACT_SHADOW_DEBUG > 0

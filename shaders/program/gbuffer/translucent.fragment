@@ -3,8 +3,6 @@
 // -- Water shading switches --
 // Water normal evaluation (0 = geometry normal only, no POM/noise).
 #define WATER_NORMAL_ENABLED 1
-// SSR march (0 = bypass).
-#define WATER_SSR_ENABLED 1
 // Skip SSR for skyward reflections (view-space z > 0).
 #define WATER_SSR_SKY_SKIP 1
 
@@ -120,7 +118,7 @@ void main() {
     bool rt_hit_sky = false;
     vec3 reflect_dir = reflect(view_dir, current_normal);
 
-#if WATER_SSR_ENABLED
+#ifdef WATER_SSR
     bool ssr_allowed = (v_id == 1 || v_glass == 1);
 #if WATER_SSR_SKY_SKIP
     if (ssr_allowed && reflect_dir.z < 0.0)

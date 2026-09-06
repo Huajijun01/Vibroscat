@@ -235,7 +235,7 @@ void main() {
     if (depth >= 1.0 && material_id != 64) return;
     vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     // The hand has camera-relative motion; keep its stable SH fallback out
-    // of world-space reprojection and spatial filtering for both GI sources.
+    // of world-space reprojection for both GI sources.
     if (material_id == 64) {
         out_gi = fallback;
         return;
@@ -244,7 +244,8 @@ void main() {
 #ifdef TAA
     reconstruction_uv -= u_taa_offset * 0.5;
 #endif
-    vec3 receiver_world = DepthToWorldPos(reconstruction_uv, depth);
+    vec3 receiver_view = NDCToView(vec3(reconstruction_uv * 2.0 - 1.0, depth * 2.0 - 1.0));
+    vec3 receiver_world = ViewToSceneSpace(receiver_view);
     vec3 raw_gi;
     float sample_sigma;
 #if GI_MODE == 2
@@ -255,12 +256,11 @@ void main() {
     float screen_ao;
     vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), nx_ao.y, false, screen_ao);
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
-    raw_gi = GatherRSM(receiver_world, fallback_normal, tx, fallback, sample_sigma);
+    raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, tx, fallback, sample_sigma);
 #else
-    vec3 view_position = SceneToViewSpace(receiver_world);
     float coverage;
     float second_moment;
-    raw_gi = GITrace(view_position + normal_view * 0.003, normal_view, coverage, second_moment);
+    raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, coverage, second_moment);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;
     // A single random slice has correlated angular bins. Use their spread
@@ -274,7 +274,7 @@ void main() {
 #ifdef GI_DENOISE
     float history_age;
     out_gi = AccumulateGI(raw_gi, sample_sigma, receiver_world, fallback_normal, history_age);
-    out_gi_metadata = EncodeGIHistory(-SceneToViewSpace(receiver_world).z, fallback_normal, history_age);
+    out_gi_metadata = EncodeGIHistory(-receiver_view.z, fallback_normal, history_age);
 #else
     out_gi = raw_gi;
 #endif

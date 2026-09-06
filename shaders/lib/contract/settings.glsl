@@ -19,7 +19,7 @@
 #define RSM_SAMPLES 16 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
-#define RSM_SKY_OCCLUSION_FLOOR 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
+#define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
 #define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
@@ -38,6 +38,12 @@
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
+
+#define PURKINJE_EFFECT
+#define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Scotopic blue-green shift strength
+const float PURKINJE_START_LUMINANCE = 0.08;
+const float PURKINJE_END_LUMINANCE = 0.35;
+const vec3 PURKINJE_CHANNEL_RESPONSE = vec3(0.72, 1.04, 1.18);
 
 // AgX look and adjustments (only used when TONEMAP_MODE == 0)
 #define TONEMAP_AGX_LOOK 1 // [0 1 2] AgX look: 0=Base 1=Punchy 2=Greyscale
@@ -299,7 +305,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Minimum ambient light floor added to every surface's sky ambient, so caves
 // and deep shadows never render fully black (see AmbientLight in
 // lib/lighting/ambient_light.glsl).
-#define AMBIENT_BASE 0.06 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
+#define AMBIENT_BASE 0.03 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
 // Night star map gain: linear multiplier applied after the LogLuv32
 // decode (celestial.glsl).
 #define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness

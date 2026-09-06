@@ -5,6 +5,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/color/dither.glsl"
+#include "/lib/color/purkinje.glsl"
 
 const float COLOR_JITTER_SEED = 97.0;
 
@@ -29,6 +30,9 @@ void main() {
     hdr *= exp2(TONEMAP_EXPOSURE);
 #ifdef AE
     hdr *= exposure;
+#endif
+#ifdef PURKINJE_EFFECT
+    hdr = ApplyPurkinjeEffect(hdr);
 #endif
     float hdr_luma = Luminance(hdr);
     hdr = mix(vec3(hdr_luma), hdr, TONEMAP_SATURATION);

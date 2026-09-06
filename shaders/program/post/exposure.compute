@@ -1,6 +1,5 @@
-// Phase 1: 64 workgroups, each processing every 64th pixel (uniform
-// count) -> 64 partial sums in SSBO[2..65]; phase 2
-// (exposure_final.compute) combines them
+// Phase 1: 64 workgroups gather a log-luminance statistic and a weighted
+// histogram. The second pass derives robust percentiles from these bins.
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -11,7 +10,9 @@ const ivec3 workGroups = ivec3(8, 8, 1);
 
 layout(r11f_g11f_b10f) readonly uniform image2D colorimg0;
 
-shared float cache[256];
+shared float log_cache[256];
+shared float weight_cache[256];
+shared uint histogram_cache[64];
 
 void main() {
     uint tid = gl_LocalInvocationIndex;
@@ -24,22 +25,44 @@ void main() {
     uint start = wid * px_per_group;
     uint end = min(start + px_per_group, total_pixels);
 
-    float sum = 0.0;
+    float log_sum = 0.0;
+    float weight_sum = 0.0;
+    if (tid < 64u) histogram_cache[tid] = 0u;
+    barrier();
+
     for (uint i = start + tid; i < end; i += 256u) {
         ivec2 pos = ivec2(i % uint(size.x), i / uint(size.x));
         vec3 c = imageLoad(colorimg0, pos).rgb;
-        sum += Luminance(c);
+        float luminance = max(Luminance(max(c, vec3(0.0))), 1.0e-5);
+        float log_luminance = log2(luminance);
+        vec2 uv = (vec2(pos) + 0.5) / vec2(size);
+        float center_factor = 1.0 - smoothstep(0.12, 0.72, length(uv - 0.5) * 1.41421356);
+        uint sample_weight = 1u + uint(center_factor * 3.0 + 0.5);
+        log_sum += log_luminance * float(sample_weight);
+        weight_sum += float(sample_weight);
+
+        float exposure_ev = clamp(log2(luminance / 0.18), -12.0, 8.0);
+        uint bin = uint(clamp((exposure_ev + 12.0) * (64.0 / 20.0), 0.0, 63.0));
+        atomicAdd(histogram_cache[bin], sample_weight);
     }
 
-    cache[tid] = sum;
+    log_cache[tid] = log_sum;
+    weight_cache[tid] = weight_sum;
     barrier();
 
     for (uint s = 128u; s > 0u; s >>= 1u) {
-        if (tid < s) cache[tid] += cache[tid + s];
+        if (tid < s) {
+            log_cache[tid] += log_cache[tid + s];
+            weight_cache[tid] += weight_cache[tid + s];
+        }
         barrier();
     }
 
     if (tid == 0u) {
-        partial_sums[wid] = cache[0];
+        log_lum_sums[wid] = log_cache[0];
+        weight_sums[wid] = weight_cache[0];
+    }
+    if (tid < 64u) {
+        luminance_histogram[wid * 64u + tid] = histogram_cache[tid];
     }
 }

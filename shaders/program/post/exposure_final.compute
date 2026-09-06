@@ -1,5 +1,8 @@
-// Phase 2: combine the 64 partial sums -> avgLum -> update smoothLum &
-// exposure
+// Phase 2: combine log statistics and percentiles, then update the adapted
+// luminance. A geometric mean models the retina's approximately logarithmic
+// response; the median rejects small bright/dark outliers and P90 preserves
+// highlight headroom. The log-average/key-value approach follows Reinhard et
+// al., "Photographic Tone Reproduction for Digital Images" (SIGGRAPH 2002).
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -8,11 +11,29 @@ layout(local_size_x = 64) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
 
 shared float cache[64];
+shared uint histogram_cache[64];
+
+float HistogramPercentile(float fraction, uint total_weight) {
+    uint threshold = uint(float(total_weight) * fraction);
+    uint cumulative = 0u;
+    for (uint i = 0u; i < 64u; ++i) {
+        cumulative += histogram_cache[i];
+        if (cumulative >= threshold) {
+            return -12.0 + (float(i) + 0.5) * (20.0 / 64.0);
+        }
+    }
+    return 8.0;
+}
 
 void main() {
     uint tid = gl_LocalInvocationIndex;
 
-    cache[tid] = partial_sums[tid];
+    cache[tid] = log_lum_sums[tid];
+    uint histogram_sum = 0u;
+    for (uint group = 0u; group < 64u; ++group) {
+        histogram_sum += luminance_histogram[group * 64u + tid];
+    }
+    histogram_cache[tid] = histogram_sum;
     barrier();
 
     for (uint s = 32u; s > 0u; s >>= 1u) {
@@ -21,14 +42,33 @@ void main() {
     }
 
     if (tid == 0u) {
-        float total_pixels = u_screen_res.x * u_screen_res.y;
-        float avg_lum = cache[0] / total_pixels;
-        avg_lum = max(avg_lum, 0.001);
-        float target_lum = 0.15;
+        float total_weight = 0.0;
+        for (uint i = 0u; i < 64u; ++i) total_weight += weight_sums[i];
+        total_weight = max(total_weight, 1.0);
+        float log_average = cache[0] / total_weight;
+        uint histogram_weight = 0u;
+        for (uint i = 0u; i < 64u; ++i) histogram_weight += histogram_cache[i];
+        histogram_weight = max(histogram_weight, 1u);
 
-        float rate_per_sec = avg_lum > smooth_lum ? 5.0 : 1.0;
-        float w = clamp(frameTime * rate_per_sec, 0.0, 1.0);
-        smooth_lum = mix(smooth_lum, avg_lum, w);
-        exposure = target_lum / smooth_lum;
+        float median_ev = HistogramPercentile(0.50, histogram_weight);
+        float p90_ev = HistogramPercentile(0.90, histogram_weight);
+        float key_ev = mix(log_average - log2(0.18), median_ev, 0.35);
+        float key_lum = exp2(key_ev) * 0.18;
+        float target_exposure = 0.18 / max(key_lum, 1.0e-4);
+        float p90_lum = 0.18 * exp2(p90_ev);
+        target_exposure = min(target_exposure, 0.80 / max(p90_lum, 1.0e-4));
+        target_exposure = clamp(target_exposure, 0.03125, 32.0);
+        float target_lum = 0.18 / max(target_exposure, 1.0e-4);
+
+        // Bright adaptation is quick; dark adaptation is deliberately slower,
+        // matching the asymmetric cone/rod response of the human eye.
+        if (frameCounter < 2) {
+            smooth_lum = target_lum;
+        } else {
+            float rate_per_sec = target_lum > smooth_lum ? 4.0 : 0.8;
+            float w = 1.0 - exp(-max(frameTime, 0.0) * rate_per_sec);
+            smooth_lum = mix(max(smooth_lum, 1.0e-4), target_lum, clamp(w, 0.0, 1.0));
+        }
+        exposure = 0.18 / max(smooth_lum, 1.0e-4);
     }
 }

@@ -56,13 +56,21 @@ void main() {
     SSRHit shared_hit = TraceScreenSpaceReflection(
         trace_origin, view_direction, trace_jitter,
         OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);
-    if (!shared_hit.valid) return;
+    vec3 reflection_radiance = SampleOpaqueEnvironment(
+        reflection_direction, geometry_data.w);
+    if (shared_hit.valid) {
+        vec3 history;
+        if (SampleOpaqueHistory(shared_hit, history)) {
+            float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
+            reflection_radiance = recursion_decay * history;
+        }
+    }
 
 #if OPAQUE_SSR_DEBUG == 4
-    out_reflection_radiance = vec3(shared_hit.sky ? 1.0 : 0.0);
+    out_reflection_radiance = shared_hit.valid
+        ? vec3(shared_hit.sky ? 1.0 : 0.0)
+        : vec3(0.0);
 #else
-    vec3 history;
-    if (!SampleOpaqueHistory(shared_hit, history)) return;
-    out_reflection_radiance = history;
+    out_reflection_radiance = reflection_radiance;
 #endif
 }

@@ -46,12 +46,6 @@ layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
 
-vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
-    if (dot(direction, direction) < 1e-8) return vec3(0.0);
-    return SkyLightFromLm(sky_light)
-        * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
-}
-
 void main() {
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
@@ -288,12 +282,6 @@ void main() {
     float sh_reflection_ndotv = Max0(dot(normal, view_to_eye));
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     vec3 sh_specular = vec3(0.0);
-#ifdef OPAQUE_SSR
-    vec3 history = texelFetch(colortex3, tx, 0).rgb;
-    bool history_valid = dot(history, vec3(1.0)) > 1e-5;
-#else
-    bool history_valid = false;
-#endif
     bool need_sh = true;
 #ifdef OPAQUE_SSR
     need_sh = ssr_weight < 1.0;
@@ -329,14 +317,7 @@ void main() {
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
             normal, view_to_eye, material.perceptual_roughness, tx,
             ssr_reflection_half);
-        vec3 ssr_environment = vec3(0.0);
-        if (!history_valid) {
-            ssr_environment = SampleOpaqueEnvironment(ssr_reflection_direction, lm.g);
-        }
-        float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
-        vec3 ssr_incident_radiance = history_valid
-            ? recursion_decay * history
-            : ssr_environment;
+        vec3 ssr_incident_radiance = texelFetch(colortex3, tx, 0).rgb;
         float ssr_reflection_ndotv = sh_reflection_ndotv;
         float ssr_reflection_ndotl = Max0(
             dot(normal, ssr_reflection_direction));

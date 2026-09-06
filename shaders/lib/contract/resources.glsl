@@ -12,7 +12,7 @@
 //                                translucent surface data after deferred clears it:
 //                                RG = refraction normal.xy, B = normal.z, A = water flag;
 //                                blend off (nearest translucent surface wins)
-//   colortex3   R11F_G11F_B10F   Opaque reflection radiance trace transient
+//   colortex3   R11F_G11F_B10F   Opaque reflection incident radiance transient
 //   colortex4   RGBA8            Opaque geometric normal (RG) + lightmap (BA) (solid -> deferred4)
 //   colortex5   R11F_G11F_B10F   TAA history
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
@@ -53,7 +53,7 @@ const int shadowcolor0Format = RGBA8;
 const bool colortex0Clear  = false;   // scene output
 const bool colortex1Clear  = false;   // GBuffer albedo
 const bool colortex2Clear  = false;   // GBuffer merged data
-const bool colortex3Clear  = false;   // opaque reflection radiance transient
+const bool colortex3Clear  = false;   // opaque reflection incident radiance transient
 const bool colortex4Clear  = false;   // opaque geometric normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)

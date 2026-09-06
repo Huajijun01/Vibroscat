@@ -5,6 +5,8 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/lighting/ambient_light.glsl"
 #include "/lib/raytrace/ssr.glsl"
 
 vec2 OpaqueSSRRandom2(ivec2 tx) {
@@ -48,6 +50,12 @@ vec3 OpaqueReflectionDirection(vec3 normal, vec3 view_direction,
     half_direction = normalize(frame * local_h);
     vec3 light_direction = normalize(reflect(-view_direction, half_direction));
     return dot(normal, light_direction) > 1e-5 ? light_direction : vec3(0.0);
+}
+
+vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
+    if (dot(direction, direction) < 1e-8) return vec3(0.0);
+    return SkyLightFromLm(sky_light)
+        * texture(usam_skylut_cloud, CloudSkyboxUV(direction)).rgb;
 }
 
 bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {

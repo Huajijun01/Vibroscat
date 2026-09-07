@@ -101,7 +101,7 @@ void main() {
 
     if (tid == 0u) {
         // Ground light = direct sun/moon color via transmittance LUT.
-        float ground_r  = ATM_PLANET_R + 0.01;
+        float ground_r  = ATM_PLANET_R + 0.2;
         float ground_r2 = ground_r * ground_r;
         float mu_light = u_world_sun_dir.y;
         float mu_abs = abs(mu_light);
@@ -113,7 +113,7 @@ void main() {
             gnd_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_MOON_IRR)) * ATM_EXPOSURE;
         }
 
-        ground_light.rgb = gnd_color;
+        ground_light.rgb = gnd_color * (1.0 - wetness * 0.9);
         ground_light.a = 0.0;
     }
 }

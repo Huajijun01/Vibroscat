@@ -178,7 +178,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     // float large_scale_cloud = texture(utex_cloud_distribution_tex, distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
-    float coverage = (CLOUD_COVERAGE) * (1.0 - u_rain_strength) + u_rain_strength;
+    float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
     float bottom_ramp = smoothstep(0.0, 0.15, result.height_fraction);
     // Push density away from the very bottom of the layer to keep the base soft.

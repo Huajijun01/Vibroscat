@@ -20,7 +20,7 @@ struct AirFogMedium {
 AirFogMedium AirFogMediumAtCamera() {
     float scale = AIR_FOG_KM_TO_M;
     vec4 ray = GetSigmaSRay(u_cam_altitude) * scale;
-    vec4 mie = GetSigmaSMie(u_cam_altitude) * scale;
+    vec4 mie = GetSigmaSMie(u_cam_altitude) * scale + wetness * 0.01;
     return AirFogMedium(ray + mie, ray, mie);
 }
 

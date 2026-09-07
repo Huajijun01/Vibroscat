@@ -84,7 +84,7 @@ vec3 WaterMultipleScattering(vec3 sca, vec3 epipolar_light) {
     return MS_SCALE * sca * v_ms * (epipolar_light * 0.8 + 0.2);
 }
 
-// Water fog compositing. Caller must provide the Iris uniforms (u_wetness,
+// Water fog compositing. Caller must provide the Iris uniforms (wetness,
 // eyeBrightnessSmooth, isEyeInWater) and the groundLight SSBO before
 // including this file, plus the column light paths at the segment ends
 // (0 at the surface). phaseSun/phaseSky: normalized phases for the direct
@@ -92,7 +92,7 @@ vec3 WaterMultipleScattering(vec3 sca, vec3 epipolar_light) {
 void WaterFogRender(inout vec3 col, float raylen, float light_path1, float light_path2, float phase_sun, float phase_sky,
                     vec3 fog_mulsca, vec3 epipolar_light, float caustic_factor) {
     vec3 t = WaterExtinctionTransmittance(raylen);
-    t = mix(t, vec3(Luminance(t)), u_wetness * 0.8);
+    t = mix(t, vec3(Luminance(t)), wetness * 0.8);
     col *= t;
     vec3 sca = WaterScatteringIntegral(raylen, light_path1, light_path2);
     col += sca * (caustic_factor * ground_light.rgb * phase_sun * eyeBrightnessSmooth.y

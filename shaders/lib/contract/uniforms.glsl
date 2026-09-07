@@ -96,8 +96,8 @@ uniform vec3 u_world_sun_dir;     // sun direction only (LUT / SH reference fram
 uniform vec2 u_taa_offset;        // NDC jitter applied by opaque GBuffer vertices
 uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for RSM history
 uniform vec2 u_screen_res;        // viewport resolution in pixels
-uniform float u_rain_strength;
-uniform float u_wetness;
+uniform float rainStrength;
+uniform float wetness;
 uniform vec3 u_water_absorption;
 uniform vec3 u_water_scattering;
 

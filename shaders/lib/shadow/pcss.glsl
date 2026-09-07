@@ -56,13 +56,14 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 rot_x, vec2 rot_y, int block
     // Convex corners project small false depth deltas; require a
     // world-space gap before counting a blocker (no corner darkening).
     float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS);
+    vec2 blocker_offset_scale = SHADOW_BLOCKER_SEARCH_TEXELS * texel_scale;
 
     float depth_sum = 0.0;
     float weight_sum = 0.0;
     float depth_gap_sum = 0.0;
     ivec2 shadow_size = textureSize(shadowtex0, 0);
     for (int i = 0; i < blocker_steps; ++i) {
-        vec2 offset = SHADOW_BLOCKER_SEARCH_TEXELS * texel_scale * ShadowRotateDisk(ShadowDiskPoint(i, blocker_steps),
+        vec2 offset = blocker_offset_scale * ShadowRotateDisk(ShadowDiskPoint(i, blocker_steps),
             rot_x, rot_y);
         vec2 uv = DistortShadowClip(clip_pos.xy + offset);
         ivec2 sample_texel = clamp(ivec2(uv * vec2(shadow_size)), ivec2(0), shadow_size - 1);

@@ -35,7 +35,7 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float depth, f
             boundary_xz = boundary_az_len > 1e-5
                 ? boundary_xz / boundary_az_len
                 : vec2(1.0, 0.0);
-            vec3 boundary_dir = normalize(vec3(boundary_xz.x, -0.1, boundary_xz.y));
+            vec3 boundary_dir = normalize(vec3(boundary_xz.x, 0.0, boundary_xz.y));
             vec3 boundary_color = texture(usam_skylut_cloud, CloudSkyboxUV(boundary_dir)).rgb;
             scene = mix(scene, boundary_color, boundary_amount);
         }

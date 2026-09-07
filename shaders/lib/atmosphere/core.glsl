@@ -130,7 +130,7 @@ const vec4 ATM_EPS = vec4(1.0e-5);
 
 // -- Ground albedo (Lambertian) --
 const float ATM_GROUND_ALBEDO_BAKE = 0.25;  // used when baking LUTs
-const float ATM_GROUND_ALBEDO      = 0.03;  // runtime, tweak independently
+const float ATM_GROUND_ALBEDO      = 0.05;  // runtime, tweak independently
 
 // -- Moonlight irradiance (W/m2/nm) --
 // Re-tinted through the 4-wave CMF matrix: Rec.2020 reads ~= (0.88, 0.95, 1.18)
@@ -386,11 +386,11 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // sunlight -> ground
         vec4 trans_sun_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, mu_sun_g);
         vec4 ms_g = SampleMultiScatter(MULTISCATTER_LUT, r_g, mu_sun_g);
-        ground_sun_radiance = (trans_sun_g + ms_g) * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
+        ground_sun_radiance = (trans_sun_g * Saturate(mu_sun_g) * (1.0 / PI) + ms_g) * ATM_GROUND_ALBEDO * trans;
 
         // moonlight -> ground (no multiscat)
         vec4 trans_moon_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, -mu_sun_g);
-        ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans;
+        ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans * Saturate(-mu_sun_g);
     }
 
     return ATM_SOLAR   * (pr * acc_ray + pm * acc_mie + acc_x + ground_sun_radiance)

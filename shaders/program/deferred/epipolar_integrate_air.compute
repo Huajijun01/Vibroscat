@@ -20,14 +20,17 @@ void main() {
     uint slice = gl_WorkGroupID.x;
     if (slice >= uint(EPIPOLAR_SLICES)) return;
     vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(int(slice), 0), 0);
+    bool line_valid = !all(equal(line, vec4(0.0)));
+    float sample_denominator = float(EPIPOLAR_SAMPLES - 1);
+    int slice_i = int(slice);
     uint loop = uint((EPIPOLAR_SAMPLES + 127) / 128);
     for (uint i = 0u; i < loop; ++i) {
         uint sample_index = gl_LocalInvocationID.y + i * 128u;
         if (sample_index >= uint(EPIPOLAR_SAMPLES)) break;
         vec3 air_e = vec3(1.0);
         float air_key = 0.0;
-        if (!all(equal(line, vec4(0.0)))) {
-            float p = float(sample_index) / float(EPIPOLAR_SAMPLES - 1);
+        if (line_valid) {
+            float p = float(sample_index) / sample_denominator;
             vec2 ndc = mix(line.xy, line.zw, p);
             vec2 uv01 = ndc * 0.5 + 0.5;
             ivec2 texel = ivec2(clamp(uv01 * u_screen_res, vec2(0.5), u_screen_res - vec2(0.5)));
@@ -45,12 +48,12 @@ void main() {
                 if (AirFogSegment(depth_dist, far, segment_length)) {
                     vec3 clamped_end = air_start + world_dir * segment_length;
                     air_e = EpipolarAirShadowRatio(
-                        air_start, clamped_end, AirExtinction(),
-                        ivec2(int(slice), int(sample_index)));
+                    air_start, clamped_end, AirExtinction(),
+                        ivec2(slice_i, int(sample_index)));
                 }
             }
         }
-        imageStore(uimg_epipolar_term, ivec2(int(slice), int(sample_index)),
+        imageStore(uimg_epipolar_term, ivec2(slice_i, int(sample_index)),
                    vec4(air_e, air_key));
     }
 }

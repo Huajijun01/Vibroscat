@@ -344,10 +344,10 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
     float surface_weight = 0.0;
     float view_transmittance = 1.0;
     float inverse_step_count = 1.0 / float(step_count);
+    float step_length = interval_length * inverse_step_count;
 
     for (int i = 0; i < CLOUD_VIEW_MAX_STEPS; ++i) {
         if (i >= step_count) break;
-        float step_length = interval_length * inverse_step_count;
         // Shift the complete ray-march sequence by one shared jittered step;
         // independent per-segment offsets can line up with cloud height bands.
         float sample_distance = march_start + (float(i) + view_jitter) * step_length;

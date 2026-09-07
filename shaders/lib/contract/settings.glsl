@@ -163,9 +163,9 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define CONTACT_SHADOWS 1 // [0 1] Screen-space contact shadows; 0 = off.
 #define CONTACT_SHADOW_STEPS 12 // [4 6 8 12 16 24] depth samples per receiver pixel.
 #define CONTACT_SHADOW_MAX_DISTANCE 24.0 // [4.0 6.0 8.0 12.0 16.0 24.0] world-space march reach cap (m); the reach scales with view distance.
-#define CONTACT_SHADOW_THICKNESS 0.05 // [0.02 0.05 0.1 0.25 0.5 1.0] near-field occluder thickness slab (m); it also widens with view distance.
+#define CONTACT_SHADOW_THICKNESS 0.02 // [0.02 0.05 0.1 0.25 0.5 1.0] near-field occluder thickness slab (m); it also widens with view distance.
 #define CONTACT_SHADOW_DEBUG 0 // [0 1 2] debug view: 0 = scene, 1 = raw mask, 2 = boosted darkness.
-const float CONTACT_SHADOW_GAP_MIN_METERS = 0.02; // receiver self-occlusion guard (m)
+const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion guard (m)
 
 // ==========================================================================
 // WATER - Water / epipolar

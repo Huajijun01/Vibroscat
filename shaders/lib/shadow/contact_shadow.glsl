@@ -44,7 +44,7 @@
 // the CONTACT_SHADOW_MAX_DISTANCE cap. A fixed world reach would sweep a
 // long grazing path near the camera and manufacture false hits.
 const float CONTACT_SHADOW_REACH_FRACTION = 0.07;
-const float CONTACT_SHADOW_REACH_MIN_METERS = 0.15;
+const float CONTACT_SHADOW_REACH_MIN_METERS = 0.12;
 // Receiver normal offset: pixel world size times this scale, divided by the
 // light-facing cosine, keeps the start off the surface plane (grazing light
 // needs the largest push-out).
@@ -86,12 +86,19 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float step_count = float(CONTACT_SHADOW_STEPS);
     vec2 full_resolution = vec2(viewWidth, viewHeight);
 
+    // iterationT-style step pattern: linear strides that grow by 0.3 per
+    // step, each sample dithered inside its stride. The first sample starts
+    // one full stride out, so the receiver's own surface neighborhood is
+    // skipped entirely instead of being probed by dense near-field samples.
+    float stride = 1.0;
+    float travelled = 0.0;
+    float total_travel = step_count + 0.15 * step_count * (step_count - 1.0);
+
     for (int i = 0; i < CONTACT_SHADOW_STEPS; ++i) {
-        // Quadratic spacing keeps the samples dense next to the receiver,
-        // where contact occlusion lives; the shared dither jitters every
-        // step so the silhouette converges under TAA.
-        float u = (float(i) + dither) / step_count;
-        vec3 sample_view = ray_origin + light_view * (march_distance * u * u);
+        float sample_t = travelled + dither * stride;
+        vec3 sample_view = ray_origin + light_view * (march_distance * sample_t / total_travel);
+        travelled += stride;
+        stride += 0.3;
         if (sample_view.z > -0.05) {
             break;  // crossed the camera near plane
         }

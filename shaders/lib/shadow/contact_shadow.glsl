@@ -13,28 +13,24 @@
 //
 // Evaluated inline in deferred4 (opaque lighting) on the receiver: a short
 // depth-buffer march toward the active directional light (sun or moon, world
-// space), re-projected to the depth buffer per sample. A surface occludes
-// when it sits in front of the ray point within a thickness slab; the first
-// hit removes the direct light outright, so a contact hit fills a shadow-map
-// seam to full black. The result is an upper bound (min) on the shadow-map
-// result, so it only darkens what the map left lit.
+// space), re-projected to the depth buffer per sample. Occluders are
+// surfaces that sit in front of the ray point within a thickness slab; the
+// first hit removes the direct light outright, so a contact hit fills a
+// shadow-map seam to full black. The result is an
+// upper bound (min) on the shadow-map result, so it only darkens what the
+// map left lit.
 //
-// The march is a parameter-faithful adaptation of iterationT 3.2.0
+// False-shadow guards, studied from iterationT 3.2.0
 // shaders/Lib/BasicFounctions/Sunlight_Shadow.glsl (ScreenSpaceShadow) under
 // the project's pack-study rules; that snapshot has no pack-level license,
-// so only the concepts and parameters were taken:
-//   - the ray scale is stride_budget * per_meter_scale * vertical_fov, with
-//     a near floor tied to the shadow texel world size, so the reach grows
-//     with view distance and stays short near the camera;
-//   - the start is pushed off the receiver twice: along the ray by a
-//     pixel-scaled amount that grows when the surface faces away from the
-//     camera, and along the normal by a pixel-scaled amount that grows at
-//     grazing light;
-//   - linear strides that grow by 0.3 per step, each sample dithered inside
-//     its stride, the first sample one full stride out;
-//   - the thickness slab is 0.025 m near and widens with view distance to
-//     track depth precision;
-//   - each sample is projected exactly (perspective divide per step).
+// so only the concepts were taken:
+//   - the ray starts offset along the receiver normal by a pixel-scaled,
+//     1/NdotL-weighted bias, so the receiver's own surface plane cannot
+//     self-occlude at grazing light angles;
+//   - the thickness slab grows with view distance to track depth precision
+//     while staying tight near the receiver;
+//   - each sample is projected exactly (perspective divide per step) instead
+//     of interpolating screen depth along the ray.
 // Edge softness comes from the per-step STBN dither converged by the pack's
 // TAA. With TAA disabled the dither stays fixed so the shadow is static.
 //
@@ -43,6 +39,16 @@
 // shaders/lib/lighting/shadow/Render.glsl; this file is an independent
 // re-expression around Vibroscat coordinate helpers and settings.
 
+// The march reach scales with view distance (a fixed angular footprint
+// matches the screen-space resolvability), bounded by the near floor and
+// the CONTACT_SHADOW_MAX_DISTANCE cap. A fixed world reach would sweep a
+// long grazing path near the camera and manufacture false hits.
+const float CONTACT_SHADOW_REACH_FRACTION = 0.07;
+const float CONTACT_SHADOW_REACH_MIN_METERS = 0.12;
+// Receiver normal offset: pixel world size times this scale, divided by the
+// light-facing cosine, keeps the start off the surface plane (grazing light
+// needs the largest push-out).
+const float CONTACT_SHADOW_NORMAL_BIAS_SCALE = 0.75;
 // Thickness growth per meter of view distance (m/m): depth precision
 // coarsens with distance, so the slab widens accordingly.
 const float CONTACT_SHADOW_THICKNESS_GROWTH_PER_METER = 0.0125;
@@ -59,35 +65,35 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     vec3 light_view = normalize(mat3(gbufferModelView) * u_world_light_dir);
     float receiver_distance = -receiver_view.z;
 
-    float dither = SampleSTBN(stbn_texel, frame);
-    float step_count = float(CONTACT_SHADOW_STEPS);
+    // Push the ray start off the receiver's surface plane. The offset is one
+    // screen pixel of world size at this depth, amplified for grazing light.
+    float pixel_world_size = receiver_distance
+        / max(gbufferProjection[1][1] * viewHeight, 1.0);
+    vec3 ray_origin = receiver_view + normal_view
+        * (CONTACT_SHADOW_NORMAL_BIAS_SCALE * pixel_world_size / max(ndotl, 0.1));
 
-    // Ray scale: the stride budget (1 + 1.3 + 1.6 + ...) times a per-meter
-    // scale tied to the vertical field of view, floored by the shadow texel
-    // world size so close receivers still get a minimum march. The reach in
-    // meters is the scale times the budget, capped by the user option.
-    float total_travel = step_count + 0.15 * step_count * (step_count - 1.0);
-    float fov_degrees = atan(1.0 / max(gbufferProjection[1][1], 1.0e-4)) * 360.0 / PI;
-    float ray_scale = max(receiver_distance * 3.0e-5 * fov_degrees,
-        0.06 * shadowDistance / float(shadowMapResolution));
-    float march_distance = min(CONTACT_SHADOW_MAX_DISTANCE, ray_scale * total_travel);
-
-    // Start bias: off the receiver's own surface plane along the ray (grows
-    // when the surface faces away from the camera), then along the normal
-    // (grows at grazing light).
-    float pixel_scale = 1.0 / max(min(viewWidth, viewHeight), 1.0);
-    float nov = Max0(dot(normal_view, -normalize(receiver_view)));
-    vec3 ray_origin = receiver_view
-        + light_view * (ray_scale * pixel_scale * max(0.04 / max(nov, 0.1), 1.0e3))
-        + normal_view * (8.0e-3 * fov_degrees * receiver_distance * pixel_scale
-            / max(ndotl, 0.01));
-
+    // Thickness widens with distance, tracking depth quantization.
     float thickness = CONTACT_SHADOW_THICKNESS
         + CONTACT_SHADOW_THICKNESS_GROWTH_PER_METER * receiver_distance;
+
+    // Distance-scaled reach: short near the camera, growing toward the
+    // shadow-map boundary, capped by the user option.
+    float march_distance = min(CONTACT_SHADOW_MAX_DISTANCE,
+        max(CONTACT_SHADOW_REACH_MIN_METERS,
+            CONTACT_SHADOW_REACH_FRACTION * receiver_distance));
+
+    float dither = SampleSTBN(stbn_texel, frame);
+    float step_count = float(CONTACT_SHADOW_STEPS);
     vec2 full_resolution = vec2(viewWidth, viewHeight);
 
+    // iterationT-style step pattern: linear strides that grow by 0.3 per
+    // step, each sample dithered inside its stride. The first sample starts
+    // one full stride out, so the receiver's own surface neighborhood is
+    // skipped entirely instead of being probed by dense near-field samples.
     float stride = 1.0;
     float travelled = 0.0;
+    float total_travel = step_count + 0.15 * step_count * (step_count - 1.0);
+
     for (int i = 0; i < CONTACT_SHADOW_STEPS; ++i) {
         float sample_t = travelled + dither * stride;
         vec3 sample_view = ray_origin + light_view * (march_distance * sample_t / total_travel);
@@ -113,10 +119,12 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         vec2 sample_ndc_xy = sample_uv * 2.0 - 1.0;
         float sample_linear = -NDCToView(vec3(sample_ndc_xy, sample_z * 2.0 - 1.0)).z;
         float gap = -sample_view.z - sample_linear;
-        if (gap > 0.0 && gap < thickness) {
-            // First occluder inside the slab: remove the direct light.
-            return 0.0;
+        if (gap < CONTACT_SHADOW_GAP_MIN_METERS || gap > thickness) {
+            continue;
         }
+        // Binary response: the first occluder inside the thickness slab
+        // removes the direct light outright.
+        return 0.0;
     }
     return 1.0;
 }

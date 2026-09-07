@@ -33,11 +33,12 @@ vec3 DepthOfField(vec2 uv) {
     vec3 dof = vec3(0.0);
     float inv_n = 1.0 / float(DOF_SAMPLES);
     float angle_offset = dither * TAU;
+    vec2 blur_pixel_scale = blur_radius * u_view_pixel_size;
     for (int i = 0; i < DOF_SAMPLES; i++) {
         float t = (float(i) + dither) * inv_n;
         float r = sqrt(t);
         float theta = angle_offset + TAU * float(i) * golden_ratio;
-        vec2 offset = vec2(cos(theta), sin(theta)) * r * blur_radius * u_view_pixel_size;
+        vec2 offset = vec2(cos(theta), sin(theta)) * r * blur_pixel_scale;
         dof += texture(colortex0, uv + offset).rgb;
     }
     return dof * inv_n;

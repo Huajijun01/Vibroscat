@@ -254,6 +254,19 @@ const float eyeBrightnessHalflife = 3.0;
 #define BOUNDARY_FOG_HEIGHT_FADE 0.75 // [0.0 0.25 0.5 0.75 1.0] sky-facing dampening
 
 // ==========================================================================
+// ATMOSPHERE - Sky atmosphere
+// ==========================================================================
+
+// Horizon below-dip: let below-horizon sky rays travel a small distance beneath
+// the planet surface before terminating, so they integrate the exponentially
+// denser low-altitude Mie/aerosol air and the horizon reads thicker/hazier
+// (Alpha Piscium BOTTOM_OFFSET analogue). The other density profiles clamp
+// altitude at the surface, so only the Mie term (a plain exp) grows there and
+// needs no clamp. 0 keeps the ground at exactly the planet surface.
+#define ATM_HORIZON_DIP 1 // [0 1] Horizon below-dip; 0 = off
+#define ATM_HORIZON_DIP_SCALE 8.0 // [0.0 2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] below-surface dip depth (km)
+
+// ==========================================================================
 // AO - Ambient occlusion
 // ==========================================================================
 const float ambientOcclusionLevel = 1.0;

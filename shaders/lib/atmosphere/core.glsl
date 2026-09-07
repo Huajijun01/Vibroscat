@@ -1,6 +1,7 @@
 #ifndef LIB_ATMOSPHERE_CORE_GLSL
 #define LIB_ATMOSPHERE_CORE_GLSL
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
@@ -298,10 +299,19 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     float t0, t1;
     if (!RayIntersectSphere(camera_pos, view_dir, ATM_ATMO_R, t0, t1)) return vec4(0.0);
 
+    // Horizon below-dip: a below-horizon ray terminates on a sphere placed
+    // ATM_HORIZON_DIP_SCALE km beneath the planet surface instead of on the
+    // surface itself, so it integrates a little of the exponentially denser
+    // low-altitude Mie/aerosol air and the horizon reads thicker/hazier.
     float max_dist = t1;
     float t_ground = -1.0;  // negative = no ground hit
-    {  float te0, te1;
-        if (RayIntersectSphere(camera_pos, view_dir, ATM_PLANET_R, te0, te1) && te0 > 0.0) {
+    {
+        float ground_radius = ATM_PLANET_R;
+#if ATM_HORIZON_DIP
+        ground_radius = max(ATM_PLANET_R - ATM_HORIZON_DIP_SCALE, 1.0);
+#endif
+        float te0, te1;
+        if (RayIntersectSphere(camera_pos, view_dir, ground_radius, te0, te1) && te0 > 0.0) {
             max_dist = te0;
             t_ground = te0;
         }
@@ -339,6 +349,15 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float r_mid   = sqrt(r2_mid);
         float h_mid   = r_mid - ATM_PLANET_R;
 
+        // Density altitude: DensityRay / DensityOzone clamp below the surface
+        // and GetSigmaSMie (a plain exp) grows there, so the below-surface Mie
+        // term thickens the horizon without NaN. The transmittance and
+        // multiscatter LUTs are parameterised on r >= planet radius
+        // (sqrt(r^2 - R^2) is undefined below the surface), so clamp the radius
+        // used for the LUT lookups.
+        float r_lut   = max(r_mid, ATM_PLANET_R);
+        float r2_lut  = r_lut * r_lut;
+
         vec4 sr_mid = GetSigmaSRay(h_mid);
         vec4 sm_mid = GetSigmaSMie(h_mid);
         vec4 so_mid = GetSigmaAOzone(h_mid);
@@ -346,10 +365,10 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec4 ss_mid = sr_mid + sm_mid;
 
         float mu_mid = dot(p_mid, sun_dir) / r_mid;
-        vec4 trans_mid = SampleTransmittance(TRANSMITTANCE_LUT, r_mid, r2_mid, mu_mid);
-        vec4 ms_mid = SampleMultiScatter(MULTISCATTER_LUT, r_mid, mu_mid);
+        vec4 trans_mid = SampleTransmittance(TRANSMITTANCE_LUT, r_lut, r2_lut, mu_mid);
+        vec4 ms_mid = SampleMultiScatter(MULTISCATTER_LUT, r_lut, mu_mid);
         // moonlight: opposite direction, shared extinction
-        vec4 ts_moon_mid = SampleTransmittance(TRANSMITTANCE_LUT, r_mid, r2_mid, -mu_mid);
+        vec4 ts_moon_mid = SampleTransmittance(TRANSMITTANCE_LUT, r_lut, r2_lut, -mu_mid);
 
         vec4 rs_mid      = trans_mid * sr_mid;
         vec4 ms_raw_mid  = trans_mid * sm_mid;
@@ -381,7 +400,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec3 ground_pos = camera_pos + view_dir * t_ground;
         float r_g  = ATM_PLANET_R + 0.01;
         float r2_g = r_g * r_g;
-        float mu_sun_g = dot(ground_pos, sun_dir) / ATM_PLANET_R;
+        float mu_sun_g = dot(ground_pos, sun_dir) / max(length(ground_pos), 1.0e-4);
 
         // sunlight -> ground
         vec4 trans_sun_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, mu_sun_g);

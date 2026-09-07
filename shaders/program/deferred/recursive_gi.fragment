@@ -143,6 +143,11 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
     float step_scale_log = log2(max(1.0 / GI_LENGTH, clamp(inv_range, 0.0, 1.0))) / -float(GI_STEPS);
     float step_scale = exp2(step_scale_log);
     float step_size = exp2(step_scale_log * noise.y);
+    vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
+    vec2 inverse_projection_bias = gbufferProjectionInverse[3].xy;
+    float inverse_projection_z = gbufferProjectionInverse[3].z;
+    float inverse_projection_depth_scale = gbufferProjectionInverse[2].w;
+    float inverse_projection_depth_bias = gbufferProjectionInverse[3].w;
 
     vec3 slice_normal = cross(view_direction, ray_direction);
     vec3 projected_normal = origin_normal_view - slice_normal * dot(origin_normal_view, slice_normal);
@@ -175,11 +180,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
 #ifdef TAA
         sample_view.xy -= u_taa_offset;
 #endif
-        sample_view.xy = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y)
-            * sample_view.xy + gbufferProjectionInverse[3].xy;
-        sample_view.z = gbufferProjectionInverse[3].z;
-        sample_view /= gbufferProjectionInverse[2].w * (sample_depth * 2.0 - 1.0)
-            + gbufferProjectionInverse[3].w;
+        sample_view.xy = inverse_projection_scale * sample_view.xy + inverse_projection_bias;
+        sample_view.z = inverse_projection_z;
+        sample_view /= inverse_projection_depth_scale * (sample_depth * 2.0 - 1.0)
+            + inverse_projection_depth_bias;
         vec3 delta_front = sample_view - origin_view_position;
         // Sundial's non-hand geometry thickness term: clamp the projected
         // footprint before taking the reciprocal square root so distant

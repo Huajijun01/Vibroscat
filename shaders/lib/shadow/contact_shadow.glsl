@@ -84,7 +84,6 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
 
     float dither = SampleSTBN(stbn_texel, frame);
     float step_count = float(CONTACT_SHADOW_STEPS);
-    vec2 full_resolution = vec2(viewWidth, viewHeight);
 
     // iterationT-style step pattern: linear strides that grow by 0.3 per
     // step, each sample dithered inside its stride. The first sample starts
@@ -109,22 +108,22 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
                 || any(greaterThan(sample_uv, vec2(1.0)))) {
             break;  // left the screen
         }
-        float sample_z = texelFetch(depthtex1, ivec2(sample_uv * full_resolution), 0).r;
-        if (sample_z >= 1.0) {
-            continue;  // sky: no occluder
-        }
-        // Gap in view-space meters via the canonical reconstruction (the
-        // same space as GTAO_RADIUS). The SSR depth helper is only a
-        // monotonic metric with its own tolerance units.
+        float sample_z = texture(depthtex1, sample_uv).r;
+        // Occluder distance in view-space meters via the canonical
+        // reconstruction (the same space as GTAO_RADIUS). Sky falls out on
+        // its own: the far-plane distance makes the gap negative. The SSR
+        // depth helper is only a monotonic metric with its own tolerance
+        // units, so it is not used here.
         vec2 sample_ndc_xy = sample_uv * 2.0 - 1.0;
         float sample_linear = -NDCToView(vec3(sample_ndc_xy, sample_z * 2.0 - 1.0)).z;
         float gap = -sample_view.z - sample_linear;
-        if (gap < CONTACT_SHADOW_GAP_MIN_METERS || gap > thickness) {
-            continue;
+        // Strict inequalities: with both bounds at zero the window is empty.
+        // The closed form would admit gap == 0.0, which still occurs when a
+        // sample lands bit-exactly on a surface depth.
+        if (gap > CONTACT_SHADOW_GAP_MIN_METERS && gap < thickness) {
+            // First occluder inside the slab: remove the direct light.
+            return 0.0;
         }
-        // Binary response: the first occluder inside the thickness slab
-        // removes the direct light outright.
-        return 0.0;
     }
     return 1.0;
 }

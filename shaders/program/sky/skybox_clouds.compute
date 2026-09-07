@@ -44,6 +44,11 @@ void main() {
     uint phase_index = uint(frameCounter) % 4u;
     ivec2 phase_offset = skybox_checkerboard_2x2[phase_index];
     bool full_init = (frameCounter == 0);
+    vec3 sun_dir = normalize(u_world_sun_dir);
+#ifdef VOLUMETRIC_CLOUDS
+    vec3 camera_atm_pos = AtmosphereCameraPosition();
+    int cloud_frame = frameCounter / 4;
+#endif
 
     for (int i = 0; i < 4; ++i) {
         ivec2 offset = skybox_checkerboard_2x2[i];
@@ -58,7 +63,6 @@ void main() {
         float phi = (float(texel.x) + 0.5) / float(CLOUD_SKYBOX_SIZE) * TAU - PI;
         vec3 view_dir = vec3(cos_theta * cos(phi), mu, cos_theta * sin(phi));
 
-        vec3 sun_dir = normalize(u_world_sun_dir);
         vec3 sky_color = texture(usam_skylut, SkyLUTUV(
             view_dir,
             sun_dir,
@@ -70,7 +74,6 @@ void main() {
         vec3 surface_position = vec3(0.0);
         float cloud_entry = 1.0e9;
 #ifdef VOLUMETRIC_CLOUDS
-        vec3 camera_atm_pos = AtmosphereCameraPosition();
         float cloud_exit = 0.0;
         bool cloud_visible = CloudShellInterval(
             camera_atm_pos,
@@ -86,7 +89,7 @@ void main() {
                 camera_atm_pos,
                 view_dir,
                 texel,
-                frameCounter / 4,
+                cloud_frame,
                 cloud_entry,
                 cloud_exit,
                 step_count,

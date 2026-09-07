@@ -19,7 +19,10 @@ void main() {
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
 
     ivec2 size = imageSize(colorimg0);
-    uint total_pixels = uint(size.x) * uint(size.y);
+    uint size_x = uint(size.x);
+    uint size_y = uint(size.y);
+    vec2 size_f = vec2(size);
+    uint total_pixels = size_x * size_y;
     uint px_per_group = (total_pixels + 63u) / 64u;
 
     uint start = wid * px_per_group;
@@ -31,11 +34,11 @@ void main() {
     barrier();
 
     for (uint i = start + tid; i < end; i += 256u) {
-        ivec2 pos = ivec2(i % uint(size.x), i / uint(size.x));
+        ivec2 pos = ivec2(i % size_x, i / size_x);
         vec3 c = imageLoad(colorimg0, pos).rgb;
         float luminance = max(Luminance(max(c, vec3(0.0))), 1.0e-5);
         float log_luminance = log2(luminance);
-        vec2 uv = (vec2(pos) + 0.5) / vec2(size);
+        vec2 uv = (vec2(pos) + 0.5) / size_f;
         float center_factor = 1.0 - smoothstep(0.12, 0.72, length(uv - 0.5) * 1.41421356);
         uint sample_weight = 1u + uint(center_factor * 3.0 + 0.5);
         log_sum += log_luminance * float(sample_weight);

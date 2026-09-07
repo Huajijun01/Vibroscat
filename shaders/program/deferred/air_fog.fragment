@@ -6,10 +6,43 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/atmosphere/air_fog.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/volume/air_epipolar.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
 layout(location = 0) out vec3 out_color;
+
+// Boundary fog: fade near-boundary geometry into the clouded skybox so the
+// loaded-area edge is masked instead of cutting off. Returns scene blended
+// toward the skybox color; sky pixels (depth >= 1.0) are returned unchanged.
+vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float depth, float radius) {
+#ifdef BOUNDARY_FOG
+    if (depth < 1.0) {
+        float boundary_horizontal = length(scene_pos.xz - EyePositionSceneSpace().xz);
+        float boundary_ratio = boundary_horizontal / radius;
+        float boundary_edge = smoothstep(BOUNDARY_FOG_START, 1.0, boundary_ratio);
+        boundary_edge *= boundary_edge;
+        float boundary_up = smoothstep(0.0, 0.25, world_dir.y);
+        float boundary_amount = min(
+            boundary_edge * BOUNDARY_FOG_STRENGTH *
+                (1.0 - boundary_up * BOUNDARY_FOG_HEIGHT_FADE),
+            1.0);
+        if (boundary_amount > 0.0) {
+            // Sample the clouded skybox at the view azimuth with a fixed
+            // below-horizon elevation so the fog tint matches the skyline.
+            vec2 boundary_xz = world_dir.xz;
+            float boundary_az_len = length(boundary_xz);
+            boundary_xz = boundary_az_len > 1e-5
+                ? boundary_xz / boundary_az_len
+                : vec2(1.0, 0.0);
+            vec3 boundary_dir = normalize(vec3(boundary_xz.x, -0.1, boundary_xz.y));
+            vec3 boundary_color = texture(usam_skylut_cloud, CloudSkyboxUV(boundary_dir)).rgb;
+            scene = mix(scene, boundary_color, boundary_amount);
+        }
+    }
+#endif
+    return scene;
+}
 
 void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
@@ -37,6 +70,12 @@ void main() {
     // Eye-accurate view direction: depth reconstruction is feet-space and
     // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
     vec3 world_dir = normalize(scene_pos - EyePositionSceneSpace());
+
+    // Boundary fog: fade near-boundary geometry into the clouded skybox so the
+    // loaded-area edge is masked instead of cutting off. Applied here, before
+    // the epipolar air fog, so the skybox tint and the analytic fog stack. Sky
+    // pixels (depth >= 1.0) keep the actual sky and are left untouched.
+    scene = ApplyBoundaryFog(scene, scene_pos, world_dir, depth, far);
 
     float shadow_fallback = 1.0;
 #ifdef AIR_FOG_SHADOWS

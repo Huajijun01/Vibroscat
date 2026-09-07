@@ -316,6 +316,14 @@ option.AIR_FOG_SKY_STRENGTH = 天空雾强度
 option.AIR_FOG_SKY_STRENGTH.comment = 天空色对雾的着色强度。
 option.AIR_FOG_SHADOWS = 雾阴影
 option.AIR_FOG_SHADOWS.comment = 雾内太阳阴影可见性（极线阴影项）。
+option.BOUNDARY_FOG = 边界雾
+option.BOUNDARY_FOG.comment = 将近边界几何体淡入带云天空盒贴图，遮住已加载区域的边缘。
+option.BOUNDARY_FOG_START = 边界雾起始
+option.BOUNDARY_FOG_START.comment = 雾效开始的渲染距离比例；越高越贴近可见边缘。
+option.BOUNDARY_FOG_STRENGTH = 边界雾强度
+option.BOUNDARY_FOG_STRENGTH.comment = 边界雾的整体不透明度。
+option.BOUNDARY_FOG_HEIGHT_FADE = 边界雾高度淡出
+option.BOUNDARY_FOG_HEIGHT_FADE.comment = 朝向天空的光线削弱该雾效的强度。
 
 #Lighting
 option.OPAQUE_REFLECTION = 不透明反射

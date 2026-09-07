@@ -316,6 +316,14 @@ option.AIR_FOG_SKY_STRENGTH = Sky Fog Strength
 option.AIR_FOG_SKY_STRENGTH.comment = How strongly the sky color tints the fog.
 option.AIR_FOG_SHADOWS = Fog Shadows
 option.AIR_FOG_SHADOWS.comment = Sun shadow visibility inside the fog (epipolar shadow term).
+option.BOUNDARY_FOG = Boundary Fog
+option.BOUNDARY_FOG.comment = Fade near-boundary geometry into the clouded skybox so the loaded-area edge is masked.
+option.BOUNDARY_FOG_START = Boundary Fog Start
+option.BOUNDARY_FOG_START.comment = Render-distance fraction where the fade begins; higher keeps it close to the visible edge.
+option.BOUNDARY_FOG_STRENGTH = Boundary Fog Strength
+option.BOUNDARY_FOG_STRENGTH.comment = Overall opacity of the boundary fog.
+option.BOUNDARY_FOG_HEIGHT_FADE = Boundary Fog Height Fade
+option.BOUNDARY_FOG_HEIGHT_FADE.comment = How strongly sky-facing rays weaken the fog.
 
 #Lighting
 option.OPAQUE_REFLECTION = Opaque Reflections

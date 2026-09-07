@@ -53,6 +53,8 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
     vec3 normal_shadow = normalize(mat3(shadowModelView) * normal_world);
     vec2 noise = vec2(SampleSTBN(texel, frameCounter), SampleSTBN(texel, frameCounter + 23));
     ivec2 shadow_size = textureSize(shadowtex0, 0);
+    vec2 shadow_size_f = vec2(shadow_size);
+    float rsm_sample_count = float(RSM_SAMPLES);
     vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
@@ -78,11 +80,11 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
         if (any(greaterThanEqual(abs(sample_clip), vec2(1.0)))) continue;
         vec2 distort_factor = GetDistortFactor(sample_clip);
         vec2 sample_uv = sample_clip / distort_factor * 0.5 + 0.5;
-        ivec2 sample_texel = ivec2(sample_uv * vec2(shadow_size));
+        ivec2 sample_texel = ivec2(sample_uv * shadow_size_f);
         if (any(lessThan(sample_texel, ivec2(0))) || any(greaterThanEqual(sample_texel, shadow_size))) continue;
         float sample_depth = texelFetch(shadowtex0, sample_texel, 0).r;
         if (sample_depth <= 0.0 || sample_depth >= 1.0) continue;
-        vec2 texel_uv = (vec2(sample_texel) + 0.5) / vec2(shadow_size);
+        vec2 texel_uv = (vec2(sample_texel) + 0.5) / shadow_size_f;
         vec3 emitter_shadow = RSMShadowViewPosition(texel_uv, sample_depth);
         vec3 delta_shadow = emitter_shadow - receiver_shadow;
         vec2 texel_extent_m;
@@ -138,8 +140,8 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
             sample_coverage * sample_coverage, bounce_luminance * sample_coverage);
     }
 
-    vec3 irradiance = sum_irradiance / float(RSM_SAMPLES);
-    float mean_coverage = sum_coverage / float(RSM_SAMPLES);
+    vec3 irradiance = sum_irradiance / rsm_sample_count;
+    float mean_coverage = sum_coverage / rsm_sample_count;
 #if RSM_SKY_OCCLUSION_FLOOR < 1.0
     float mean_shadow_occlusion = clamp(sum_shadow_occlusion / sum_shadow_weight, 0.0, 1.0);
     float shadow_occlusion = mean_shadow_occlusion * availability;
@@ -152,7 +154,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
     float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;
     // Evaluate the bounce/coverage covariance with the final sky factor. Add
     // the shadow estimator's standard error conservatively for shared samples.
-    vec3 moments = sum_transport_moments / float(RSM_SAMPLES);
+    vec3 moments = sum_transport_moments / rsm_sample_count;
     float sky_luminance = Luminance(occluded_sky);
     float mean_luminance = Luminance(irradiance) - sky_luminance * mean_coverage;
     float transport_variance = max(moments.x + sky_luminance * sky_luminance * moments.y

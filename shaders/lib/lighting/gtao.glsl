@@ -124,9 +124,11 @@ float ComputeGTAO(vec2 uv, vec2 texel, int frame) {
     vec3 normal = DecodeOctahedralNormal(geometry_data.xy);  // geometric view normal
 
     vec2 noise = GTAOSTBNNoise(texel, frame);
+    float slice_angle_base = noise.x * PI;
+    float n_v = dot(normal, view_axis);
     float visibility = 0.0;
     for (int s = 0; s < GTAO_SLICES; ++s) {
-        float slice_angle = noise.x * PI
+        float slice_angle = slice_angle_base
             + PI * float(s) / float(GTAO_SLICES);
         vec3 tangent = GTAOSliceTangent(view_axis, slice_angle);
         vec3 binormal = normalize(cross(view_axis, tangent));
@@ -134,7 +136,6 @@ float ComputeGTAO(vec2 uv, vec2 texel, int frame) {
 
         // Projected-normal angle in the slice plane.
         float n_t = dot(normal, tangent);
-        float n_v = dot(normal, view_axis);
         if (abs(n_t) + abs(n_v) < 1.0e-4) {
             continue;  // slice perpendicular to the normal: zero contribution
         }

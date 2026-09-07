@@ -249,9 +249,9 @@ const float eyeBrightnessHalflife = 3.0;
 // composite (composite2) before the epipolar air fog; Overworld only, with air
 // fog.
 #define BOUNDARY_FOG
-#define BOUNDARY_FOG_START 0.7 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
+#define BOUNDARY_FOG_START 0.5 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
 #define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
-#define BOUNDARY_FOG_HEIGHT_FADE 0.75 // [0.0 0.25 0.5 0.75 1.0] sky-facing dampening
+#define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 1.0] sky-facing dampening
 
 // ==========================================================================
 // ATMOSPHERE - Sky atmosphere

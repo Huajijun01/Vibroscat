@@ -123,7 +123,7 @@ const float ATM_PHASE_RAY_SCALE = 0.0596831;
 const float ATM_PHASE_MIE_K = 0.0244485;
 
 // -- Display --
-const float ATM_EXPOSURE = 0.07;  // from the 4-wave offline fit
+const float ATM_EXPOSURE = 0.05;  // from the 4-wave offline fit
 
 // -- Integration --
 const float ATM_NUM_STEPS = 128.0;

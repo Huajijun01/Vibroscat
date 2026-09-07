@@ -176,11 +176,13 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 screen_pos, vec3 view_pos,
         SHADOW_PCF_MAX_SAMPLES);
     vec2 factor = GetDistortFactor(clip_pos.xy);
     vec2 filter_texel_scale = 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
+    float filter_radius = max(penumbra_texels, 1.0);
+    vec2 filter_offset_scale = filter_radius * filter_texel_scale;
 
     float shadow = 0.0;
     int early_samples = min(4, step_count);
     for (int i = 0; i < early_samples; ++i) {
-        vec2 offset = max(penumbra_texels, 1.0) * filter_texel_scale
+        vec2 offset = filter_offset_scale
             * ShadowRotateDisk(
             ShadowDiskPoint(i, step_count), rot_x, rot_y);
         vec2 uv = clamp(DistortShadowClip(clip_pos.xy + offset), vec2(0.0), vec2(1.0));
@@ -196,7 +198,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 screen_pos, vec3 view_pos,
             return 1.0;
         }
         for (int i = 4; i < step_count; ++i) {
-            vec2 offset = max(penumbra_texels, 1.0) * filter_texel_scale
+            vec2 offset = filter_offset_scale
                 * ShadowRotateDisk(
                 ShadowDiskPoint(i, step_count), rot_x, rot_y);
             vec2 uv = clamp(DistortShadowClip(clip_pos.xy + offset), vec2(0.0), vec2(1.0));

@@ -187,7 +187,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
     // Push density away from the very bottom of the layer to keep the base soft.
     float height_penalty = Saturate((result.height_fraction - 0.15) / 0.85) * 0.5;
     // Fade the layer top; larger clouds get a thicker, softer cap.
-    float top_fade = 1.0 - smoothstep(0.7, 1.0, result.height_fraction);
+    float top_fade = 1.0 - smoothstep(0.5, 1.0, result.height_fraction);
     float macro_density = Saturate(distribution_density - height_penalty)
         * bottom_ramp
         * top_fade;

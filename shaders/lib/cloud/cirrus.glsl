@@ -192,8 +192,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
             sun_color *= CirrusLightTransmittance(sample_position, normal, sun_dir, sun_mu, light_jitter);
         }
         if (moon_visible > 0.0) {
-            moon_color *= CirrusLightTransmittance(sample_position, normal, moon_dir, moon_mu,
-                fract(light_jitter + 0.5));
+            moon_color *= CirrusLightTransmittance(sample_position, normal, moon_dir, moon_mu, light_jitter);
         }
 
         // Sky ambient from the multiscatter LUT.
@@ -216,9 +215,9 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
         cirrus_transmittance = ci_transmittance;
     }
 
-    if (max(ci_in_sctr, ci_transmittance).r < 1.0e-5) {
-        return sky_color;
-    }
+    // if (max(ci_in_sctr, ci_transmittance).r < 1.0e-5) {
+    //     return sky_color;
+    // }
 
     vec3 total_in_sctr = vec3(0.0);
     vec3 total_transmittance = vec3(1.0);

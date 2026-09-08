@@ -51,7 +51,7 @@ vec3 CloudSurfaceTransmittance(vec3 surface_pos, vec3 view_dir) {
 
 // Re-light unlit cloud radiance with the current sun/moon; the consumer
 // adds skyColor * cloudData.z afterwards.
-const float MOON_DARKEN = 0.4;
+// const float MOON_DARKEN = 0.4;
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
     vec3 sun_dir = normalize(u_world_sun_dir);
     vec3 moon_dir = -sun_dir;
@@ -62,7 +62,7 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
     vec3 sun_color = SpectralToLinearSRGB(
         SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, sun_mu) * ATM_SOLAR) * ATM_EXPOSURE;
     vec3 moon_color = SpectralToLinearSRGB(
-        SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE * MOON_DARKEN;
+        SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE;
     // Ambient evaluated once at the shared surface position, scaled by the
     // absorbed fraction (1 - T).
     vec3 ambient_cloud_radiance = GetAmbientColor(surface_position, sun_dir)

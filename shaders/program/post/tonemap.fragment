@@ -31,7 +31,8 @@ void main() {
 #ifdef AE
     hdr *= exposure;
 #endif
-#ifdef PURKINJE_EFFECT
+// The scotopic shift models adapted rod vision, so it requires AE.
+#if defined(PURKINJE_EFFECT) && defined(AE)
     hdr = ApplyPurkinjeEffect(hdr);
 #endif
     float hdr_luma = Luminance(hdr);

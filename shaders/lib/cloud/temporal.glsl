@@ -1,5 +1,5 @@
-#ifndef CLOUD_TEMPORAL_GLSL
-#define CLOUD_TEMPORAL_GLSL
+#ifndef LIB_CLOUD_TEMPORAL_GLSL
+#define LIB_CLOUD_TEMPORAL_GLSL
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/filters.glsl"

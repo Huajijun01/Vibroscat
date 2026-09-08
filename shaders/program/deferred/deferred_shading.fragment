@@ -47,6 +47,18 @@ layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
 
+// HG normalized as a surface lobe. The largest cosine-weighted hemisphere
+// integral occurs when its normal points along the lobe axis. Divide by that
+// exact integral: 2*PI*integral_0^1(mu*HG(mu,g) dmu). This stable closed form
+// is valid at g=0 as well, where the resulting surface response is 1/PI.
+float PlantTransmissionPhase(float cos_theta, float eccentricity) {
+    float g = clamp(eccentricity, 0.0, 0.9);
+    float g2 = g * g;
+    float projected_integral = (1.0 + g) / (2.0 * (1.0 - g + g2
+        + (1.0 - g) * sqrt(1.0 + g2)));
+    return PhaseMieHG(clamp(cos_theta, -1.0, 1.0), g) / projected_integral;
+}
+
 void main() {
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
@@ -57,7 +69,7 @@ void main() {
     // -- Sky (far plane) --
     // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
     if (depth >= 1.0) {
-#if OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
+#if SHADOW_SSS_DEBUG == 1 || OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
         out_color = vec3(0.0);
         return;
 #else
@@ -240,28 +252,66 @@ void main() {
     vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
 
     // -- Composite --
-    vec3 color = direct_lighting * sun_color * shadow_occlusion;
+    // All terms below are BRDF * incident visibility until the final light
+    // color multiplication. SSS redistributes only the diffuse light budget.
+    vec3 direct_visibility = direct_lighting * shadow_occlusion;
+    vec3 sss_lighting = vec3(0.0);
 
-    // Plant SSS: transmission through the PCSS-measured foliage thickness,
-    // after the shadow term; tinted by albedo, scalar absorption from average
-    // albedo. Fades to zero at the shadow-map boundary (no AO fallback).
     if (sss_amount > 0.01) {
-        float effective_shadow_distance = max(shadowDistance, 1.0);
-        float shadow_ndc_edge = max(abs(shadow_proj.x * 2.0 - 1.0), abs(shadow_proj.y * 2.0 - 1.0));
-        float shadow_dist_ratio = length(view_pos) / effective_shadow_distance;
-        float sss_availability = smoothstep(1.0, 0.9, shadow_ndc_edge) * smoothstep(0.8, 0.7, shadow_dist_ratio);
+        // Fade the shadow-map estimate into lightmap sky access, preserving
+        // the material response outside shadow coverage.
+        float shadow_ndc_edge = max(abs(shadow_proj.x * 2.0 - 1.0),
+            abs(shadow_proj.y * 2.0 - 1.0));
+        float shadow_dist_ratio = length(view_pos) / max(shadowDistance, 1.0);
+        float edge_fade = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0,
+            shadow_ndc_edge);
+        float depth_fade = 1.0 - smoothstep(0.85, 1.0,
+            abs(shadow_proj.z * 2.0 - 1.0));
+        // SSS needs a resolved foliage thickness; retire it well before the
+        // last shadow-map texels become undersampled at distance.
+        float distance_fade = 1.0 - smoothstep(0.35, 0.75,
+            shadow_dist_ratio);
+        // Do not hard-switch at the map border. The projected extent itself
+        // supplies a continuous confidence that reaches zero outside it.
+        float sss_availability = edge_fade * depth_fade * distance_fade;
         float ldotv = dot(light_direction, view_to_eye);
-        // Normalized HG: back-lit peak stays 1 (preserves brightness scale).
-        float hg_phase = PhaseMieHG(-ldotv, SHADOW_SSS_PHASE_G);
-        float effective_thickness = sss_thickness_world * sss_availability;
+        float sss_phase = PlantTransmissionPhase(-ldotv, SHADOW_SSS_PHASE_G);
         float average_albedo = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
-        float absorption = (1.0 - 0.75 * Saturate(average_albedo)) * SHADOW_SSS_DENSITY / max(sss_amount, 1.0e-3);
-        vec3 transmission = sun_color * hg_phase
-            * exp(-absorption * effective_thickness)
-            * sss_amount * SHADOW_SSS_SCALE
-            * albedo * sss_availability;
-        color += transmission;
+        float absorption = (1.0 - 0.75 * Saturate(average_albedo))
+            * SHADOW_SSS_DENSITY / max(sss_amount, 1.0e-3);
+        float map_transmission = exp(-absorption * sss_thickness_world);
+        // Blend the evaluated transmission, not thickness: fading optical
+        // depth first would brighten the transition before removing it.
+        float transmission = mix(SkyLightFromLm(lm.g), map_transmission,
+            sss_availability);
+        // Clamp the material budget first so ENERGY remains proportional
+        // throughout 0..1, including when the legacy SCALE exceeds one.
+        float material_share = Saturate(sss_amount * SHADOW_SSS_SCALE);
+        float sss_energy = material_share * Saturate(SHADOW_SSS_ENERGY)
+            * sss_availability;
+        vec3 direct_diffuse = albedo * (vec3(1.0) - FresnelSchlick(vdoth, material.f0))
+            * material.diffuse_weight
+            * DiffuseBurley(ndotv, ndotl, ldoth, material.perceptual_roughness)
+            * ndotl * shadow_occlusion;
+        vec3 transmission_reflectance = EvaluateDiffuseReflectance(
+            albedo, material.f0, material.diffuse_weight);
+        // Thickness already attenuates incoming light. A second (1-shadow)
+        // gate would remove transmission from unobstructed thin foliage.
+        sss_lighting = transmission_reflectance * sss_phase * transmission * sss_energy;
+        // Hand the diffuse budget over only where the transmission lobe can
+        // return it: phase * PI matches the (1/PI) diffuse response, so
+        // weak-phase directions keep plain diffuse shading and back-lit
+        // directions pay the full ENERGY share.
+        float removal_share = sss_energy * Saturate(sss_phase * PI);
+        direct_visibility = max(direct_visibility - direct_diffuse * removal_share,
+            vec3(0.0));
     }
+    vec3 color = (direct_visibility + sss_lighting) * sun_color;
+#if SHADOW_SSS_DEBUG == 1
+    // Isolate the actual term; fog and post-processing still follow this pass.
+    out_color = sss_lighting * sun_color;
+    return;
+#endif
 
     // Lambertian (no incident direction from SH/lightmap); metals have no
     // diffuse lobe. AO multiplies indirect terms only. Block light uses AO

@@ -106,7 +106,7 @@ void main() {
             accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
             vec3 cloud_transmittance;
             sky_color = RenderCloudLayers(view_dir, sky_color, accumulated.rgb, surface_position, cloud_entry,
-                cloud_transmittance);
+                tx, frameCounter, cloud_transmittance);
             // Sun/moon occluded by real cloud transmittance.
             sky_color += celestial * cloud_transmittance;
         } else {

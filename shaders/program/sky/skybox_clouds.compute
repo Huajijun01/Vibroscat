@@ -106,6 +106,8 @@ void main() {
             cloud_data,
             surface_position,
             cloud_entry,
+            texel,
+            cloud_frame,
             cloud_transmittance
         );
 #endif

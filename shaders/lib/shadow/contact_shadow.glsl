@@ -109,13 +109,11 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             break;  // left the screen
         }
         float sample_z = texture(depthtex1, sample_uv).r;
-        // Occluder distance in view-space meters via the canonical
-        // reconstruction (the same space as GTAO_RADIUS). Sky falls out on
-        // its own: the far-plane distance makes the gap negative. The SSR
-        // depth helper is only a monotonic metric with its own tolerance
-        // units, so it is not used here.
-        vec2 sample_ndc_xy = sample_uv * 2.0 - 1.0;
-        float sample_linear = -NDCToView(vec3(sample_ndc_xy, sample_z * 2.0 - 1.0)).z;
+        // Occluder distance in view-space meters via the sparse inverse
+        // projection (the same |view z| metric NDCToView reconstructs, and
+        // the SSR helpers' canonical linearization). Sky falls out on its
+        // own: the far-plane distance makes the gap negative.
+        float sample_linear = LinearDepthFromScreenDepth(sample_z);
         float gap = -sample_view.z - sample_linear;
         // Strict inequalities: with both bounds at zero the window is empty.
         // The closed form would admit gap == 0.0, which still occurs when a

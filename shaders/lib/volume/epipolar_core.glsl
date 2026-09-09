@@ -151,7 +151,7 @@ vec3 EpipolarViewToScene(vec2 uv01, float depth01) {
 // tight up close or meaningless far away. Relative comparison against these
 // keys is scale-invariant (see EpipolarEdgeWeight).
 float EpipolarViewZ(vec2 uv01, float depth01) {
-    return -NDCToView(vec3(uv01 * 2.0 - 1.0, depth01 * 2.0 - 1.0)).z;
+    return LinearDepthFromScreenDepth(depth01);
 }
 
 // Depth-aware unwarp weight: columns differing from the pixel's are

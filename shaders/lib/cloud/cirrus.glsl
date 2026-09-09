@@ -185,8 +185,11 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
         float sun_visible = smoothstep(-0.05, 0.0, sun_mu);
         float moon_visible = smoothstep(-0.05, 0.0, moon_mu);
 
-        vec3 sun_phase = vec3(CirrusPhase(clamp(dot(view_dir, sun_dir), -1.0, 1.0)));
-        vec3 moon_phase = vec3(CirrusPhase(clamp(dot(view_dir, moon_dir), -1.0, 1.0)));
+        // moon_dir is the exact IEEE negation of sun_dir, so the moon
+        // cosine is the exact negation of the sun's; clamp commutes with it.
+        float sun_cos = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
+        vec3 sun_phase = vec3(CirrusPhase(sun_cos));
+        vec3 moon_phase = vec3(CirrusPhase(-sun_cos));
 
         // Up-sun self shadowing of the direct lights; the moon march offsets
         // the jitter by half a period to decorrelate its taps from the sun's.

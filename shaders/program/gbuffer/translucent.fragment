@@ -91,10 +91,12 @@ void main() {
         }
     }
 
-    current_normal = normalize(mix(current_normal, v_normal, (1.0 - Pow4(dot(-normalize(v_view_pos), v_normal))) * 0.7));
+    // Shared by the normal clamp below, the water branch, and the ray trace.
+    vec3 view_dir = normalize(v_view_pos);
+    current_normal = normalize(mix(current_normal, v_normal, (1.0 - Pow4(dot(-view_dir, v_normal))) * 0.7));
 
     if (v_id == 1) {
-        vec3 to_camera = -normalize(v_view_pos);
+        vec3 to_camera = -view_dir;
         current_normal = SoftClampWaterNormal(current_normal, to_camera);
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
         surface_normal = vec3(world_n_clamped.x, world_n_clamped.z, world_n_clamped.y);
@@ -109,8 +111,6 @@ void main() {
 #endif
 
     vec2 screen_texcoord = gl_FragCoord.xy * u_view_pixel_size;
-
-    vec3 view_dir = normalize(v_view_pos);
 
     vec2 rt_coord = screen_texcoord;
     vec3 rt_pos = ViewToNDC(v_view_pos) * 0.5 + 0.5;

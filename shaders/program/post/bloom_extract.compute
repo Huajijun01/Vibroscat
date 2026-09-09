@@ -16,13 +16,12 @@ void main() {
 
     ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 16;
     ivec2 input_base = group_base * 2 - 2;
-    ivec2 in_size = imageSize(colorimg0);
 
     uint idx = gl_LocalInvocationIndex;
     for (uint i = idx; i < 1225u; i += 256u) {
         uint ty = i / 35u;
         uint tx = i % 35u;
-        ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), in_size - 1);
+        ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), full_size - 1);
         tile[ty][tx] = imageLoad(colorimg0, coord);
     }
 

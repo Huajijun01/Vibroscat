@@ -76,12 +76,12 @@ float GetFlaCloNoise(vec3 ps) {
     // return exp(smoothstep(0.0, 1.0, noise) * -5.0);
 
     float small = 1.0 - texture(utex_cloud_distribution_tex, ps.xz * 0.06).x;
-    float large = smoothstep(0.1, 1.0, texture(utex_cloud_distribution_tex, ps.xz * 0.005).x);
+    float large = Saturate((texture(utex_cloud_distribution_tex, ps.xz * 0.005).x - 0.3) / 0.7);
     // Square the contrast-stretched ratio: the raw field saturates into
     // plateaus (0 or 0.5-0.9), and the square widens it into a ramp so the
     // optical depth reads as a gradual thin-to-thick transition.
-    float density = Saturate((large - small) / (1.0 - small));
-    return density * density;
+    float density = Saturate(large - small);
+    return density;
 }
 
 float CirrusDensity(vec3 atmosphere_position) {
@@ -118,7 +118,7 @@ float CirrusLightTransmittance(vec3 sample_position, vec3 normal, vec3 light_dir
     int step_count = int(ceil(light_path_km / CIRRUS_LIGHT_STEP_KM));
     float stratum_width = light_path_km / float(step_count);
     float optical_depth = 0.0;
-    for (int i = 0; i < step_count; ++i) {
+    for (int i = 0; i < step_count; i++) {
         float sample_distance = (float(i) + jitter) * stratum_width;
         optical_depth += CirrusDensity(sample_position + tangent_dir * sample_distance) * stratum_width;
     }
@@ -172,11 +172,14 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
         vec3 moon_dir = -sun_dir;
 
         // Sun/moon sampled separately from the transmittance LUT (same
-        // expression as volumetric.glsl).
+        // expression as volumetric.glsl). The moon fetch MUST stay after the
+        // sun branch: adjacent straight-line fetches of this sampler with
+        // mirrored mu get merged by the driver (the LUT uv shares
+        // sqrt(max(r^2 (mu^2 - 1) + R^2, 0))), and the moon then returns the
+        // sun's transmittance — exactly zero at night.
         float sun_mu = dot(sample_position, sun_dir) / height;
         vec3 sun_color = SpectralToLinearSRGB(SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, sun_mu) * ATM_SOLAR) * ATM_EXPOSURE;
         float moon_mu = -sun_mu;
-        vec3 moon_color = SpectralToLinearSRGB(SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE;
 
         // A light below the local horizon is occluded by the planet.
         float sun_visible = smoothstep(-0.05, 0.0, sun_mu);
@@ -191,6 +194,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
         if (sun_visible > 0.0) {
             sun_color *= CirrusLightTransmittance(sample_position, normal, sun_dir, sun_mu, light_jitter);
         }
+
+        vec3 moon_color = SpectralToLinearSRGB(SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE;
         if (moon_visible > 0.0) {
             moon_color *= CirrusLightTransmittance(sample_position, normal, moon_dir, moon_mu, light_jitter);
         }

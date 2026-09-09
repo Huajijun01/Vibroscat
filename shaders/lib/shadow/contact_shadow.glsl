@@ -102,8 +102,15 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             break;  // crossed the camera near plane
         }
         // Exact perspective projection per sample (no screen-depth lerp).
-        vec4 clip_h = gbufferProjection * vec4(sample_view, 1.0);
-        vec2 sample_uv = clip_h.xy / -sample_view.z * 0.5 + 0.5;
+        // Only the XY clip rows are read, so the projection reduces to two
+        // row dot products instead of a full mat4*vec4.
+        vec4 sample_view4 = vec4(sample_view, 1.0);
+        vec2 clip_xy = vec2(
+            dot(vec4(gbufferProjection[0][0], gbufferProjection[1][0],
+                     gbufferProjection[2][0], gbufferProjection[3][0]), sample_view4),
+            dot(vec4(gbufferProjection[0][1], gbufferProjection[1][1],
+                     gbufferProjection[2][1], gbufferProjection[3][1]), sample_view4));
+        vec2 sample_uv = clip_xy / -sample_view.z * 0.5 + 0.5;
         if (any(lessThan(sample_uv, vec2(0.0)))
                 || any(greaterThan(sample_uv, vec2(1.0)))) {
             break;  // left the screen

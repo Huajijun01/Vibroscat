@@ -47,6 +47,7 @@ value.TONEMAP_MODE.0 = AgX
 value.TONEMAP_MODE.1 = OKLAB
 value.TONEMAP_MODE.2 = ACES
 value.TONEMAP_MODE.3 = Reinhard-Gamut
+value.TONEMAP_MODE.4 = GT7
 option.TONEMAP_EXPOSURE = Manual Exposure
 option.TONEMAP_EXPOSURE.comment = Extra exposure in EV, applied before auto-exposure.
 option.TONEMAP_SATURATION = Saturation
@@ -78,6 +79,12 @@ option.TONEMAP_RG_HIGHLIGHT_REACH_EV = Reinhard-Gamut Highlight Reach
 option.TONEMAP_RG_HIGHLIGHT_REACH_EV.comment = Scene stops above 18% grey that first reach the display peak.
 option.TONEMAP_RG_HUE_RETENTION = Reinhard-Gamut Hue Retention
 option.TONEMAP_RG_HUE_RETENTION.comment = Pulls the mapped hue back toward the original by the shortest hue angle.
+option.TONEMAP_GT7_BLEND = GT7 Path Blend
+option.TONEMAP_GT7_BLEND.comment = Blend between the per-channel curve pass and the chroma-fade UCS pass (official 0.6).
+option.TONEMAP_GT7_CHROMA_FADE_START = GT7 Chroma Fade Start
+option.TONEMAP_GT7_CHROMA_FADE_START.comment = Highlight level in UCS luma, relative to paper white, where chroma fading begins.
+option.TONEMAP_GT7_CHROMA_FADE_END = GT7 Chroma Fade End
+option.TONEMAP_GT7_CHROMA_FADE_END.comment = Highlight level where chroma is fully faded toward white (official 1.16).
 
 #Post: camera & effects
 option.DOF = Depth of Field

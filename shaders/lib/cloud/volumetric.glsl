@@ -265,7 +265,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         // factor is finite, so both accumulators would gain exactly +0.0;
         // skipping the step body is bit-exact and sparse skies spend most
         // light steps here.
-        if (cloud_density > 0.0) {
+        if (cloud_density > 0.01) {
             float sigma_t = cloud_density * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY;
             float sigma_s = cloud_density * CLOUD_ALPHA_SCATTERING_SRGB_GRAY;
             float segment_optical_depth = sigma_t * interval_weight;

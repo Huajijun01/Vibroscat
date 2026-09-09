@@ -11,7 +11,7 @@ Photon Shaders (Copyright © 2021-2025 Benjamin Stott "SixthSurge", custom licen
 - `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` (GGX spherical-area light with Newton-iterated bent light direction) was transcribed from Photon's `include/lighting/bsdf.glsl`; it has since been re-transcribed from the Guerrilla Decima Engine public lecture material (Johan Andersson, SIGGRAPH 2017), see section 11, and no longer contains Photon code expression.
 - The temporal AO depth/offcenter rejection in `shaders/lib/lighting/temporal_ao.glsl` (GTAO_DEPTH_REJECTION=16.0, GTAO_OFFCENTER_STRENGTH=0.25, matching Photon's `d3_ao.fsh`; the offcenter trick is itself attributed by Photon to Zombye/Jessie) has been fully rewritten as an independent implementation (world-space displacement + normal-consistency rejection, see the file header comment); the original formulas and constants have been deleted.
 
-The "Photon-style" / "Photon default" comments remaining in the source are parameter and concept provenance notes only and do not constitute copies of Photon code; the redistribution restrictions of Photon's custom license do not apply to the pack's current code. The historical port and cleanup records remain in the Git history.
+The redistribution restrictions of Photon's custom license do not apply to the pack's current code. The historical port and cleanup records remain in the Git history.
 
 ## 2. HanPi Volume Cloud (derived code, MIT + additional attribution)
 
@@ -164,12 +164,26 @@ The 4-wave spectral atmosphere model (410/480/560/630 nm) in `lib/atmosphere/cor
 ## 16. GT-VBGI / ReferenceGI (CC0 1.0)
 
 The screen-space visibility-bitmask GI in
-`shaders/program/deferred/recursive_gi.fragment` is a clean adaptation of the
-GT-VBGI / ReferenceGI reference source. That source offers a choice of CC0 1.0
-Universal or the MIT License; this pack uses it under CC0 1.0 Universal:
-https://creativecommons.org/publicdomain/zero/1.0/. The fast arctangent
-approximation in the reference source separately cites
-https://www.shadertoy.com/view/lXBfWm.
+`shaders/program/deferred/recursive_gi.fragment` is ported from Mirko Salm's
+unidirectional GT-VBGI reference implementation. That source offers a choice of
+CC0 1.0 Universal or the MIT License; this pack uses it under CC0 1.0
+Universal: https://creativecommons.org/publicdomain/zero/1.0/. Reference:
+https://www.shadertoy.com/view/XcdBWf (bidirectional variant:
+https://www.shadertoy.com/view/lfdBWn). The fast arctangent approximation in
+the reference source separately cites https://www.shadertoy.com/view/lXBfWm.
+
+Provenance correction (2026-09-09): an earlier adaptation of this GI borrowed
+several expressions from the Sundial-Lite (GPL-3.0, Copyright © 2026
+GeForceLegend) port: the inlined slice-relative CDF simplification with its
+[w0, 1] offset remap form, the `floatBitsToUint` sector quantization, and the
+distance-scaled geometry thickness term. All of them have been replaced with
+the corresponding forms of the CC0/MIT reference above. Only the homogeneous
+screen-edge ray clamp (including its `far + 32.0` limit) is retained from
+Sundial-Lite with that author's explicit permission (verbal, 2026-09).
+Sundial-Lite is no longer an expression source for the GI trace in this file.
+The temporal reconstruction in `gi_denoise.glsl` remains an independent
+SVGF-style implementation; the design-level comparison of its 2x2 history
+pattern is recorded in `docs/recursive-gi-denoising-plan.md`.
 
 ## 17. Reflective Shadow Maps and temporal reconstruction (algorithmic references)
 
@@ -190,6 +204,56 @@ The RSM source encoding, sampling and reconstruction in
   (`diffuse/Accumulate.frag`) were examined for architecture comparison only.
   iterationT's redistribution permission was not established; Revelation is
   Apache-2.0. No source or assets from either pack are included in this change.
+
+## 18. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
+
+`TonemapGT7` in `shaders/lib/color/color.glsl` (`TONEMAP_MODE == 4`) is ported
+from the official sample implementation `gt7_tone_mapping.cpp` released by
+Polyphony Digital with the SIGGRAPH 2025 course material *Driving Toward
+Reality: Physically Based Tone Mapping and Perceptual Fidelity in Gran Turismo 7*
+(Kentaro Suzuki, Kenichiro Yasutomi). The sample code is explicitly MIT
+licensed:
+
+> gt7_tone_mapping.cpp is licensed under the MIT license.
+>
+> Copyright (c) 2025 Polyphony Digital Inc.
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/>
+(course slides `s2025_pbs_pdi_slides_v1.1.pdf` and the companion
+`gt7_tone_mapping.cpp`).
+
+Porting adaptations:
+
+- The sample's linear Rec.2020 frame-buffer domain (1.0 = 100 nits) is entered
+  and left through linear BT.709 <-> BT.2020 matrices derived from the
+  primaries, matching the pack's linear sRGB convention.
+- A `GT7_MID_GREY_SCALE` input prescale (numerically solved from
+  0.4*curve(2.50832*0.18) = 0.18) re-anchors 18% grey, the anchor shared with
+  the other tonemap modes; the curve keeps the official SDR preset (peak 2.5,
+  alpha 0.25, gray point 0.538, linear section 0.444, toe strength 1.28,
+  blend 0.6, chroma fade 0.98-1.16).
+- The UCS is the sample default ICtCp (ITU-R BT.2124, Rec.2020); the ICtCp
+  inverse matrix is an exact-by-definition constant.
+- Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,
+  `TONEMAP_GT7_CHROMA_FADE_END` (defaults are the official sample values).
 
 ## Appendix A: Apache License 2.0 (full text)
 

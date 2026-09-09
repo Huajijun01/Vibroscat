@@ -88,9 +88,9 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
         vec3 emitter_shadow = RSMShadowViewPosition(texel_uv, sample_depth);
         vec3 delta_shadow = emitter_shadow - receiver_shadow;
         vec2 texel_extent_m;
-        // Reuse the sampled first-surface depth for sky occlusion. This is a
-        // directional test against the receiver plane, so no second shadow
-        // map comparison is needed; transparent depth is intentionally valid.
+        // Reuse the sampled first-surface depth for sky occlusion: a
+        // directional test against the receiver plane; transparent depth
+        // is valid here.
 #if RSM_SKY_OCCLUSION_FLOOR < 1.0
         texel_extent_m = 2.0 * distort_factor * distort_factor
             / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));

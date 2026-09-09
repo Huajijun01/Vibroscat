@@ -15,11 +15,21 @@
 #include "/lib/lighting/reflective_shadow_map.glsl"
 #endif
 
-// Clean adaptation of the supplied CC0/MIT ReferenceGI and Sundial-Lite
-// visibility-bitmask method. colortex5 is read-only scene radiance from the
-// existing pipeline; this pass owns the colortex9/10 GI temporal history pair.
+// Port of the unidirectional GT-VBGI visibility-bitmask screen-space GI by
+// Mirko Salm (CC0 1.0 / MIT dual license; this file follows CC0):
+//   https://www.shadertoy.com/view/XcdBWf  (bidirectional variant:
+//   https://www.shadertoy.com/view/lfdBWn)
+// The slice sampler's fast arctangent is from
+//   https://www.shadertoy.com/view/lXBfWm
+// Only the homogeneous screen-edge trace clamp follows Sundial-Lite and is
+// retained with that author's explicit permission. colortex5 is read-only
+// scene radiance from the existing pipeline; this pass owns the colortex9/10
+// GI temporal history pair.
 const int GI_STEPS = 16;
-const float GI_LENGTH = 514.0;
+// March width in screen pixels (the reference's Raymarching_Width).
+const float GI_LENGTH = 512.0;
+// Sample geometry thickness in view-depth meters (the reference's Thickness).
+const float GI_THICKNESS = 0.1;
 const float GI_RADIANCE_LIMIT = 64.0;
 
 layout(location = 0) out vec3 out_gi;
@@ -87,16 +97,30 @@ vec3 GIRotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
     return vec3(slice_direction, 0.0) + 2.0 * (basis * quaternion.yxw);
 }
 
-uint GIVisibilityMaskFromRange(float range_start, float range_end) {
-    uvec2 horizontal_int = (uvec2(floatBitsToUint(range_start), floatBitsToUint(range_end))
-        >> 17u) & 0x3Fu;
-    uint start_bit = horizontal_int.x;
-    uint end_bit = horizontal_int.y;
-    uint left = start_bit < 32u ? 0xFFFFFFFFu << start_bit : 0u;
-    uint right = end_bit != 0u ? 0xFFFFFFFFu >> (32u - end_bit) : 0u;
+// Slice-relative CDF of the cosine-weighted distribution for the active
+// slice: the isPhiLargerThanAngN = true arm of the reference's
+// SliceRelCDF_Cos. Endpoint inputs pass through unchanged, as in the
+// reference.
+float GISliceRelativeCDF(float x, float angle_normal, float cos_normal) {
+    if (x <= 0.0 || x >= 1.0) return x;
+    float phi = x * PI - PI * 0.5;
+    float numerator = 3.0 * cos_normal - cos(angle_normal - 2.0 * phi)
+        + (4.0 * angle_normal - 2.0 * phi + PI) * sin(angle_normal);
+    float denominator = 4.0 * (cos_normal + angle_normal * sin(angle_normal));
+    return numerator / denominator;
+}
+
+// Quantize the remapped arc into 32 sectors and mask the covered span
+// (reference: uvec2(floor(hor01 * 32.0)) with the range-end masks ANDed).
+uint GIVisibilityMaskFromRange(vec2 range01) {
+    uvec2 range_bits = uvec2(floor(range01 * 32.0));
+    uint left = range_bits.x < 32u ? 0xFFFFFFFFu << range_bits.x : 0u;
+    uint right = range_bits.y != 0u ? 0xFFFFFFFFu >> (32u - range_bits.y) : 0u;
     return left & right;
 }
 
+// Homogeneous screen-edge trace clamp: the one element kept from
+// Sundial-Lite's port, used with the Sundial author's explicit permission.
 float GITraceScreenEdge(vec4 origin_projection, vec4 projected_direction, float far_plane) {
     vec2 t1 = (vec2(1.0) * origin_projection.w - origin_projection.xy)
         / (projected_direction.xy - vec2(1.0) * projected_direction.w);
@@ -118,10 +142,13 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
     vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
     vec3 normal_vvs = GIRotateVectorByQuaternion(origin_normal_view, q_from_view);
-    vec2 noise = vec2(
+    // Reference Rnd01x4 usage: noise.x samples the slice direction, noise.y
+    // jitters the first march step, noise.z jitters the sector arcs.
+    vec3 noise = vec3(
         SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter),
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + 32));
-    noise = fract(noise + vec2(0.7548776662, 0.7548776662 * 0.7548776662)
+        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + 32),
+        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + 16));
+    noise = fract(noise + vec3(0.7548776662, 0.7548776662 * 0.7548776662, 0.7548776662)
         * float(frameCounter & 63));
     vec2 slice_direction = GISampleSliceDirection(normal_vvs, noise.x);
     vec3 ray_direction = GIRotateSliceDirectionByQuaternion(slice_direction, q_to_view);
@@ -140,9 +167,11 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
     vec2 sample_range = (target_coord - origin_coord) * u_screen_res;
     float inv_range = inversesqrt(dot(sample_range, sample_range));
     vec2 step_dir = sample_range * inv_range * u_view_pixel_size;
-    float step_scale_log = log2(max(1.0 / GI_LENGTH, clamp(inv_range, 0.0, 1.0))) / -float(GI_STEPS);
-    float step_scale = exp2(step_scale_log);
-    float step_size = exp2(step_scale_log * noise.y);
+    // Reference march schedule: GI_STEPS geometric steps that grow to the
+    // clamped march width, with the first step jittered by noise.y.
+    float march_width = min(GI_LENGTH, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
+    float step_scale = pow(march_width, 1.0 / float(GI_STEPS));
+    float step_size = pow(step_scale, noise.y);
     vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
     vec2 inverse_projection_bias = gbufferProjectionInverse[3].xy;
     float inverse_projection_z = gbufferProjectionInverse[3].z;
@@ -158,14 +187,12 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
     float cos_normal = dot(projected_normal, view_direction);
     float angle_normal = (dot(view_direction, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
     float sin_normal = sin(angle_normal);
-    float denom = cos_normal + angle_normal * sin_normal;
-    float w0 = clamp((sin_normal / denom) * (PI * 0.25) + 0.5, 0.0, 1.0);
-    float t1 = 0.25 / denom;
-    float t01 = (3.0 * cos_normal + (4.0 * angle_normal + PI) * sin_normal) * t1;
-    float remap_mul = 32.0 / (1.0 - w0);
-    float remap_add = -w0 * remap_mul + 64.0;
-    remap_add += remap_mul * t01;
-    remap_mul *= t1;
+    // Share of the cosine-weighted slice the march cannot use, and the
+    // [w0, 1] remap of the slice-relative CDF (reference w0_remap_*).
+    float w0 = clamp((sin_normal / (cos_normal + angle_normal * sin_normal))
+        * (PI * 0.25) + 0.5, 0.0, 1.0);
+    float remap_mul = 1.0 / (1.0 - w0);
+    float remap_add = -w0 * remap_mul;
 
     uint occupied = 0u;
     vec3 gi = vec3(0.0);
@@ -185,20 +212,23 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
         sample_view /= inverse_projection_depth_scale * (sample_depth * 2.0 - 1.0)
             + inverse_projection_depth_bias;
         vec3 delta_front = sample_view - origin_view_position;
-        // Sundial's non-hand geometry thickness term: clamp the projected
-        // footprint before taking the reciprocal square root so distant
-        // surfaces retain the intended 0.1 m angular interval.
-        vec3 delta_back = delta_front + sample_view
-            * inversesqrt(clamp(dot(sample_view, sample_view) * 0.25, 0.0, 1.0))
-            * 0.1;
+        // Reference perspective arm ("required for correctness"): the back
+        // face is the same pixel's ray reprojected at depth + Thickness,
+        // i.e. GI_THICKNESS farther along the camera-to-sample ray (equal to
+        // the reference's normalize(samplePosVS) * Thickness arm).
+        vec3 delta_back = delta_front + normalize(sample_view) * GI_THICKNESS;
         float front_cos = dot(delta_front, view_direction) * inversesqrt(max(dot(delta_front, delta_front), 1.0e-6));
         float back_cos = dot(delta_back, view_direction) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
-        vec2 horizontal01 = clamp((horizontal + angle_normal) / PI + 0.5, 0.0, 1.0);
-        vec2 phi = horizontal01 * TAU - PI;
-        horizontal01 = -cos(angle_normal - phi) - phi * sin_normal;
-        horizontal01 = horizontal01 * remap_mul + remap_add;
-        uint sample_mask = GIVisibilityMaskFromRange(horizontal01.x, horizontal01.y);
+        // Reference hor01 pipeline: shift the horizon angles from V to N,
+        // evaluate the slice-relative cosine CDF, keep only the [w0, 1]
+        // share, then jitter both arc ends by one sector.
+        vec2 horizontal01 = clamp((horizontal + angle_normal) / PI + 0.5, vec2(0.0), vec2(1.0));
+        horizontal01 = vec2(GISliceRelativeCDF(horizontal01.x, angle_normal, cos_normal),
+            GISliceRelativeCDF(horizontal01.y, angle_normal, cos_normal));
+        horizontal01 = horizontal01 * remap_mul + vec2(remap_add);
+        horizontal01 = clamp(horizontal01 + vec2(noise.z * (1.0 / 32.0)), vec2(0.0), vec2(1.0));
+        uint sample_mask = GIVisibilityMaskFromRange(horizontal01);
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
             vec2 previous_uv = ToPrevious(vec3(sample_uv, sample_depth)).xy;

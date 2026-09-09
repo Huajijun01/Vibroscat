@@ -417,7 +417,9 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 }
 
 // ===============================================================
-// GetAmbientColor - sky ambient light (linear HDR, no tonemap)
+// GetAmbientColor - sky ambient light (linear HDR, no tonemap), converted
+// with the sky's solar->D65 white-balanced pair so ambient stays consistent
+// with the sky LUT it is derived from.
 // ===============================================================
 
 vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
@@ -426,7 +428,7 @@ vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
     float h = r - ATM_PLANET_R;
     vec4 ss = GetScattering(h);
     vec4 ms = SampleMultiScatter(MULTISCATTER_LUT, r, mu);
-    return SpectralToLinearSRGB(ss * ms * ATM_SOLAR) * ATM_EXPOSURE;
+    return Rec2020ToSRGB(SpectralToLinearRec2020(ss * ms * ATM_SOLAR)) * ATM_EXPOSURE;
 }
 
 #endif

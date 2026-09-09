@@ -329,8 +329,8 @@ void main() {
 #endif
     // Both GI estimators already include SH for uncovered directions.
 #if GI_MODE == 2
-    // RSM solid-angle coverage is not a receiver visibility mask. Retain
-    // local AO for occluders missing from its first-surface shadow map.
+    // Retain local AO for occluders missing from RSM's first-surface
+    // shadow map.
     color += lambert_brdf * gi_ambient * ao_effective;
 #else
     color += lambert_brdf * gi_ambient;

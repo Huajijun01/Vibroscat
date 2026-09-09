@@ -6,7 +6,7 @@
 // declared here exactly once; shared libraries do not declare their own
 // copies, so no compile unit ever sees a duplicate declaration.
 //
-// Image uniforms (uimg_*) are intentionally NOT here: each compute entry
+// Image uniforms (uimg_*) are not declared here: each compute entry
 // needs a format layout qualifier (r8 / rgba16f) that differs per pass.
 
 // -- Iris built-in matrices (injected by Iris; no properties line) --

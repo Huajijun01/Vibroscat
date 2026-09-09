@@ -47,6 +47,7 @@ value.TONEMAP_MODE.0 = AgX
 value.TONEMAP_MODE.1 = OKLAB
 value.TONEMAP_MODE.2 = ACES
 value.TONEMAP_MODE.3 = Reinhard-Gamut
+value.TONEMAP_MODE.4 = GT7
 option.TONEMAP_EXPOSURE = 手动曝光
 option.TONEMAP_EXPOSURE.comment = 额外曝光（EV），在自动曝光之前应用。
 option.TONEMAP_SATURATION = 饱和度
@@ -78,6 +79,12 @@ option.TONEMAP_RG_HIGHLIGHT_REACH_EV = Reinhard-Gamut 高光到达
 option.TONEMAP_RG_HIGHLIGHT_REACH_EV.comment = 18% 灰以上、首次到达显示峰值的场景档数。
 option.TONEMAP_RG_HUE_RETENTION = Reinhard-Gamut 色相保持
 option.TONEMAP_RG_HUE_RETENTION.comment = 沿最短色相角把映射后色相拉回原始色相的程度。
+option.TONEMAP_GT7_BLEND = GT7 路径混合
+option.TONEMAP_GT7_BLEND.comment = 逐通道曲线路径与色度渐隐 UCS 路径之间的混合比例（官方 0.6）。
+option.TONEMAP_GT7_CHROMA_FADE_START = GT7 色度渐隐起点
+option.TONEMAP_GT7_CHROMA_FADE_START.comment = 以 UCS 亮度（相对纸白）表示、开始向白色渐隐色度的高光水平。
+option.TONEMAP_GT7_CHROMA_FADE_END = GT7 色度渐隐终点
+option.TONEMAP_GT7_CHROMA_FADE_END.comment = 色度完全渐隐为白色的高光水平（官方 1.16）。
 
 #Post: camera & effects
 option.DOF = 景深

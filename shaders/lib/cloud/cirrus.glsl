@@ -76,12 +76,12 @@ float GetFlaCloNoise(vec3 ps) {
     // return exp(smoothstep(0.0, 1.0, noise) * -5.0);
 
     float small = 1.0 - texture(utex_cloud_distribution_tex, ps.xz * 0.06).x;
-    float large = Saturate((texture(utex_cloud_distribution_tex, ps.xz * 0.005).x - 0.3) / 0.7);
+    float large = Saturate((texture(utex_cloud_distribution_tex, ps.xz * 0.005).x - 0.15) / 0.85);
     // Square the contrast-stretched ratio: the raw field saturates into
     // plateaus (0 or 0.5-0.9), and the square widens it into a ramp so the
     // optical depth reads as a gradual thin-to-thick transition.
-    float density = Saturate(large - small);
-    return density;
+    float density = Saturate((large - small) / (1.0 - small * 0.8));
+    return density * density;
 }
 
 float CirrusDensity(vec3 atmosphere_position) {
@@ -178,7 +178,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
         // sqrt(max(r^2 (mu^2 - 1) + R^2, 0))), and the moon then returns the
         // sun's transmittance — exactly zero at night.
         float sun_mu = dot(sample_position, sun_dir) / height;
-        vec3 sun_color = SpectralToLinearSRGB(SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, sun_mu) * ATM_SOLAR) * ATM_EXPOSURE;
+        vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+            SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
         float moon_mu = -sun_mu;
 
         // A light below the local horizon is occluded by the planet.
@@ -198,7 +199,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
             sun_color *= CirrusLightTransmittance(sample_position, normal, sun_dir, sun_mu, light_jitter);
         }
 
-        vec3 moon_color = SpectralToLinearSRGB(SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE;
+        vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+            SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
         if (moon_visible > 0.0) {
             moon_color *= CirrusLightTransmittance(sample_position, normal, moon_dir, moon_mu, light_jitter);
         }

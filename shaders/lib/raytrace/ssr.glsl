@@ -7,7 +7,7 @@
 #include "/lib/core/math_scalar.glsl"
 
 // Shared screen-space reflection marcher. Both water and opaque reflection
-// use the same deliberately permissive depth-crossing rule; only their step
+// use the same depth-crossing rule; only their step
 // budget, distance limit, and treatment of a far-plane miss differ.
 #define SSR_REFINE_STEPS 6
 #define SSR_TOL_SLOPE 0.1
@@ -127,8 +127,8 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             clamp(ray_pos.z, 0.0, 1.0));
         float surface_linear = LinearDepthFromScreenDepth(surface_depth);
         if (surface_depth < 1.0 && surface_linear < ray_depth) {
-            // The first permissive crossing is enough. Bisection only locates
-            // it; there is intentionally no thickness or normal rejection.
+            // Bisection locates the first depth crossing; this trace
+            // performs no thickness or normal rejection.
             float lo = previous_t;
             float hi = t;
             vec3 lo_pos = previous_pos;

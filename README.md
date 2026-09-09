@@ -12,9 +12,6 @@ Vibroscat is in early development. Many effects are not implemented yet, and
 parts of the code may have quality or maintainability issues. Expect visual
 defects, incomplete settings, and breaking changes between versions.
 
-AI generated a large portion of the code. The author reviewed and extensively
-revised that code, and designed the rendering pipeline architecture.
-
 ## Screenshots
 
 ![Savanna landscape with volumetric clouds, clear water, and soft daylight](screenshots/scene1-sky.jpg)

@@ -11,7 +11,7 @@ Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义�
 - `shaders/lib/lighting/brdf.glsl` 的 `GetNdotHSquared`（GGX 球形区域光，Newton 迭代弯曲光方向）曾转录自 Photon 的 `include/lighting/bsdf.glsl`；现已按 Guerrilla Decima Engine 公开讲座材料（Johan Andersson, SIGGRAPH 2017）重新转录，见第 11 节，不再包含 Photon 代码表达。
 - `shaders/lib/lighting/temporal_ao.glsl` 的时序 AO 深度/offcenter 拒绝（GTAO_DEPTH_REJECTION=16.0、GTAO_OFFCENTER_STRENGTH=0.25，与 Photon `d3_ao.fsh` 相同；offcenter 技巧由 Photon 自身标注源自 Zombye/Jessie）已整体重写为独立实现（世界位移 + 法线一致性拒绝，见该文件头注释），原公式与常量已全部删除。
 
-当前源码中保留的 "Photon-style" / "Photon default" 注释仅为参数与概念来源标注，不构成 Photon 代码副本；Photon 自定义许可协议中的再分发限制不适用于本包当前代码。历史移植与清理记录保留在 Git 历史中。
+Photon 自定义许可协议中的再分发限制不适用于本包当前代码。历史移植与清理记录保留在 Git 历史中。
 
 ## 2. HanPi Volume Cloud（派生代码，MIT + 附加署名）
 
@@ -163,11 +163,21 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 
 ## 16. GT-VBGI / ReferenceGI（CC0 1.0）
 
-`shaders/program/deferred/recursive_gi.fragment` 的屏幕空间可见性位掩码 GI 基于
-GT-VBGI / ReferenceGI 参考源码重新适配。该参考源码声明可在 CC0 1.0 Universal
+`shaders/program/deferred/recursive_gi.fragment` 的屏幕空间可见性位掩码 GI 移植自
+Mirko Salm 的单向 GT-VBGI 参考实现。该参考源码声明可在 CC0 1.0 Universal
 或 MIT License 中任选其一；本包依据 CC0 1.0 Universal 使用：
-https://creativecommons.org/publicdomain/zero/1.0/ 。参考源码中的快速反正切近似另标注
-来源为 https://www.shadertoy.com/view/lXBfWm 。
+https://creativecommons.org/publicdomain/zero/1.0/ 。参考实现：
+https://www.shadertoy.com/view/XcdBWf （双向变体：https://www.shadertoy.com/view/lfdBWn ）。
+参考源码中的快速反正切近似另标注来源为 https://www.shadertoy.com/view/lXBfWm 。
+
+溯源更正（2026-09-09）：该 GI 的早期适配曾借用 Sundial-Lite（GPL-3.0，
+Copyright © 2026 GeForceLegend）移植版中的若干表达：切片相对 CDF 的内联
+简化与 [w0,1] 偏移重映射形式、`floatBitsToUint` 扇区量化、随距离缩放的
+几何厚度项。本次变更已将其全部替换为上述 CC0/MIT 参考实现中的对应形式，
+仅保留齐次空间屏幕边缘射线截断（含 `far + 32.0` 上限）一项，经 Sundial
+作者口头许可继续使用（2026-09）。Sundial-Lite 不再是本文件 GI 追踪代码
+的表达来源；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其设计层
+面的 2×2 历史模式比较记录见 `docs/recursive-gi-denoising-plan.md`。
 
 ## 17. Reflective Shadow Maps 与时域重建（算法引用）
 
@@ -185,6 +195,52 @@ https://creativecommons.org/publicdomain/zero/1.0/ 。参考源码中的快速�
 - iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）及 Revelation
   （`diffuse/Accumulate.frag`）仅用于架构比较。iterationT 的再分发许可未经确认，
   Revelation 为 Apache-2.0。本次变更未复制上述两包的源码或资产。
+
+## 18. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
+
+`shaders/lib/color/color.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 4`）移植自
+Polyphony Digital 随 SIGGRAPH 2025 课程材料发布的官方样例实现
+`gt7_tone_mapping.cpp`，课程为 *Driving Toward Reality: Physically Based Tone
+Mapping and Perceptual Fidelity in Gran Turismo 7*（Kentaro Suzuki、Kenichiro
+Yasutomi），样例代码明确以 MIT 许可发布：
+
+> gt7_tone_mapping.cpp is licensed under the MIT license.
+>
+> Copyright (c) 2025 Polyphony Digital Inc.
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+来源：<https://blog.selfshadow.com/publications/s2025-shading-course/pdi/>
+（课程幻灯片 `s2025_pbs_pdi_slides_v1.1.pdf` 及配套 `gt7_tone_mapping.cpp`）。
+
+移植适配说明：
+
+- 输入/输出域由样例的线性 Rec.2020 frame-buffer（1.0 = 100 nits）经
+  BT.709 ↔ BT.2020 线性矩阵转换为本包的线性 sRGB 约定；矩阵常量由原色推导。
+- 加入 `GT7_MID_GREY_SCALE` 中灰锚定预缩放（数值求解 0.4·curve(2.50832·0.18) =
+  0.18），与其他色调映射模式共享 18% 灰锚点；曲线参数保持官方 SDR 预设
+  （peak 2.5、alpha 0.25、gray point 0.538、linear section 0.444、toe strength
+  1.28、blend 0.6、chroma fade 0.98–1.16）。
+- UCS 采用样例默认的 ICtCp（ITU-R BT.2124，Rec.2020）；ICtCp 逆矩阵为按定义
+  精确求逆的常量。
+- 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、
+  `TONEMAP_GT7_CHROMA_FADE_END`（默认值均为官方样例值）。
 
 ## 附录 A：Apache License 2.0 全文
 

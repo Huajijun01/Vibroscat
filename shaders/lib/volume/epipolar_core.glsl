@@ -158,10 +158,9 @@ float EpipolarViewZ(vec2 uv01, float depth01) {
 // down-weighted (no silhouette/shadow-edge smearing). The keys are linear
 // viewZ and the tolerance is RELATIVE (fraction of the deeper key), so the
 // acceptance band is scale-invariant: full weight inside the band, steep
-// 4th-power falloff outside (pattern from Alpha Piscium's refinement
-// weight). A relative test with linear depth fixes the hard blocks at low
-// epipolar resolution, where raw depth01 saturates and an absolute
-// tolerance mis-accepts distant columns.
+// 4th-power falloff outside. A relative test with linear depth fixes the
+// hard blocks at low epipolar resolution, where raw depth01 saturates and
+// an absolute tolerance mis-accepts distant columns.
 float EpipolarEdgeWeight(float pixel_key, float sample_key) {
     if (pixel_key <= 0.0 || sample_key <= 0.0) return 0.0;
     float max_z = max(pixel_key, max(sample_key, 1.0));

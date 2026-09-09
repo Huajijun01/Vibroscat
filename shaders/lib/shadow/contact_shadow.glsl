@@ -20,10 +20,7 @@
 // upper bound (min) on the shadow-map result, so it only darkens what the
 // map left lit.
 //
-// False-shadow guards, studied from iterationT 3.2.0
-// shaders/Lib/BasicFounctions/Sunlight_Shadow.glsl (ScreenSpaceShadow) under
-// the project's pack-study rules; that snapshot has no pack-level license,
-// so only the concepts were taken:
+// False-shadow guards:
 //   - the ray starts offset along the receiver normal by a pixel-scaled,
 //     1/NdotL-weighted bias, so the receiver's own surface plane cannot
 //     self-occlude at grazing light angles;
@@ -33,11 +30,6 @@
 //     of interpolating screen depth along the ray.
 // Edge softness comes from the per-step STBN dither converged by the pack's
 // TAA. With TAA disabled the dither stays fixed so the shadow is static.
-//
-// The technique was also compared against Photon v1.3b
-// shaders/include/lighting/shadows/ssrt.glsl and Revelation-dev
-// shaders/lib/lighting/shadow/Render.glsl; this file is an independent
-// re-expression around Vibroscat coordinate helpers and settings.
 
 // The march reach scales with view distance (a fixed angular footprint
 // matches the screen-space resolvability), bounded by the near floor and
@@ -85,7 +77,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float dither = SampleSTBN(stbn_texel, frame);
     float step_count = float(CONTACT_SHADOW_STEPS);
 
-    // iterationT-style step pattern: linear strides that grow by 0.3 per
+    // Step pattern: linear strides that grow by 0.3 per
     // step, each sample dithered inside its stride. The first sample starts
     // one full stride out, so the receiver's own surface neighborhood is
     // skipped entirely instead of being probed by dense near-field samples.

@@ -12,6 +12,9 @@
 #define TAA
 //#define DOF
 //#define MOTION_BLUR
+#define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
+
+
 // Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
 #define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
 #define GI_DENOISE
@@ -21,7 +24,8 @@
 #define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
 #define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
-#define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
+
+
 
 #define BLOOM
 #define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
@@ -33,8 +37,8 @@
 #define CAS
 #define CAS_SHARPNESS 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
-// Tonemap operator (0 = AgX, 1 = OKLAB, 2 = ACES, 3 = Reinhard-Gamut)
-#define TONEMAP_MODE 3 // [0 1 2 3] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut
+// Tonemap operator (0 = AgX, 1 = OKLAB, 2 = ACES, 3 = Reinhard-Gamut, 4 = GT7)
+#define TONEMAP_MODE 3 // [0 1 2 3 4] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut 4=GT7
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
@@ -72,6 +76,13 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define TONEMAP_RG_INPUT_SCALE 1.2195122 // [0.1 0.2 0.3 0.5 0.75 1.0 1.2195122 1.5 2.0 3.0 4.0 6.0 8.0] Reinhard-Gamut input scale (1/(1-0.18) preserves 18% gray)
 #define TONEMAP_RG_HIGHLIGHT_REACH_EV 6.5 // [6.0 6.5 7.0 7.5 8.0 9.0 10.0 12.0 15.0 20.0] Reinhard-Gamut scene stops above 18% gray that first reach the display peak
 #define TONEMAP_RG_HUE_RETENTION 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Reinhard-Gamut original-hue retention (shortest hue angle)
+
+// GT7 Tone Mapping (TONEMAP_MODE == 4): Polyphony Digital color-volume
+// mapping (SIGGRAPH 2025 course, official MIT sample). The curve parameters
+// use the official SDR preset and are fixed in lib/color/color.glsl.
+#define TONEMAP_GT7_BLEND 0.6 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] GT7 blend between the per-channel curve and the chroma-fade UCS path (official 0.6)
+#define TONEMAP_GT7_CHROMA_FADE_START 0.98 // [0.80 0.85 0.90 0.94 0.96 0.98 1.00 1.02 1.04] GT7 chroma-fade start, UCS luma relative to paper white (official 0.98)
+#define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)
 
 // ==========================================================================
 // CLOUDS - Volumetric clouds
@@ -230,7 +241,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
 #define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
 #define EPIPOLAR_SHADOW_STEPS 64 // [16 24 32 48 64 96 128 192 256]
-#define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08] Relative viewZ column-match tolerance (3% = Alpha Piscium refinement threshold).
+#define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08] Relative viewZ column-match tolerance (3%).
 #define EPIPOLAR_EDGE_SHARPEN 0.25 // [0.1 0.2 0.25 0.3 0.4]
 #define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
 
@@ -259,12 +270,6 @@ const float eyeBrightnessHalflife = 3.0;
 // ATMOSPHERE - Sky atmosphere
 // ==========================================================================
 
-// Horizon below-dip: let below-horizon sky rays travel a small distance beneath
-// the planet surface before terminating, so they integrate the exponentially
-// denser low-altitude Mie/aerosol air and the horizon reads thicker/hazier
-// (Alpha Piscium BOTTOM_OFFSET analogue). The other density profiles clamp
-// altitude at the surface, so only the Mie term (a plain exp) grows there and
-// needs no clamp. 0 keeps the ground at exactly the planet surface.
 #define ATM_HORIZON_DIP 1 // [0 1] Horizon below-dip; 0 = off
 #define ATM_HORIZON_DIP_SCALE 8.0 // [0.0 2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] below-surface dip depth (km)
 

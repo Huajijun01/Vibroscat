@@ -163,7 +163,7 @@ void main() {
 
     vec4 frame;
     if (hit) {
-        float distance_km = length(surface_position - AtmosphereCameraPosition());
+        float distance_km = length(surface_position - camera_atmosphere_pos);
         frame = vec4(cloud_data, distance_km);
     } else {
         frame = vec4(cloud_data, cloud_top_distance);

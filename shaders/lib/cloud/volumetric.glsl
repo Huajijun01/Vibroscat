@@ -164,8 +164,7 @@ float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
     return mix(1.0, boundary_lit, Saturate(CLOUD_MS_BOUNDARY_CONFIDENCE));
 }
 
-CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmosphere_pos
-) {
+CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
     CloudDensitySample result;
     result.density = 0.0;
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
@@ -239,7 +238,6 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     if (light_distance <= 1.0e-5) return transport;
 
     float inverse_step_count = 1.0 / float(CLOUD_LIGHT_STEPS);
-    vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
 
     // March from the receiver toward the sun, matching HPVolumeCloud's source
     // semantics. Every source's build/propagation depth is measured from the
@@ -261,7 +259,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         float sample_distance = mix(segment_start, segment_end, light_jitter);
         float sample_offset = sample_distance - segment_start;
         vec3 source_position = atmosphere_position + light_dir * sample_distance;
-        CloudDensitySample density_sample = SampleCloudDensity(source_position, camera_atmosphere_pos);
+        CloudDensitySample density_sample = SampleCloudDensity(source_position);
         float cloud_density = density_sample.density;
         // With zero density the scattering source is +0.0 and every other
         // factor is finite, so both accumulators would gain exactly +0.0;
@@ -365,9 +363,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
         float sample_distance = march_start + (float(i) + view_jitter) * step_length;
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
-        float sample_r2 = dot(sample_position, sample_position);
-        CloudDensitySample density_sample = SampleCloudDensity(sample_position, camera_atmosphere_pos);
+        CloudDensitySample density_sample = SampleCloudDensity(sample_position);
         if (density_sample.density < 1.0e-4) continue;
+
+        // Only CloudLightBlockedByEarth consumes the squared radius below;
+        // keep it off the erased-sample path.
+        float sample_r2 = dot(sample_position, sample_position);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * 0.61803398875);
         float sample_sun_radiance = 0.0;

@@ -417,18 +417,6 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 }
 
 // ===============================================================
-// SkyViewLookup - 4-wave spectral -> ACES tonemapped sRGB
-// ===============================================================
-
-vec3 SkyViewLookup(vec3 camera_pos, vec3 view_dir, vec3 sun_dir) {
-    vec4 spectral_radiance = ComputeSkyRadiance(camera_pos, view_dir, sun_dir);
-    vec3 sky_radiance = max(Rec2020ToSRGB(SpectralToLinearRec2020(spectral_radiance)), vec3(0.0));
-    sky_radiance *= ATM_EXPOSURE;
-    sky_radiance = (sky_radiance * (2.51 * sky_radiance + 0.03)) / (sky_radiance * (2.43 * sky_radiance + 0.59) + 0.14);
-    return pow(clamp(sky_radiance, 0.0, 1.0), vec3(0.45454545));
-}
-
-// ===============================================================
 // GetAmbientColor - sky ambient light (linear HDR, no tonemap)
 // ===============================================================
 

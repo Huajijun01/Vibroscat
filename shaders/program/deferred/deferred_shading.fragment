@@ -244,18 +244,19 @@ void main() {
 #endif
     }
 #endif
-    out_direct_brdf = direct_lighting * shadow_occlusion;
-
-    // -- Light color sources (same colors as the gbuffer translucent passes) --
-    vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
-    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_BASE floor (AmbientLight).
-    vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
-
     // -- Composite --
     // All terms below are BRDF * incident visibility until the final light
     // color multiplication. SSS redistributes only the diffuse light budget.
     vec3 direct_visibility = direct_lighting * shadow_occlusion;
+    out_direct_brdf = direct_visibility;
+    // -- Light color sources (same colors as the gbuffer translucent passes) --
+    vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
+    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_BASE floor (AmbientLight).
+    vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
     vec3 sss_lighting = vec3(0.0);
+    // Same-argument reflectance as the torch term below; evaluated once.
+    vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
+        albedo, material.f0, material.diffuse_weight);
 
     if (sss_amount > 0.01) {
         // Fade the shadow-map estimate into lightmap sky access, preserving
@@ -293,11 +294,9 @@ void main() {
             * material.diffuse_weight
             * DiffuseBurley(ndotv, ndotl, ldoth, material.perceptual_roughness)
             * ndotl * shadow_occlusion;
-        vec3 transmission_reflectance = EvaluateDiffuseReflectance(
-            albedo, material.f0, material.diffuse_weight);
         // Thickness already attenuates incoming light. A second (1-shadow)
         // gate would remove transmission from unobstructed thin foliage.
-        sss_lighting = transmission_reflectance * sss_phase * transmission * sss_energy;
+        sss_lighting = diffuse_reflectance * sss_phase * transmission * sss_energy;
         // Hand the diffuse budget over only where the transmission lobe can
         // return it: phase * PI matches the (1/PI) diffuse response, so
         // weak-phase directions keep plain diffuse shading and back-lit
@@ -317,8 +316,6 @@ void main() {
     // diffuse lobe. AO multiplies indirect terms only. Block light uses AO
     // cubed, blended toward 1 by falloff (occlusion visible in torchlit caves).
     vec3 lambert_brdf = EvaluateLambertBRDF(
-        albedo, material.f0, material.diffuse_weight);
-    vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
 #if GI_MODE != 0
     vec3 gi_ambient = texelFetch(colortex9, tx, 0).rgb;
@@ -354,7 +351,8 @@ void main() {
         material.perceptual_roughness);
     float ssr_weight = 1.0 - sh_weight;
 
-    float sh_reflection_ndotv = Max0(dot(normal, view_to_eye));
+    // Same geometric term as ndotv above; nothing rewrites `normal` between.
+    float sh_reflection_ndotv = ndotv;
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
     vec3 sh_specular = vec3(0.0);
     bool need_sh = true;
@@ -421,7 +419,7 @@ void main() {
     float reflection_gate = reflection_smoothness
         - reflection_roughness * threshold_ratio
             * (1.0 - 0.6666 * reflection_metalness);
-    float reflection_strength = (1.0 - pow(reflection_roughness, 5.0))
+    float reflection_strength = (1.0 - Pow5(reflection_roughness))
         * sqrt(clamp(reflection_gate, 0.0, 1.0));
     indirect_specular *= reflection_strength;
 #if OPAQUE_SSR_DEBUG == 8

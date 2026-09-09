@@ -204,19 +204,22 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position, vec3 camera_atmo
         * CLOUD_EROSION_STRENGTH
         * height_exposure;
     broad_density = RemapCloudErosion(broad_density, erosion_threshold);
-    vec3 fine_erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_FINE_EROSION_SCALE_KM + vec3(
-            frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
-    // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
-    // field (baked curved flow).
-    float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
-    // A small base weight keeps fine erosion from fully erasing the base.
-    float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, result.height_fraction) * 0.9 + 0.1;
-    float fine_threshold = (1.0 - fine_erosion_noise)
-        * CLOUD_FINE_EROSION_STRENGTH
-        * fine_height_weight;
-    float eroded_density = RemapCloudErosion(broad_density, fine_threshold);
-
-    result.density = eroded_density;
+    // RemapCloudErosion(0, threshold) saturates to exactly +0.0, so once the
+    // broad pass erased the sample the fine fetch is dead; the initialized
+    // density is already the bit-exact result.
+    if (broad_density > 0.0) {
+        vec3 fine_erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_FINE_EROSION_SCALE_KM + vec3(
+                frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
+        // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
+        // field (baked curved flow).
+        float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
+        // A small base weight keeps fine erosion from fully erasing the base.
+        float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, result.height_fraction) * 0.9 + 0.1;
+        float fine_threshold = (1.0 - fine_erosion_noise)
+            * CLOUD_FINE_EROSION_STRENGTH
+            * fine_height_weight;
+        result.density = RemapCloudErosion(broad_density, fine_threshold);
+    }
     return result;
 }
 
@@ -260,35 +263,41 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
         vec3 source_position = atmosphere_position + light_dir * sample_distance;
         CloudDensitySample density_sample = SampleCloudDensity(source_position, camera_atmosphere_pos);
         float cloud_density = density_sample.density;
-        float sigma_t = cloud_density * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY;
-        float sigma_s = cloud_density * CLOUD_ALPHA_SCATTERING_SRGB_GRAY;
-        float segment_optical_depth = sigma_t * interval_weight;
-        // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
-        // 1/D scale.
-        float scattering_source = sigma_s * interval_weight;
-        float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
-        float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
-        float inverse_distance = 1.0 / max(sample_distance, 1.0e-4);
-        // HP's source confidence is evaluated at each light-ray source. The
-        // bottom term uses the local source height; the boundary term uses
-        // that source's XZ position.
-        float source_bottom_height = max(density_sample.height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
-        float source_bottom_confidence = 1.0 - exp(-source_bottom_height * CLOUD_MS_DEPTH_POWER);
-        vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
-        float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
-        float source_confidence = source_bottom_confidence * source_boundary_confidence;
-        // HP's T_cum is the receiver-to-source absorption before this
-        // segment; propagation reaches the jittered source point.
-        float source_absorption = exp(-one_minus_omega0 * total_optical_depth);
-        float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);
-        weighted_source_sum += source_absorption
-            * source_propagation
-            * scattering_source
-            * sigma_t
-            * isotropic_build
-            * inverse_distance
-            * source_confidence;
-        total_optical_depth += segment_optical_depth;
+        // With zero density the scattering source is +0.0 and every other
+        // factor is finite, so both accumulators would gain exactly +0.0;
+        // skipping the step body is bit-exact and sparse skies spend most
+        // light steps here.
+        if (cloud_density > 0.0) {
+            float sigma_t = cloud_density * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY;
+            float sigma_s = cloud_density * CLOUD_ALPHA_SCATTERING_SRGB_GRAY;
+            float segment_optical_depth = sigma_t * interval_weight;
+            // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
+            // 1/D scale.
+            float scattering_source = sigma_s * interval_weight;
+            float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
+            float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
+            float inverse_distance = 1.0 / max(sample_distance, 1.0e-4);
+            // HP's source confidence is evaluated at each light-ray source. The
+            // bottom term uses the local source height; the boundary term uses
+            // that source's XZ position.
+            float source_bottom_height = max(density_sample.height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
+            float source_bottom_confidence = 1.0 - exp(-source_bottom_height * CLOUD_MS_DEPTH_POWER);
+            vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
+            float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
+            float source_confidence = source_bottom_confidence * source_boundary_confidence;
+            // HP's T_cum is the receiver-to-source absorption before this
+            // segment; propagation reaches the jittered source point.
+            float source_absorption = exp(-one_minus_omega0 * total_optical_depth);
+            float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);
+            weighted_source_sum += source_absorption
+                * source_propagation
+                * scattering_source
+                * sigma_t
+                * isotropic_build
+                * inverse_distance
+                * source_confidence;
+            total_optical_depth += segment_optical_depth;
+        }
     }
     transport.optical_depth = total_optical_depth;
 

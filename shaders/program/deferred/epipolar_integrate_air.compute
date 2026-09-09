@@ -24,6 +24,10 @@ void main() {
     float sample_denominator = float(EPIPOLAR_SAMPLES - 1);
     int slice_i = int(slice);
     uint loop = uint((EPIPOLAR_SAMPLES + 127) / 128);
+    // Frame-constant medium inputs: identical for every sample, so evaluate
+    // them once per invocation instead of once per sample.
+    vec3 air_start = EyePositionSceneSpace();
+    float air_extinction = AirExtinction();
     for (uint i = 0u; i < loop; ++i) {
         uint sample_index = gl_LocalInvocationID.y + i * 128u;
         if (sample_index >= uint(EPIPOLAR_SAMPLES)) break;
@@ -40,7 +44,6 @@ void main() {
             if (isEyeInWater == 0) {
                 float depth0 = texelFetch(depthtex0, texel, 0).r;
                 air_key = EpipolarViewZ(uv01, depth0);
-                vec3 air_start = EyePositionSceneSpace();
                 vec3 air_end = EpipolarViewToScene(uv01, depth0);
                 vec3 world_dir = normalize(air_end - air_start);
                 float depth_dist = length(air_end - air_start);
@@ -48,7 +51,7 @@ void main() {
                 if (AirFogSegment(depth_dist, far, segment_length)) {
                     vec3 clamped_end = air_start + world_dir * segment_length;
                     air_e = EpipolarAirShadowRatio(
-                    air_start, clamped_end, AirExtinction(),
+                    air_start, clamped_end, air_extinction,
                         ivec2(slice_i, int(sample_index)));
                 }
             }

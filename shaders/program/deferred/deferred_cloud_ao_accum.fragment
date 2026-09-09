@@ -116,12 +116,13 @@ void main() {
         float next_age = 0.0;
         float accumulated = fresh_ao;
         vec2 history_uv;
-        if (frameCounter > 0 && GTAOReprojectToPrevious(world_pos, history_uv)) {
+        vec3 receiver_prev_view;
+        if (frameCounter > 0 && GTAOReprojectToPrevious(world_pos, history_uv, receiver_prev_view)) {
             vec4 history = texture(colortex8, history_uv);
             if (isnan(history.a)) {
                 // AO history (A=NaN): accumulate with distance/normal
                 // rejection; full rejection reseeds with age reset.
-                float rejection = GTAOHistoryWeight(world_pos, geo_view_n, history_uv, history);
+                float rejection = GTAOHistoryWeight(receiver_prev_view, geo_view_n, history_uv, history);
                 accumulated = GTAOAccumulate(fresh_ao, history.r, history.g, rejection, next_age);
             } else {
                 // Cloud radiance or never-written slot: reseed from current frame.

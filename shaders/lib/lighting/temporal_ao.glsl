@@ -16,10 +16,13 @@
 // dot floor (GTAOHistoryWeight); both ramp smoothly to zero.
 
 // Reproject a camera-relative world position into the previous frame's UV.
+// Also outputs the receiver in the previous frame's view space for
+// GTAOHistoryWeight (the forward push the reprojection already computed).
 // Returns false when the point is behind the previous camera or off-screen.
-bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv) {
+bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiver_prev_view) {
     vec3 camera_delta = cameraPosition - previousCameraPosition;
     vec4 previous_view = gbufferPreviousModelView * vec4(world_pos + camera_delta, 1.0);
+    receiver_prev_view = previous_view.xyz;
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
     vec3 previous_ndc = previous_clip.xyz / previous_clip.w;
     previous_uv = previous_ndc.xy * 0.5 + 0.5;
@@ -33,12 +36,14 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv) {
 //  - normal: current-frame normal at the reprojected position stands in for
 //    the previous (no previous-normal buffer); disagreement beyond
 //    GTAO_HISTORY_NORMAL_DOT_MIN -> 0.
-float GTAOHistoryWeight(vec3 world_pos, vec3 view_normal, vec2 history_uv, vec4 history) {
-    // Distance consistency (world-space displacement).
+float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_uv, vec4 history) {
+    // Distance consistency. Both points live in the previous frame's view
+    // space: the history surface from PreviousScreenToView and the receiver
+    // pushed forward by GTAOReprojectToPrevious. The view transform is rigid,
+    // so this equals the world-space displacement the limit is expressed in,
+    // without inverting the previous modelview per pixel.
     vec3 previous_view = PreviousScreenToView(vec3(history_uv, 1.0 - history.b));
-    vec3 previous_scene = (inverse(gbufferPreviousModelView) * vec4(previous_view, 1.0)).xyz;
-    vec3 previous_in_current = previous_scene - (cameraPosition - previousCameraPosition);
-    float displacement = length(previous_in_current - world_pos);
+    float displacement = length(previous_view - receiver_prev_view);
     float distance_weight = 1.0 - smoothstep(0.0, GTAO_HISTORY_DISTANCE_LIMIT, displacement);
 
     // Normal consistency (current-frame normal at the reprojected position).

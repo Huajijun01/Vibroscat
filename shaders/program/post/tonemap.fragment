@@ -31,9 +31,13 @@ void main() {
 #ifdef AE
     hdr *= exposure;
 #endif
-// The scotopic shift models adapted rod vision, so it requires AE.
-#if defined(PURKINJE_EFFECT) && defined(AE)
-    hdr = ApplyPurkinjeEffect(hdr);
+// The scotopic shift models adapted rod vision, so it requires AE. Keep the
+// feature gates as #ifdef directives so Iris discovers PURKINJE_EFFECT as a
+// configurable boolean option.
+#ifdef PURKINJE_EFFECT
+#ifdef AE
+    hdr = ApplyPurkinjeEffect(hdr, smooth_lum);
+#endif
 #endif
     float hdr_luma = Luminance(hdr);
     hdr = mix(vec3(hdr_luma), hdr, TONEMAP_SATURATION);

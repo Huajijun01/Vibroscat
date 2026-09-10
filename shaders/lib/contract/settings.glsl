@@ -43,11 +43,19 @@
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
 
-//#define PURKINJE_EFFECT // Requires AE: the scotopic shift only applies with auto exposure.
-#define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Scotopic blue-green shift strength
-const float PURKINJE_START_LUMINANCE = 0.08;
-const float PURKINJE_END_LUMINANCE = 0.35;
-const vec3 PURKINJE_CHANNEL_RESPONSE = vec3(0.72, 1.04, 1.18);
+//#define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
+#define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
+// Rod-vision (scotopic) model, gated by the exposure state alone. The
+// adaptation key (smooth_lum) ramps the rod share log-linearly across the
+// mesopic band: 0.004 anchors near the full-moon night key (moon ground
+// irradiance ATM_MOON_IRR * ATM_EXPOSURE ~ 0.007), 0.04 stays below the
+// daylight key. CONE_LUMINANCE is the post-exposure luminance pivot where
+// cone color vision retakes over (0.35 ~ +1 EV over the 0.18 exposure
+// target); the tint is the unit-luminance rod gray.
+const float PURKINJE_SCOTOPIC_KEY = 0.004;
+const float PURKINJE_PHOTOPIC_KEY = 0.04;
+const float PURKINJE_CONE_LUMINANCE = 0.35;
+const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 
 // AgX look and adjustments (only used when TONEMAP_MODE == 0)
 #define TONEMAP_AGX_LOOK 1 // [0 1 2] AgX look: 0=Base 1=Punchy 2=Greyscale

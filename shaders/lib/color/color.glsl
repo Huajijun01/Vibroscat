@@ -25,6 +25,13 @@ float Luminance(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
+// Linear sRGB (D65) -> CIE XYZ, shared by colorimetric models (scotopic
+// luminance, white point math).
+const mat3 SRGB_TO_XYZ = mat3(
+    vec3(0.4124564, 0.2126729, 0.0193339),
+    vec3(0.3575761, 0.7151522, 0.1191920),
+    vec3(0.1804375, 0.0721750, 0.9503041));
+
 // OKLAB
 vec3 RGBToOKLAB(vec3 c) {
     float l = 0.4121656120 * c.r + 0.5362752080 * c.g + 0.0514575653 * c.b;

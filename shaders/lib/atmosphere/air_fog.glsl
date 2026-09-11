@@ -91,7 +91,7 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     vec3 sun_visibility = vec3(shadow_fallback);
 #endif
     result.in_scattering += (ray_rgb * PhaseRayleigh(cos_theta)
-                          + mie_rgb * PhaseMieHG(cos_theta, 0.8))
+                          + mie_rgb * PhaseMieTripleLobe(cos_theta))
         * ground_light.rgb * sun_visibility;
 
     // Multiple scattering

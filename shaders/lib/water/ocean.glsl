@@ -14,6 +14,9 @@
 // the normal's slope variance while costing 4 of its 32 fetches.
 // Statically optimized: freq pre-multiplied into uv, fitted gain into
 // amplitude. Normals from a central-difference gradient.
+//
+// WATER_ANALYTIC_WAVES moves the three finest remaining bands (table indices
+// 4..6) out of the texture path; see the analytic high band below.
 
 
 // Parallax occlusion mapping for the water surface: the normal is
@@ -49,6 +52,55 @@ const ValueNoiseWave VALUE_NOISE_WAVES[VALUE_NOISE_LAYERS] = ValueNoiseWave[](
 // central-difference step, matched to the offline 384-grid (32 m) gradient.
 const float VALUE_NOISE_EPS = 0.1; // central-difference step (m)
 
+// Texture-sampled band count: the whole table, or the four low bands when the
+// analytic high band replaces indices 4..6.
+#ifdef WATER_ANALYTIC_WAVES
+const int VALUE_NOISE_TEXTURED_LAYERS = 4;
+#else
+const int VALUE_NOISE_TEXTURED_LAYERS = VALUE_NOISE_LAYERS;
+#endif
+
+#ifdef WATER_ANALYTIC_WAVES
+// Analytic high band: each of the three finest bands becomes a pair of
+// directional triangle waves set +-30 deg about that band's own wind axis.
+// tri(u) = 1 - 2*|fract(u) - 0.5| is piecewise linear, so its derivative is
+// the square wave +2/-2 and the band needs no finite difference: the water
+// normal drops from 7*4 texture fetches to 4*4 and the high band costs six ALU
+// waves. Only the gradient is evaluated; the band height is never summed,
+// because the POM relight reads the four low bands.
+//
+// The pair, rather than one wave per band, exists to break ridge coherence.
+// One wave per band matches the slope but reads as strong striping: anisotropy
+// 5.41 against the layered field's 3.86, with ridges correlated over 1.72 m
+// against 0.92 m. The +-30 deg pair lands at 4.07 and 1.27 m, both inside the
+// spread a same-method re-roll of the noise lattice produces (4.56 and 1.66 m).
+// Rotating the bands' own axes instead of spreading about them is worse (6.01
+// even at zero spread), because the high band's job includes cancelling the
+// low band's own anisotropy.
+//
+// Offline fit against the layered field at the same eps: each pair keeps its
+// band's angular frequency and advection, and the pair gains are fitted to that
+// band's central-difference slope, then scaled 0.9435 so the total slopeRMS
+// matches. Result: slopeRMS 1.00x, slope concentration 1.84 against 1.87, and a
+// local normal within 8.1 deg rms / 15.5 deg p95, against the 13.2 deg /
+// 27.0 deg a re-roll produces.
+struct TriangleWave {
+    vec2 axis;   // ridge direction * angular frequency (rad/m)
+    float gain;  // fitted triangle height amplitude (m)
+    float omega; // deep-water dispersion: ridge phase speed (rad/s)
+    float phase; // fixed offset so the six ridges do not share crest lines
+};
+
+const int TRIANGLE_WAVE_LAYERS = 6;
+const TriangleWave TRIANGLE_WAVES[TRIANGLE_WAVE_LAYERS] = TriangleWave[](
+    TriangleWave(vec2(3.15342163, 1.48519355), 0.00540941, 5.93238, 0.311000),  // table[4], 0.287 m cell, -30 deg
+    TriangleWave(vec2(0.29049547, 3.47354001), 0.00540941, 5.93238, 0.681000),  // table[4], 0.287 m cell, +30 deg
+    TriangleWave(vec2(1.44096366, 0.45235606), 0.01838549, 3.89348, 0.577000),  // table[5], 0.662 m cell, -30 deg
+    TriangleWave(vec2(0.32872999, 1.47408917), 0.01838549, 3.89348, 0.947000),  // table[5], 0.662 m cell, +30 deg
+    TriangleWave(vec2(2.31511255, -3.28182434), 0.00590774, 6.41017, 0.829000), // table[6], 0.249 m cell, -30 deg
+    TriangleWave(vec2(3.99969953, 0.36403411), 0.00590774, 6.41017, 1.199000)); // table[6], 0.249 m cell, +30 deg
+#endif
+
 // Single hardware bilinear fetch with smoothstep-equivalent weights (uv
 // pre-distorted: w = f2(3 - 2f)).
 float ValueNoiseSample(vec2 pos) {
@@ -71,21 +123,40 @@ float OceanLayerHeight(vec2 xz, float time, ValueNoiseWave w) {
     return w.amplitude * (ValueNoiseSample(r) - 0.5);
 }
 
+// Height of the texture-sampled bands only; the analytic high band adds a
+// gradient and is not summed here.
 float OceanValueNoiseHeight(vec2 xz, float time) {
     float h = 0.0;
-    for (int i = 0; i < VALUE_NOISE_LAYERS; ++i) {
+    for (int i = 0; i < VALUE_NOISE_TEXTURED_LAYERS; ++i) {
         h += OceanLayerHeight(xz, time, VALUE_NOISE_WAVES[i]);
     }
     return h;
 }
 
+#ifdef WATER_ANALYTIC_WAVES
+// World-XZ gradient of the analytic high band.
+vec2 OceanHighBandGradient(vec2 xz, float time) {
+    vec2 grad = vec2(0.0);
+    for (int i = 0; i < TRIANGLE_WAVE_LAYERS; ++i) {
+        TriangleWave w = TRIANGLE_WAVES[i];
+        float side = fract(dot(w.axis, xz) + w.omega * time + w.phase) - 0.5;
+        grad += (side < 0.0 ? 2.0 : -2.0) * w.gain * w.axis;
+    }
+    return grad;
+}
+#endif
+
 // World-space normal (y up) from a central-difference gradient (central
-// sample omitted when only the normal is needed).
+// sample omitted when only the normal is needed). The analytic high band adds
+// its exact gradient instead of four more taps per layer.
 void OceanValueNoiseNormal(vec2 xz, float time, out vec3 normal) {
     float eps = VALUE_NOISE_EPS;
     float hx = OceanValueNoiseHeight(xz + vec2(eps, 0.0), time) - OceanValueNoiseHeight(xz - vec2(eps, 0.0), time);
     float hz = OceanValueNoiseHeight(xz + vec2(0.0, eps), time) - OceanValueNoiseHeight(xz - vec2(0.0, eps), time);
     vec2 grad = vec2(hx, hz) / (2.0 * eps);
+#ifdef WATER_ANALYTIC_WAVES
+    grad += OceanHighBandGradient(xz, time);
+#endif
     normal = normalize(vec3(-grad.x, 1.0, -grad.y));
 }
 
@@ -219,13 +290,6 @@ void OceanValueNoisePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
     vec2 xzp = xz;
 #endif
     OceanValueNoiseNormal(xzp, time, normal);
-}
-
-// Height field + world-space normal (y up). xz is absolute world XZ.
-float OceanValueNoise(vec2 xz, float time, out vec3 normal) {
-    float h = OceanValueNoiseHeight(xz, time);
-    OceanValueNoiseNormal(xz, time, normal);
-    return h;
 }
 
 #endif

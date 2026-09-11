@@ -96,11 +96,16 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     }
     vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
 
-    // Cirrus layer composite over pure sky.
-    vec3 cirrus_surface_pos;
-    vec3 cirrus_transmittance;
-    vec3 cirrus_composite = RenderCirrusClouds(view_dir, sky_color, cirrus_light_jitter,
+    // Cirrus layer composite over pure sky. CIRRUS off: neutral layer — the
+    // composite degenerates to the sky, the transmittance to 1, and the
+    // surface position to the no-hit sentinel.
+    vec3 cirrus_surface_pos = vec3(0.0);
+    vec3 cirrus_transmittance = vec3(1.0);
+    vec3 cirrus_composite = sky_color;
+#ifdef CIRRUS
+    cirrus_composite = RenderCirrusClouds(view_dir, sky_color, cirrus_light_jitter,
         cirrus_surface_pos, cirrus_transmittance);
+#endif
 
     // Atmospheric fades blend each composite toward the sky but must NOT
     // touch the true transmittance (a faded far cloud would otherwise let

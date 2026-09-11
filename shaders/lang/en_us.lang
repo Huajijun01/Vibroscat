@@ -154,6 +154,8 @@ value.CLOUD_TEMPORAL_UPSCALING.4 = 4x
 #Clouds: rendering
 option.VOLUMETRIC_CLOUDS = Volumetric Clouds
 option.VOLUMETRIC_CLOUDS.comment = Replaces flat cloud pictures with real 3D clouds that have volume, depth and proper sunlight. One of the most expensive effects in the pack.
+option.CIRRUS = Cirrus Clouds
+option.CIRRUS.comment = Thin high-altitude cloud shell with silver-lining lighting. Far cheaper than the volumetric layer and independent of it: turning Volumetric Clouds off keeps the cirrus, and vice versa.
 option.CLOUD_TEMPORAL_UPSCALING = Temporal Upscaling
 option.CLOUD_TEMPORAL_UPSCALING.comment = Renders clouds at a reduced resolution and rebuilds full detail over consecutive frames. 1x = full resolution (sharpest, slowest), 4x = quarter resolution (fastest, can smear slightly during fast camera movement).
 option.CLOUD_VIEW_MIN_STEPS = Min March Steps

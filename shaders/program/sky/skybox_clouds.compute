@@ -46,9 +46,12 @@ void main() {
     ivec2 phase_offset = skybox_checkerboard_2x2[phase_index];
     bool full_init = (frameCounter == 0);
     vec3 sun_dir = normalize(u_world_sun_dir);
+    // The skybox clock advances one STBN slice per 4-frame checkerboard cycle.
+#if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
+    int cloud_frame = frameCounter / 4;
+#endif
 #ifdef VOLUMETRIC_CLOUDS
     vec3 camera_atm_pos = AtmosphereCameraPosition();
-    int cloud_frame = frameCounter / 4;
 #endif
 
     for (int i = 0; i < 4; ++i) {
@@ -74,6 +77,12 @@ void main() {
         vec3 cloud_data = vec3(0.0, 0.0, 1.0);
         vec3 surface_position = vec3(0.0);
         float cloud_entry = 1.0e9;
+        vec3 cloud_transmittance = vec3(1.0);
+#if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
+        // One fetch serves the volumetric view march and the cirrus light
+        // march (identical texel and slice).
+        float cirrus_light_jitter = SampleSTBN(texel, cloud_frame);
+#endif
 #ifdef VOLUMETRIC_CLOUDS
         float cloud_exit = 0.0;
         bool cloud_visible = CloudShellInterval(
@@ -82,10 +91,6 @@ void main() {
             cloud_entry,
             cloud_exit
         );
-        // The skybox clock advances one STBN slice per 4-frame checkerboard
-        // cycle. One fetch serves the volumetric view march and the cirrus
-        // light march (identical texel and slice).
-        float cirrus_light_jitter = SampleSTBN(texel, cloud_frame);
         if (cloud_visible) {
             int step_count = clamp(int(ceil((cloud_exit - cloud_entry) / CLOUD_VIEW_TARGET_STEP_KM)),
                 CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
@@ -103,7 +108,8 @@ void main() {
         } else {
             cloud_entry = 1.0e9;
         }
-        vec3 cloud_transmittance;
+#endif
+#if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         sky_color = RenderCloudLayers(
             view_dir,
             sky_color,

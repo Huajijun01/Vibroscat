@@ -109,9 +109,10 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)
 
 // ==========================================================================
-// CLOUDS - Volumetric clouds
+// CLOUDS - Cloud layers (volumetric + cirrus)
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
+#define CIRRUS // Enable the high-altitude cirrus shell; independent of the volumetric layer.
 #define CLOUD_VIEW_MIN_STEPS 32 // [24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
 #define CLOUD_VIEW_MAX_STEPS 128 // [64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.

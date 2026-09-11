@@ -16,13 +16,13 @@ vec3 ResolveSurfaceAO(ivec2 texel, vec3 albedo, float vertex_ao, bool is_hand, o
 #else
     screen_ao = pow(screen_ao, GTAO_STRENGTH);
 #endif
-    if (GTAO_MULTIBOUNCE) {
-        // Jimenez et al. 2016, albedo-dependent multiple-bounce AO.
-        vec3 a = 2.0404 * albedo - 0.3324;
-        vec3 b = -4.7951 * albedo + 0.6417;
-        vec3 c = 2.7552 * albedo + 0.6903;
-        return max(vec3(screen_ao), ((screen_ao * a + b) * screen_ao + c) * screen_ao);
-    }
+#ifdef GTAO_MULTIBOUNCE
+    // Jimenez et al. 2016, albedo-dependent multiple-bounce AO.
+    vec3 a = 2.0404 * albedo - 0.3324;
+    vec3 b = -4.7951 * albedo + 0.6417;
+    vec3 c = 2.7552 * albedo + 0.6903;
+    return max(vec3(screen_ao), ((screen_ao * a + b) * screen_ao + c) * screen_ao);
+#endif
     return vec3(screen_ao);
 #else
     return vec3(vertex_ao);

@@ -320,7 +320,7 @@ const float ambientOcclusionLevel = 1.0;
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
 #define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
 #define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
-#define GTAO_MULTIBOUNCE true // [false true] albedo-dependent energy recovery (paper Eq. 12)
+//#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
 #define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
 #define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)

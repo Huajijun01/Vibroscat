@@ -12,7 +12,7 @@
 // Torch: blockLight masked by (1-skyLight), warm tint, Lambertian
 // Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance -> irradiance.
 
-/* RENDERTARGETS: 0,2,5 */
+/* RENDERTARGETS: 0,2,5,12 */
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
@@ -47,6 +47,7 @@ const float COLOR_JITTER_SEED = 11.0;
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
+layout(location = 3) out vec4 out_workspace_clear; // colortex12: opaque reflection scratch until the translucent layer claims it
 
 // HG normalized as a surface lobe. The largest cosine-weighted hemisphere
 // integral occurs when its normal points along the lobe axis. Divide by that
@@ -62,6 +63,11 @@ float PlantTransmissionPhase(float cos_theta, float eccentricity) {
 
 void main() {
     out_direct_brdf = vec3(0.0);
+    // Opaque reflection radiance lives in colortex12 between deferred2 and this
+    // pass, and the read further down still sees it. Restoring the black base
+    // here is what hands the translucent gbuffers a data-independent layer: the
+    // write goes to alt, so the flip after this program puts it back in main.
+    out_workspace_clear = vec4(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float depth = texelFetch(depthtex0, tx, 0).r;
     // Last opaque-gbuffer consumer: colortex2 freed for translucent water data.
@@ -152,19 +158,19 @@ void main() {
         emission_aux.x, emission_aux.y);
 
 #if OPAQUE_SSR_DEBUG == 1
-    out_color = texelFetch(colortex3, tx, 0).rgb;
+    out_color = texelFetch(colortex12, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 2
-    out_color = texelFetch(colortex3, tx, 0).rgb;
+    out_color = texelFetch(colortex12, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 3
-    out_color = texelFetch(colortex3, tx, 0).rgb;
+    out_color = texelFetch(colortex12, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 4
-    out_color = texelFetch(colortex3, tx, 0).rgb;
+    out_color = texelFetch(colortex12, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 5
-    out_color = texelFetch(colortex3, tx, 0).rgb;
+    out_color = texelFetch(colortex12, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 6
     out_color = material.f0;
@@ -408,7 +414,7 @@ void main() {
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
             normal, view_to_eye, material.perceptual_roughness,
             OpaqueSSRRandom2(tx), ssr_reflection_half);
-        vec3 ssr_incident_radiance = texelFetch(colortex3, tx, 0).rgb;
+        vec3 ssr_incident_radiance = texelFetch(colortex12, tx, 0).rgb;
         float ssr_reflection_ndotv = sh_reflection_ndotv;
         float ssr_reflection_ndotl = Max0(
             dot(normal, ssr_reflection_direction));

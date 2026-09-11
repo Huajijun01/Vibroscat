@@ -1,4 +1,10 @@
-/* RENDERTARGETS: 3 */
+/* RENDERTARGETS: 12 */
+
+// The resolved opaque reflection radiance shares the sequential workspace.
+// colortex12 only becomes the translucent layer after deferred shading, so the
+// window between this pass and deferred_shading is dead: deferred_shading reads
+// the radiance back from main and writes the buffer black, which restores the
+// base the translucent gbuffers blend onto.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"

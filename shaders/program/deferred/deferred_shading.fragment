@@ -182,7 +182,12 @@ void main() {
     vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
+#ifdef SHADOW_SSS
     float sss_amount = SSSAmountForId(material_id);
+#else
+    // Compile-time off: the literal zero folds every SSS branch below out.
+    float sss_amount = 0.0;
+#endif
 
     // -- World position (for shadow) --
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;

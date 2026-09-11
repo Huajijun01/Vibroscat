@@ -242,6 +242,8 @@ option.SHADOW_DISTANCE_BOOST = Distance Boost
 option.SHADOW_DISTANCE_BOOST.comment = Makes shadows progressively blurrier with distance from you, like real life; this also hides the shadow map's range limit.
 option.SHADOW_CONTACT_SHARPEN_TEXELS = Contact Sharpen
 option.SHADOW_CONTACT_SHARPEN_TEXELS.comment = Keeps the line where an object touches the ground crisp, so soft shadows don't smear the contact point.
+option.SHADOW_SSS = Plant SSS
+option.SHADOW_SSS.comment = Lets dense foliage glow when backlit, using a shadow-map thickness estimate. Off removes the effect and its extra shadow-map sampling; the SSS sliders only apply while it is on.
 option.SHADOW_SSS_STEPS = SSS Steps
 option.SHADOW_SSS_STEPS.comment = Quality of the light-through-leaves effect (how precisely the light path inside foliage is traced): higher = smoother glow, slower.
 option.SHADOW_SSS_DENSITY = SSS Density

@@ -168,8 +168,8 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 
 // PCSS shadows (Fernando 2005 framework, custom implementation). The LOW
 // profile disables the penumbra estimation + radius PCF and falls back to
-// hardware bilinear shadow filtering; the blocker search stays on so the
-// plant-SSS thickness estimate keeps working.
+// hardware bilinear shadow filtering; the blocker search stays on (while
+// SHADOW_SSS is on) so the plant-SSS thickness estimate keeps working.
 #define SHADOW_PCSS
 #define SHADOW_BLOCKER_SAMPLES 4 // [2 3 4 5 6 8 10 12]
 #define SHADOW_BLOCKER_SEARCH_TEXELS 12.0 // [4.0 6.0 8.0 10.0 12.0 16.0 20.0 24.0]
@@ -183,6 +183,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS 0.0 // [0.0 0.05 0.1 0.15 0.2 0.3 0.5]
 
 // Plant subsurface scattering settings.
+#define SHADOW_SSS // Plant translucency transmission; off compiles the SSS lighting and thickness estimate out.
 #define SHADOW_SSS_STEPS 8 // [4 6 8 10 12 16]
 #define SHADOW_SSS_DENSITY 3.0 // [1.0 2.0 3.0 4.0 6.0 8.0]
 #define SHADOW_SSS_SCALE 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0]

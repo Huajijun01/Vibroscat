@@ -55,6 +55,7 @@ uniform sampler2D colortex5;      // TAA / composite history
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex9;      // selected GI irradiance including uncovered SH
 uniform usampler2D colortex10;    // shared depth/normal/age/source metadata in gi_history.glsl
+uniform sampler2D colortex11;    // weather
 uniform sampler2D colortex12;     // sequential post workspace
 
 // -- Shadow bindings and transforms --

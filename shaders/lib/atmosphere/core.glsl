@@ -121,9 +121,9 @@ const float ATM_PHASE_RAY_SCALE = 0.0596831;
 // silver lining, a broad low-g forward lobe adds smooth haze, and a
 // backward lobe (used as -g, effective eccentricity -0.3) brightens the
 // anti-solar sky. Weights sum to 1, so the blend stays a normalized phase.
-const float ATM_PHASE_MIE_PEAK_G = 0.85;
+const float ATM_PHASE_MIE_PEAK_G = 0.8;
 const float ATM_PHASE_MIE_PEAK_WEIGHT = 0.1;
-const float ATM_PHASE_MIE_MID_G = 0.4;
+const float ATM_PHASE_MIE_MID_G = 0.5;
 const float ATM_PHASE_MIE_MID_WEIGHT = 0.7;
 const float ATM_PHASE_MIE_BACK_G = 0.3;
 const float ATM_PHASE_MIE_BACK_WEIGHT = 0.2;

@@ -21,6 +21,8 @@
 //   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
 //   colortex9   RGB16F          GI irradiance including uncovered SH; optional temporal history
 //   colortex10  R32UI            shared GI half depth, oct5 normal, age, source tag
+//   colortex11  RGBA8            Weather sheet: weather texture colour (RGB) and coverage
+//                                (A); written by gbuffers_weather, composited by air fog
 //   colortex12  RGBA16F          Translucent layer (premultiplied color + alpha):
 //                                1. translucent gbuffers blend off = nearest surface wins
 //                                2. composite1 refracts, fogs and over-composites once
@@ -44,6 +46,7 @@ const int colortex5Format  = R11F_G11F_B10F;
 const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, 1-depth, A=NaN)
 const int colortex9Format  = RGB16F; // recursive GI temporal irradiance history
 const int colortex10Format = R32UI;           // recursive GI age/depth metadata history
+const int colortex11Format = RGBA8;           // weather texture
 const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
 */
@@ -59,6 +62,7 @@ const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
 const bool colortex9Clear  = false;   // recursive GI temporal history
 const bool colortex10Clear = false;   // recursive GI age/depth metadata history
+const bool colortex11Clear = true;   // weather texture
 const bool colortex12Clear = true;   // sequential GBuffer, bloom, and tonemap workspace
 
 #endif // LIB_CONTRACT_RESOURCES_GLSL

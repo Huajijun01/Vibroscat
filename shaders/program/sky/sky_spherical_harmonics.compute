@@ -113,7 +113,7 @@ void main() {
             gnd_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_MOON_IRR)) * ATM_EXPOSURE;
         }
 
-        ground_light.rgb = gnd_color * (1.0 - wetness * 0.9);
+        ground_light.rgb = gnd_color * (1.0 - rainStrength * 0.9);
         ground_light.a = 0.0;
     }
 }

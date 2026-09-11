@@ -26,7 +26,7 @@ const float CIRRUS_UNIFORM_PHASE = 1.0 / (4.0 * PI);
 const float CIRRUS_SCATTERING = 3.0;
 const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // Radiance rebalance for the larger (1 - T) of the denser field.
-const float CIRRUS_SCATTERING_BOOST = 1.5;
+const float CIRRUS_SCATTERING_BOOST = 2.5;
 // Triple-lobe phase: the narrow + mid forward lobes keep the silver lining,
 // the backward lobe lifts the anti-lit side (cloud-bow analog) so decks
 // facing away from the light keep a visible response instead of collapsing
@@ -208,8 +208,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         }
 
         // Sky ambient from the multiscatter LUT.
-        vec3 ambient_irradiance = GetAmbientColor(sample_position, u_world_sun_dir);
-        ambient_irradiance *= 0.8 + 0.2 * ci_transmittance;
+        vec3 ambient_irradiance = GetAmbientColor(sample_position, u_world_sun_dir) * 3.0;
+        // ambient_irradiance *= 0.8 + 0.2 * ci_transmittance;
 
         float sample_scattering = CIRRUS_SCATTERING * sample_density;
         float sample_extinction = CIRRUS_EXTINCTION * sample_density;

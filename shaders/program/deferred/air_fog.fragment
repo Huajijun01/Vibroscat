@@ -2,12 +2,17 @@
 /* RENDERTARGETS: 0 */
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/air_fog.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/core.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/color/color.glsl"
+#include "/lib/lighting/ambient_light.glsl"
 #include "/lib/volume/air_epipolar.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
@@ -39,6 +44,16 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float depth, f
 #endif
     return scene;
 }
+
+// Effective optical depth of the weather sheet. colortex11 carries the weather
+// texture colour in RGB and the coverage in A, and the weather pass writes
+// neither depth nor the G-buffer, so the sheet owns no normal, material, or
+// depth of its own and is lit as a thin scattering layer instead of a surface.
+// This constant folds its path length into the texture colour: at 4.0 a
+// daytime sheet under an open sky reads at about the radiance of the sky it is
+// seen against, so streaks stay translucent instead of turning into dark
+// scratches or a flat grey wash.
+const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
@@ -88,5 +103,35 @@ void main() {
     AirFogMedium medium = AirFogMediumAtCamera();
     AirFogResult fog = AirFogRender(world_dir, depth_dist, fog_end, medium,
                                     epipolar_light, shadow_fallback);
+
+
     out_color = scene * fog.transmittance + fog.in_scattering;
+
+    // Weather sheet: rain and snow scatter the light around them rather than
+    // reflecting it, so the sheet gets no BRDF, no shadow map, and no specular
+    // term. Ambient is the up-facing sky irradiance (an airborne sheet is lit
+    // from the hemisphere above it) scattered isotropically, the same 1/(4 pi)
+    // phase lib/atmosphere/air_fog.glsl applies to its own multiple scattering.
+    // Direct light arrives through a Mie lobe, which is what makes streaks
+    // glow when the light sits behind them. Compositing happens after the haze
+    // because the sheet hangs within a few blocks of the camera, where the air
+    // column in front of it carries no visible extinction.
+    vec4 weather = texture(colortex11, uv);
+    if (weather.a > 0.0) {
+        // Sky access behind the sheet: the opaque G-buffer still owns the
+        // lightmap here, and sky pixels (depth >= 1.0) keep stale data there
+        // while being unobstructed by definition. No AMBIENT_BASE floor is
+        // added, so a sheet the sky does not reach stays dark, which is what
+        // keeps rain out of caves and interiors.
+        float weather_lm_sky = 1.0;
+        if (depth < 1.0) weather_lm_sky = texture(colortex4, uv).a;
+
+        float weather_cos_theta = dot(world_dir, normalize(u_world_light_dir));
+        vec3 weather_scattering = EvalSkyLight(vec3(0.0, 1.0, 0.0))
+                * SkyLightFromLm(weather_lm_sky) * (1.0 / (4.0 * PI))
+            + ground_light.rgb * PhaseMieHG(weather_cos_theta, 0.5);
+        vec3 weather_radiance = ToLinear(weather.rgb) * weather_scattering
+            * WEATHER_SHEET_OPTICAL_DEPTH;
+        out_color = mix(out_color, weather_radiance, weather.a);
+    }
 }

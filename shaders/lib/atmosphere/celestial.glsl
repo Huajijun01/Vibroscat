@@ -117,8 +117,10 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     float r2 = r * r;
 
     // Per-ray horizon clip: rays below the spherical horizon hit the planet
-    // (ground LUT region) and must not receive the discs (the centre-ray
-    // test alone would leak the lower disc/glow below the horizon).
+    // (ground LUT region) and must not receive the discs. The clip must stay
+    // per-ray: the disc/glow is still partly above the horizon while the
+    // disc centre is below it, so a centre-ray test would over-cull and
+    // pop the disc out at the horizon.
     if (CelestialBlockedByEarth(camera_pos, r2, view_dir)) return sky_color;
 
     vec3 sun_dir = normalize(u_world_sun_dir);
@@ -127,8 +129,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     vec3 contribution = vec3(0.0);
 
     float cos_sun = dot(view_dir, sun_dir);
-    if (cos_sun > cos(SUN_GLOW_RADIUS)
-            && !CelestialBlockedByEarth(camera_pos, r2, sun_dir)) {
+    if (cos_sun > cos(SUN_GLOW_RADIUS)) {
         vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_SOLAR);
         vec3 sun_radiance = SpectralToLinearRec2020(ATM_SOLAR)
             / (PI * SUN_DISC_RADIUS * SUN_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
@@ -137,8 +138,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     }
 
     float cos_moon = dot(view_dir, moon_dir);
-    if (cos_moon > cos(MOON_GLOW_RADIUS)
-            && !CelestialBlockedByEarth(camera_pos, r2, moon_dir)) {
+    if (cos_moon > cos(MOON_GLOW_RADIUS)) {
         vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_MOON_IRR);
         vec3 moon_radiance = SpectralToLinearRec2020(ATM_MOON_IRR)
             / (PI * MOON_DISC_RADIUS * MOON_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;

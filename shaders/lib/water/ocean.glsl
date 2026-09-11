@@ -6,11 +6,14 @@
 #include "/lib/core/math_scalar.glsl"
 
 // Single-texture value-noise ocean (offline-fitted).
-// 8 layers from the 64x64 R8 utex_noise2d_tex (hardware bilinear, repeat);
+// 7 layers from the 64x64 R8 utex_noise2d_tex (hardware bilinear, repeat);
 // per-band layer selection solved against the analytic Phillips band
-// features (n=8, low-frequency allocation 3,2,1,1,1). Statically optimized:
-// freq pre-multiplied into uv, fitted gain into amplitude. Normals from a
-// central-difference gradient.
+// features (n=8, low-frequency allocation 3,2,1,1,1). The finest fitted band
+// (lambda 0.131 m, amplitude 0.0057) was dropped: the VALUE_NOISE_EPS central
+// difference has its first zero at 2*eps = 0.2 m, so that band held 0.4% of
+// the normal's slope variance while costing 4 of its 32 fetches.
+// Statically optimized: freq pre-multiplied into uv, fitted gain into
+// amplitude. Normals from a central-difference gradient.
 
 
 // Parallax occlusion mapping for the water surface: the normal is
@@ -32,7 +35,7 @@ struct ValueNoiseWave {
     float omega;     // deep-water dispersion: pixel advection speed
 };
 
-const int VALUE_NOISE_LAYERS = 8; // full wave table size
+const int VALUE_NOISE_LAYERS = 7; // full wave table size
 const ValueNoiseWave VALUE_NOISE_WAVES[VALUE_NOISE_LAYERS] = ValueNoiseWave[](
     ValueNoiseWave(vec4(0.48383789, 0.06497906, 0.12574129, 0.11980542), 0.419068, 2.23419),
     ValueNoiseWave(vec4(0.38679537, 0.23157128, 0.00831051, 0.21160617), -0.424931, 2.14238),
@@ -40,7 +43,6 @@ const ValueNoiseWave VALUE_NOISE_WAVES[VALUE_NOISE_LAYERS] = ValueNoiseWave[](
     ValueNoiseWave(vec4(0.60644167, 0.20562579, 0.10357081, 0.24136490), -0.315376, 2.55639),
     ValueNoiseWave(vec4(1.98834646, 2.86292616, -1.32892738, 1.76140873), -0.039151, 5.93238),
     ValueNoiseWave(vec4(1.02173311, 1.11223367, -0.62825168, 0.89748953), -0.123701, 3.89348),
-    ValueNoiseWave(vec4(4.97572310, 5.81092247, -0.79207427, 3.33275961), 0.005696, 8.82941),
     ValueNoiseWave(vec4(3.64585845, -1.68458698, 1.34745029, 0.11760039), 0.044025, 6.41017));
 
 // Offline normalization gain (fitted std -> target wave table std) and the

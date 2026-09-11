@@ -129,14 +129,15 @@ float WaterFogCausticFactor(vec3 world_normal) {
 
 void main() {
     vec2 texcoord = gl_FragCoord.xy * u_view_pixel_size;
+    ivec2 tx = ivec2(gl_FragCoord.xy);
 
-    vec3 scene_color = texture(colortex0, texcoord).rgb;
+    vec3 scene_color = texelFetch(colortex0, tx, 0).rgb;
 
-    float frag_depth = texture(depthtex0, texcoord).x;
+    float frag_depth = texelFetch(depthtex0, tx, 0).x;
     bool is_sky = frag_depth >= 1.0;
 
-    vec4 trans_color = texture(colortex12, texcoord);
-    vec4 refraction_data = texture(colortex2, texcoord);
+    vec4 trans_color = texelFetch(colortex12, tx, 0);
+    vec4 refraction_data = texelFetch(colortex2, tx, 0);
     bool is_water = refraction_data.a > 0.99;
 
     // The water-fog input group is consumed only by the water-surface and
@@ -185,7 +186,7 @@ void main() {
         vec3 view_pos1 = vec3(0.0);
 
         if (is_water) {
-            float frag_depth1 = texture(depthtex1, texcoord).x;
+            float frag_depth1 = texelFetch(depthtex1, tx, 0).x;
             view_pos1 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth1 * 2.0 - 1.0));
             // Refraction: nearest surface is water; use its stored normal
             // (colortex2 xyz), no depth tricks.
@@ -255,8 +256,8 @@ void main() {
                 // Caustics land on opaque surfaces through the volume, not on
                 // the water surface itself.
                 vec3 caustic_world_pos = ViewToSceneSpace(view_pos0) + cameraPosition;
-                vec3 caustic_brdf = texture(colortex5, texcoord).rgb;
-                float caustic_lm_sky = texture(colortex4, texcoord).w;
+                vec3 caustic_brdf = texelFetch(colortex5, tx, 0).rgb;
+                float caustic_lm_sky = texelFetch(colortex4, tx, 0).w;
                 float caustic_fade_surface_y = caustic_world_pos.y + (1.0 - caustic_lm_sky) * 15.0;
                 comp_color -= caustic_brdf * ground_light.rgb;
                 comp_color += CausticLightContribution(caustic_world_pos, caustic_brdf, vec3(1.0),

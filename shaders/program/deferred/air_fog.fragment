@@ -58,7 +58,8 @@ const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
-    vec3 scene = texture(colortex0, uv).rgb;
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    vec3 scene = texelFetch(colortex0, tx, 0).rgb;
 
 #ifndef AIR_FOG
     out_color = scene;
@@ -75,7 +76,7 @@ void main() {
     epipolar_light = EpipolarSampleE(uv * 2.0 - 1.0, air_key);
 #endif
 
-    float depth = texture(depthtex0, uv).r;
+    float depth = texelFetch(depthtex0, tx, 0).r;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, depth * 2.0 - 1.0));
     float view_len = length(view_pos);
     vec3 scene_pos = ViewToSceneSpace(view_pos);
@@ -117,7 +118,7 @@ void main() {
     // glow when the light sits behind them. Compositing happens after the haze
     // because the sheet hangs within a few blocks of the camera, where the air
     // column in front of it carries no visible extinction.
-    vec4 weather = texture(colortex11, uv);
+    vec4 weather = texelFetch(colortex11, tx, 0);
     if (weather.a > 0.0) {
         // Sky access behind the sheet: the opaque G-buffer still owns the
         // lightmap here, and sky pixels (depth >= 1.0) keep stale data there
@@ -125,7 +126,7 @@ void main() {
         // added, so a sheet the sky does not reach stays dark, which is what
         // keeps rain out of caves and interiors.
         float weather_lm_sky = 1.0;
-        if (depth < 1.0) weather_lm_sky = texture(colortex4, uv).a;
+        if (depth < 1.0) weather_lm_sky = texelFetch(colortex4, tx, 0).a;
 
         float weather_cos_theta = dot(world_dir, normalize(u_world_light_dir));
         vec3 weather_scattering = EvalSkyLight(vec3(0.0, 1.0, 0.0))

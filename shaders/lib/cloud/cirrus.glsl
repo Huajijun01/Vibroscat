@@ -34,9 +34,9 @@ const float CIRRUS_SCATTERING_BOOST = 1.5;
 const float CIRRUS_PHASE_PEAK_G = 0.92;
 const float CIRRUS_PHASE_PEAK_WEIGHT = 0.1;
 const float CIRRUS_PHASE_MID_G = 0.3;
-const float CIRRUS_PHASE_MID_WEIGHT = 0.8;
+const float CIRRUS_PHASE_MID_WEIGHT = 0.7;
 const float CIRRUS_PHASE_BACK_G = 0.2;
-const float CIRRUS_PHASE_BACK_WEIGHT = 0.1;
+const float CIRRUS_PHASE_BACK_WEIGHT = 0.2;
 const float NOISE2D_SIZE = 64.0;
 // Effective slab thickness: the shell is sampled once, so slanted view and
 // light paths integrate extinction over H / |cos| instead of a fixed step.
@@ -196,13 +196,15 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // Up-sun self shadowing of the direct lights; the moon march offsets
         // the jitter by half a period to decorrelate its taps from the sun's.
         if (sun_visible > 0.0) {
-            sun_color *= CirrusLightTransmittance(sample_position, normal, sun_dir, sun_mu, light_jitter);
+            vec3 sun_half_vec = normalize(sun_dir - view_dir);
+            sun_color *= CirrusLightTransmittance(sample_position, normal, sun_half_vec, sun_mu, light_jitter);
         }
 
         vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
             SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
         if (moon_visible > 0.0) {
-            moon_color *= CirrusLightTransmittance(sample_position, normal, moon_dir, moon_mu, light_jitter);
+            vec3 moon_half_vec = normalize(moon_dir - view_dir);
+            moon_color *= CirrusLightTransmittance(sample_position, normal, moon_half_vec, moon_mu, light_jitter);
         }
 
         // Sky ambient from the multiscatter LUT.

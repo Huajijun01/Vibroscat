@@ -96,7 +96,7 @@ void main() {
             // Cloud history (radiance.rgb + distance.a) via the deferred1
             // colortex8 flip. Distance is never EMA-mixed; feeds relight and
             // the distance fade.
-            vec4 accumulated = texture(colortex8, uv);
+            vec4 accumulated = texelFetch(colortex8, tx, 0);
             volumetric_surface_pos = camera_atm_pos + view_dir * accumulated.a;
             accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
             volumetric_radiance = accumulated.rgb;

@@ -374,8 +374,12 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // and deep shadows never render fully black (see AmbientLight in
 // lib/lighting/ambient_light.glsl).
 #define AMBIENT_BASE 0.03 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
+// The 4K NASA star map texture is declared only while this is on. LOW and
+// MEDIUM turn it off and draw the procedural hash star field in
+// lib/atmosphere/celestial.glsl instead.
+#define STARMAP
 // Night star map gain: linear multiplier applied after the LogLuv32
-// decode (celestial.glsl).
+// decode (celestial.glsl); it also scales the procedural field.
 #define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness
 
 // Angular radii of the rendered sun/moon discs, in radians. Shared by the

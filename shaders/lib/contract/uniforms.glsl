@@ -1,6 +1,8 @@
 #ifndef LIB_CONTRACT_UNIFORMS_GLSL
 #define LIB_CONTRACT_UNIFORMS_GLSL
 
+#include "/lib/contract/settings.glsl"
+
 // Consolidated uniform contract. Every sampler, shadow transform, Iris
 // matrix/camera built-in, and custom u_* uniform used by shared libraries is
 // declared here exactly once; shared libraries do not declare their own
@@ -66,7 +68,9 @@ uniform sampler2DShadow shadowtex1; // hardware PCF comparison
 uniform sampler2D shadowcolor0;    // RSM: RGB565 diffuse reflectance + oct8 shadow-view normal
 
 // -- Custom textures (customTexture bindings, shaders.properties) --
+#ifdef STARMAP
 uniform sampler2D utex_starmap;               // NASA star map (LogLuv32 RGBA8)
+#endif
 uniform sampler2D utex_tslut;                 // atmosphere transmittance LUT
 uniform sampler2D utex_mslut;                 // atmosphere multiscatter LUT
 uniform sampler2D utex_noise2d_tex;           // periodic 64x64 R8 value noise
@@ -81,8 +85,10 @@ uniform sampler2D usam_skylut;        // sky view LUT (128x128 RGBA16F)
 uniform sampler2D usam_skylut_cloud;  // cloud skybox LUT (256x256 RGBA16F)
 uniform sampler2D usam_clouds_current; // low-res cloud current frame
 uniform sampler2D usam_ao;            // half-res AO (full evaluation every frame)
+#ifdef EPIPOLAR_WATER
 uniform sampler2D usam_epipolar_endpoints; // epipolar slice endpoints
 uniform sampler2D usam_epipolar_term;      // epipolar E/column-key terms (shared: water in composite1, air in composite2)
+#endif
 
 // -- Status (Iris built-in) --
 uniform int isEyeInWater;

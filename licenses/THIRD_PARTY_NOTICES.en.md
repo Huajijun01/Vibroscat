@@ -157,6 +157,7 @@ The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage
 
 - `FastSin`: Bhaskara I sine approximation (circa 12th century, public-domain mathematics)
 - TAA jitter R2 sequence: Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences" (public constants 1.3247179572 / 1.7548776662)
+- `StarHashUint` in `celestial.glsl` (procedural star field): lowbias32 constants from Wellons, Chris. "Prospecting for Hash Functions" (released by the author as public domain)
 - specular channel convention in `material/core.glsl`: oldPBR/seusPBR specifications (data-format convention, not code)
 
 ## 15. Atmosphere model provenance note

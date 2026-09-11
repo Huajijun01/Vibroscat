@@ -87,8 +87,7 @@ void main() {
         vec4 view_transmittance = SampleTransmittance(
             TRANSMITTANCE_LUT, camera_r, camera_r * camera_r,
             dot(camera_pos, view_dir) / camera_r);
-        vec3 celestial = RenderStarMap(view_dir, view_transmittance);
-        celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance);
+        vec3 celestial = vec3(0.0);
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         vec3 cloud_transmittance = vec3(1.0);
         vec3 volumetric_radiance = vec3(0.0, 0.0, 1.0);
@@ -125,9 +124,17 @@ void main() {
         sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_radiance,
             volumetric_surface_pos, volumetric_entry, cirrus_light_jitter,
             cloud_transmittance);
-        // Sun/moon occluded by real cloud transmittance.
+        // Sun/moon occluded by real cloud transmittance. An opaque column
+        // leaves nothing of either term, so the star field and the discs are
+        // skipped there rather than computed and multiplied by zero.
+        if (!all(equal(cloud_transmittance, vec3(0.0)))) {
+            celestial = RenderStarMap(view_dir, view_transmittance);
+            celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance);
+        }
         sky_color += celestial * cloud_transmittance;
 #else
+        celestial = RenderStarMap(view_dir, view_transmittance);
+        celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance);
         sky_color += celestial;
 #endif
         out_color = JitterR11G11B10F(sky_color, gl_FragCoord.xy, COLOR_JITTER_SEED);

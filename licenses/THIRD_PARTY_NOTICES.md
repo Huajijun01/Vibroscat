@@ -158,6 +158,7 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 - `FastSin`：Bhaskara I 正弦近似（约 12 世纪，公有领域数学）
 - TAA 抖动 R2 序列：Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences"（公开常数 1.3247179572 / 1.7548776662）
 - `material/core.glsl` 的 specular 通道约定：oldPBR/seusPBR 规格（数据格式约定，非代码）
+- `celestial.glsl` 程序化点星的 `StarHashUint`：Wellons, Chris. “Prospecting for Hash Functions” 的 lowbias32 常量（作者声明为公有领域）
 
 ## 15. 大气模型出处说明
 

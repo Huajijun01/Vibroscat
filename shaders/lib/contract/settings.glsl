@@ -22,6 +22,7 @@
 #define RSM_SAMPLES 16 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
+#define RSM_SKY_OCCLUSION // Darkens SH where the shadow map shows sky occlusion; off compiles the tracking path out.
 #define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
 

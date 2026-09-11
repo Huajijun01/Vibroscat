@@ -401,8 +401,10 @@ option.GI_HISTORY_FRAMES = GI History Length
 option.GI_HISTORY_FRAMES.comment = How many frames of bounce light are blended together: higher = cleaner and steadier, but lighting changes (placing torches, the moving sun) settle slightly later.
 option.RSM_STRENGTH = RSM Strength
 option.RSM_STRENGTH.comment = Intensity of the bounced sunlight. Does not change the direct sun or the ambient sky light.
+option.RSM_SKY_OCCLUSION = RSM Sky Occlusion
+option.RSM_SKY_OCCLUSION.comment = Darkens the bounce-light sky glow in areas the shadow map shows are shielded from the sky (roofs, dense foliage). Off removes the effect and skips its sampling.
 option.RSM_SKY_OCCLUSION_FLOOR = RSM Minimum Sky Factor
-option.RSM_SKY_OCCLUSION_FLOOR.comment = In areas the shadow data shows are shielded from the sky, this limits the leftover sky glow: lower = darker, more natural enclosed spaces; 1.0 = no extra limiting.
+option.RSM_SKY_OCCLUSION_FLOOR.comment = In areas the shadow data shows are shielded from the sky, this limits the leftover sky glow: lower = darker, more natural enclosed spaces; 1.0 = no extra limiting. Only applies while RSM Sky Occlusion is on.
 option.RSM_DEBUG = RSM Debug
 option.RSM_DEBUG.comment = Diagnostic views for troubleshooting the bounce light. Leave on Scene while playing.
 value.RSM_SAMPLES.8 = 8

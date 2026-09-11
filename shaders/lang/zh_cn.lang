@@ -401,8 +401,10 @@ option.GI_HISTORY_FRAMES = GI 历史帧数
 option.GI_HISTORY_FRAMES.comment = 反弹光混合在一起的历史帧数：越高越干净稳定，但光照变化（放火把、太阳移动）生效稍慢。
 option.RSM_STRENGTH = RSM 强度
 option.RSM_STRENGTH.comment = 反弹阳光的强度。不影响直射阳光和天空环境光。
+option.RSM_SKY_OCCLUSION = RSM 天空遮蔽
+option.RSM_SKY_OCCLUSION.comment = 在阴影贴图显示晒不到天空的区域（屋顶、茂密植被下）压暗反弹光中的天光。关闭后完全移除该效果并跳过对应采样。
 option.RSM_SKY_OCCLUSION_FLOOR = RSM 天空遮蔽下限
-option.RSM_SKY_OCCLUSION_FLOOR.comment = 在阴影数据显示晒不到天空的地方，限制残留天光的程度：越低封闭空间越暗、越自然；1.0 = 不做额外限制。
+option.RSM_SKY_OCCLUSION_FLOOR.comment = 在阴影数据显示晒不到天空的地方，限制残留天光的程度：越低封闭空间越暗、越自然；1.0 = 不做额外限制。仅在 RSM 天空遮蔽开启时生效。
 option.RSM_DEBUG = RSM 调试
 option.RSM_DEBUG.comment = 排查反弹光问题的诊断视图。游玩时保持"最终画面"。
 value.RSM_SAMPLES.8 = 8

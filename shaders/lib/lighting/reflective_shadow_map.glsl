@@ -59,7 +59,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
     vec3 sum_transport_moments = vec3(0.0);
-#if RSM_SKY_OCCLUSION_FLOOR < 1.0
+#ifdef RSM_SKY_OCCLUSION
     float sum_shadow_occlusion = 0.0;
     float sum_shadow_weight = 0.0;
     float sum_squared_shadow_weight = 0.0;
@@ -69,7 +69,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float radial_distance = RSM_RADIUS * (float(sample_index) + stbn_noise.y) / float(RSM_SAMPLES);
         // Inverse disk-area PDF, with its common constant cancelled. Invalid
         // shadow-map samples retain their weight and count as unoccluded.
-#if RSM_SKY_OCCLUSION_FLOOR < 1.0
+#ifdef RSM_SKY_OCCLUSION
         float shadow_weight = radial_distance / RSM_RADIUS;
         sum_shadow_weight += shadow_weight;
         sum_squared_shadow_weight += shadow_weight * shadow_weight;
@@ -91,7 +91,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         // Reuse the sampled first-surface depth for sky occlusion: a
         // directional test against the receiver plane; transparent depth
         // is valid here.
-#if RSM_SKY_OCCLUSION_FLOOR < 1.0
+#ifdef RSM_SKY_OCCLUSION
         texel_extent_m = 2.0 * distort_factor * distort_factor
             / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
         float texel_footprint = length(texel_extent_m);
@@ -106,7 +106,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         if (all(equal(source_data, vec4(0.0)))) continue;
         vec3 reflectance = DecodeRSMReflectance(source_data);
 
-#if RSM_SKY_OCCLUSION_FLOOR >= 1.0
+#ifndef RSM_SKY_OCCLUSION
         texel_extent_m = 2.0 * distort_factor * distort_factor
             / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
         float distance_squared = dot(delta_shadow, delta_shadow);
@@ -142,7 +142,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 
     vec3 irradiance = sum_irradiance / rsm_sample_count;
     float mean_coverage = sum_coverage / rsm_sample_count;
-#if RSM_SKY_OCCLUSION_FLOOR < 1.0
+#ifdef RSM_SKY_OCCLUSION
     float mean_shadow_occlusion = clamp(sum_shadow_occlusion / sum_shadow_weight, 0.0, 1.0);
     float shadow_occlusion = mean_shadow_occlusion * availability;
     vec3 occluded_sky = RSMOccludedSky(sky_fallback, shadow_occlusion);
@@ -159,7 +159,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     float mean_luminance = Luminance(irradiance) - sky_luminance * mean_coverage;
     float transport_variance = max(moments.x + sky_luminance * sky_luminance * moments.y
         - 2.0 * sky_luminance * moments.z - mean_luminance * mean_luminance, 0.0);
-#if RSM_SKY_OCCLUSION_FLOOR < 1.0
+#ifdef RSM_SKY_OCCLUSION
     float shadow_variance = mean_shadow_occlusion * (1.0 - mean_shadow_occlusion)
         * sum_squared_shadow_weight / (sum_shadow_weight * sum_shadow_weight);
     float shadow_scale = (1.0 - RSM_SKY_OCCLUSION_FLOOR)

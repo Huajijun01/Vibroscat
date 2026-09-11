@@ -3,7 +3,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
 
@@ -314,7 +313,7 @@ float MapCloudIsotropicDiffuse(float isotropic_diffuse) {
     return phi_fwd_scalar;
 }
 
-vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dither_coord, int dither_slice,
+vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_jitter,
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
     vec3 sun_dir = normalize(u_world_sun_dir);
@@ -340,13 +339,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, ivec2 dith
             eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
         }
     }
-    // STBN 3D blue noise: the screen pass advances the time slice per frame;
-    // the skybox pins slice 0 (temporal stability).
-    // View/light use R2-separated read offsets (decorrelated).
-    ivec2 stbn_base = dither_coord & ivec2(127, 127);
-    int stbn_frame = dither_slice & 63;
-    float view_jitter = SampleSTBN(stbn_base, stbn_frame);
-    float light_jitter_base = SampleSTBN(stbn_base, stbn_frame + 32);
+    // stbn_jitter is sampled by the pass main: the screen pass seeds it with
+    // (view texel, frameCounter), the skybox with (skybox texel,
+    // frameCounter / 4). x = view march jitter, y = light march base; the two
+    // streams are decorrelated by their STBN slice offset (STBN_SLICE_LIGHT).
+    float view_jitter = stbn_jitter.x;
+    float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;
     float direct_sun_radiance = 0.0;
     float direct_moon_radiance = 0.0;

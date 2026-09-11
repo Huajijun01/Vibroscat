@@ -4,7 +4,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 
 // Percentage-Closer Soft Shadows.
 //
@@ -29,16 +28,6 @@ vec2 ShadowDiskPoint(int i, int count) {
 // Rotate the stratified disk point by the precomputed basis.
 vec2 ShadowRotateDisk(vec2 point, vec2 rot_x, vec2 rot_y) {
     return vec2(dot(rot_x, point), dot(rot_y, point));
-}
-
-// STBN spatiotemporal noise: spatial slice by fragment coords, time slice
-// by frame.
-float ShadowDither(vec2 screen_pos) {
-#ifdef TAA
-    return SampleSTBN(ivec2(screen_pos), frameCounter);
-#else
-    return SampleSTBN(ivec2(screen_pos), 0);
-#endif
 }
 
 // Step 1: blocker search. Averages the depths of shadow-map samples that
@@ -92,10 +81,11 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 rot_x, vec2 rot_y, int block
 // the plant-SSS thickness estimate keeps working without the PCSS cost.
 //   sp        - shadow NDC [0,1]^3 with depth bias (projectToShadowWithBias)
 //   clipPos   - undistorted shadow clip space [-1,1]^3 (projectToShadowClip)
-//   screenPos - fragment coordinates, used as the STBN dither seed
+//   stbn_dither - STBN dither sampled by the pass main (ShadowDiskPoint
+//               rotation; static without TAA)
 //   sssAmount - plant translucency (0 = none); gates the blocker search
 //   sssThicknessWorld - out: foliage thickness along the light in meters
-float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 screen_pos, float sss_amount,
+float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, float stbn_dither, float sss_amount,
                               out float sss_thickness_world) {
     sss_thickness_world = 0.0;
     if (any(lessThan(sp.xy, vec2(0.0))) || any(greaterThan(sp.xy, vec2(1.0)))) {
@@ -104,8 +94,7 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 screen_pos, float sss
     // Keep the blocker search only for SSS materials (thickness estimate);
     // opaque surfaces skip it entirely in this tier.
     if (sss_amount > 1e-3) {
-        float dither = ShadowDither(screen_pos);
-        float angle = dither * TAU;
+        float angle = stbn_dither * TAU;
         vec2 rot_x = vec2(cos(angle), -sin(angle));
         vec2 rot_y = vec2(sin(angle), cos(angle));
         float blocker_depth;
@@ -117,22 +106,22 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 screen_pos, float sss
 // Full PCSS filter.
 //   sp        - shadow NDC [0,1]^3 with depth bias (projectToShadowWithBias)
 //   clipPos   - undistorted shadow clip space [-1,1]^3 (projectToShadowClip)
-//   screenPos - fragment coordinates, used as the STBN dither seed
+//   stbn_dither - STBN dither sampled by the pass main (serves the blocker
+//               search and the PCF pass with one coherent rotation)
 //   view_pos  - eye-space receiver position (for the distance response)
 //   sssAmount - plant translucency (0 = none); widens the blocker search so
 //               the thickness estimate is stable across sparse foliage
 //   NdotL       - surface dot(light); back faces return early with thickness
 //   sssThicknessWorld - out: foliage thickness along the light in meters
-float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 screen_pos, vec3 view_pos,
+float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
                        float sss_amount, float ndotl, out float sss_thickness_world) {
     sss_thickness_world = 0.0;
     if (any(lessThan(sp.xy, vec2(0.0))) || any(greaterThan(sp.xy, vec2(1.0)))) {
         return 1.0;
     }
 
-    // One STBN read + rotation basis serves both passes (coherent dither).
-    float dither = ShadowDither(screen_pos);
-    float angle = dither * TAU;
+    // One dither value + rotation basis serves both passes (coherent dither).
+    float angle = stbn_dither * TAU;
     vec2 rot_x = vec2(cos(angle), -sin(angle));
     vec2 rot_y = vec2(sin(angle), cos(angle));
 

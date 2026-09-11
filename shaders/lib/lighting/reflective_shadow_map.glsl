@@ -6,7 +6,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/lighting/rsm_data.glsl"
@@ -41,9 +40,11 @@ vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
 // NdotL cancels between incident irradiance and projected emitter area.
 // Integrate in UNDISTORTED light-plane meters: p_A = 1/(2*pi*R*r).
 // Thus neither a shadow-resolution gain nor a distorted-UV area bias is needed.
+// stbn_noise is the two-sample STBN pair sampled by the deferred3 main
+// (radial jitter in y, golden-angle rotation seed in x).
 // Output includes the uncovered sky fallback, before the receiver BRDF.
-vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2 texel,
-        vec3 sky_fallback, out float sample_sigma) {
+vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
+        vec2 stbn_noise, vec3 sky_fallback, out float sample_sigma) {
     sample_sigma = 0.0;
     float availability = 1.0 - smoothstep(max(shadowDistance - RSM_RADIUS, 0.0),
         shadowDistance, length(receiver_view));
@@ -51,7 +52,6 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
 
     vec3 receiver_shadow = (shadowModelView * vec4(receiver_world + normal_world * 0.03, 1.0)).xyz;
     vec3 normal_shadow = normalize(mat3(shadowModelView) * normal_world);
-    vec2 noise = vec2(SampleSTBN(texel, frameCounter), SampleSTBN(texel, frameCounter + 23));
     ivec2 shadow_size = textureSize(shadowtex0, 0);
     vec2 shadow_size_f = vec2(shadow_size);
     float rsm_sample_count = float(RSM_SAMPLES);
@@ -66,7 +66,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
 #endif
 
     for (int sample_index = 0; sample_index < RSM_SAMPLES; ++sample_index) {
-        float radial_distance = RSM_RADIUS * (float(sample_index) + noise.y) / float(RSM_SAMPLES);
+        float radial_distance = RSM_RADIUS * (float(sample_index) + stbn_noise.y) / float(RSM_SAMPLES);
         // Inverse disk-area PDF, with its common constant cancelled. Invalid
         // shadow-map samples retain their weight and count as unoccluded.
 #if RSM_SKY_OCCLUSION_FLOOR < 1.0
@@ -74,7 +74,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world, ivec2
         sum_shadow_weight += shadow_weight;
         sum_squared_shadow_weight += shadow_weight * shadow_weight;
 #endif
-        float angle = TAU * fract(noise.x + float(sample_index) * 0.61803398875);
+        float angle = TAU * fract(stbn_noise.x + float(sample_index) * 0.61803398875);
         vec2 sample_shadow_xy = receiver_shadow.xy + radial_distance * vec2(cos(angle), sin(angle));
         vec2 sample_clip = projection_xy * sample_shadow_xy + shadowProjection[3].xy;
         if (any(greaterThanEqual(abs(sample_clip), vec2(1.0)))) continue;

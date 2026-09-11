@@ -135,22 +135,16 @@ float GITraceScreenEdge(vec4 origin_projection, vec4 projected_direction, float 
 }
 
 
-vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
+vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
         out float coverage, out float second_moment) {
     second_moment = 0.0;
     vec3 view_direction = -normalize(origin_view_position);
     vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
     vec3 normal_vvs = GIRotateVectorByQuaternion(origin_normal_view, q_from_view);
-    // Reference Rnd01x4 usage: noise.x samples the slice direction, noise.y
-    // jitters the first march step, noise.z jitters the sector arcs.
-    vec3 noise = vec3(
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter),
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + 32),
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + 16));
-    noise = fract(noise + vec3(0.7548776662, 0.7548776662 * 0.7548776662, 0.7548776662)
-        * float(frameCounter & 63));
-    vec2 slice_direction = GISampleSliceDirection(normal_vvs, noise.x);
+    // stbn_noise comes from the pass main (streams 0/3/1): x samples the
+    // slice direction, y jitters the first march step, z jitters the arcs.
+    vec2 slice_direction = GISampleSliceDirection(normal_vvs, stbn_noise.x);
     vec3 ray_direction = GIRotateSliceDirectionByQuaternion(slice_direction, q_to_view);
 
     vec3 projection_diag = vec3(gbufferProjection[0].x, gbufferProjection[1].y, gbufferProjection[2].z);
@@ -168,10 +162,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
     float inv_range = inversesqrt(dot(sample_range, sample_range));
     vec2 step_dir = sample_range * inv_range * u_view_pixel_size;
     // Reference march schedule: GI_STEPS geometric steps that grow to the
-    // clamped march width, with the first step jittered by noise.y.
+    // clamped march width, with the first step jittered by stbn_noise.y.
     float march_width = min(GI_LENGTH, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
     float step_scale = pow(march_width, 1.0 / float(GI_STEPS));
-    float step_size = pow(step_scale, noise.y);
+    float step_size = pow(step_scale, stbn_noise.y);
     vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
     vec2 inverse_projection_bias = gbufferProjectionInverse[3].xy;
     float inverse_projection_z = gbufferProjectionInverse[3].z;
@@ -234,7 +228,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
         horizontal01 = vec2(GISliceRelativeCDF(horizontal01.x, angle_normal, cos_normal),
             GISliceRelativeCDF(horizontal01.y, angle_normal, cos_normal));
         horizontal01 = horizontal01 * remap_mul + vec2(remap_add);
-        horizontal01 = clamp(horizontal01 + vec2(noise.z * (1.0 / 32.0)), vec2(0.0), vec2(1.0));
+        horizontal01 = clamp(horizontal01 + vec2(stbn_noise.z * (1.0 / 32.0)), vec2(0.0), vec2(1.0));
         uint sample_mask = GIVisibilityMaskFromRange(horizontal01);
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
@@ -301,11 +295,26 @@ void main() {
     float screen_ao;
     vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), nx_ao.y, false, screen_ao);
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
-    raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, tx, fallback, sample_sigma);
+    // The GI temporal denoiser consumes the animation, so the RSM noise keeps
+    // advancing with frameCounter (no STBNFrame() pinning here).
+    vec2 rsm_stbn_noise = vec2(SampleSTBN(tx, frameCounter),
+        SampleSTBN(tx, frameCounter + STBN_STREAM_2));
+    raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, rsm_stbn_noise, fallback, sample_sigma);
 #else
     float coverage;
     float second_moment;
-    raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, coverage, second_moment);
+    // Reference Rnd01x4 usage: x samples the slice direction, y jitters the
+    // first march step, z jitters the sector arcs (streams 0/3/1). The R2
+    // advance decorrelates the three streams across frames; the GI temporal
+    // denoiser consumes the animation (no STBNFrame() pinning here).
+    vec3 gi_stbn_noise = vec3(
+        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + STBN_STREAM_0),
+        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + STBN_STREAM_3),
+        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + STBN_STREAM_1));
+    gi_stbn_noise = fract(gi_stbn_noise
+        + vec3(0.7548776662, 0.7548776662 * 0.7548776662, 0.7548776662)
+            * float(frameCounter & 63));
+    raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, gi_stbn_noise, coverage, second_moment);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;
     // A single random slice has correlated angular bins. Use their spread

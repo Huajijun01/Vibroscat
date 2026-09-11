@@ -1,6 +1,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/air_fog.glsl"
 #include "/lib/volume/air_epipolar.glsl"
 #include "/lib/volume/epipolar_core.glsl"
@@ -50,9 +51,13 @@ void main() {
                 float segment_length;
                 if (AirFogSegment(depth_dist, far, segment_length)) {
                     vec3 clamped_end = air_start + world_dir * segment_length;
+                    // The epipolar grid cell seeds the STBN spatial slice;
+                    // without TAA the time slice pins to 0 (no temporal
+                    // accumulation to hide the shimmer).
+                    float stbn_jitter = SampleSTBN(
+                        ivec2(slice_i, int(sample_index)), STBNFrame());
                     air_e = EpipolarAirShadowRatio(
-                    air_start, clamped_end, air_extinction,
-                        ivec2(slice_i, int(sample_index)));
+                    air_start, clamped_end, air_extinction, stbn_jitter);
                 }
             }
         }

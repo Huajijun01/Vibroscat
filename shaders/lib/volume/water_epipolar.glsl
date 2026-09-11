@@ -10,7 +10,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
 #ifdef EPIPOLAR_WATER
@@ -61,7 +60,7 @@ bool EpipolarWaterSegment(ivec2 texel, vec2 uv01, out vec3 start_scene, out vec3
 // part instead of zeroing the whole analytic fog (which integrates over the
 // full ray length).
 vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, float light_path2,
-                         vec3 extinction, ivec2 rand_coord) {
+                         vec3 extinction, float stbn_jitter) {
     // Interpolate in undistorted shadow clip space (the distortion is
     // nonlinear - mixing warped UVs would curve the march); re-apply
     // distortion + protected depth per step.
@@ -89,17 +88,10 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     float t_end = max(max(t_end_vec.r, t_end_vec.g), t_end_vec.b);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
-    // Without TAA, only spatial blue noise dithers the slice, so it would
-    // shimmer (no temporal accumulation to hide it).
-#ifdef TAA
-    float jitter = SampleSTBN(rand_coord, frameCounter);
-#else
-    float jitter = SampleSTBN(rand_coord, 0);
-#endif
     vec3 num = vec3(0.0);
     float inv_steps = 1.0 / float(EPIPOLAR_SHADOW_STEPS);
     for (int k = 0; k < EPIPOLAR_SHADOW_STEPS; ++k) {
-        float p = (float(k) + jitter) * inv_steps;
+        float p = (float(k) + stbn_jitter) * inv_steps;
         float t_sample = 1.0 + p * (t_end - 1.0); // arithmetic transmittance decay
         float u;
         float du;

@@ -42,9 +42,12 @@ void main() {
     vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
     if (dot(normal, view_to_eye) <= 1e-5) return;
 
+    // One STBN pair feeds both the GGX direction sample and the trace start
+    // jitter (the pair's y component), instead of two identical reads.
+    vec2 stbn_random = OpaqueSSRRandom2(tx);
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
-        normal, view_to_eye, rough_selector.x, tx, half_vector);
+        normal, view_to_eye, rough_selector.x, stbn_random, half_vector);
 
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(
@@ -52,7 +55,7 @@ void main() {
     vec3 trace_origin = view_pos
         + geo_view_normal * 0.03
         + view_direction * 0.05;
-    float trace_jitter = OpaqueSSRRandom2(tx).y;
+    float trace_jitter = stbn_random.y;
     SSRHit shared_hit = TraceScreenSpaceReflection(
         trace_origin, view_direction, trace_jitter,
         OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);

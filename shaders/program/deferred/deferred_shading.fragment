@@ -20,6 +20,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/celestial.glsl"
@@ -105,8 +106,11 @@ void main() {
             vec3 surface_position = camera_atm_pos + view_dir * accumulated.a;
             accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
             vec3 cloud_transmittance;
+            // Cirrus light march seeded at this pixel; the volumetric march
+            // (clouds_render pass) seeds at its own R2 lattice position.
+            float cirrus_light_jitter = SampleSTBN(tx, frameCounter);
             sky_color = RenderCloudLayers(view_dir, sky_color, accumulated.rgb, surface_position, cloud_entry,
-                tx, frameCounter, cloud_transmittance);
+                cirrus_light_jitter, cloud_transmittance);
             // Sun/moon occluded by real cloud transmittance.
             sky_color += celestial * cloud_transmittance;
         } else {
@@ -205,19 +209,22 @@ void main() {
     float sss_thickness_world = 0.0;
     vec3 shadow_proj = ProjectToShadowWithBias(world_pos, geo_ndotl);
     bool shadow_needed = ndotl > 1.0e-3 || sss_amount > 0.01;
+    // One STBN read feeds both the shadow filter and the contact shadow:
+    // same texel and time slice, so both consumers share the dither.
+    float stbn_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
     if (shadow_needed && all(greaterThanEqual(shadow_proj, vec3(0.0)))
             && all(lessThanEqual(shadow_proj, vec3(1.0)))) {
 #ifdef SHADOW_PCSS
         vec3 shadow_clip = ProjectToShadowClip(world_pos);
-        shadow_occlusion = ShadowFilterPCSS(shadow_proj, shadow_clip, gl_FragCoord.xy, view_pos, sss_amount, ndotl,
-            sss_thickness_world);
+        shadow_occlusion = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither, view_pos,
+            sss_amount, ndotl, sss_thickness_world);
 #else
         // LOW tier: hardware-bilinear PCF; the blocker search stays on so
         // the plant-SSS thickness estimate keeps working (see
         // ShadowFilterHardwarePCF).
         vec3 shadow_clip = ProjectToShadowClip(world_pos);
-        shadow_occlusion = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, gl_FragCoord.xy, sss_amount,
-            sss_thickness_world);
+        shadow_occlusion = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, stbn_dither,
+            sss_amount, sss_thickness_world);
 #endif
     }
 #if CONTACT_SHADOWS == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
@@ -226,13 +233,8 @@ void main() {
         // upper bound on the shadow-map result. The march fills PCF seam
         // leaks along contact lines and keeps directional occlusion past the
         // shadow-map boundary.
-#ifdef TAA
         float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_n, geo_ndotl,
-            ivec2(gl_FragCoord.xy), frameCounter);
-#else
-        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_n, geo_ndotl,
-            ivec2(gl_FragCoord.xy), 0);
-#endif
+            stbn_dither);
         shadow_occlusion = min(shadow_occlusion, contact_shadow);
 #if CONTACT_SHADOW_DEBUG > 0
         // Debug view: raw visibility factor or boosted darkness. Pixels that
@@ -388,8 +390,8 @@ void main() {
     if (ssr_weight > 0.0) {
         vec3 ssr_reflection_half;
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
-            normal, view_to_eye, material.perceptual_roughness, tx,
-            ssr_reflection_half);
+            normal, view_to_eye, material.perceptual_roughness,
+            OpaqueSSRRandom2(tx), ssr_reflection_half);
         vec3 ssr_incident_radiance = texelFetch(colortex3, tx, 0).rgb;
         float ssr_reflection_ndotv = sh_reflection_ndotv;
         float ssr_reflection_ndotl = Max0(

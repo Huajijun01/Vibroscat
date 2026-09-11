@@ -38,11 +38,12 @@
 
 // Per-block STBN: x = slice rotation, y = horizon-step dither. Point-sampled
 // (bilinear would correlate the blue noise and break TAA resolvability).
+// Called by the ao pass main; the kernels take the pair as input.
 vec2 GTAOSTBNNoise(vec2 texel, int frame) {
     ivec2 stbn_texel = ivec2(texel * 0.5);
     int slice = frame & 63;
     float rotation = SampleSTBN(stbn_texel, slice);
-    float step_noise = SampleSTBN(stbn_texel, slice + 32);
+    float step_noise = SampleSTBN(stbn_texel, slice + STBN_STREAM_3);
     return vec2(rotation, step_noise);
 }
 
@@ -111,8 +112,9 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
     return acos(clamp(horizon_cos, -1.0, 1.0));
 }
 
-// Screen-space GTAO at one pixel (full-res UV and texel). Returns AO in [0,1].
-float ComputeGTAO(vec2 uv, vec2 texel, int frame) {
+// Screen-space GTAO at one pixel (full-res UV and texel). stbn_noise is the
+// GTAOSTBNNoise pair sampled by the pass main. Returns AO in [0,1].
+float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
     float center_depth = texelFetch(depthtex2, center_texel, 0).r;
     if (center_depth >= 1.0) {
@@ -123,8 +125,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, int frame) {
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
     vec3 normal = DecodeOctahedralNormal(geometry_data.xy);  // geometric view normal
 
-    vec2 noise = GTAOSTBNNoise(texel, frame);
-    float slice_angle_base = noise.x * PI;
+    float slice_angle_base = stbn_noise.x * PI;
     float n_v = dot(normal, view_axis);
     float visibility = 0.0;
     for (int s = 0; s < GTAO_SLICES; ++s) {
@@ -146,9 +147,9 @@ float ComputeGTAO(vec2 uv, vec2 texel, int frame) {
         screen_dir = GTAOScreenDir(tangent, center_view, radius_px);
 
         float h_pos = GTAOSearchHorizon(uv, center_view, screen_dir, radius_px,
-            center_depth, view_axis, noise.y);
+            center_depth, view_axis, stbn_noise.y);
         float h_neg = -GTAOSearchHorizon(uv, center_view, -screen_dir, radius_px,
-            center_depth, view_axis, noise.y);
+            center_depth, view_axis, stbn_noise.y);
 
         // Clamp the visible arc to the cosine-positive hemisphere of n and
         // integrate exactly.

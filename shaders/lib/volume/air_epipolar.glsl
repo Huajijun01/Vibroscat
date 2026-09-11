@@ -8,7 +8,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
 #ifdef EPIPOLAR_WATER
@@ -24,8 +23,9 @@ float EpipolarAirColumnKey(vec2 uv01, ivec2 texel) {
 
 // Air shadow ratio: no light-direction OD, view-path transmittance only
 // (groundLight approximates the active light).
+// stbn_jitter is the STBN dither sampled by the integrate pass main.
 vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
-                            ivec2 rand_coord) {
+                            float stbn_jitter) {
     vec3 s = ProjectToShadowClip(start_scene);
     vec3 e = ProjectToShadowClip(end_scene);
     vec3 diff = end_scene - start_scene;
@@ -34,17 +34,10 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     float t_end = exp(-extinction * seg_optical);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
-    // Without TAA, only spatial blue noise dithers the slice, so it would
-    // shimmer (no temporal accumulation to hide it).
-#ifdef TAA
-    float jitter = SampleSTBN(rand_coord, frameCounter);
-#else
-    float jitter = SampleSTBN(rand_coord, 0);
-#endif
     vec3 num = vec3(0.0);
     vec3 den = vec3(0.0);
     for (int k = 0; k < EPIPOLAR_SHADOW_STEPS; ++k) {
-        float p = (float(k) + jitter) / float(EPIPOLAR_SHADOW_STEPS);
+        float p = (float(k) + stbn_jitter) / float(EPIPOLAR_SHADOW_STEPS);
         float u;
         vec3 weight;
         if (uniform_steps) {

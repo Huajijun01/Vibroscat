@@ -29,8 +29,9 @@
 #include "/lib/core/packing.glsl"
 #include "/lib/lighting/gtao.glsl"
 
-// Screen-space SSAO at one pixel (full-res UV and texel). Returns AO in [0,1].
-float ComputeSSAO(vec2 uv, vec2 texel, int frame) {
+// Screen-space SSAO at one pixel (full-res UV and texel). stbn_noise is the
+// GTAOSTBNNoise pair sampled by the pass main. Returns AO in [0,1].
+float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
     float center_depth = texelFetch(depthtex2, center_texel, 0).r;
     if (center_depth >= 1.0) {
@@ -45,14 +46,13 @@ float ComputeSSAO(vec2 uv, vec2 texel, int frame) {
     vec3 tangent = normalize(cross(up, normal));
     vec3 bitangent = cross(normal, tangent);
 
-    vec2 noise = GTAOSTBNNoise(texel, frame);
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
         // Cosine-weighted hemisphere sample: uniform disk point
         // (r = sqrtu1) lifted onto the hemisphere; azimuth dithered per block
         // and stratified per sample (golden angle).
-        float u1 = (float(k) + noise.y) / float(SSAO_SAMPLES);
-        float u2 = fract(noise.x + float(k) * 0.61803398875);
+        float u1 = (float(k) + stbn_noise.y) / float(SSAO_SAMPLES);
+        float u2 = fract(stbn_noise.x + float(k) * 0.61803398875);
         float r = sqrt(u1);
         float phi = u2 * TAU;
         vec3 dir = tangent * (r * cos(phi)) + bitangent * (r * sin(phi))

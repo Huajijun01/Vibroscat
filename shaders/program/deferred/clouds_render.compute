@@ -146,11 +146,16 @@ void main() {
     bool hit = false;
     vec3 cloud_data = vec3(0.0, 0.0, 1.0);
     if (cloud_visible) {
+        // x = view march jitter, y = light march base; the slice offset
+        // decorrelates the two streams. The march advances every frame (its
+        // temporal accumulator runs with or without TAA).
+        vec2 stbn_jitter = vec2(
+            SampleSTBN(sample_pos_i, frameCounter),
+            SampleSTBN(sample_pos_i, frameCounter + STBN_STREAM_3));
         cloud_data = MarchVolumetricClouds(
             camera_atmosphere_pos,
             view_dir,
-            sample_pos_i,
-            frameCounter,
+            stbn_jitter,
             march_start,
             march_end,
             step_count,

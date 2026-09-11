@@ -35,10 +35,13 @@ void main() {
     // resolution, the evaluation point is the block center.
     ivec2 block_origin = half_texel * 2;
     vec2 uv = (vec2(block_origin) + vec2(1.0)) * u_view_pixel_size;
+    // The AO temporal accumulator runs with or without TAA, so the STBN pair
+    // keeps advancing with frameCounter (no STBNFrame() pinning here).
+    vec2 stbn_noise = GTAOSTBNNoise(vec2(block_origin), frameCounter);
 #ifdef GTAO
-    float ao = ComputeGTAO(uv, vec2(block_origin), frameCounter);
+    float ao = ComputeGTAO(uv, vec2(block_origin), stbn_noise);
 #elif defined(SSAO)
-    float ao = ComputeSSAO(uv, vec2(block_origin), frameCounter);
+    float ao = ComputeSSAO(uv, vec2(block_origin), stbn_noise);
 #endif
     imageStore(uimg_ao, half_texel, vec4(ao, 0.0, 0.0, 1.0));
 }

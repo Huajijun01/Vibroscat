@@ -102,13 +102,9 @@ void main() {
         surface_normal = vec3(world_n_clamped.x, world_n_clamped.z, world_n_clamped.y);
     }
 
-    // STBN dither for the translucent ray trace: spatial blue noise, one
-    // time slice per frame.
-#ifdef TAA
-    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter);
-#else
-    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), 0);
-#endif
+    // STBN dither for the translucent ray trace: spatial blue noise; the
+    // time slice pins to 0 without TAA (no temporal accumulation).
+    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
 
     vec2 screen_texcoord = gl_FragCoord.xy * u_view_pixel_size;
 

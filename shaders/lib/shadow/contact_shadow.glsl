@@ -5,7 +5,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 
 // ============================================================================
 // Screen-space short-range contact shadows.
@@ -49,11 +48,11 @@ const float CONTACT_SHADOW_THICKNESS_GROWTH_PER_METER = 0.0125;
 //   receiver_view - camera-relative view-space receiver position
 //   normal_view   - view-space geometric normal
 //   ndotl         - geometric normal dot light direction
-//   stbn_texel    - fragment texel used as the STBN spatial seed
-//   frame         - STBN time slice (frameCounter with TAA, 0 without)
+//   stbn_dither   - STBN dither sampled by the pass main (STBNFrame():
+//                   static without TAA)
 // Returns 0.0 when an occluder sits inside the thickness slab, else 1.0.
 float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
-    ivec2 stbn_texel, int frame) {
+    float stbn_dither) {
     vec3 light_view = normalize(mat3(gbufferModelView) * u_world_light_dir);
     float receiver_distance = -receiver_view.z;
 
@@ -74,7 +73,6 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         max(CONTACT_SHADOW_REACH_MIN_METERS,
             CONTACT_SHADOW_REACH_FRACTION * receiver_distance));
 
-    float dither = SampleSTBN(stbn_texel, frame);
     float step_count = float(CONTACT_SHADOW_STEPS);
 
     // Step pattern: linear strides that grow by 0.3 per
@@ -86,7 +84,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float total_travel = step_count + 0.15 * step_count * (step_count - 1.0);
 
     for (int i = 0; i < CONTACT_SHADOW_STEPS; ++i) {
-        float sample_t = travelled + dither * stride;
+        float sample_t = travelled + stbn_dither * stride;
         vec3 sample_view = ray_origin + light_view * (march_distance * sample_t / total_travel);
         travelled += stride;
         stride += 0.3;

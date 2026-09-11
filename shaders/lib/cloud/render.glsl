@@ -78,12 +78,13 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
 // Compose volumetric + cirrus over the sky. Layer order follows the ray:
 // the first-entered layer draws in front (correct occlusion from below,
 // between layers, above the cirrus shell).
+// cirrus_light_jitter is the STBN dither for the cirrus light march, sampled
+// by the pass main.
 vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 volumetric_radiance,   // packed march output: x = sun, y = moon, z = T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
-    ivec2 dither_coord,          // STBN pixel feeding the cirrus light march
-    int dither_slice,            // STBN time slice
+    float cirrus_light_jitter,
     out vec3 cloud_transmittance // combined REAL transmittance of the cloud layers
 ) {
     // Volumetric layer composite over pure sky.
@@ -98,7 +99,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     // Cirrus layer composite over pure sky.
     vec3 cirrus_surface_pos;
     vec3 cirrus_transmittance;
-    vec3 cirrus_composite = RenderCirrusClouds(view_dir, sky_color, dither_coord, dither_slice,
+    vec3 cirrus_composite = RenderCirrusClouds(view_dir, sky_color, cirrus_light_jitter,
         cirrus_surface_pos, cirrus_transmittance);
 
     // Atmospheric fades blend each composite toward the sky but must NOT

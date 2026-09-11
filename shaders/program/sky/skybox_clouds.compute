@@ -1,6 +1,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
@@ -81,6 +82,10 @@ void main() {
             cloud_entry,
             cloud_exit
         );
+        // The skybox clock advances one STBN slice per 4-frame checkerboard
+        // cycle. One fetch serves the volumetric view march and the cirrus
+        // light march (identical texel and slice).
+        float cirrus_light_jitter = SampleSTBN(texel, cloud_frame);
         if (cloud_visible) {
             int step_count = clamp(int(ceil((cloud_exit - cloud_entry) / CLOUD_VIEW_TARGET_STEP_KM)),
                 CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
@@ -88,8 +93,7 @@ void main() {
             cloud_data = MarchVolumetricClouds(
                 camera_atm_pos,
                 view_dir,
-                texel,
-                cloud_frame,
+                vec2(cirrus_light_jitter, SampleSTBN(texel, cloud_frame + STBN_STREAM_3)),
                 cloud_entry,
                 cloud_exit,
                 step_count,
@@ -106,8 +110,7 @@ void main() {
             cloud_data,
             surface_position,
             cloud_entry,
-            texel,
-            cloud_frame,
+            cirrus_light_jitter,
             cloud_transmittance
         );
 #endif

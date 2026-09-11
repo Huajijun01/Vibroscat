@@ -1,6 +1,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 #include "/lib/volume/water_epipolar.glsl"
 #include "/lib/water/fog.glsl"
@@ -49,9 +50,13 @@ void main() {
                     : start_scene.y;
                 float light_path1 = max(surface_y - start_scene.y, 0.0) * per_metre;
                 float light_path2 = max(surface_y - end_scene.y, 0.0) * per_metre;
+                // The epipolar grid cell seeds the STBN spatial slice;
+                // without TAA the time slice pins to 0 (no temporal
+                // accumulation to hide the shimmer).
+                float stbn_jitter = SampleSTBN(
+                    ivec2(slice_i, int(sample_index)), STBNFrame());
                 water_e = EpipolarShadowRatio(start_scene, end_scene, light_path1,
-                                              light_path2, extinction,
-                                              ivec2(slice_i, int(sample_index)));
+                                              light_path2, extinction, stbn_jitter);
             }
         }
         imageStore(uimg_epipolar_term, ivec2(slice_i, int(sample_index)),

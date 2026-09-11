@@ -12,7 +12,6 @@
 
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
 
@@ -136,7 +135,9 @@ vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, ve
     return (in_sctr - in_sctr * sample_transmittance) / max(sample_extinction, 1.0e-5);
 }
 
-vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int dither_slice,
+// light_jitter is the STBN dither sampled by the pass main (its STBN slice
+// advances with the pass's frame clock).
+vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     out vec3 cirrus_surface_pos, out vec3 cirrus_transmittance
 ) {
     vec3 ray_start = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
@@ -194,7 +195,6 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, ivec2 dither_coord, int d
 
         // Up-sun self shadowing of the direct lights; the moon march offsets
         // the jitter by half a period to decorrelate its taps from the sun's.
-        float light_jitter = SampleSTBN(dither_coord, dither_slice);
         if (sun_visible > 0.0) {
             sun_color *= CirrusLightTransmittance(sample_position, normal, sun_dir, sun_mu, light_jitter);
         }

@@ -1,5 +1,5 @@
 // Phase 2: combine log statistics and percentiles, then update the adapted
-// luminance. A geometric mean models the retina's approximately logarithmic
+// exposure. A geometric mean models the retina's approximately logarithmic
 // response; the median rejects small bright/dark outliers and P90 preserves
 // highlight headroom. The log-average/key-value approach follows Reinhard et
 // al., "Photographic Tone Reproduction for Digital Images" (SIGGRAPH 2002).
@@ -10,6 +10,11 @@
 
 layout(local_size_x = 64) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
+
+const float AE_REFERENCE_LUMINANCE = 0.18;
+const float AE_HIGHLIGHT_HEADROOM = 0.80;
+const float AE_MIN_EXPOSURE = 1.0 / 32.0;
+const float AE_MAX_EXPOSURE = 32.0;
 
 shared float cache[64];
 shared uint histogram_cache[64];
@@ -53,23 +58,25 @@ void main() {
 
         float median_ev = HistogramPercentile(0.50, histogram_weight);
         float p90_ev = HistogramPercentile(0.90, histogram_weight);
-        float key_ev = mix(log_average - log2(0.18), median_ev, 0.35);
-        float key_lum = exp2(key_ev) * 0.18;
-        float target_exposure = AE_TARGET_LUMINANCE / max(key_lum, 1.0e-4);
-        float p90_lum = 0.18 * exp2(p90_ev);
-        target_exposure = min(target_exposure, 0.80 / max(p90_lum, 1.0e-4));
-        target_exposure = clamp(target_exposure, 0.03125, 32.0);
-        float target_lum = AE_TARGET_LUMINANCE / max(target_exposure, 1.0e-4);
+        float key_ev = mix(log_average - log2(AE_REFERENCE_LUMINANCE), median_ev, 0.35);
+        float key_lum = exp2(key_ev) * AE_REFERENCE_LUMINANCE;
+        float scene_ev = log2(max(key_lum, 1.0e-4) / AE_REFERENCE_LUMINANCE);
+        float target_exposure = (AE_TARGET_LUMINANCE / AE_REFERENCE_LUMINANCE)
+            * exp2(-AE_ADAPTATION_STRENGTH * scene_ev);
+        float p90_lum = AE_REFERENCE_LUMINANCE * exp2(p90_ev);
+        target_exposure = min(target_exposure, AE_HIGHLIGHT_HEADROOM / max(p90_lum, 1.0e-4));
+        target_exposure = clamp(target_exposure, AE_MIN_EXPOSURE, AE_MAX_EXPOSURE);
+        float target_exposure_ev = log2(target_exposure);
 
         // Bright adaptation is quick; dark adaptation is deliberately slower,
         // matching the asymmetric cone/rod response of the human eye.
         if (frameCounter < 2) {
-            smooth_lum = target_lum;
+            adapted_exposure_ev = target_exposure_ev;
         } else {
-            float rate_per_sec = target_lum > smooth_lum ? 4.0 : 0.8;
+            float rate_per_sec = target_exposure_ev < adapted_exposure_ev ? 4.0 : 0.8;
             float w = 1.0 - exp(-max(frameTime, 0.0) * rate_per_sec);
-            smooth_lum = mix(max(smooth_lum, 1.0e-4), target_lum, clamp(w, 0.0, 1.0));
+            adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, clamp(w, 0.0, 1.0));
         }
-        exposure = 0.18 / max(smooth_lum, 1.0e-4);
+        exposure = exp2(adapted_exposure_ev);
     }
 }

@@ -29,8 +29,8 @@ const int GI_STEPS = 16;
 // March width in screen pixels (the reference's Raymarching_Width).
 const float GI_LENGTH = 512.0;
 // Sample geometry thickness in view-depth meters (the reference's Thickness).
-const float GI_THICKNESS = 0.1;
-const float GI_RADIANCE_LIMIT = 64.0;
+const float GI_THICKNESS = 0.5;
+const float GI_RADIANCE_LIMIT = 128.0;
 
 layout(location = 0) out vec3 out_gi;
 layout(location = 1) out uint out_gi_metadata;
@@ -184,13 +184,20 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
     if (projected_normal_len < 1.0e-5) { coverage = 0.0; return vec3(0.0); }
     projected_normal *= inversesqrt(dot(projected_normal, projected_normal));
     vec3 tangent = cross(slice_normal, projected_normal);
-    float cos_normal = dot(projected_normal, view_direction);
+    // The slice CDF and w0 assume a front-facing projected normal. A
+    // back-facing one (silhouette, thin surface) pushes the CDF denominator
+    // through zero and inverts the sector order, so clamp it at the horizon.
+    float cos_normal = clamp(dot(projected_normal, view_direction), 0.0, 1.0);
     float angle_normal = (dot(view_direction, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
     float sin_normal = sin(angle_normal);
     // Share of the cosine-weighted slice the march cannot use, and the
     // [w0, 1] remap of the slice-relative CDF (reference w0_remap_*).
     float w0 = clamp((sin_normal / (cos_normal + angle_normal * sin_normal))
         * (PI * 0.25) + 0.5, 0.0, 1.0);
+    // A horizon-edge-on normal leaves the whole slice below the surface
+    // horizon (w0 == 1): no usable cosine mass, so no hit can occlude SH and
+    // the [w0, 1] remap would divide by zero.
+    if (w0 >= 1.0) { coverage = 0.0; return vec3(0.0); }
     float remap_mul = 1.0 / (1.0 - w0);
     float remap_add = -w0 * remap_mul;
 
@@ -231,10 +238,15 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
         uint sample_mask = GIVisibilityMaskFromRange(horizontal01);
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
+            float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
+            // A covered sector always removes its share of the SH fallback,
+            // whether or not its radiance can be read back. A hit that
+            // reprojects off screen contributes no radiance but still occludes,
+            // so no fallback energy is granted to a covered direction.
+            hit_coverage += visible_weight;
             vec2 previous_uv = ToPrevious(vec3(sample_uv, sample_depth)).xy;
             if (all(greaterThanEqual(previous_uv, vec2(0.0)))
                     && all(lessThan(previous_uv, vec2(1.0)))) {
-                float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred4
                 // consumes it with the same unit as AmbientLight().
@@ -242,7 +254,6 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view,
                 gi += incident_irradiance * visible_weight;
                 float sample_luminance = Luminance(incident_irradiance);
                 second_moment += sample_luminance * sample_luminance * visible_weight;
-                hit_coverage += visible_weight;
             }
         }
         occupied |= sample_mask;

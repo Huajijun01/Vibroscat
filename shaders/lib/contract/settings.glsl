@@ -21,7 +21,7 @@
 #define GI_HISTORY_FRAMES 24 // [4 8 16 24 31]
 #define RSM_SAMPLES 16 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
-#define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
 #define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
 
@@ -31,27 +31,30 @@
 #define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
 #define COLOR_DITHER_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Color dither strength: 0.5=conservative, 1.0=default, 2.0=aggressive
 
-//#define AE
-#define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure target scene-linear luminance
+#define AE
+#define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure reference display key; 0.18 is middle gray
+#define AE_ADAPTATION_STRENGTH 0.70 // [0.0 0.25 0.40 0.55 0.70 0.85 1.0] Scene-key EV compensation; 0=fixed exposure, 1=full compensation
 
 #define CAS
 #define CAS_SHARPNESS 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
-// Tonemap operator (0 = AgX, 1 = OKLAB, 2 = ACES, 3 = Reinhard-Gamut, 4 = GT7)
-#define TONEMAP_MODE 3 // [0 1 2 3 4] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut 4=GT7
+// Tonemap operator (0 = AgX, 1 = OKLAB, 2 = ACES, 3 = Reinhard-Gamut,
+// 4 = GT7, 5 = Reinhard-AgX)
+#define TONEMAP_MODE 4 // [0 1 2 3 4 5] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut 4=GT7 5=Reinhard-AgX
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
 
-//#define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
+#define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
 #define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
 // Rod-vision (scotopic) model, gated by the exposure state alone. The
-// adaptation key (smooth_lum) ramps the rod share log-linearly across the
-// mesopic band: 0.004 anchors near the full-moon night key (moon ground
-// irradiance ATM_MOON_IRR * ATM_EXPOSURE ~ 0.007), 0.04 stays below the
-// daylight key. CONE_LUMINANCE is the post-exposure luminance pivot where
-// cone color vision retakes over (0.35 ~ +1 EV over the 0.18 exposure
-// target); the tint is the unit-luminance rod gray.
+// adaptation key is reconstructed from the persistent exposure EV and ramps
+// the rod share log-linearly across the mesopic band: 0.004 anchors near the
+// full-moon night key (moon ground irradiance ATM_MOON_IRR * ATM_EXPOSURE ~
+// 0.007), 0.04 stays below the daylight key. CONE_LUMINANCE is the
+// post-exposure luminance pivot where cone color vision retakes over (0.35 ~
+// +1 EV over the 0.18 exposure target); the tint is the unit-luminance rod
+// gray.
 const float PURKINJE_SCOTOPIC_KEY = 0.004;
 const float PURKINJE_PHOTOPIC_KEY = 0.04;
 const float PURKINJE_CONE_LUMINANCE = 0.35;
@@ -59,7 +62,7 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 
 // AgX look and adjustments (only used when TONEMAP_MODE == 0)
 #define TONEMAP_AGX_LOOK 1 // [0 1 2] AgX look: 0=Base 1=Punchy 2=Greyscale
-#define TONEMAP_AGX_CONTRAST 0.95 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] AgX log-domain contrast around the mid-grey pivot
+#define TONEMAP_AGX_CONTRAST 0.95 // [0.5 0.6 0.7 0.8 0.9 0.95 1.0 1.1 1.2 1.3 1.4 1.5] AgX log-domain contrast around the mid-grey pivot
 #define TONEMAP_AGX_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0] AgX display-domain saturation
 #define TONEMAP_AGX_GAMMA 0.9 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] AgX display-domain gamma
 
@@ -85,9 +88,21 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define TONEMAP_RG_HIGHLIGHT_REACH_EV 6.5 // [6.0 6.5 7.0 7.5 8.0 9.0 10.0 12.0 15.0 20.0] Reinhard-Gamut scene stops above 18% gray that first reach the display peak
 #define TONEMAP_RG_HUE_RETENTION 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Reinhard-Gamut original-hue retention (shortest hue angle)
 
+// Reinhard-AgX (TONEMAP_MODE == 5): DRT Bench's linear-shadow / AgX-shoulder
+// hybrid. It shares the virtual gamut and the HSV hue repair with
+// Reinhard-Gamut and adds the log shoulder plus its power. Defaults are the
+// DRT tool's.
+#define TONEMAP_RA_GAMUT_EXPANSION 0.04 // [0.0 0.01 0.02 0.03 0.04 0.05 0.1 0.15 0.2 0.3 0.4 0.5 0.6 0.7 0.8] Reinhard-AgX virtual-primary expansion (coordinates contract toward neutral)
+#define TONEMAP_RA_INPUT_SCALE 1.2195122 // [0.1 0.2 0.3 0.5 0.75 1.0 1.2195122 1.5 2.0 3.0 4.0 6.0 8.0] Reinhard-AgX input scale (1/(1-0.18) preserves 18% gray)
+#define TONEMAP_RA_COMPRESSION_START 0.18 // [0.0 0.05 0.1 0.15 0.18 0.25 0.35 0.5 0.7 0.9] Reinhard-AgX scene-linear level where the linear segment hands over to the log shoulder
+#define TONEMAP_RA_HIGHLIGHT_REACH_EV 8.0 // [4.0 5.0 6.0 6.5 7.0 7.5 8.0 9.0 10.0 12.0 15.0 20.0] Reinhard-AgX scene stops above 18% gray that first reach the display peak
+#define TONEMAP_RA_SHOULDER_POWER 5.0 // [1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0] Reinhard-AgX log-shoulder power (higher holds the linear segment longer and sharpens the knee)
+#define TONEMAP_RA_HUE_RETENTION 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Reinhard-AgX original-hue retention (shortest hue angle)
+
 // GT7 Tone Mapping (TONEMAP_MODE == 4): Polyphony Digital color-volume
 // mapping (SIGGRAPH 2025 course, official MIT sample). The curve parameters
-// use the official SDR preset and are fixed in lib/color/color.glsl.
+// use the official SDR preset except alpha 0 (shoulder converges exactly to
+// paper white; see lib/color/color.glsl) and are fixed there.
 #define TONEMAP_GT7_BLEND 0.6 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] GT7 blend between the per-channel curve and the chroma-fade UCS path (official 0.6)
 #define TONEMAP_GT7_CHROMA_FADE_START 0.98 // [0.80 0.85 0.90 0.94 0.96 0.98 1.00 1.02 1.04] GT7 chroma-fade start, UCS luma relative to paper white (official 0.98)
 #define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)
@@ -101,17 +116,17 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.
 #define CLOUD_LIGHT_STEPS 8 // [3 4 5 6 8] Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
 #define CLOUD_BASE_ALTITUDE 1.4 // [0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud base altitude above terrain (km).
-#define CLOUD_THICKNESS_KM 1.5 // [0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud layer vertical thickness (km).
+#define CLOUD_THICKNESS_KM 1.5 // [0.6 0.8 1.0 1.2 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
 #define CLOUD_COVERAGE 0.5 // [0.35 0.4 0.45 0.5 0.55 0.58 0.62 0.66 0.7 0.75] Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
-#define CLOUD_DISTRIBUTION_SCALE_KM 280.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
+#define CLOUD_DISTRIBUTION_SCALE_KM 280.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0 240.0 280.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
 #define CLOUD_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
 #define CLOUD_FINE_WIND_FACTOR 2.0 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0] Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
-#define CLOUD_EROSION_SCALE_KM 1.5 // [2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Perlin-Worley erosion texture world-space scale for a full wrap (km).
+#define CLOUD_EROSION_SCALE_KM 1.5 // [1.5 2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Perlin-Worley erosion texture world-space scale for a full wrap (km).
 #define CLOUD_EROSION_STRENGTH 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] Pure Perlin-Worley low-frequency erosion strength.
 #define CLOUD_FINE_EROSION_SCALE_KM 0.4 // [0.4 0.5 0.65 0.8 1.0 1.25 1.5 2.0] Channel A independent detail noise scale for a full wrap (km).
 #define CLOUD_FINE_EROSION_STRENGTH 0.1 // [0.0 0.05 0.1 0.15 0.18 0.2 0.25 0.3 0.4] Channel A independent curl distortion detail erosion strength.
-#define CLOUD_FINE_EROSION_HEIGHT 0.3 // [0.15 0.25 0.35 0.45 0.55 0.7 0.85 1.0] Normalized height for fine erosion to grow from base to full strength.
+#define CLOUD_FINE_EROSION_HEIGHT 0.3 // [0.15 0.25 0.3 0.35 0.45 0.55 0.7 0.85 1.0] Normalized height for fine erosion to grow from base to full strength.
 #define CLOUD_DENSITY_MULTIPLIER 1.0 // [0.5 0.7 0.85 1.0 1.15 1.3 1.5] final density multiplier; raises opacity and self-shadow together
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] HanPi forward HG eccentricity.
@@ -120,15 +135,15 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] HanPi per-octave energy multiplier.
 #define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] HanPi per-octave phase eccentricity multiplier.
 #define CLOUD_MS_DEPTH_POWER 1.5 // [0.1 0.2 0.3 0.4 0.5 0.6 0.75 1.0 1.25 1.5 2.0] HP bottom-confidence depth exponent.
-#define CLOUD_MS_DEPTH_BIAS -0.07 // [-0.3 -0.15 0.0 0.15 0.3 0.5] HP bottom-confidence normalized-height bias.
+#define CLOUD_MS_DEPTH_BIAS -0.07 // [-0.3 -0.15 -0.07 0.0 0.15 0.3 0.5] HP bottom-confidence normalized-height bias.
 #define CLOUD_MS_BOUNDARY_CONFIDENCE 1.0 // [0.0 0.25 0.5 0.75 1.0] HP wrap boundary backlight confidence.
-#define CLOUD_PHI_INTENSITY 0.2 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Vibroscat phi_fwd initial intensity.
+#define CLOUD_PHI_INTENSITY 0.2 // [0.0 0.2 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Vibroscat phi_fwd initial intensity.
 #define CLOUD_PHI_COMPRESSION 0.5 // [0.0 0.1 0.25 0.5 1.0 2.0] Vibroscat phi_fwd soft compression.
-#define CLOUD_SKY_LIGHT_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
+#define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.
-#define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.10 1.15 1.25] centroid-distance safety scale
+#define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.10 1.15 1.20 1.25] centroid-distance safety scale
 #define CLOUD_AGE_LIMIT 24 // [8 12 16 24 32 48] accepted-frame/history-weight cap
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define CLOUD_HISTORY_NO_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
@@ -170,9 +185,9 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_SSS_DENSITY 3.0 // [1.0 2.0 3.0 4.0 6.0 8.0]
 #define SHADOW_SSS_SCALE 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0]
 #define SHADOW_SSS_PENUMBRA_BOOST 7.0 // [0.0 1.0 2.0 3.0 5.0 7.0 10.0]
-#define SHADOW_SSS_PHASE_G 0.4 // [0.0 0.3 0.5 0.6 0.7 0.8 0.9]
+#define SHADOW_SSS_PHASE_G 0.4 // [0.0 0.3 0.4 0.5 0.6 0.7 0.8 0.9]
 #define SHADOW_SSS_FADE_START 0.75 // [0.0 0.5 0.6 0.7 0.75 0.8 0.9 0.95]
-#define SHADOW_SSS_ENERGY 0.85 // [0.1 0.2 0.3 0.35 0.4 0.5 0.6 0.8 1.0]
+#define SHADOW_SSS_ENERGY 0.85 // [0.1 0.2 0.3 0.35 0.4 0.5 0.6 0.8 0.85 1.0]
 #define SHADOW_SSS_DEBUG 0 // [0 1] Isolate plant transmission in deferred shading.
 
 // Screen-space contact shadows (short-range, alongside the shadow map):
@@ -272,7 +287,7 @@ const float eyeBrightnessHalflife = 3.0;
 #define BOUNDARY_FOG
 #define BOUNDARY_FOG_START 0.5 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
 #define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
-#define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 1.0] sky-facing dampening
+#define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 0.8 1.0] sky-facing dampening
 
 // ==========================================================================
 // ATMOSPHERE - Sky atmosphere
@@ -317,7 +332,7 @@ const float ambientOcclusionLevel = 1.0;
 // AO generation is plain half resolution: every half-res texel is evaluated
 // every frame at its full-res block origin and upsampled bilinearly - one
 // sample per pixel per frame at full convergence speed.
-#define GTAO_AGE_LIMIT 48 // [2 4 6 8 10 16 24 32] history age cap (frames) before full trust
+#define GTAO_AGE_LIMIT 48 // [2 4 6 8 10 16 24 32 48] history age cap (frames) before full trust
 // AO accumulation matches the cloud temporal scheme: box-average the first
 // AO_ACCUMULATION_BOX_SAMPLES phase samples (one 2x2 checkerboard cycle),
 // then a steady-state EMA with AO_ACCUMULATION_ALPHA. Rejection lifts the
@@ -339,8 +354,8 @@ const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after th
 // depth stays under the distance limit and the normal at the reprojected
 // position agrees with the current pixel beyond the dot floor; both weights
 // ramp smoothly to zero (GTAOHistoryWeight in lib/lighting/temporal_ao.glsl).
-#define GTAO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
-#define GTAO_HISTORY_NORMAL_DOT_MIN 0.866 // [0.94 0.91 0.87 0.82 0.71 0.5] history rejection: min normal dot (cos 30 deg)
+#define GTAO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
+#define GTAO_HISTORY_NORMAL_DOT_MIN 0.866 // [0.94 0.91 0.866 0.82 0.71 0.5] history rejection: min normal dot (cos 30 deg)
 
 // ==========================================================================
 // LIGHTING - Lighting constants
@@ -367,5 +382,18 @@ const float SUN_DISC_RADIUS  = 0.005;   // ~0.267 deg
 const float SUN_GLOW_RADIUS  = 0.03;    // ~1.0 deg soft falloff
 const float MOON_DISC_RADIUS = 0.00436; // ~0.25 deg
 const float MOON_GLOW_RADIUS = 0.012;
+
+// ==========================================================================
+// UI-ONLY - display-only pseudo options, never read by shader code
+// ==========================================================================
+
+// Iris renders each single-value option as an inert settings button; the
+// visible text comes from the lang files (option.<NAME> / value.<NAME>.0).
+// Keep every name listed in the shaders.properties screen lists and present
+// in both lang files.
+#define ABOUT 0 //[0]
+#define INFO_LICENSE 0 //[0]
+#define INFO_PROFILE 0 //[0]
+#define INFO_TOOLTIPS 0 //[0]
 
 #endif

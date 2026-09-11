@@ -20,10 +20,10 @@
 //
 // Applied in the tonemap pass on the exposure-scaled image. The only gate
 // input is the exposure state (requires AE):
-//   adaptation_luma: the exposure pass's smooth_lum, the smoothed scene-key
-//     luminance that models the eye's adaptation level. The rod share ramps
-//     log-linearly across the mesopic band between PURKINJE_SCOTOPIC_KEY
-//     and PURKINJE_PHOTOPIC_KEY.
+//   adaptation_luma: an equivalent scene key reconstructed from the exposure
+//     pass's persistent EV state. It models the partially adapted eye level.
+//     The rod share ramps log-linearly across the mesopic band between
+//     PURKINJE_SCOTOPIC_KEY and PURKINJE_PHOTOPIC_KEY.
 // Per pixel, cone color vision retakes over above PURKINJE_CONE_LUMINANCE
 // (post-exposure units): bright emitters keep their hue while the dark
 // surroundings collapse onto the rod gray.

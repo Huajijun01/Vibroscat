@@ -36,7 +36,8 @@ void main() {
 // configurable boolean option.
 #ifdef PURKINJE_EFFECT
 #ifdef AE
-    hdr = ApplyPurkinjeEffect(hdr, smooth_lum);
+    float adapted_key_lum = AE_TARGET_LUMINANCE * exp2(-adapted_exposure_ev);
+    hdr = ApplyPurkinjeEffect(hdr, adapted_key_lum);
 #endif
 #endif
     float hdr_luma = Luminance(hdr);

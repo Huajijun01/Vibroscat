@@ -84,9 +84,11 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-## 4. DRT 色调映射（作者直接授权）
+## 4. DRT 色调映射（作者直接授权；GPL-3.0）
 
-`TonemapOklabDRT`（Björn Ottosson "A display rendering transform", 2021）与 `TonemapReinhardGamut` 移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）。DRT Bench 仓库尚未选择开源协议（publish=false），但作者已直接授权 Vibroscat 使用（2026-08；如需书面确认可向 linlin 索取）。Oklab 概念与公式来自 Björn Ottosson 的公开文章。
+`TonemapOklabDRT`（Björn Ottosson "A display rendering transform", 2021）、`TonemapReinhardGamut`（`TONEMAP_MODE == 3`）与 `TonemapReinhardAgx`（`TONEMAP_MODE == 5`）移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）。虚拟原色色域、Reinhard 曲线、AgX 对数肩部与 HSV 色相修复均为该工具的设计；Oklab 概念与公式来自 Björn Ottosson 的公开文章。
+
+2026-08 移植 Oklab 与 Reinhard-Gamut 时该仓库尚未选择开源协议（publish=false），作者已直接授权 Vibroscat 使用（如需书面确认可向 linlin 索取）。该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包主许可证 GNU GPL v3 兼容。
 
 ## 5. AMD FidelityFX CAS（MIT）
 
@@ -235,8 +237,10 @@ Yasutomi），样例代码明确以 MIT 许可发布：
   BT.709 ↔ BT.2020 线性矩阵转换为本包的线性 sRGB 约定；矩阵常量由原色推导。
 - 加入 `GT7_MID_GREY_SCALE` 中灰锚定预缩放（数值求解 0.4·curve(2.50832·0.18) =
   0.18），与其他色调映射模式共享 18% 灰锚点；曲线参数保持官方 SDR 预设
-  （peak 2.5、alpha 0.25、gray point 0.538、linear section 0.444、toe strength
-  1.28、blend 0.6、chroma fade 0.98–1.16）。
+  （peak 2.5、gray point 0.538、linear section 0.444、toe strength 1.28、
+  blend 0.6、chroma fade 0.98–1.16），仅一处有意偏差：alpha 取 0（官方样例的
+  合法参数）而非 0.25，使肩部渐近线恰为纸白——本包管线没有 GT7 引擎的曝光
+  归一化，样例的过冲肩部会把场景白色以上约半档的内容硬裁成纯白。
 - UCS 采用样例默认的 ICtCp（ITU-R BT.2124，Rec.2020）；ICtCp 逆矩阵为按定义
   精确求逆的常量。
 - 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、

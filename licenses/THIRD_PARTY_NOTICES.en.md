@@ -84,9 +84,11 @@ Source: https://github.com/AshenOneArt/HPVolumeCloud (its Docs/PhiFwd_FromRTE.md
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-## 4. DRT tone mapping (direct author permission)
+## 4. DRT tone mapping (direct author permission; GPL-3.0)
 
-`TonemapOklabDRT` (Björn Ottosson "A display rendering transform", 2021) and `TonemapReinhardGamut` are ported from DRT Bench (github.com/bWFuanVzYWth/DRT, by linlin). The DRT Bench repository has not selected an open-source license (publish=false), but the author has directly granted Vibroscat permission to use it (2026-08; written confirmation available from linlin on request). The Oklab concept and formulas come from Björn Ottosson's public articles.
+`TonemapOklabDRT` (Björn Ottosson "A display rendering transform", 2021), `TonemapReinhardGamut` (`TONEMAP_MODE == 3`) and `TonemapReinhardAgx` (`TONEMAP_MODE == 5`) are ported from DRT Bench (github.com/bWFuanVzYWth/DRT, by linlin). The virtual-primary gamut, the Reinhard curve, the AgX log shoulder and the HSV hue repair are that tool's designs; the Oklab concept and formulas come from Björn Ottosson's public articles.
+
+When Oklab and Reinhard-Gamut were ported in 2026-08 the repository had not selected an open-source license (publish=false), and the author granted Vibroscat permission directly (written confirmation available from linlin on request). Since 2026-09 the repository is published under `GPL-3.0-only` (LICENSE added in commit 49e67a3), which is compatible with this pack's main license, GNU GPL v3.
 
 ## 5. AMD FidelityFX CAS (MIT)
 
@@ -248,8 +250,12 @@ Porting adaptations:
 - A `GT7_MID_GREY_SCALE` input prescale (numerically solved from
   0.4*curve(2.50832*0.18) = 0.18) re-anchors 18% grey, the anchor shared with
   the other tonemap modes; the curve keeps the official SDR preset (peak 2.5,
-  alpha 0.25, gray point 0.538, linear section 0.444, toe strength 1.28,
-  blend 0.6, chroma fade 0.98-1.16).
+  gray point 0.538, linear section 0.444, toe strength 1.28, blend 0.6,
+  chroma fade 0.98-1.16) with one deliberate deviation: alpha is 0 (a legal
+  sample parameter) instead of 0.25, so the shoulder converges exactly to
+  paper white — this pack's pipeline lacks GT7's in-engine exposure
+  normalization, and the sample's overshooting shoulder hard-clipped roughly
+  half a stop of highlights above scene white.
 - The UCS is the sample default ICtCp (ITU-R BT.2124, Rec.2020); the ICtCp
   inverse matrix is an exact-by-definition constant.
 - Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,

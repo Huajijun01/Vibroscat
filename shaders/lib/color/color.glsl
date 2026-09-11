@@ -138,10 +138,13 @@ vec3 TonemapAGX(vec3 linear_rgb) {
 // (github.com/bWFuanVzYWth/DRT).
 // Provenance:
 //   - Oklab DRT: Björn Ottosson "A display rendering transform" (2021); the
-//     DRT Bench Slang port (linlin's permission; licenses/THIRD_PARTY_NOTICES.md
+//     DRT Bench port (linlin's permission; licenses/THIRD_PARTY_NOTICES.md
 //     section 4).
-//   - Reinhard-Gamut: DRT Bench experiment (linlin's permission, 2026-08).
-// Both take and return linear sRGB (the DRT tool's AP0 input is already
+//   - Reinhard-Gamut (mode 3): DRT Bench experiment (linlin's permission,
+//     2026-08).
+//   - Reinhard-AgX (mode 5): DRT Bench linear-shadow / AgX-shoulder hybrid
+//     (DRT Bench is GPL-3.0-only since 2026-09).
+// All of them take and return linear sRGB (the DRT tool's AP0 input is already
 // Rec.709/sRGB primaries here, so the AP0->Rec.709 matrix is omitted). The
 // DRT tool encodes sRGB internally; these ports return linear and let the
 // final pass (final.fragment) apply the OETF.
@@ -342,7 +345,7 @@ vec3 DRTHSVToRGB(vec3 hsv) {
 }
 
 
-// --- Reinhard-Gamut (mode 6): virtual-gamut Reinhard ---
+// --- Reinhard-Gamut (mode 3, the dispatcher fallback): virtual-gamut Reinhard ---
 
 vec3 DRTGamutExpand(vec3 color, float expansion) {
     float neutral = dot(color, DRT_AGX_NEUTRAL_WEIGHTS);
@@ -396,6 +399,81 @@ vec3 TonemapReinhardGamut(vec3 linear_rgb) {
         DRTReinhardCurve(working, middle_gray, curve_peak), TONEMAP_RG_GAMUT_EXPANSION);
     vec3 mapped_display = FromLinear(mapped_linear);
     mapped_display = DRTProtectHue(linear_rec709, mapped_display, TONEMAP_RG_HUE_RETENTION);
+    return ToLinear(clamp(mapped_display, 0.0, 1.0));
+}
+
+
+// --- Reinhard-AgX (mode 5): linear shadows into an AgX log shoulder ---
+
+// ln(1 + distance). The series branch keeps the tangent at the segment join
+// from cancelling into noise for the small distances the join produces.
+float DRTLogDistance(float distance) {
+    if (distance < 0.001)
+        return distance * (1.0 + distance * (-0.5 + distance / 3.0));
+    return 0.6931471805599453 * log2(1.0 + distance);
+}
+
+// Solved curve parameters (DRT Bench: ReinhardAgxCurveParameters). The tool
+// solves them on the CPU per headroom; here every input is a TONEMAP_RA_*
+// option and the output peak is SDR white, so the block folds to constants.
+struct DRTReinhardAgxShape {
+    float compression_start;
+    float linear_slope;
+    float shoulder_extent;
+    float shoulder_power;
+    float shoulder_coefficient;
+};
+
+DRTReinhardAgxShape DRTReinhardAgxShapeFromOptions() {
+    float middle_gray = (0.18 * TONEMAP_RA_INPUT_SCALE) / (1.0 + 0.18 * TONEMAP_RA_INPUT_SCALE);
+    float linear_slope = middle_gray / 0.18;
+    // DRT maximum_compression_start: keep output room for a positive shoulder
+    // at every input scale, so the linear segment cannot swallow the peak.
+    float compression_start = min(TONEMAP_RA_COMPRESSION_START, 0.99 * 0.18 / middle_gray);
+    // DRT minimum_highlight_reach_ev: ln(1 + distance) has to exceed one at
+    // the requested reach or the AgX coefficient turns negative.
+    float minimum_reach_ev = log2((2.718281828459045 - 1.0) / middle_gray) + 0.1;
+    float reach = 0.18 * exp2(max(TONEMAP_RA_HIGHLIGHT_REACH_EV, minimum_reach_ev));
+    float shoulder_extent = 1.0 - linear_slope * compression_start;
+    float join_distance = linear_slope * (reach - compression_start) / shoulder_extent;
+
+    DRTReinhardAgxShape shape;
+    shape.compression_start = compression_start;
+    shape.linear_slope = linear_slope;
+    shape.shoulder_extent = shoulder_extent;
+    shape.shoulder_power = TONEMAP_RA_SHOULDER_POWER;
+    shape.shoulder_coefficient =
+        1.0 - pow(DRTLogDistance(join_distance), -TONEMAP_RA_SHOULDER_POWER);
+    return shape;
+}
+
+// Linear below the compression start, then the normalized AgX shoulder
+// z / (1 + a*z^p)^(1/p) on z = ln(1 + slope*(x - start)/extent). Value and
+// tangent are continuous at the join, and a is solved so the curve reaches
+// display white exactly at the requested reach.
+float DRTReinhardAgxComponent(float value, DRTReinhardAgxShape shape) {
+    if (value <= shape.compression_start)
+        return shape.linear_slope * value;
+    float distance = DRTLogDistance(
+        shape.linear_slope * (value - shape.compression_start) / shape.shoulder_extent);
+    return shape.linear_slope * shape.compression_start
+        + shape.shoulder_extent * distance
+            * pow(1.0 + shape.shoulder_coefficient * pow(distance, shape.shoulder_power),
+                -1.0 / shape.shoulder_power);
+}
+
+vec3 TonemapReinhardAgx(vec3 linear_rgb) {
+    DRTReinhardAgxShape shape = DRTReinhardAgxShapeFromOptions();
+
+    vec3 linear_rec709 = max(linear_rgb, 0.0);
+    vec3 working = DRTGamutExpand(linear_rec709, TONEMAP_RA_GAMUT_EXPANSION);
+    vec3 curved = vec3(
+        DRTReinhardAgxComponent(working.x, shape),
+        DRTReinhardAgxComponent(working.y, shape),
+        DRTReinhardAgxComponent(working.z, shape));
+    vec3 mapped_linear = DRTGamutContract(curved, TONEMAP_RA_GAMUT_EXPANSION);
+    vec3 mapped_display = FromLinear(mapped_linear);
+    mapped_display = DRTProtectHue(linear_rec709, mapped_display, TONEMAP_RA_HUE_RETENTION);
     return ToLinear(clamp(mapped_display, 0.0, 1.0));
 }
 
@@ -491,19 +569,26 @@ vec3 GT7ICtCpToRgb(vec3 ictcp) {
     return max(GT7_LMS_TO_BT2020 * lms, 0.0);
 }
 
-// GT Tone Mapping Curve V2, official SDR preset (peak 2.5, alpha 0.25,
-// gray point 0.538, linear section 0.444, toe strength 1.28): perfectly
-// linear below 0.444 * peak, contrast toe toward black, converging
-// exponential shoulder above the linear section.
+// GT Tone Mapping Curve V2. Official SDR preset (peak 2.5, gray point
+// 0.538, linear section 0.444, toe strength 1.28) with one deliberate
+// deviation: alpha 0 instead of the sample's 0.25, so the shoulder
+// asymptote is exactly paper white. The sample's engine normalizes scene
+// exposure before the curve and can output HDR, which hides its
+// overshooting shoulder; this pack feeds un-normalized scene values into
+// an SDR target, where the 0.25 shoulder crossed white at ~1.45x scene
+// white and the official min() hard-clipped everything brighter.
+// Perfectly linear below 0.444 * peak, contrast toe toward black,
+// converging exponential shoulder above the linear section.
 const float GT7_PEAK = 2.5;             // paper white, frame-buffer scale
 const float GT7_SDR_CORRECTION = 0.4;   // 1 / paper-white frame-buffer value
 const float GT7_GRAY_POINT = 0.538;
 const float GT7_LINEAR_SECTION = 0.444;
 const float GT7_TOE_STRENGTH = 1.280;
-// Shoulder terms kA + kB*exp(kC*x) with k = (0.444 - 1) / (0.25 - 1).
-const float GT7_SHOULDER_A = 2.963333333333;
-const float GT7_SHOULDER_B = -3.373351238064;
-const float GT7_SHOULDER_C = -0.539568345324;
+// Shoulder terms kA + kB*exp(kC*x) with k = (0.444 - 1) / (0 - 1);
+// kA = peak * (0.444 + k) = peak for alpha 0.
+const float GT7_SHOULDER_A = 2.5;
+const float GT7_SHOULDER_B = -3.089054009429425;
+const float GT7_SHOULDER_C = -0.719424460431655;
 // UCS luma of the paper-white grey (2.5, 2.5, 2.5): chroma-fade pivot.
 const float GT7_TARGET_LUMA_UCS = 0.903838732486;
 // Input prescale re-anchoring 18% grey: 0.4*curve(scale*0.18) = 0.18.
@@ -551,6 +636,8 @@ vec3 Tonemap(vec3 linear_rgb) {
     return TonemapACES(linear_rgb);
 #elif TONEMAP_MODE == 4
     return TonemapGT7(linear_rgb);
+#elif TONEMAP_MODE == 5
+    return TonemapReinhardAgx(linear_rgb);
 #else
     return TonemapReinhardGamut(linear_rgb);
 #endif

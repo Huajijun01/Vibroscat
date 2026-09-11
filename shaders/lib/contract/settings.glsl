@@ -256,6 +256,13 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define VALUE_NOISE_POM_COARSE_STEPS 4 // [2 3 4 5 6 8] coarse POM height-chase steps
 #define VALUE_NOISE_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
 
+// Water high-band wave model (ocean.glsl): the three finest fitted bands become
+// one directional triangle wave each, whose gradient is analytic. That removes
+// 12 of the 28 texture fetches the water normal costs for about 24 ALU
+// instructions, so it trades texture pressure for a little ALU. Undefine to
+// restore the layered value-noise path.
+#define WATER_ANALYTIC_WAVES
+
 // Epipolar water volume light: E(x) = active-light shadow visibility along
 // the water column, multiplied onto the analytic water fog direct term.
 // March-distance cap for the water epipolar shadow ratio (metres): beyond

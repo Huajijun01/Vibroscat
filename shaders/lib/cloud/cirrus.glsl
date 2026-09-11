@@ -14,10 +14,10 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
+#include "/lib/scattering/phase.glsl"
 
 
 const float CIRRUS_HEIGHT_KM = 7.0;
-const float CIRRUS_UNIFORM_PHASE = 1.0 / (4.0 * PI);
 // Single physical extinction for the squared density field (per km). Both the
 // view and light paths use it; their difference comes only from the slab
 // geometry H / mu. A thick core reaches OD ~ 1.0 over the 1 km zenith slab
@@ -30,13 +30,12 @@ const float CIRRUS_SCATTERING_BOOST = 2.5;
 // Triple-lobe phase: the narrow + mid forward lobes keep the silver lining,
 // the backward lobe lifts the anti-lit side (cloud-bow analog) so decks
 // facing away from the light keep a visible response instead of collapsing
-// toward a tenth of the isotropic phase.
-const float CIRRUS_PHASE_PEAK_G = 0.92;
-const float CIRRUS_PHASE_PEAK_WEIGHT = 0.1;
-const float CIRRUS_PHASE_MID_G = 0.3;
-const float CIRRUS_PHASE_MID_WEIGHT = 0.7;
-const float CIRRUS_PHASE_BACK_G = 0.2;
-const float CIRRUS_PHASE_BACK_WEIGHT = 0.2;
+// toward a tenth of the isotropic phase. Weights sum to 1, so the blend
+// stays a normalized phase.
+const HenyeyGreensteinTripleLobe CIRRUS_MIE_PHASE = HenyeyGreensteinTripleLobe(
+    0.92, 0.1, // forward silver-lining peak
+    0.3, 0.7,  // forward mid
+    0.2, 0.2); // backward
 const float NOISE2D_SIZE = 64.0;
 // Effective slab thickness: the shell is sampled once, so slanted view and
 // light paths integrate extinction over H / |cos| instead of a fixed step.
@@ -91,13 +90,6 @@ float CirrusDensity(vec3 atmosphere_position) {
 // fully occlude the receiver.
 float CirrusTransmittance(float optical_depth) {
     return 1.0 / (1.0 + optical_depth);
-}
-
-// Triple-lobe phase (forward peak / forward mid / backward).
-float CirrusPhase(float cos_theta) {
-    return CIRRUS_PHASE_PEAK_WEIGHT * PhaseMieHG(cos_theta, CIRRUS_PHASE_PEAK_G)
-        + CIRRUS_PHASE_MID_WEIGHT * PhaseMieHG(cos_theta, CIRRUS_PHASE_MID_G)
-        + CIRRUS_PHASE_BACK_WEIGHT * PhaseMieHG(cos_theta, -CIRRUS_PHASE_BACK_G);
 }
 
 // Self-shadowing for the direct lights: march a few density taps up-sun along
@@ -190,8 +182,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // moon_dir is the exact IEEE negation of sun_dir, so the moon
         // cosine is the exact negation of the sun's; clamp commutes with it.
         float sun_cos = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
-        vec3 sun_phase = vec3(CirrusPhase(sun_cos));
-        vec3 moon_phase = vec3(CirrusPhase(-sun_cos));
+        vec3 sun_phase = vec3(PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE));
+        vec3 moon_phase = vec3(PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE));
 
         // Up-sun self shadowing of the direct lights; the moon march offsets
         // the jitter by half a period to decorrelate its taps from the sun's.

@@ -5,6 +5,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/color/color.glsl"
+#include "/lib/scattering/phase.glsl"
 
 // Beer-Lambert water column parameters shared by the translucent layer and
 // the blend pass (above/underwater consistent).
@@ -37,10 +38,10 @@ float WaterColumnLightPath(vec3 world_pos, float surface_world_y) {
 }
 
 
-// Normalized single-lobe scattering phase used by the water fog (the
-// Cornette-Shanks phase function, see atmosphere/core.glsl). g=0 reduces
-// to the Rayleigh phase; positive g biases scattering toward the forward
-// (sun) direction.
+// Eccentricity of the normalized single-lobe scattering phase used by the
+// water fog (the Cornette-Shanks phase function, /lib/scattering/phase.glsl).
+// g=0 reduces to the Rayleigh phase; positive g biases scattering toward the
+// forward (sun) direction.
 const float WATER_PHASE_G = 0.3; // forward-scattering lobe
 
 vec3 WaterTransmittance(float dist) {
@@ -80,7 +81,7 @@ const float MS_SCALE = 0.3;
 
 vec3 WaterMultipleScattering(vec3 sca, vec3 epipolar_light) {
     vec3 v_ms = u_water_scattering / max(u_water_absorption, vec3(1e-3))
-             * (1.0 / (4.0 * PI));
+             * PHASE_ISOTROPIC;
     return MS_SCALE * sca * v_ms * (epipolar_light * 0.8 + 0.2);
 }
 

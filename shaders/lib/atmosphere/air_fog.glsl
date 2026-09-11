@@ -6,6 +6,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/core.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/scattering/phase.glsl"
 
 const float AIR_FOG_KM_TO_M = AIR_FOG_DENSITY / 1000.0;
 
@@ -91,11 +92,11 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     vec3 sun_visibility = vec3(shadow_fallback);
 #endif
     result.in_scattering += (ray_rgb * PhaseRayleigh(cos_theta)
-                          + mie_rgb * PhaseMieTripleLobe(cos_theta))
+                          + mie_rgb * PhaseHenyeyGreensteinTripleLobe(cos_theta, ATM_MIE_PHASE))
         * ground_light.rgb * sun_visibility;
 
     // Multiple scattering
-    result.in_scattering += sca_rgb * (1.0 / (4.0 * PI))
+    result.in_scattering += sca_rgb * PHASE_ISOTROPIC
         * EvalSkyLight(world_dir)
         * AIR_FOG_SKY_STRENGTH;
 

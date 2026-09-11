@@ -13,6 +13,7 @@
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/scattering/phase.glsl"
 #include "/lib/volume/air_epipolar.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
@@ -128,8 +129,8 @@ void main() {
 
         float weather_cos_theta = dot(world_dir, normalize(u_world_light_dir));
         vec3 weather_scattering = EvalSkyLight(vec3(0.0, 1.0, 0.0))
-                * SkyLightFromLm(weather_lm_sky) * (1.0 / (4.0 * PI))
-            + ground_light.rgb * PhaseMieHG(weather_cos_theta, 0.5);
+                * SkyLightFromLm(weather_lm_sky) * PHASE_ISOTROPIC
+            + ground_light.rgb * PhaseHenyeyGreenstein(weather_cos_theta, 0.5);
         vec3 weather_radiance = ToLinear(weather.rgb) * weather_scattering
             * WEATHER_SHEET_OPTICAL_DEPTH;
         out_color = mix(out_color, weather_radiance, weather.a);

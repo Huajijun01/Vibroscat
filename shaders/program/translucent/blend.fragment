@@ -8,6 +8,7 @@
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/color/dither.glsl"
+#include "/lib/scattering/phase.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 #include "/lib/volume/water_epipolar.glsl"
 #include "/lib/water/fog.glsl"

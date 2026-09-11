@@ -39,6 +39,7 @@
 #endif
 #include "/lib/material/core.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
+#include "/lib/scattering/phase.glsl"
 #include "/lib/shadow/contact_shadow.glsl"
 #include "/lib/shadow/pcss.glsl"
 
@@ -47,18 +48,6 @@ const float COLOR_JITTER_SEED = 11.0;
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
-
-// HG normalized as a surface lobe. The largest cosine-weighted hemisphere
-// integral occurs when its normal points along the lobe axis. Divide by that
-// exact integral: 2*PI*integral_0^1(mu*HG(mu,g) dmu). This stable closed form
-// is valid at g=0 as well, where the resulting surface response is 1/PI.
-float PlantTransmissionPhase(float cos_theta, float eccentricity) {
-    float g = clamp(eccentricity, 0.0, 0.9);
-    float g2 = g * g;
-    float projected_integral = (1.0 + g) / (2.0 * (1.0 - g + g2
-        + (1.0 - g) * sqrt(1.0 + g2)));
-    return PhaseMieHG(clamp(cos_theta, -1.0, 1.0), g) / projected_integral;
-}
 
 void main() {
     out_direct_brdf = vec3(0.0);
@@ -301,7 +290,7 @@ void main() {
         // supplies a continuous confidence that reaches zero outside it.
         float sss_availability = edge_fade * depth_fade * distance_fade;
         float ldotv = dot(light_direction, view_to_eye);
-        float sss_phase = PlantTransmissionPhase(-ldotv, SHADOW_SSS_PHASE_G);
+        float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
         float average_albedo = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
         float absorption = (1.0 - 0.75 * Saturate(average_albedo))
             * SHADOW_SSS_DENSITY / max(sss_amount, 1.0e-3);

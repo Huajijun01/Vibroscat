@@ -5,6 +5,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
+#include "/lib/scattering/phase.glsl"
 
 // Vibroscat volumetric clouds.
 //
@@ -221,11 +222,6 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
     return result;
 }
 
-float CloudDirectionalPhase(float cos_theta, float eccentricity_factor) {
-    return PhaseMieHG(cos_theta, CLOUD_PHASE_FORWARD_G * eccentricity_factor) + PhaseMieHG(cos_theta,
-        -CLOUD_PHASE_BACKWARD_G * eccentricity_factor);
-}
-
 // phi_fwd: HPVolumeCloud isotropic multiple-scattering port. See the file
 // header for attribution and the derivation in Docs/PhiFwd_FromRTE.md.
 CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
@@ -298,8 +294,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
     }
     transport.optical_depth = total_optical_depth;
 
-    transport.isotropic_diffuse = weighted_source_sum
-        * (1.0 / (4.0 * PI));
+    transport.isotropic_diffuse = weighted_source_sum * PHASE_ISOTROPIC;
     return transport;
 }
 
@@ -331,8 +326,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float contribution_factor = 1.0;
         float eccentricity_factor = 1.0;
         for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-            sun_phase_weight[octave] = CloudDirectionalPhase(sun_cos_theta, eccentricity_factor) * contribution_factor;
-            moon_phase_weight[octave] = CloudDirectionalPhase(-sun_cos_theta, eccentricity_factor) * contribution_factor;
+            float forward_g = CLOUD_PHASE_FORWARD_G * eccentricity_factor;
+            float backward_g = CLOUD_PHASE_BACKWARD_G * eccentricity_factor;
+            sun_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(sun_cos_theta, forward_g, backward_g)
+                * contribution_factor;
+            moon_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(-sun_cos_theta, forward_g, backward_g)
+                * contribution_factor;
             octave_attenuation[octave] = attenuation_factor;
             attenuation_factor *= CLOUD_MS_ATTENUATION;
             contribution_factor *= CLOUD_MS_CONTRIBUTION;

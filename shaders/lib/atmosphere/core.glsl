@@ -5,6 +5,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/scattering/phase.glsl"
 
 // ===============================================================
 // Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
@@ -115,18 +116,16 @@ const vec4 ATM_AA_B = vec4(
 const vec4 ATM_SOLAR = vec4(1.74769998, 2.05660009, 1.85350001, 1.65419996);
 
 // -- Phase --
-const float ATM_PHASE_RAY_SCALE = 0.0596831;
 // Triple-lobe Mie blend, same structure as the tuned cirrus phase
 // (shaders/lib/cloud/cirrus.glsl): a narrow high-g forward peak keeps the
 // silver lining, a broad low-g forward lobe adds smooth haze, and a
-// backward lobe (used as -g, effective eccentricity -0.3) brightens the
-// anti-solar sky. Weights sum to 1, so the blend stays a normalized phase.
-const float ATM_PHASE_MIE_PEAK_G = 0.8;
-const float ATM_PHASE_MIE_PEAK_WEIGHT = 0.1;
-const float ATM_PHASE_MIE_MID_G = 0.5;
-const float ATM_PHASE_MIE_MID_WEIGHT = 0.7;
-const float ATM_PHASE_MIE_BACK_G = 0.3;
-const float ATM_PHASE_MIE_BACK_WEIGHT = 0.2;
+// backward lobe (effective eccentricity -0.3) brightens the anti-solar sky.
+// Weights sum to 1, so the blend stays a normalized phase. Formulas live in
+// /lib/scattering/phase.glsl.
+const HenyeyGreensteinTripleLobe ATM_MIE_PHASE = HenyeyGreensteinTripleLobe(
+    0.8, 0.1,  // forward peak
+    0.5, 0.7,  // forward mid
+    0.3, 0.2); // backward
 
 // -- Display --
 const float ATM_EXPOSURE = 0.05;  // from the 4-wave offline fit
@@ -226,35 +225,6 @@ vec4 SampleMultiScatter(sampler2D lut_tex, float r, float mu) {
 }
 
 // ===============================================================
-// Phase functions  (triple-lobe blend for Mie, shared with the cirrus phase)
-// ===============================================================
-
-float PhaseRayleigh(float cos_theta) {
-    return (cos_theta * cos_theta + 1.0) * ATM_PHASE_RAY_SCALE;
-}
-
-float PhaseMieHG(float cos_theta, float eccentricity) {
-    float eccentricity2 = eccentricity * eccentricity;
-    float denominator = max(1.0 + eccentricity2 - 2.0 * eccentricity * cos_theta, 1.0e-4);
-    return (1.0 / (4.0 * PI)) * (1.0 - eccentricity2) / (denominator * sqrt(denominator));
-}
-
-// Triple-lobe Mie phase (forward peak / forward mid / backward).
-float PhaseMieTripleLobe(float cos_theta) {
-    return ATM_PHASE_MIE_PEAK_WEIGHT * PhaseMieHG(cos_theta, ATM_PHASE_MIE_PEAK_G)
-        + ATM_PHASE_MIE_MID_WEIGHT * PhaseMieHG(cos_theta, ATM_PHASE_MIE_MID_G)
-        + ATM_PHASE_MIE_BACK_WEIGHT * PhaseMieHG(cos_theta, -ATM_PHASE_MIE_BACK_G);
-}
-
-// Cornette-Shanks phase (normalized single-lobe; g=0 reduces to Rayleigh).
-// Used by the water fog: positive g biases scattering toward the forward
-// (sun) direction.
-float PhaseCornetteShanks(float cos_theta, float eccentricity) {
-    float p = 1.0 + eccentricity * eccentricity - 2.0 * eccentricity * cos_theta;
-    return (3.0 / (8.0 * PI)) * ((1.0 - eccentricity * eccentricity) * (1.0 + cos_theta * cos_theta)) / ((2.0 + eccentricity * eccentricity) * p * sqrt(p));
-}
-
-// ===============================================================
 // Spectral -> linear sRGB  (4x3 manually expanded, FMA-friendly)
 // ===============================================================
 
@@ -334,8 +304,8 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     // -- phase (loop-invariant) --
     float cos_vs = dot(view_dir, sun_dir);
     float pr   = PhaseRayleigh(cos_vs);
-    float pm   = PhaseMieTripleLobe(cos_vs);
-    float pm_moon = PhaseMieTripleLobe(-cos_vs);  // moon=-sun, Rayleigh is even
+    float pm   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
+    float pm_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even
 
     float dt      = max_dist / ATM_NUM_STEPS;
     vec4  trans   = vec4(1.0);

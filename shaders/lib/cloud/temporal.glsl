@@ -32,24 +32,50 @@ vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
 }
 
 // Reconstruct the current low-res cloud frame for every full-res sky pixel.
-// Radiance uses the filtered current neighborhood; distance remains the
-// nearest sample location so reprojection does not invent a surface depth.
-CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
+// Radiance uses the filtered current neighborhood. The reprojection anchor
+// must come from a lattice texel that actually traced the cloud shell
+// (alpha > 0): terrain and ground-blocked texels store 0, and picking one
+// would anchor the history lookup at the ground's parallax instead of the
+// cloud's. When no traced texel borders the pixel, the caller's own shell
+// geometry (no_hit_distance_km) stands in; 0 then reseeds via
+// CloudHistoryInvalid, which rejects a zero distance by contract.
+CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel, float no_hit_distance_km) {
     vec2 low_size = vec2(textureSize(usam_clouds_current, 0));
-    vec2 low_texel_size = 1.0 / low_size;
     vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
-    vec2 current_uv = (grid_position + 0.5) * low_texel_size;
-    current_uv = clamp(current_uv, 0.5 * low_texel_size, vec2(1.0) - 0.5 * low_texel_size);
-    vec4 value = texture(usam_clouds_current, current_uv);
+    ivec2 base_texel = clamp(ivec2(floor(grid_position)), ivec2(0), ivec2(low_size) - ivec2(1));
+    ivec2 grid_max = ivec2(low_size) - ivec2(1);
+    vec2 fraction = fract(grid_position);
 
-    ivec2 nearest_texel = clamp(
-        ivec2(floor(grid_position + 0.5)),
-        ivec2(0),
-        ivec2(low_size) - ivec2(1)
-    );
+    // Hardware bilinear would blend untraced texels (terrain, ground-blocked
+    // sky: rgb = clear sky, alpha = 0) into the upsample, painting a
+    // see-through band around every silhouette. Weight only texels that
+    // actually traced the shell; the distance anchor additionally takes the
+    // nearest traced texel so reprojection follows the cloud, not the ground.
+    vec3 radiance = vec3(0.0);
+    float radiance_weight = 0.0;
+    float surface_distance = no_hit_distance_km;
+    float best_rank = 1.0e30;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            ivec2 texel = min(base_texel + ivec2(x, y), grid_max);
+            float weight = (x == 0 ? 1.0 - fraction.x : fraction.x)
+                * (y == 0 ? 1.0 - fraction.y : fraction.y);
+            vec4 sample_value = texelFetch(usam_clouds_current, texel, 0);
+            if (sample_value.a > 0.0) {
+                radiance += sample_value.rgb * weight;
+                radiance_weight += weight;
+                vec2 offset = vec2(texel) - grid_position;
+                float rank = dot(offset, offset);
+                if (rank < best_rank) {
+                    best_rank = rank;
+                    surface_distance = sample_value.a;
+                }
+            }
+        }
+    }
     CloudFrame frame;
-    frame.radiance = value.rgb;
-    frame.surface_distance = texelFetch(usam_clouds_current, nearest_texel, 0).a;
+    frame.radiance = radiance_weight > 0.0 ? radiance / radiance_weight : vec3(0.0, 0.0, 1.0);
+    frame.surface_distance = surface_distance;
     return frame;
 }
 

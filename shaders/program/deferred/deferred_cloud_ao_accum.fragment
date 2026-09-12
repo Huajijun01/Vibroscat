@@ -61,7 +61,12 @@ void main() {
         if (cloud_visible) {
             int pixel_age = int(imageLoad(uimg_clouds_age, tx).r * 255.0 + 0.5);
             int new_age = 1;
-            CloudFrame current_frame = CloudSampleCurrentBilinear(tx);
+            // Same no-hit convention as the lattice writer: the ray's own
+            // shell geometry stands in when no traced texel borders the pixel.
+            float no_hit_distance_km = (view_dir.y < 0.0 && cloud_entry > 0.0)
+                ? cloud_entry
+                : cloud_exit;
+            CloudFrame current_frame = CloudSampleCurrentBilinear(tx, no_hit_distance_km);
             CloudFrame accumulated = current_frame;
             if (!CloudHistoryInvalid(current_frame) && frameCounter > 0) {
                 vec2 previous_uv;
@@ -134,6 +139,10 @@ void main() {
         // reject the history). Stays linear; deferred2 applies multibounce +
         // strength.
         out_history = vec4(Saturate(accumulated), next_age, 1.0 - scene_depth, HISTORY_NO_CLOUD_DATA);
+        // Geometry pixels void the cloud accumulator state as well: a stale
+        // age would drag pre-occlusion cloud radiance across re-exposure
+        // (the GTAO-off branch below resets for the same reason).
+        imageStore(uimg_clouds_age, tx, vec4(0.0, 0.0, 0.0, 0.0));
     }
 #else
     {

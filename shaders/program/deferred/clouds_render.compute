@@ -122,7 +122,11 @@ void main() {
     vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
     float march_start = 0.0;
     float march_end = 0.0;
-    float cloud_top_distance = terrain_end_km;
+    // Texels whose ray never traced the cloud shell (terrain, ground-blocked
+    // sky) store 0: the temporal consumer treats 0 as "no cloud distance
+    // here". Publishing the ground distance instead would let silhouette
+    // pixels anchor their history reprojection at the ground's parallax.
+    float cloud_top_distance = 0.0;
     bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, march_start, march_end);
     int step_count = 0;
     if (cloud_visible) {
@@ -135,8 +139,6 @@ void main() {
 #ifdef CLOUD_HISTORY_GUIDED_MARCH_END
             CloudHistoryGuidedEnd(uv, view_dir, march_start, march_end);
 #endif
-        } else {
-            cloud_top_distance = march_end;
         }
     }
 

@@ -83,7 +83,7 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     // Importance sampling: steps placed so the max-channel transmittance
     // decays arithmetically (inverse-CDF of the exponential attenuation),
     // concentrating samples where the scattering weight is large.
-    float seg_optical = segment_length + d_l; // per-channel optical depth = extinction * segOptical
+    float seg_optical = segment_length + d_l; // per-channel optical shadow_depth = extinction * segOptical
     vec3 t_end_vec = exp(-extinction * seg_optical);
     float t_end = max(max(t_end_vec.r, t_end_vec.g), t_end_vec.b);
     float tau = -log(max(t_end, 1e-6));
@@ -107,8 +107,8 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
         }
         vec3 clip = mix(s, e, u);
         vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
-        float depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
-        float shadow = texture(shadowtex1, vec3(uv, depth));
+        float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
+        float shadow = texture(shadowtex1, vec3(uv, shadow_depth));
         float light_path = light_path1 + d_l * u;
         vec3 weight = exp(-extinction * (u * segment_length + light_path));
         numerator += weight * shadow * (segment_length * du);

@@ -144,16 +144,16 @@ vec2 OceanPOMOffset(vec2 xz, vec3 view_world, float time) {
     float depth_prev = OCEAN_POM_MAX_DEPTH;
     float height_prev = OceanValueNoisePOMHeight(xz + dir * depth_prev, time);
     for (int i = 1; i <= OCEAN_POM_STEPS; ++i) {
-        float depth = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
-        float height = OceanValueNoisePOMHeight(xz + dir * depth, time);
+        float pom_depth = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
+        float height = OceanValueNoisePOMHeight(xz + dir * pom_depth, time);
         // The ray enters the water when f = h - d crosses from <= 0 to > 0.
-        if (height_prev <= depth_prev && height > depth) {
+        if (height_prev <= depth_prev && height > pom_depth) {
             float height_diff_prev = height_prev - depth_prev;
-            float height_diff_curr = height - depth;
+            float height_diff_curr = height - pom_depth;
             float t = Saturate(height_diff_prev / (height_diff_prev - height_diff_curr));
-            return xz + dir * mix(depth_prev, depth, t);
+            return xz + dir * mix(depth_prev, pom_depth, t);
         }
-        depth_prev = depth;
+        depth_prev = pom_depth;
         height_prev = height;
     }
     return xz;

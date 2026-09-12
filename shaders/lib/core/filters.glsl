@@ -5,9 +5,9 @@
 // explicit weight-sum normalization. UV clipping is caller responsibility.
 vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness) {
     vec2 res = vec2(textureSize(tex, 0));
-    vec2 position = uv * res;
-    vec2 center = floor(position - 0.5) + 0.5;
-    vec2 f = position - center;
+    vec2 texel = uv * res;
+    vec2 center = floor(texel - 0.5) + 0.5;
+    vec2 f = texel - center;
     vec2 f2 = f * f;
     vec2 f3 = f * f2;
 

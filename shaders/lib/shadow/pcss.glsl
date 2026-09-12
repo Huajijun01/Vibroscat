@@ -56,10 +56,10 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 rot_x, vec2 rot_y, int block
             rot_x, rot_y);
         vec2 uv = DistortShadowClip(clip_pos.xy + offset);
         ivec2 sample_texel = clamp(ivec2(uv * vec2(shadow_size)), ivec2(0), shadow_size - 1);
-        float depth = texelFetch(shadowtex0, sample_texel, 0).x;
-        float gap = max(sp.z - depth, 0.0);
-        float w = step(depth, sp.z - blocker_bias);
-        depth_sum += w * depth;
+        float shadow_depth = texelFetch(shadowtex0, sample_texel, 0).x;
+        float gap = max(sp.z - shadow_depth, 0.0);
+        float w = step(shadow_depth, sp.z - blocker_bias);
+        depth_sum += w * shadow_depth;
         weight_sum += w;
         // Every sample contributes its gap (non-occluders add zero);
         // averaged over the disk = foliage thickness along the light.

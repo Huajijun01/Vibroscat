@@ -31,8 +31,8 @@ float SkyLightFromLm(float lm_sky) {
 // direction-independent sky average (~1/8 sphere). Pass ao = vec3(1.0) where
 // no screen-space AO exists (translucent); caller multiplies by the remapped
 // sky light.
-vec3 SkyAmbientColor(vec3 normal, vec3 ao) {
-    return mix(EvalSkyLightAverage() * 0.3, EvalSkyLight(normal), ao);
+vec3 SkyAmbientColor(vec3 normal_world, vec3 ao) {
+    return mix(EvalSkyLightAverage() * 0.3, EvalSkyLight(normal_world), ao);
 }
 
 // Final ambient light for a surface: the AO-blended sky irradiance scaled by
@@ -40,8 +40,8 @@ vec3 SkyAmbientColor(vec3 normal, vec3 ao) {
 // deep shadows never render fully black. ao: screen-space AO (1.0 where
 // unavailable, e.g. gbuffer translucent). Shared by deferred2 and the
 // translucent passes; the Lambert/diffuse BRDF multiplies the result.
-vec3 AmbientLight(vec3 normal, vec3 ao, float lm_sky) {
-    return SkyAmbientColor(normal, ao) * SkyLightFromLm(lm_sky) + vec3(AMBIENT_BASE);
+vec3 AmbientLight(vec3 normal_world, vec3 ao, float lm_sky) {
+    return SkyAmbientColor(normal_world, ao) * SkyLightFromLm(lm_sky) + vec3(AMBIENT_BASE);
 }
 
 #endif

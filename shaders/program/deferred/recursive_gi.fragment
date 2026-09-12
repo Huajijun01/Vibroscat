@@ -270,10 +270,10 @@ void main() {
     vec3 fallback_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
 #if GI_MODE != 0
     int material_id = int(material_data.a * 255.0 + 0.5);
-    float depth = texelFetch(depthtex2, tx, 0).r;
+    float scene_depth = texelFetch(depthtex2, tx, 0).r;
     out_gi = vec3(0.0);
     out_gi_metadata = 0u;
-    if (depth >= 1.0 && material_id != 64) return;
+    if (scene_depth >= 1.0 && material_id != 64) return;
     vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     // The hand has camera-relative motion; keep its stable SH fallback out
     // of world-space reprojection for both GI sources.
@@ -285,7 +285,7 @@ void main() {
 #ifdef TAA
     reconstruction_uv -= u_taa_offset * 0.5;
 #endif
-    vec3 receiver_view = NDCToView(vec3(reconstruction_uv * 2.0 - 1.0, depth * 2.0 - 1.0));
+    vec3 receiver_view = NDCToView(vec3(reconstruction_uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
     vec3 receiver_world = ViewToSceneSpace(receiver_view);
     vec3 raw_gi;
     float sample_sigma;

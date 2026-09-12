@@ -42,9 +42,9 @@ layout(r8) uniform image2D uimg_clouds_age;
 void main() {
     ivec2 tx = ivec2(gl_FragCoord.xy);
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
-    float depth = texelFetch(depthtex0, tx, 0).r;
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
 
-    if (depth >= 1.0) {
+    if (scene_depth >= 1.0) {
         // ── Sky: cloud temporal upsampling + accumulation ──
 #ifdef VOLUMETRIC_CLOUDS
         vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
@@ -102,9 +102,9 @@ void main() {
         vec4 geometry_data = texelFetch(colortex4, tx, 0);
         vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
 #ifdef TAA
-        vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
+        vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, scene_depth);
 #else
-        vec3 world_pos = DepthToWorldPos(uv, depth);
+        vec3 world_pos = DepthToWorldPos(uv, scene_depth);
 #endif
 
         // Fresh half-res AO, bilinear upsample, one sample/pixel/frame
@@ -136,14 +136,14 @@ void main() {
         // B = 1 - depth, A = NaN marks "not cloud" (boundary-crossing taps
         // reject the history). Stays linear; deferred2 applies multibounce +
         // strength.
-        out_history = vec4(Saturate(accumulated), next_age, 1.0 - depth, HISTORY_NO_CLOUD_DATA);
+        out_history = vec4(Saturate(accumulated), next_age, 1.0 - scene_depth, HISTORY_NO_CLOUD_DATA);
     }
 #else
     {
         // No temporal path: pass the fresh AO through bilinearly; A still
         // marks "not cloud".
         float fresh_ao = texture(usam_ao, uv).r;
-        out_history = vec4(Saturate(fresh_ao), 1.0, 1.0 - depth, HISTORY_NO_CLOUD_DATA);
+        out_history = vec4(Saturate(fresh_ao), 1.0, 1.0 - scene_depth, HISTORY_NO_CLOUD_DATA);
     }
 #endif
 #else

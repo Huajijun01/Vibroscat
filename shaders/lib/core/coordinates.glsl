@@ -78,15 +78,15 @@ vec3 PreviousScreenToView(vec3 screen_position) {
 
 // Screen depth [0,1] to linear depth (|view z|), via the analytic inverse of
 // the perspective projection (sparse-matrix form of NDCToView).
-float LinearDepthFromScreenDepth(float depth) {
-    depth = depth * 2.0 - 1.0;
-    return 1.0 / (depth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
+float LinearDepthFromScreenDepth(float screen_depth) {
+    screen_depth = screen_depth * 2.0 - 1.0;
+    return 1.0 / (screen_depth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
 }
 
 // Inverse of LinearDepthFromScreenDepth: linear depth back to screen [0,1].
-float ScreenDepthFromLinearDepth(float depth) {
-    depth = (1.0 / depth - gbufferProjectionInverse[3][3]) / gbufferProjectionInverse[2][3];
-    return depth * 0.5 + 0.5;
+float ScreenDepthFromLinearDepth(float linear_depth) {
+    linear_depth = (1.0 / linear_depth - gbufferProjectionInverse[3][3]) / gbufferProjectionInverse[2][3];
+    return linear_depth * 0.5 + 0.5;
 }
 
 // -- Shadow-space transforms (world -> shadow clip / NDC, distortion, bias) --

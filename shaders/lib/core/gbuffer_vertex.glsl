@@ -30,12 +30,12 @@ void SetupGbufferVertex() {
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif
 
-    vec3 normal = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
-    v_world_normal = normal;
+    vec3 normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
+    v_world_normal = normal_world;
 
 #ifdef HAS_AT_TANGENT
     vec3 tangent = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz));
-    vec3 bitangent = cross(tangent, normal) * sign(at_tangent.w);
+    vec3 bitangent = cross(tangent, normal_world) * sign(at_tangent.w);
     v_world_tangent = tangent;
     v_world_bitangent = bitangent;
 #endif

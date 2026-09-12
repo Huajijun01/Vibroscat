@@ -93,10 +93,10 @@ float CirrusTransmittance(float optical_depth) {
 // grows as the light grazes it (H / mu), so low light sweeps a long stretch
 // of deck and dense regions up-sun darken the sample. x^2 strata concentrate
 // taps near the receiver, matching the volumetric light march.
-float CirrusLightTransmittance(vec3 sample_position, vec3 normal, vec3 light_dir, float light_mu, float jitter) {
+float CirrusLightTransmittance(vec3 sample_position, vec3 shell_normal_world, vec3 light_dir, float light_mu, float jitter) {
     float light_path_km = min(CIRRUS_LAYER_THICKNESS_KM / max(light_mu, CIRRUS_GRAZING_MIN_MU),
         float(CIRRUS_LIGHT_MAX_STEPS) * CIRRUS_LIGHT_STEP_KM);
-    vec3 tangential = light_dir - light_mu * normal;
+    vec3 tangential = light_dir - light_mu * shell_normal_world;
     float tangential_length = length(tangential);
     vec3 tangent_dir = tangential_length > 1.0e-5 ? tangential / tangential_length : vec3(0.0);
 
@@ -150,7 +150,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     cirrus_surface_pos = sample_position;
     cirrus_transmittance = vec3(1.0);
     float height = length(sample_position);
-    vec3 normal = sample_position / height;
+    vec3 shell_normal_world = sample_position / height;
     float sample_density = CirrusCoverageDensity(sample_position);
 
     vec3 ci_in_scattering = vec3(0.0);
@@ -185,14 +185,14 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // the jitter by half a period to decorrelate its taps from the sun's.
         if (sun_visible > 0.0) {
             vec3 sun_half_vec = normalize(sun_dir - view_dir);
-            sun_color *= CirrusLightTransmittance(sample_position, normal, sun_half_vec, sun_mu, light_jitter);
+            sun_color *= CirrusLightTransmittance(sample_position, shell_normal_world, sun_half_vec, sun_mu, light_jitter);
         }
 
         vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
             SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
         if (moon_visible > 0.0) {
             vec3 moon_half_vec = normalize(moon_dir - view_dir);
-            moon_color *= CirrusLightTransmittance(sample_position, normal, moon_half_vec, moon_mu, light_jitter);
+            moon_color *= CirrusLightTransmittance(sample_position, shell_normal_world, moon_half_vec, moon_mu, light_jitter);
         }
 
         // Sky ambient from the multiscatter LUT.
@@ -205,7 +205,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // the view grazes the deck, so the horizon reads thick while the
         // zenith keeps the overhead thickness (capped by the true distance).
         float view_path_km = min(ci_offset,
-            CIRRUS_LAYER_THICKNESS_KM / max(abs(dot(view_dir, normal)), CIRRUS_GRAZING_MIN_MU));
+            CIRRUS_LAYER_THICKNESS_KM / max(abs(dot(view_dir, shell_normal_world)), CIRRUS_GRAZING_MIN_MU));
         float sample_optical_depth = sample_extinction * view_path_km;
         float sample_transmittance = exp(-sample_optical_depth);
 

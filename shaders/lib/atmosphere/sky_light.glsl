@@ -41,6 +41,8 @@ vec3 EvalSkyRadiance(vec3 direction, float perceptual_roughness) {
     float basis_y1 = SH_Y1 * y * sh_l1_weight;
     float basis_y2 = SH_Y1 * z * sh_l1_weight;
     float basis_y3 = SH_Y1 * x * sh_l1_weight;
+    // Second-band terms; each y2* name spells its monomial (y2yz = Y21*y*z,
+    // y2x2z2 = Y22*(x*x - z*z)).
     float basis_y20 = SH_Y20 * (3.0 * y * y - 1.0) * sh_l2_weight;
     float y2yz = SH_Y21 * y * z * sh_l2_weight;
     float y2xz = SH_Y21 * x * z * sh_l2_weight;
@@ -76,10 +78,10 @@ vec3 EvalSkyRadiance(vec3 direction) {
 // (+X azimuth 0, +Y up, +Z +90deg), so a world normal maps directly (no
 // sun-azimuth rotation); all 9 terms kept (clouds break the sun-azimuth
 // mirror symmetry).
-vec3 EvalSkyLight(vec3 normal) {
-    float x = normal.x;
-    float y = normal.y;
-    float z = normal.z;
+vec3 EvalSkyLight(vec3 normal_world) {
+    float x = normal_world.x;
+    float y = normal_world.y;
+    float z = normal_world.z;
 
     // L=0,1 basis
     float basis_y0 = SH_Y0;

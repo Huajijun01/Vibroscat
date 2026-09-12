@@ -11,9 +11,9 @@ layout(location = 0) out vec3 out_color;
 
 bool IsOpaqueHand(ivec2 texel) {
     ivec2 sample_texel = clamp(texel, ivec2(0), textureSize(colortex1, 0) - 1);
-    float depth = texelFetch(depthtex0, sample_texel, 0).r;
+    float scene_depth = texelFetch(depthtex0, sample_texel, 0).r;
     int material_id = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
-    return depth < 1.0 && material_id == 64;
+    return scene_depth < 1.0 && material_id == 64;
 }
 
 void main() {

@@ -56,8 +56,8 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
         }
         vec3 clip = mix(s, e, u);
         vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
-        float depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
-        float shadow = texture(shadowtex1, vec3(uv, depth));
+        float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
+        float shadow = texture(shadowtex1, vec3(uv, shadow_depth));
         numerator += weight * shadow;
         denominator += weight;
     }

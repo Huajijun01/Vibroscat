@@ -27,20 +27,20 @@ float Unsplit2x16(vec2 v) {
 
 // GBuffer octahedral normal codec; contract for the RG channels of
 // colortex4 (geometric view normal).
-vec2 EncodeOctahedralNormal(vec3 normal) {
-    normal.xy /= abs(normal.x) + abs(normal.y) + abs(normal.z);
-    normal.xy = normal.z >= 0.0 ? normal.xy : (vec2(1.0) - abs(normal.yx)) * vec2(normal.x >= 0.0 ? 1.0 : -1.0,
-            normal.y >= 0.0 ? 1.0 : -1.0);
-    return normal.xy * 0.5 + 0.5;
+vec2 EncodeOctahedralNormal(vec3 normal_view) {
+    normal_view.xy /= abs(normal_view.x) + abs(normal_view.y) + abs(normal_view.z);
+    normal_view.xy = normal_view.z >= 0.0 ? normal_view.xy : (vec2(1.0) - abs(normal_view.yx)) * vec2(normal_view.x >= 0.0 ? 1.0 : -1.0,
+            normal_view.y >= 0.0 ? 1.0 : -1.0);
+    return normal_view.xy * 0.5 + 0.5;
 }
 
 vec3 DecodeOctahedralNormal(vec2 encoded) {
     vec2 oct = encoded * 2.0 - 1.0;
-    vec3 normal = vec3(oct, 1.0 - abs(oct.x) - abs(oct.y));
-    float t = max(-normal.z, 0.0);
-    normal.x += normal.x >= 0.0 ? -t : t;
-    normal.y += normal.y >= 0.0 ? -t : t;
-    return normalize(normal);
+    vec3 normal_view = vec3(oct, 1.0 - abs(oct.x) - abs(oct.y));
+    float t = max(-normal_view.z, 0.0);
+    normal_view.x += normal_view.x >= 0.0 ? -t : t;
+    normal_view.y += normal_view.y >= 0.0 ? -t : t;
+    return normalize(normal_view);
 }
 
 #endif

@@ -52,13 +52,13 @@ layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shad
 void main() {
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
-    float depth = texelFetch(depthtex0, tx, 0).r;
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
     // Last opaque-gbuffer consumer: colortex2 freed for translucent water data.
     out_gbuf_clear = vec4(0.0);
 
     // -- Sky (far plane) --
     // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
-    if (depth >= 1.0) {
+    if (scene_depth >= 1.0) {
 #if SHADOW_SSS_DEBUG == 1 || OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
         out_color = vec3(0.0);
         return;
@@ -169,7 +169,7 @@ void main() {
     out_color = vec3(material.perceptual_roughness);
     return;
 #endif
-    vec3 normal   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
+    vec3 normal_world   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
     float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
     float screen_ao;
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
@@ -188,9 +188,9 @@ void main() {
     // -- World position (for shadow) --
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
 #ifdef TAA
-    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
+    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, scene_depth);
 #else
-    vec3 world_pos = DepthToWorldPos(uv, depth);
+    vec3 world_pos = DepthToWorldPos(uv, scene_depth);
 #endif
     // Eye-space receiver position: distance responses and the view vector
     // use the eye, not the feet-space origin.
@@ -204,9 +204,9 @@ void main() {
     vec3 light_direction = (u_world_light_dir);
     vec3 half_vector = view_to_eye + light_direction;
     vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
-    float ndotl = Max0(dot(normal, light_direction));
-    float ndotv = Max0(dot(normal, view_to_eye));
-    float ndoth = Max0(dot(normal, half_direction));
+    float ndotl = Max0(dot(normal_world, light_direction));
+    float ndotv = Max0(dot(normal_world, view_to_eye));
+    float ndoth = Max0(dot(normal_world, half_direction));
     float vdoth = Max0(dot(view_to_eye, half_direction));
     float ldoth = Max0(dot(light_direction, half_direction));
     float geo_ndotl = dot(geo_normal, light_direction);
@@ -266,7 +266,7 @@ void main() {
     // -- Light color sources (same colors as the gbuffer translucent passes) --
     vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
     // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_BASE floor (AmbientLight).
-    vec3 sky_ambient = AmbientLight(normal, ao_effective, lm.g);
+    vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
     vec3 sss_lighting = vec3(0.0);
     // Same-argument reflectance as the torch term below; evaluated once.
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
@@ -376,9 +376,9 @@ void main() {
     float specular_occlusion = SpecularOcclusion(
         sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
     if (need_sh) {
-        vec3 sh_reflection_direction = reflect(-view_to_eye, normal);
+        vec3 sh_reflection_direction = reflect(-view_to_eye, normal_world);
         float sh_reflection_ndotl = Max0(
-            dot(normal, sh_reflection_direction));
+            dot(normal_world, sh_reflection_direction));
         // SH-only reflections are a low-cost environment fallback. Gate them
         // by sky light visibility and AO so occluded surfaces do not retain a
         // uniform plastic specular sheen.
@@ -402,12 +402,12 @@ void main() {
     if (ssr_weight > 0.0) {
         vec3 ssr_reflection_half;
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
-            normal, view_to_eye, material.perceptual_roughness,
+            normal_world, view_to_eye, material.perceptual_roughness,
             OpaqueSSRSTBNPair(tx), ssr_reflection_half);
         vec3 ssr_incident_radiance = texelFetch(colortex3, tx, 0).rgb;
         float ssr_reflection_ndotv = sh_reflection_ndotv;
         float ssr_reflection_ndotl = Max0(
-            dot(normal, ssr_reflection_direction));
+            dot(normal_world, ssr_reflection_direction));
         vec3 ssr_specular = ssr_incident_radiance * VisibleGGXThroughput(
             material.f0,
             Max0(dot(view_to_eye, ssr_reflection_half)),

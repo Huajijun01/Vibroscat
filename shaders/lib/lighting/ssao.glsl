@@ -39,12 +39,12 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     }
     vec3 center_view = NDCToView(vec3(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0));
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
-    vec3 normal = DecodeOctahedralNormal(geometry_data.xy);  // geometric view normal
+    vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
 
     // Tangent frame around the normal for the hemisphere sampling.
-    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, normal));
-    vec3 bitangent = cross(normal, tangent);
+    vec3 up = abs(normal_view.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, normal_view));
+    vec3 bitangent = cross(normal_view, tangent);
 
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
@@ -56,7 +56,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         float r = sqrt(u1);
         float phi = u2 * TAU;
         vec3 dir = tangent * (r * cos(phi)) + bitangent * (r * sin(phi))
-            + normal * sqrt(max(1.0 - r * r, 0.0));
+            + normal_view * sqrt(max(1.0 - r * r, 0.0));
 
         vec3 sample_view = center_view + dir * SSAO_RADIUS;
         vec2 sample_ndc = ViewToNDC(sample_view).xy;
@@ -81,9 +81,9 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         if (offset_len < 1.0e-4) {
             continue;
         }
-        float cos_theta = clamp(dot(offset, normal) / offset_len, 0.0, 1.0);
+        float cos_theta = clamp(dot(offset, normal_view) / offset_len, 0.0, 1.0);
         if (cos_theta <= 0.0) {
-            continue;  // surface outside the normal hemisphere: no occlusion
+            continue;  // surface outside the normal_view hemisphere: no occlusion
         }
         float distance_falloff = 1.0 - smoothstep(0.0, SSAO_RADIUS, offset_len);
         occlusion += cos_theta * distance_falloff;

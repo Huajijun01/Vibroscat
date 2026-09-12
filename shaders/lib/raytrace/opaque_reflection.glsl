@@ -19,12 +19,12 @@ vec2 OpaqueSSRSTBNPair(ivec2 tx) {
         vec2(1e-6), vec2(1.0 - 1e-6));
 }
 
-mat3 BuildOrthonormalBasis(vec3 normal) {
-    vec3 up = abs(normal.z) < 0.999
+mat3 BuildOrthonormalBasis(vec3 normal_world) {
+    vec3 up = abs(normal_world.z) < 0.999
         ? vec3(0.0, 0.0, 1.0)
         : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, normal));
-    return mat3(tangent, cross(normal, tangent), normal);
+    vec3 tangent = normalize(cross(up, normal_world));
+    return mat3(tangent, cross(normal_world, tangent), normal_world);
 }
 
 // VNDF sampling (Heitz 2018, "Sampling the GGX Distribution of Visible
@@ -42,15 +42,15 @@ vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
 
 // stbn_random is the OpaqueSSRSTBNPair pair sampled by the pass main; it
 // seeds the visible-normal GGX sample.
-vec3 OpaqueReflectionDirection(vec3 normal, vec3 view_direction,
+vec3 OpaqueReflectionDirection(vec3 normal_world, vec3 view_direction,
         float perceptual_roughness, vec2 stbn_random, out vec3 half_direction) {
     float alpha = max(perceptual_roughness * perceptual_roughness, 0.002);
-    mat3 frame = BuildOrthonormalBasis(normal);
+    mat3 frame = BuildOrthonormalBasis(normal_world);
     vec3 local_v = transpose(frame) * view_direction;
     vec3 local_h = SampleVisibleGGX(local_v, alpha, stbn_random);
     half_direction = normalize(frame * local_h);
     vec3 light_direction = normalize(reflect(-view_direction, half_direction));
-    return dot(normal, light_direction) > 1e-5 ? light_direction : vec3(0.0);
+    return dot(normal_world, light_direction) > 1e-5 ? light_direction : vec3(0.0);
 }
 
 vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {

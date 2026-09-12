@@ -13,15 +13,15 @@ void main() {
     out_reflection_radiance = vec3(0.0);
 
     ivec2 tx = ivec2(gl_FragCoord.xy);
-    float depth = texelFetch(depthtex0, tx, 0).r;
-    if (depth >= 1.0) return;
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
+    if (scene_depth >= 1.0) return;
 
     vec4 packed_surface = texelFetch(colortex2, tx, 0);
     vec2 nx_ao = Unpack2x8(packed_surface.r);
     vec2 ny_nz = Unpack2x8(packed_surface.g);
     vec2 rough_selector = Unpack2x8(packed_surface.b);
     if (rough_selector.x >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
-    vec3 normal = normalize(vec3(
+    vec3 normal_world = normalize(vec3(
         nx_ao.x * 2.0 - 1.0,
         ny_nz.x * 2.0 - 1.0,
         ny_nz.y * 2.0 - 1.0));
@@ -35,19 +35,19 @@ void main() {
 
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
 #ifdef TAA
-    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, depth);
+    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, scene_depth);
 #else
-    vec3 world_pos = DepthToWorldPos(uv, depth);
+    vec3 world_pos = DepthToWorldPos(uv, scene_depth);
 #endif
     vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
-    if (dot(normal, view_to_eye) <= 1e-5) return;
+    if (dot(normal_world, view_to_eye) <= 1e-5) return;
 
     // One STBN pair feeds both the GGX direction sample and the trace start
     // jitter (the pair's y component), instead of two identical reads.
     vec2 stbn_random = OpaqueSSRSTBNPair(tx);
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
-        normal, view_to_eye, rough_selector.x, stbn_random, half_vector);
+        normal_world, view_to_eye, rough_selector.x, stbn_random, half_vector);
 
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(

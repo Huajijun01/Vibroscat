@@ -35,7 +35,14 @@ void main() {
     vec3 view_normal = gl_NormalMatrix * gl_Normal;
     v_normal = length(view_normal) < 1e-4 ? vec3(0.0, 0.0, 1.0) : normalize(view_normal);
 
+    // Particles shade as world-up surfaces: ambient must not use the
+    // billboard normal, which points at the eye and swaps zenith/ground sky
+    // ambient with camera pitch.
+#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
+    vec3 world_normal = vec3(0.0, 1.0, 0.0);
+#else
     vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+#endif
     v_sun_light_col = ground_light.rgb;
     // Same sky ambient + lightmap remap as deferred2 (no AO in the gbuffer
     // stage).

@@ -31,7 +31,9 @@ void main() {
     // Same BRDF configuration as deferred2 (shared BRDF helper).
     vec3 surface_normal_view = normalize(v_normal);
 #ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
-    surface_normal_view = vec3(0.0, 1.0, 0.0);
+    // World up expressed in view space: a literal (0,1,0) here would be
+    // screen up and flip particle lighting with camera pitch.
+    surface_normal_view = normalize(mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0));
 #endif
 
     vec3 view_to_eye = -normalize(v_view_pos);
@@ -39,7 +41,13 @@ void main() {
     vec3 direct_lighting;
     vec3 lambert_brdf;
     vec3 diffuse_reflectance;
+    // Particles carry no PBR data: fixed dielectric defaults, never the
+    // specular atlas. Hand and translucent entities keep the specular map.
+#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
+    EvaluateBRDF(base_color, vec4(0.0), surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
+#else
     EvaluateBRDF(base_color, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
+#endif
 
     float s = texture(shadowtex1, v_shadow_proj_pos);
     float torch_light = BlockLightFromLm(v_texcoord.z);
@@ -48,6 +56,12 @@ void main() {
 
     // Premultiplied translucent layer: color * alpha + alpha.
     out_layer_color = vec4(lit * alpha, alpha);
-    // Non-water normal/flag: (0,0,1) packed, water flag 0.
+    // Non-water normal/flag: (0,0,1) packed, water flag 0. Particles write
+    // the dummy view normal; their lighting normal is world up, not a
+    // gbuffer surface normal.
+#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
+    out_surface_data = vec4(0.5, 0.5, 1.0, 0.0);
+#else
     out_surface_data = vec4(surface_normal_view * 0.5 + 0.5, 0.0);
+#endif
 }

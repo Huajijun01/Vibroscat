@@ -27,19 +27,25 @@ void main() {
     float alpha = albedo.a;
     vec3 surface_normal_view = normalize(v_normal);
 #ifdef PROGRAM_GBUFFERS_PARTICLES
-    surface_normal_view = vec3(0.0, 1.0, 0.0);
+    // World up expressed in view space: a literal (0,1,0) here would be
+    // screen up and flip particle lighting with camera pitch.
+    surface_normal_view = normalize(mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0));
 #endif
     vec3 view_to_eye = -normalize(v_view_pos);
     vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
     vec3 direct_lighting;
     vec3 lambert_brdf;
     vec3 diffuse_reflectance;
-    EvaluateBRDF(base_color, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
+    // Particles carry no PBR data: fixed dielectric defaults, never the
+    // specular atlas.
+    EvaluateBRDF(base_color, vec4(0.0), surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
 
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
     float torch_light = BlockLightFromLm(v_texcoord.z);
     vec3 lit = direct_lighting * v_sun_light_col * shadow + lambert_brdf * v_ambient_col
              + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
     out_layer_color = vec4(lit * alpha, alpha);
-    out_surface_data = vec4(surface_normal_view * 0.5 + 0.5, 0.0);
+    // Non-water normal/flag: dummy (0,0,1) view normal, water flag 0; the
+    // world-up lighting normal is not a gbuffer surface normal.
+    out_surface_data = vec4(0.5, 0.5, 1.0, 0.0);
 }

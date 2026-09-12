@@ -90,13 +90,69 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma, vec3 receiver_wor
     // Source moments include the SH fallback, without a moments buffer.
     float current_luminance = Luminance(current_irradiance);
     float history_luminance = Luminance(history);
-    float clip_extent = 3.0 * sample_sigma + 0.03 + 0.5 * current_luminance;
+    float blended_age = min(floor(age_sum / weight_sum) + 1.0,
+        float(GI_HISTORY_FRAMES));
+    float blend_weight = 1.0 / blended_age;
+    // Clip around the blended estimate, not the raw current sample: a
+    // current-frame outlier then moves the anchor by 1/age instead of
+    // dragging the whole window, so low-sigma miss frames cannot crush
+    // accumulated history and single fireflies cannot lift it.
+    float anchor_luminance = mix(history_luminance, current_luminance, blend_weight);
+    float clip_extent = 3.0 * sample_sigma + 0.03 + 0.1 * anchor_luminance;
     float clipped_luminance = clamp(history_luminance,
-        max(current_luminance - clip_extent, 0.0), current_luminance + clip_extent);
+        max(anchor_luminance - clip_extent, 0.0), anchor_luminance + clip_extent);
+    bool history_clipped = clipped_luminance != history_luminance;
     history *= clipped_luminance / max(history_luminance, 1.0e-6);
-    float age_limit = min(float(GI_HISTORY_FRAMES), max(4.0, 0.25 / max(frameTime, 0.001)));
-    history_age = min(floor(age_sum / weight_sum) + 1.0, age_limit);
+    // A clip hit means current contradicts history beyond its noise scale:
+    // shorten the blend so persistent lighting changes still converge fast.
+    // Transient noise stays inside the window and keeps the full history.
+    history_age = history_clipped ? min(blended_age, 4.0) : blended_age;
     return mix(history, current_irradiance, 1.0 / history_age);
+}
+
+// Disocclusion repair for the deferred4 consumer: a pixel whose temporal
+// history was rejected (metadata age 1) would otherwise light from the raw
+// 1-spp estimate. Borrow the temporally filtered neighborhood instead, with
+// the same metadata contracts as the temporal filter: source-matched age,
+// world normal, and view-plane distance. Neighbors are current-frame
+// colortex9 entries, so receiver and samples share one projection and one
+// TAA jitter; the residual per-texel jitter offset is far below the plane
+// tolerance. Returns false when no neighbor passes, leaving the raw value.
+bool RepairGIDisocclusion(ivec2 center_texel, vec3 receiver_view, vec3 normal_view,
+        vec3 normal_world, out vec3 repaired_irradiance) {
+    repaired_irradiance = vec3(0.0);
+    ivec2 history_size = textureSize(colortex9, 0);
+    vec2 history_size_f = vec2(history_size);
+    float plane_tolerance_m = 0.04 + abs(receiver_view.z) * 0.002;
+    vec3 repair_sum = vec3(0.0);
+    float weight_sum = 0.0;
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            if (x == 0 && y == 0) continue;
+            ivec2 sample_texel = center_texel + ivec2(x, y);
+            if (any(lessThan(sample_texel, ivec2(0)))
+                    || any(greaterThanEqual(sample_texel, history_size))) continue;
+            uint metadata = texelFetch(colortex10, sample_texel, 0).r;
+            float age = GIHistoryAge(metadata);
+            float depth_view = GIHistoryDepth(metadata);
+            if (age < 1.0 || depth_view <= 0.0 || isinf(depth_view) || isnan(depth_view)) continue;
+            if (dot(normal_world, GIHistoryNormal(metadata)) < 0.94) continue;
+            vec2 sample_ndc = (vec2(sample_texel) + 0.5) / history_size_f * 2.0 - 1.0;
+            vec2 sample_ray = (sample_ndc + gbufferProjection[2].xy)
+                / vec2(gbufferProjection[0].x, gbufferProjection[1].y);
+            vec3 sample_view = vec3(sample_ray, -1.0) * depth_view;
+            float plane_distance = abs(dot(sample_view - receiver_view, normal_view));
+            if (plane_distance > plane_tolerance_m) continue;
+            // Older neighbors carry more converged history; fresh (age 1)
+            // entries still help as raw spatial averages.
+            float weight = min(age, 4.0) * (1.0 - plane_distance / plane_tolerance_m);
+            repair_sum += texelFetch(colortex9, sample_texel, 0).rgb * weight;
+            weight_sum += weight;
+        }
+    }
+    if (weight_sum < 0.05) return false;
+    repaired_irradiance = repair_sum / weight_sum;
+    return true;
 }
 
 #endif // LIB_LIGHTING_GI_DENOISE_GLSL

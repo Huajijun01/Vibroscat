@@ -72,6 +72,7 @@ bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {
         history = vec3(0.0);
         return false;
     }
+    history = max(history, vec3(0.0));
     return true;
 }
 #endif

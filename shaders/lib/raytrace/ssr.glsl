@@ -39,7 +39,8 @@ SSRHit SSRMiss() {
 }
 
 bool SSRScreenInside(vec2 uv) {
-    return all(greaterThanEqual(uv, vec2(0.0)))
+    return IsFinite(vec3(uv, 0.0))
+        && all(greaterThanEqual(uv, vec2(0.0)))
         && all(lessThanEqual(uv, vec2(1.0)));
 }
 
@@ -49,8 +50,9 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     SSRHit miss = SSRMiss();
     if (!IsFinite(view_origin) || !IsFinite(view_direction)) return miss;
 
-    // Callers pass a normalized direction (both trace sites normalize);
-    // NaN directions are rejected above.
+    float direction_length = length(view_direction);
+    if (direction_length < 0.999) return miss;
+    view_direction /= direction_length;
 
     // Project the ray through a second point in front of the origin. This is
     // the alpha v0.1.0 water path: one straight direction in screen UV/NDC-z
@@ -69,7 +71,9 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     vec3 projected_pos = ViewToNDC(
         view_origin + view_direction * projection_t) * 0.5 + 0.5;
     vec3 projected_direction = projected_pos - start_pos;
-    if (!SSRScreenInside(start_pos.xy)) {
+    if (!IsFinite(start_pos) || !IsFinite(projected_pos)
+            || !IsFinite(projected_direction)
+            || !SSRScreenInside(start_pos.xy)) {
         return miss;
     }
     float projected_length = length(projected_direction);
@@ -90,10 +94,12 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     if (max_distance > 0.0) {
         vec3 max_pos = ViewToNDC(
             view_origin + view_direction * max_distance) * 0.5 + 0.5;
-        float max_s = dot(max_pos - start_pos, dir);
-        if (max_s > 0.0) s_end = min(s_end, max_s);
+        if (IsFinite(max_pos)) {
+            float max_s = dot(max_pos - start_pos, dir);
+            if (max_s > 0.0) s_end = min(s_end, max_s);
+        }
     }
-    if (!(s_end > 0.0)) return miss;
+    if (!(s_end > 0.0) || !IsFinite(vec3(s_end))) return miss;
 
     int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
     float step_length = 1.0 / float(max(budget - 1, 1));

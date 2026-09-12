@@ -97,7 +97,7 @@ void main() {
 
     // ── Geometry: AO temporal accumulation; cloud history invalid ──
 #if defined(GTAO) || defined(SSAO)
-#if defined(AO_TEMPORAL_ENABLED) || defined(SSAO)
+#if defined(AO_TEMPORAL_ENABLED)
     {
         vec4 geometry_data = texelFetch(colortex4, tx, 0);
         vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);

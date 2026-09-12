@@ -74,7 +74,10 @@ void main() {
             adapted_exposure_ev = target_exposure_ev;
         } else {
             float rate_per_sec = target_exposure_ev < adapted_exposure_ev ? 4.0 : 0.8;
-            float w = 1.0 - exp(-max(frameTime, 0.0) * rate_per_sec);
+            // A paused or stalled frame reports a large frameTime; capping it
+            // keeps one hitch from snapping the exposure in a single step.
+            float step_seconds = clamp(frameTime, 0.0, 0.1);
+            float w = 1.0 - exp(-step_seconds * rate_per_sec);
             adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, clamp(w, 0.0, 1.0));
         }
         exposure = exp2(adapted_exposure_ev);

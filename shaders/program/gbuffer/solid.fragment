@@ -134,8 +134,8 @@ void main() {
         Pack2x8(mat.perceptual_roughness, mat.specular_selector),
         Pack2x8(mat.emission, mat.auxiliary));
     // colortex4 (RGBA8): octahedral view-space geometric normal in RG, lightmap in BA
-    vec3 geo_view_n = normalize(mat3(gbufferModelView) * v_world_normal);
-    gbuf4 = vec4(EncodeOctahedralNormal(geo_view_n), v_lmcoord.xy);
+    vec3 geo_view_normal = normalize(mat3(gbufferModelView) * v_world_normal);
+    gbuf4 = vec4(EncodeOctahedralNormal(geo_view_normal), v_lmcoord.xy);
     // Opaque coverage clears the translucent workspace before later layers.
     out_translucent_layer = vec4(0.0, 0.0, 0.0, 0.0);
 }

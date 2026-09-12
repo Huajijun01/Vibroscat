@@ -60,12 +60,12 @@ float GIPartialSlice(float x, float sin_view_normal) {
     return negative ? -y : y;
 }
 
-vec2 GISampleSliceDirection(vec3 view_space_normal, float random_value) {
+vec2 GISampleSliceDirection(vec3 normal_view, float random_value) {
     float angle = random_value * TAU;
     vec2 direction = vec2(cos(angle), sin(angle));
-    float normal_xy_length = length(view_space_normal.xy);
+    float normal_xy_length = length(normal_view.xy);
     if (normal_xy_length > 1.0e-5) {
-        vec2 normal_direction = view_space_normal.xy / normal_xy_length;
+        vec2 normal_direction = normal_view.xy / normal_xy_length;
         direction = Rotate2D(direction, normal_direction * vec2(1.0, -1.0));
         float slice_angle = GIPartialSlice(FastAtan2(direction), normal_xy_length) * PI;
         direction = Rotate2D(vec2(cos(slice_angle), sin(slice_angle)), normal_direction);
@@ -141,10 +141,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     vec3 view_direction = -normalize(origin_view_position);
     vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
-    vec3 normal_vvs = GIRotateVectorByQuaternion(origin_normal_view, q_from_view);
+    vec3 normal_view = GIRotateVectorByQuaternion(origin_normal_view, q_from_view);
     // stbn_noise comes from the pass main (streams 0/3/1): x samples the
     // slice direction, y jitters the first march step, z jitters the arcs.
-    vec2 slice_direction = GISampleSliceDirection(normal_vvs, stbn_noise.x);
+    vec2 slice_direction = GISampleSliceDirection(normal_view, stbn_noise.x);
     vec3 ray_direction = GIRotateSliceDirectionByQuaternion(slice_direction, q_to_view);
 
     vec3 projection_diag = vec3(gbufferProjection[0].x, gbufferProjection[1].y, gbufferProjection[2].z);

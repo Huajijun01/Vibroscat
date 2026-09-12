@@ -83,12 +83,12 @@ void main() {
         vec3 volumetric_surface_pos = vec3(0.0);
         float volumetric_entry = 1.0e9;
 #ifdef VOLUMETRIC_CLOUDS
-        vec3 camera_atm_pos = AtmosphereCameraPosition();
+        vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
         float cloud_entry;
         float cloud_exit;
-        bool cloud_visible = CloudShellInterval(camera_atm_pos, view_dir, cloud_entry, cloud_exit);
+        bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, cloud_entry, cloud_exit);
         if (cloud_visible
-                && length(camera_atm_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
+                && length(camera_atmosphere_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
             // Only render when the ray rises into the layer (not skimming beneath).
             cloud_visible = cloud_entry > 0.0;
         }
@@ -97,7 +97,7 @@ void main() {
             // colortex8 flip. Distance is never EMA-mixed; feeds relight and
             // the distance fade.
             vec4 accumulated = texelFetch(colortex8, tx, 0);
-            volumetric_surface_pos = camera_atm_pos + view_dir * accumulated.a;
+            volumetric_surface_pos = camera_atmosphere_pos + view_dir * accumulated.a;
             accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
             volumetric_radiance = accumulated.rgb;
             volumetric_entry = cloud_entry;
@@ -174,8 +174,8 @@ void main() {
     float screen_ao;
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // decode geometric view normal from colortex4 (octahedral) -> world-space
-    vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
-    vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
+    vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
+    vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_normal);
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
 #ifdef SHADOW_SSS
@@ -245,7 +245,7 @@ void main() {
         // upper bound on the shadow-map result. The march fills PCF seam
         // leaks along contact lines and keeps directional occlusion past the
         // shadow-map boundary.
-        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_n, geo_ndotl,
+        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal, geo_ndotl,
             stbn_dither);
         shadow_occlusion = min(shadow_occlusion, contact_shadow);
 #if CONTACT_SHADOW_DEBUG > 0

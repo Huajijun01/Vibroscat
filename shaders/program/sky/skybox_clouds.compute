@@ -51,7 +51,7 @@ void main() {
     int cloud_frame = frameCounter / 4;
 #endif
 #ifdef VOLUMETRIC_CLOUDS
-    vec3 camera_atm_pos = AtmosphereCameraPosition();
+    vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
 #endif
 
     for (int i = 0; i < 4; ++i) {
@@ -86,7 +86,7 @@ void main() {
 #ifdef VOLUMETRIC_CLOUDS
         float cloud_exit = 0.0;
         bool cloud_visible = CloudShellInterval(
-            camera_atm_pos,
+            camera_atmosphere_pos,
             view_dir,
             cloud_entry,
             cloud_exit
@@ -96,7 +96,7 @@ void main() {
                 CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
             bool hit;
             cloud_data = MarchVolumetricClouds(
-                camera_atm_pos,
+                camera_atmosphere_pos,
                 view_dir,
                 vec2(cirrus_light_jitter, SampleSTBN(texel, cloud_frame + STBN_STREAM_3)),
                 cloud_entry,

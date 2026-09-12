@@ -18,12 +18,10 @@ void main() {
     v_view_pos = view_pos;
     vec3 world_pos = ViewToSceneSpace(view_pos);
 
-    v_shadow_proj_pos = mat3(shadowModelView) * (world_pos + gl_Normal * 0.025) + shadowModelView[3].xyz;
-    v_shadow_proj_pos = vec3(shadowProjection[0].x, shadowProjection[1].y, shadowProjection[2].z) * v_shadow_proj_pos + shadowProjection[3].xyz;
-    v_shadow_proj_pos.xy /= GetDistortFactor(v_shadow_proj_pos.xy);
-    vec3 ndc = v_shadow_proj_pos * 0.5 + 0.5;
-    ndc.z -= 0.0001;
-    v_shadow_proj_pos = vec3(ndc.xy, ProtectShadowDepth(ndc.z));
+    vec3 shadow_clip = ProjectToShadowClip(world_pos + gl_Normal * 0.025);
+    vec2 shadow_ndc_xy = DistortShadowClip(shadow_clip.xy);
+    float shadow_ndc_z = shadow_clip.z * 0.5 + 0.5 - 0.0001;
+    v_shadow_proj_pos = vec3(shadow_ndc_xy, ProtectShadowDepth(shadow_ndc_z));
 
     gl_Position = gl_ProjectionMatrix * vec4(view_pos, 1.0);
 #ifdef TAA

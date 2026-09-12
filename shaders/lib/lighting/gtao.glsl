@@ -74,7 +74,9 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
                 || any(greaterThan(sample_uv, vec2(1.0)))) {
             break;
         }
-        ivec2 sample_texel = ivec2(sample_uv * vec2(viewWidth, viewHeight));
+        // Clamp the 1.0 edge (the integer texel would be out of bounds).
+        ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
+            * vec2(viewWidth, viewHeight));
         float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         if (sample_depth >= 1.0) {
             continue;  // sky: not an occluder

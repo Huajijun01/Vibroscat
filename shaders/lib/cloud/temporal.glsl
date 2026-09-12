@@ -54,8 +54,10 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
 }
 
 // True when this history slot has no usable data (never written / cleared).
+// NaN in surface_distance is covered by the > 0 comparison; NaN in radiance
+// is the HISTORY_NO_CLOUD_DATA marker carried by invalid frames.
 bool CloudHistoryInvalid(CloudFrame history) {
-    return any(isnan(history.radiance)) || isnan(history.surface_distance) || !(history.surface_distance > 0.0);
+    return any(isnan(history.radiance)) || !(history.surface_distance > 0.0);
 }
 
 // Sample history at a fractional previous-frame UV with the fast Catmull-Rom
@@ -85,13 +87,10 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
 
 // Age-based history blending: the accepted-frame age is also the accumulated
 // history weight. The current frame keeps a 1/CLOUD_AGE_LIMIT contribution
-// after the cap. Radiance is mixed, distance is never EMA-mixed.
+// after the cap. Radiance is mixed, distance is never EMA-mixed. Callers
+// validate history through CloudHistoryInvalid; no re-check here.
 CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
 ) {
-    // Single NaN guard so a never-initialized history cannot poison the blend.
-    if (any(isnan(history.radiance)) || isnan(history.surface_distance)) {
-        return current;
-    }
     // Age counts accepted frames and doubles as the bounded accumulated
     // sample weight, matching the Alpha-style history cap.
     float alpha = 1.0 / float(min(pixel_age + 1, CLOUD_AGE_LIMIT));

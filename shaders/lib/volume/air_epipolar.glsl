@@ -34,8 +34,8 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     float t_end = exp(-extinction * seg_optical);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
-    vec3 num = vec3(0.0);
-    vec3 den = vec3(0.0);
+    vec3 numerator = vec3(0.0);
+    vec3 denominator = vec3(0.0);
     for (int k = 0; k < EPIPOLAR_SHADOW_STEPS; ++k) {
         float p = (float(k) + stbn_jitter) / float(EPIPOLAR_SHADOW_STEPS);
         float u;
@@ -58,10 +58,10 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
         vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
         float depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
         float shadow = texture(shadowtex1, vec3(uv, depth));
-        num += weight * shadow;
-        den += weight;
+        numerator += weight * shadow;
+        denominator += weight;
     }
-    return Saturate(num / max(den, vec3(1e-6)));
+    return Saturate(numerator / max(denominator, vec3(1e-6)));
 }
 
 #endif // EPIPOLAR_VOLUMETRICS

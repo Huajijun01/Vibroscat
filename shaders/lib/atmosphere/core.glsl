@@ -361,9 +361,9 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec4 ms_moon_mid = ts_moon_mid * sm_mid;
 
         // -- analytic integral with midpoint extinction --
-        vec4 od        = sigma_t_mid * dt_seg;
-        vec4 step_trans = exp(-od);
-        vec4 integral  = (vec4(1.0) - step_trans) * (dt_seg / max(od, ATM_EPS));
+        vec4 optical_depth_mid = sigma_t_mid * dt_seg;
+        vec4 step_trans = exp(-optical_depth_mid);
+        vec4 integral  = (vec4(1.0) - step_trans) * (dt_seg / max(optical_depth_mid, ATM_EPS));
 
         vec4 w = trans * integral;
         acc_ray += w * rs_mid;

@@ -88,7 +88,7 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     float t_end = max(max(t_end_vec.r, t_end_vec.g), t_end_vec.b);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
-    vec3 num = vec3(0.0);
+    vec3 numerator = vec3(0.0);
     float inv_steps = 1.0 / float(EPIPOLAR_SHADOW_STEPS);
     for (int k = 0; k < EPIPOLAR_SHADOW_STEPS; ++k) {
         float p = (float(k) + stbn_jitter) * inv_steps;
@@ -111,18 +111,18 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
         float shadow = texture(shadowtex1, vec3(uv, depth));
         float light_path = light_path1 + d_l * u;
         vec3 weight = exp(-extinction * (u * segment_length + light_path));
-        num += weight * shadow * (segment_length * du);
+        numerator += weight * shadow * (segment_length * du);
     }
 
     // Analytic full-column denominator, same closed form as
     // WaterScatteringIntegral with sigmas omitted: integral of
     // exp(-ext*(t + L(t))) over [0, S_full], L linear light_path1 -> lp2_full.
     float delta_full = lp2_full - light_path1 + full_segment_length;
-    vec3 den;
+    vec3 denominator;
     if (abs(delta_full) < 1.0e-3 * max(full_segment_length, light_path1 + lp2_full + 1.0)) {
-        den = full_segment_length * exp(-extinction * light_path1);
+        denominator = full_segment_length * exp(-extinction * light_path1);
     } else {
-        den = full_segment_length * (exp(-extinction * light_path1) - exp(-extinction * (lp2_full + full_segment_length)))
+        denominator = full_segment_length * (exp(-extinction * light_path1) - exp(-extinction * (lp2_full + full_segment_length)))
             / max(extinction * delta_full, vec3(1e-6));
     }
 
@@ -139,7 +139,7 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
             / max(extinction * delta_tail, vec3(1e-6));
     }
 
-    return Saturate((num + tail) / max(den, vec3(1e-6)));
+    return Saturate((numerator + tail) / max(denominator, vec3(1e-6)));
 }
 
 #endif // EPIPOLAR_VOLUMETRICS

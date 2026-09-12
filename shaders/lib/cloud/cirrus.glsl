@@ -118,9 +118,9 @@ float CirrusLightTransmittance(vec3 sample_position, vec3 normal, vec3 light_dir
 vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, vec3 moon_color, float moon_visible,
     vec3 moon_phase, vec3 ambient_irradiance, float sample_scattering, float sample_extinction, float sample_transmittance
 ) {
-    vec3 in_sctr = sun_color * sun_visible * sun_phase + moon_color * moon_visible * moon_phase + ambient_irradiance;
-    in_sctr *= sample_scattering * CIRRUS_SCATTERING_BOOST;
-    return (in_sctr - in_sctr * sample_transmittance) / max(sample_extinction, 1.0e-5);
+    vec3 in_scattering = sun_color * sun_visible * sun_phase + moon_color * moon_visible * moon_phase + ambient_irradiance;
+    in_scattering *= sample_scattering * CIRRUS_SCATTERING_BOOST;
+    return (in_scattering - in_scattering * sample_transmittance) / max(sample_extinction, 1.0e-5);
 }
 
 // light_jitter is the STBN dither sampled by the pass main (its STBN slice
@@ -153,7 +153,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     vec3 normal = sample_position / height;
     float sample_density = CirrusCoverageDensity(sample_position);
 
-    vec3 ci_in_sctr = vec3(0.0);
+    vec3 ci_in_scattering = vec3(0.0);
     vec3 ci_transmittance = vec3(1.0);
 
     if (sample_density > 1.0e-5) {
@@ -209,29 +209,29 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         float sample_optical_depth = sample_extinction * view_path_km;
         float sample_transmittance = exp(-sample_optical_depth);
 
-        ci_in_sctr = CirrusPhaseScattering(sun_color, sun_visible, sun_phase, moon_color, moon_visible, moon_phase,
+        ci_in_scattering = CirrusPhaseScattering(sun_color, sun_visible, sun_phase, moon_color, moon_visible, moon_phase,
                                            ambient_irradiance, sample_scattering, sample_extinction, sample_transmittance);
         ci_transmittance = vec3(sample_transmittance);
         cirrus_transmittance = ci_transmittance;
     }
 
-    // if (max(ci_in_sctr, ci_transmittance).r < 1.0e-5) {
+    // if (max(ci_in_scattering, ci_transmittance).r < 1.0e-5) {
     //     return sky_color;
     // }
 
-    vec3 total_in_sctr = vec3(0.0);
+    vec3 total_in_scattering = vec3(0.0);
     vec3 total_transmittance = vec3(1.0);
     if (ci_height_diff < 0.0) {
         // Camera above the layer: sky is behind the cirrus.
-        total_in_sctr = total_in_sctr * ci_transmittance + ci_in_sctr;
+        total_in_scattering = total_in_scattering * ci_transmittance + ci_in_scattering;
     } else {
         // Camera below the layer: cirrus is in front of the sky.
-        total_in_sctr = total_in_sctr + ci_in_sctr * total_transmittance;
+        total_in_scattering = total_in_scattering + ci_in_scattering * total_transmittance;
     }
 
     total_transmittance *= ci_transmittance;
 
-    return sky_color * total_transmittance + total_in_sctr;
+    return sky_color * total_transmittance + total_in_scattering;
 }
 
 #endif

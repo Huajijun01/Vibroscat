@@ -72,7 +72,7 @@ void main() {
 
     vec3 epipolar_light = vec3(1.0);
 #ifdef EPIPOLAR_VOLUMETRICS
-    float air_key = EpipolarAirColumnKey(uv, ivec2(gl_FragCoord.xy));
+    float air_key = EpipolarAirColumnKey(uv);
     epipolar_light = EpipolarSampleE(uv * 2.0 - 1.0, air_key);
 #endif
 

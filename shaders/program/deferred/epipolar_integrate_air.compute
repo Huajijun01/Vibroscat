@@ -40,7 +40,7 @@ void main() {
             float p = float(sample_index) / sample_denominator;
             vec2 ndc = mix(line.xy, line.zw, p);
             vec2 uv01 = ndc * 0.5 + 0.5;
-            ivec2 texel = ivec2(clamp(uv01 * u_screen_res, vec2(0.5), u_screen_res - vec2(0.5)));
+            ivec2 texel = EpipolarScreenTexel(uv01);
 
             // Air term: camera -> nearest visible surface, clamped to the
             // fog slab and the render-distance radius.

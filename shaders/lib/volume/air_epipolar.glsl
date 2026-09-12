@@ -16,7 +16,8 @@
 // (depthtex0), because air fog composites over the final water surface too.
 // Underwater the air fog is disabled, so the key is invalid (0). Linear
 // viewZ, same space as the water key (see EpipolarColumnKey).
-float EpipolarAirColumnKey(vec2 uv01, ivec2 texel) {
+float EpipolarAirColumnKey(vec2 uv01) {
+    ivec2 texel = EpipolarScreenTexel(uv01);
     if (isEyeInWater == 1) return 0.0;
     return LinearDepthFromScreenDepth(texelFetch(depthtex0, texel, 0).r);
 }

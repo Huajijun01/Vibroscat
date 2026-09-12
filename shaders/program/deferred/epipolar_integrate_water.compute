@@ -40,10 +40,9 @@ void main() {
             float p = float(sample_index) / sample_denominator;
             vec2 ndc = mix(line.xy, line.zw, p);
             vec2 uv01 = ndc * 0.5 + 0.5;
-            ivec2 texel = ivec2(clamp(uv01 * u_screen_res, vec2(0.5), u_screen_res - vec2(0.5)));
             vec3 start_scene;
             vec3 end_scene;
-            if (EpipolarWaterSegment(texel, uv01, start_scene, end_scene, water_key)) {
+            if (EpipolarWaterSegment(uv01, start_scene, end_scene, water_key)) {
                 // Underwater the surface height is the eye position plus the
                 // brightness-proxy depth (same approach the blend pass uses);
                 // above water the column starts at the geometric surface.

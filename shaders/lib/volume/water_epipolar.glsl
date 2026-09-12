@@ -20,17 +20,19 @@
 // enters the water. Linear depth keeps the unwarp tolerance scale-invariant
 // (raw depth01 saturates at distance and mis-accepts columns at low
 // epipolar resolution).
-float EpipolarColumnKey(vec2 uv01, ivec2 texel) {
+float EpipolarColumnKey(vec2 uv01) {
+    ivec2 texel = EpipolarScreenTexel(uv01);
     if (isEyeInWater == 1) return LinearDepthFromScreenDepth(texelFetch(depthtex0, texel, 0).r);
     if (texelFetch(colortex2, texel, 0).a < 0.99) return 0.0;
     return LinearDepthFromScreenDepth(texelFetch(depthtex1, texel, 0).r);
 }
 
-// Water column segment for a screen texel, in camera-relative scene space.
+// Water column segment for a screen position, in camera-relative scene space.
 // Returns false when the pixel has no water column (above water and nearest
 // translucent is not water). column_key is the column end in LINEAR viewZ
 // (same space as EpipolarColumnKey), 0 = no column.
-bool EpipolarWaterSegment(ivec2 texel, vec2 uv01, out vec3 start_scene, out vec3 end_scene, out float column_key) {
+bool EpipolarWaterSegment(vec2 uv01, out vec3 start_scene, out vec3 end_scene, out float column_key) {
+    ivec2 texel = EpipolarScreenTexel(uv01);
     float opaque_depth = texelFetch(depthtex1, texel, 0).r;
     if (isEyeInWater == 1) {
         float surface_depth = texelFetch(depthtex0, texel, 0).r;

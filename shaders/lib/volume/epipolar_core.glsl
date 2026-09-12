@@ -23,6 +23,13 @@
 
 #ifdef EPIPOLAR_VOLUMETRICS
 
+// Quantize a screen UV to the texel holding its center, shared by every
+// epipolar depth/key fetch: clamping to texel centers keeps truncation inside
+// the viewport at both edges.
+ivec2 EpipolarScreenTexel(vec2 uv01) {
+    return ivec2(clamp(uv01 * u_screen_res, vec2(0.5), u_screen_res - vec2(0.5)));
+}
+
 // Project the active light into NDC. The pole is the light's projective
 // screen position: behind the camera it mirrors (lines stay valid); at
 // clip.w ~ 0 it is at infinity (lines become parallel). poleInScreen =

@@ -158,6 +158,8 @@ option.CIRRUS = Cirrus Clouds
 option.CIRRUS.comment = Thin high-altitude cloud shell with silver-lining lighting. Far cheaper than the volumetric layer and independent of it: turning Volumetric Clouds off keeps the cirrus, and vice versa.
 option.CLOUD_TEMPORAL_UPSCALING = Temporal Upscaling
 option.CLOUD_TEMPORAL_UPSCALING.comment = Renders clouds at a reduced resolution and rebuilds full detail over consecutive frames. 1x = full resolution (sharpest, slowest), 4x = quarter resolution (fastest, can smear slightly during fast camera movement).
+option.CLOUD_AGE_LIMIT = Cloud History Age Limit
+option.CLOUD_AGE_LIMIT.comment = How many frames a cloud texel's accumulated history stays trusted before a fresh sample fully replaces it: higher = steadier clouds between frames, but slower response to wind and view changes.
 option.CLOUD_VIEW_MIN_STEPS = Min March Steps
 option.CLOUD_VIEW_MIN_STEPS.comment = Sampling quality for clouds near you: higher = fewer holes or speckles on nearby cloud edges, slower.
 option.CLOUD_VIEW_MAX_STEPS = Max March Steps
@@ -168,6 +170,7 @@ option.CLOUD_LIGHT_STEPS = Light Steps
 option.CLOUD_LIGHT_STEPS.comment = How carefully sunlight is traced through each cloud to decide which parts are in shadow. Higher = better lit and shadowed detail inside clouds, slower.
 option.CLOUD_BASE_ALTITUDE = Base Altitude
 option.CLOUD_BASE_ALTITUDE.comment = How high above the terrain the cloud layer floats. Higher = clouds sit farther overhead.
+suffix.CLOUD_BASE_ALTITUDE = km
 option.CLOUD_THICKNESS_KM = Layer Thickness
 option.CLOUD_THICKNESS_KM.comment = Vertical thickness of the cloud layer: higher = taller, towering clouds with deeper shadows inside.
 option.CLOUD_COVERAGE = Coverage
@@ -270,6 +273,7 @@ option.CONTACT_SHADOW_STEPS = Contact Shadow Steps
 option.CONTACT_SHADOW_STEPS.comment = Quality of these small shadows: higher = fewer missed or speckled shadows, slower.
 option.CONTACT_SHADOW_MAX_DISTANCE = Contact Shadow Distance
 option.CONTACT_SHADOW_MAX_DISTANCE.comment = Maximum reach of the effect in metres; the actual reach also scales with your view distance.
+suffix.CONTACT_SHADOW_MAX_DISTANCE = m
 option.CONTACT_SHADOW_THICKNESS = Contact Shadow Thickness
 option.CONTACT_SHADOW_THICKNESS.comment = Assumed thickness of the objects casting these shadows: higher = more forgiving and softer; lower = sharper but can miss thin blockers.
 option.CONTACT_SHADOW_DEBUG = Contact Shadow Debug
@@ -292,6 +296,7 @@ option.GTAO_HORIZON_STEPS = GTAO Horizon Steps
 option.GTAO_HORIZON_STEPS.comment = How far the calculation looks along each direction: higher = catches larger nearby objects, slower.
 option.GTAO_RADIUS = GTAO Radius
 option.GTAO_RADIUS.comment = How far away an object can darken its surroundings, in metres: higher = broader, softer corner shadows.
+suffix.GTAO_RADIUS = m
 option.GTAO_STRENGTH = GTAO Strength
 option.GTAO_STRENGTH.comment = How dark the corners get.
 option.GTAO_MULTIBOUNCE = GTAO Multi-Bounce
@@ -308,6 +313,7 @@ option.SSAO_SAMPLES = SSAO Samples
 option.SSAO_SAMPLES.comment = Quality of the alternative SSAO mode: higher = smoother corner darkening, slower.
 option.SSAO_RADIUS = SSAO Radius
 option.SSAO_RADIUS.comment = How far away an object can darken its surroundings, in metres.
+suffix.SSAO_RADIUS = m
 option.SSAO_STRENGTH = SSAO Strength
 option.SSAO_STRENGTH.comment = How dark the corners get. SSAO reads lighter than GTAO, so its default is intentionally steeper.
 option.AO_DARKEN_SLOWDOWN = AO Darken Slowdown
@@ -346,6 +352,7 @@ option.EPIPOLAR_SHADOW_STEPS = Epipolar Shadow Steps
 option.EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of a ray checks whether sunlight is blocked: higher = shadow detail inside the water, slower.
 option.WATER_EPIPOLAR_MAX_DISTANCE = Water Epipolar March Distance
 option.WATER_EPIPOLAR_MAX_DISTANCE.comment = How far underwater the shadow calculation runs precisely; beyond this distance the water is simply treated as sunlit. Lower = less noise, but far water loses shadow detail.
+suffix.WATER_EPIPOLAR_MAX_DISTANCE = m
 option.EPIPOLAR_DEPTH_TOLERANCE = Epipolar Depth Tolerance
 option.EPIPOLAR_DEPTH_TOLERANCE.comment = How leniently neighbouring pixels may share each other's results: higher = fewer artifacts but slightly blurrier rays.
 option.EPIPOLAR_EDGE_SHARPEN = Epipolar Edge Sharpen

@@ -19,6 +19,7 @@
 // fragment stage right after its own integrate pass.
 
 #include "/lib/core/coordinates.glsl"
+#include "/lib/color/color.glsl"
 
 #ifdef EPIPOLAR_VOLUMETRICS
 
@@ -197,8 +198,7 @@ vec3 EpipolarSampleOnSlice(int slice, vec2 ndc, float pixel_key,
 
     float wa = EpipolarEdgeWeight(pixel_key, ka);
     float wb = EpipolarEdgeWeight(pixel_key, kb);
-    f = EpipolarSharpen(f, dot(va, vec3(0.2126, 0.7152, 0.0722)),
-                        dot(vb, vec3(0.2126, 0.7152, 0.0722)));
+    f = EpipolarSharpen(f, Luminance(va), Luminance(vb));
     float wsum = (1.0 - f) * wa + f * wb;
     if (wsum < 1e-4) {
         // No matching column on the two nearest samples. Do NOT fall back to
@@ -264,8 +264,7 @@ vec3 EpipolarSampleE(vec2 ndc, float pixel_key) {
     vec3 e0 = EpipolarSampleOnSlice(s0, ndc, pixel_key, key0);
     vec3 e1 = EpipolarSampleOnSlice((s0 + 1) % EPIPOLAR_SLICES, ndc, pixel_key,
                                     key1);
-    w = EpipolarSharpen(w, dot(e0, vec3(0.2126, 0.7152, 0.0722)),
-                        dot(e1, vec3(0.2126, 0.7152, 0.0722)));
+    w = EpipolarSharpen(w, Luminance(e0), Luminance(e1));
     float w0 = EpipolarEdgeWeight(pixel_key, key0);
     float w1 = EpipolarEdgeWeight(pixel_key, key1);
     float wsum = (1.0 - w) * w0 + w * w1;

@@ -1,3 +1,4 @@
+#include "/lib/color/color.glsl"
 #include "/lib/post/bloom.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
@@ -5,8 +6,6 @@ layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg0;
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 shared vec4 tile[35][35];
-
-float Luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
 void main() {
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
@@ -44,39 +43,39 @@ void main() {
     float total_weight = 0.0;
     float tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_center.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_center.rgb));
     result += s_center * 0.25 * tap_weight;
     total_weight += 0.25 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_left.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_left.rgb));
     result += s_left * 0.125 * tap_weight;
     total_weight += 0.125 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_right.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_right.rgb));
     result += s_right * 0.125 * tap_weight;
     total_weight += 0.125 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_up.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_up.rgb));
     result += s_up * 0.125 * tap_weight;
     total_weight += 0.125 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_down.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_down.rgb));
     result += s_down * 0.125 * tap_weight;
     total_weight += 0.125 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_tl.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_tl.rgb));
     result += s_tl * 0.0625 * tap_weight;
     total_weight += 0.0625 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_tr.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_tr.rgb));
     result += s_tr * 0.0625 * tap_weight;
     total_weight += 0.0625 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_bl.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_bl.rgb));
     result += s_bl * 0.0625 * tap_weight;
     total_weight += 0.0625 * tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luma(s_br.rgb));
+    tap_weight = 1.0 / (1.0 + Luminance(s_br.rgb));
     result += s_br * 0.0625 * tap_weight;
     total_weight += 0.0625 * tap_weight;
 

@@ -121,7 +121,7 @@ vec3 TonemapAGX(vec3 linear_rgb) {
     look_gamma *= TONEMAP_AGX_GAMMA;
     look_saturation *= TONEMAP_AGX_SATURATION;
 
-    float working_luma = dot(working, vec3(0.2126, 0.7152, 0.0722));
+    float working_luma = Luminance(working);
     working = mix(vec3(working_luma), working, look_saturation);
     working = pow(max(working, 0.0), vec3(look_gamma));
 
@@ -157,7 +157,6 @@ const float DRT_OKLAB_RGB_HEADROOM = 0.99999;
 const vec3 DRT_OKLAB_RED_ROW = vec3(4.0767416621, -3.3077115913, 0.2309699292);
 const vec3 DRT_OKLAB_GREEN_ROW = vec3(-1.2684380046, 2.6097574011, -0.3413193965);
 const vec3 DRT_OKLAB_BLUE_ROW = vec3(-0.0041960863, -0.7034186147, 1.7076147010);
-const vec3 DRT_AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.3958121374360396);
 
 // --- Oklab DRT (mode 1): shoulder curve + gamut cusp + saturation cap ---
 
@@ -350,12 +349,12 @@ vec3 HSVToRGB(vec3 hsv) {
 // --- Reinhard-Gamut (mode 3, the dispatcher fallback): virtual-gamut Reinhard ---
 
 vec3 DRTGamutExpand(vec3 color, float expansion) {
-    float neutral = dot(color, DRT_AGX_NEUTRAL_WEIGHTS);
+    float neutral = dot(color, AGX_NEUTRAL_WEIGHTS);
     return mix(color, vec3(neutral), expansion);
 }
 
 vec3 DRTGamutContract(vec3 color, float expansion) {
-    float neutral = dot(color, DRT_AGX_NEUTRAL_WEIGHTS);
+    float neutral = dot(color, AGX_NEUTRAL_WEIGHTS);
     return (color - expansion * vec3(neutral)) / (1.0 - expansion);
 }
 

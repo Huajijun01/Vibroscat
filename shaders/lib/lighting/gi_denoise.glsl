@@ -77,7 +77,8 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma, vec3 receiver_wor
             vec2 bilinear = mix(vec2(1.0) - fraction, fraction, vec2(x, y));
             float weight = bilinear.x * bilinear.y * (1.0 - plane_distance / plane_tolerance_m);
             vec3 history = texelFetch(colortex9, sample_texel, 0).rgb;
-            if (any(isnan(history)) || any(isinf(history))) continue;
+            // colortex9 writers are bounded (clamped GI radiance, finite SH
+            // and RSM sums); no NaN filter, matching RepairGIDisocclusion.
             history_sum += history * weight;
             age_sum += age * weight;
             weight_sum += weight;

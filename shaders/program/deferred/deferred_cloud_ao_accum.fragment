@@ -107,10 +107,8 @@ void main() {
 #endif
 
         // Fresh half-res AO, bilinear upsample, one sample/pixel/frame
-        // (full convergence). Non-finite reads fall back to open (NaN would
-        // poison the history).
+        // (full convergence). R8 sampling returns [0, 1] by format.
         float fresh_ao = texture(usam_ao, uv).r;
-        fresh_ao = (fresh_ao >= 0.0 && fresh_ao <= 1.0) ? fresh_ao : 1.0;
 
         float next_age = 0.0;
         float accumulated = fresh_ao;

@@ -171,8 +171,8 @@ void main() {
 #endif
     vec3 normal   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
     float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
-    float gtao_ao;
-    vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, gtao_ao);
+    float screen_ao;
+    vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // decode geometric view normal from colortex4 (octahedral) -> world-space
     vec3 geo_view_n = DecodeOctahedralNormal(geometry_data.xy);
     vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_n);
@@ -352,7 +352,7 @@ void main() {
 #else
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif
-    color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * gtao_ao;
+    color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * screen_ao;
 
     // -- Indirect specular --
     // Rough opaque surfaces use the SH environment exclusively. The transition

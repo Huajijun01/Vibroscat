@@ -85,9 +85,9 @@ float AgXCurveComponent(float value) {
     bool toe = value <= AGX_INPUT_PIVOT;
     float power = toe ? TONEMAP_AGX_TOE_POWER : TONEMAP_AGX_SHOULDER_POWER;
     float coefficient = toe ? AGX_TOE_A : AGX_SHOULDER_A;
-    float distance = value - AGX_INPUT_PIVOT;
-    return AGX_OUTPUT_PIVOT + AGX_PIVOT_SLOPE * distance
-        * pow(1.0 + coefficient * pow(abs(distance), power), -1.0 / power);
+    float pivot_offset = value - AGX_INPUT_PIVOT;
+    return AGX_OUTPUT_PIVOT + AGX_PIVOT_SLOPE * pivot_offset
+        * pow(1.0 + coefficient * pow(abs(pivot_offset), power), -1.0 / power);
 }
 
 vec3 TonemapAGX(vec3 linear_rgb) {
@@ -243,12 +243,12 @@ float DRTRefineUpperChroma(float chroma, float lightness, vec3 direction) {
     vec3 f = rgb - 1.0;
     vec3 denominator = first_rgb * first_rgb - 0.5 * f * second_rgb;
     vec3 reciprocal_step = first_rgb / denominator;
-    vec3 step = -f * reciprocal_step;
-    step = vec3(
-        reciprocal_step.x >= 0.0 ? step.x : 1.0e20,
-        reciprocal_step.y >= 0.0 ? step.y : 1.0e20,
-        reciprocal_step.z >= 0.0 ? step.z : 1.0e20);
-    return chroma + min(step.r, min(step.g, step.b));
+    vec3 newton_step = -f * reciprocal_step;
+    newton_step = vec3(
+        reciprocal_step.x >= 0.0 ? newton_step.x : 1.0e20,
+        reciprocal_step.y >= 0.0 ? newton_step.y : 1.0e20,
+        reciprocal_step.z >= 0.0 ? newton_step.z : 1.0e20);
+    return chroma + min(newton_step.r, min(newton_step.g, newton_step.b));
 }
 
 float SoftMin(float value, float limit, float power) {
@@ -360,8 +360,8 @@ vec3 DRTGamutContract(vec3 color, float expansion) {
 vec3 DRTReinhardCurve(vec3 color, float middle_gray, float curve_peak) {
     float linear_slope = middle_gray / 0.18;
     float shoulder_extent = curve_peak - middle_gray;
-    vec3 distance = color - vec3(0.18);
-    vec3 tangent_distance = linear_slope * distance;
+    vec3 gray_offset = color - vec3(0.18);
+    vec3 tangent_distance = linear_slope * gray_offset;
     vec3 linear = linear_slope * color;
     vec3 shoulder = middle_gray + tangent_distance / (vec3(1.0) + tangent_distance / shoulder_extent);
     // Per-channel branch: linear below the 18% kink, hyperbolic shoulder above.
@@ -405,12 +405,12 @@ vec3 TonemapReinhardGamut(vec3 linear_rgb) {
 
 // --- Reinhard-AgX (mode 5): linear shadows into an AgX log shoulder ---
 
-// ln(1 + distance). The series branch keeps the tangent at the segment join
-// from cancelling into noise for the small distances the join produces.
-float Log1p(float distance) {
-    if (distance < 0.001)
-        return distance * (1.0 + distance * (-0.5 + distance / 3.0));
-    return 0.6931471805599453 * log2(1.0 + distance);
+// ln(1 + x). The series branch keeps the tangent at the segment join
+// from cancelling into noise for the small values the join produces.
+float Log1p(float x) {
+    if (x < 0.001)
+        return x * (1.0 + x * (-0.5 + x / 3.0));
+    return 0.6931471805599453 * log2(1.0 + x);
 }
 
 // Solved curve parameters (DRT Bench: ReinhardAgxCurveParameters). The tool
@@ -454,11 +454,11 @@ DRTReinhardAgxShape DRTReinhardAgxShapeFromOptions() {
 float DRTReinhardAgxComponent(float value, DRTReinhardAgxShape shape) {
     if (value <= shape.compression_start)
         return shape.linear_slope * value;
-    float distance = Log1p(
+    float log_distance = Log1p(
         shape.linear_slope * (value - shape.compression_start) / shape.shoulder_extent);
     return shape.linear_slope * shape.compression_start
-        + shape.shoulder_extent * distance
-            * pow(1.0 + shape.shoulder_coefficient * pow(distance, shape.shoulder_power),
+        + shape.shoulder_extent * log_distance
+            * pow(1.0 + shape.shoulder_coefficient * pow(log_distance, shape.shoulder_power),
                 -1.0 / shape.shoulder_power);
 }
 

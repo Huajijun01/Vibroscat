@@ -21,10 +21,8 @@
 //   https://www.shadertoy.com/view/lfdBWn)
 // The slice sampler's fast arctangent is from
 //   https://www.shadertoy.com/view/lXBfWm
-// Only the homogeneous screen-edge trace clamp follows Sundial-Lite and is
-// retained with that author's explicit permission. colortex5 is read-only
-// scene radiance from the existing pipeline; this pass owns the colortex9/10
-// GI temporal history pair.
+// colortex5 is read-only scene radiance from the existing pipeline; this
+// pass owns the colortex9/10 GI temporal history pair.
 const int GI_STEPS = 16;
 // March width in screen pixels (the reference's Raymarching_Width).
 const float GI_LENGTH = 512.0;
@@ -121,22 +119,6 @@ uint GIVisibilityMaskFromRange(vec2 range01) {
     return left & right;
 }
 
-// Homogeneous screen-edge trace clamp: the one element kept from
-// Sundial-Lite's port, used with the Sundial author's explicit permission.
-float GITraceScreenEdge(vec4 origin_projection, vec4 projected_direction, float far_plane) {
-    vec2 t1 = (vec2(1.0) * origin_projection.w - origin_projection.xy)
-        / (projected_direction.xy - vec2(1.0) * projected_direction.w);
-    vec2 t2 = (vec2(-1.0) * origin_projection.w - origin_projection.xy)
-        / (projected_direction.xy - vec2(-1.0) * projected_direction.w);
-    float edge = far_plane + 32.0;
-    if (t1.x > 0.0) edge = min(edge, t1.x);
-    if (t1.y > 0.0) edge = min(edge, t1.y);
-    if (t2.x > 0.0) edge = min(edge, t2.x);
-    if (t2.y > 0.0) edge = min(edge, t2.y);
-    return edge;
-}
-
-
 vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
         out float coverage, out float second_moment) {
     second_moment = 0.0;
@@ -156,7 +138,9 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 #endif
     vec4 projected_direction = vec4(projection_diag * ray_direction, -ray_direction.z);
     projected_direction.xy += gbufferProjection[2].xy * ray_direction.z;
-    float trace_length = GITraceScreenEdge(origin_proj, projected_direction, far);
+    // Shared homogeneous clip-ray screen-edge solver; far + 32.0 bounds the
+    // trace when the ray never crosses a screen edge forward.
+    float trace_length = ClipRayScreenExitT(origin_proj, projected_direction, far + 32.0);
     vec2 origin_coord = origin_proj.xy * (0.5 / origin_proj.w) + 0.5;
     vec4 target_proj = origin_proj + projected_direction * trace_length;
     vec2 target_coord = target_proj.xy / target_proj.w * 0.5 + 0.5;

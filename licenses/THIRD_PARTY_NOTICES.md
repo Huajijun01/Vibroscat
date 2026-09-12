@@ -178,9 +178,13 @@ Copyright © 2026 GeForceLegend）移植版中的若干表达：切片相对 CDF
 简化与 [w0,1] 偏移重映射形式、`floatBitsToUint` 扇区量化、随距离缩放的
 几何厚度项。本次变更已将其全部替换为上述 CC0/MIT 参考实现中的对应形式，
 仅保留齐次空间屏幕边缘射线截断（含 `far + 32.0` 上限）一项，经 Sundial
-作者口头许可继续使用（2026-09）。Sundial-Lite 不再是本文件 GI 追踪代码
-的表达来源；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其设计层
-面的 2×2 历史模式比较记录见 `docs/recursive-gi-denoising-plan.md`。
+作者口头许可继续使用（2026-09）。
+
+追记（2026-09-12）：最后保留的该项也已替换为 `lib/core/coordinates.glsl`
+的自有求解器 `ClipRayScreenExitT`（逐轴正 t slab 语义，独立编写，SSR 与
+GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Lite 的表达
+自此不在本包残留；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其
+设计层面的 2×2 历史模式比较记录见 `docs/recursive-gi-denoising-plan.md`。
 
 ## 17. Reflective Shadow Maps 与时域重建（算法引用）
 

@@ -143,9 +143,9 @@ vec3 StarLayer(vec2 uv, float latitude_cos, float clump, vec2 cells, uint salt,
     vec2 tint_profile = StarHash2(seed, salt + 0x3333u);
     float brightness = dim * pow(max(shape.y, STAR_LAW_FLOOR), -exponent);
 
-    vec2 centre = (cell + 0.5 + (jitter - 0.5) * (2.0 * STAR_FIELD_JITTER))
+    vec2 center = (cell + 0.5 + (jitter - 0.5) * (2.0 * STAR_FIELD_JITTER))
         / cells;
-    vec2 delta = (uv - centre) * cells * vec2(latitude_cos, 1.0);
+    vec2 delta = (uv - center) * cells * vec2(latitude_cos, 1.0);
     float radius = radius_scale * STAR_FIELD_RADIUS
         * (0.55 + 0.85 * clamp(brightness * 2.0, 0.0, 1.0))
         * (0.75 + 0.5 * shape.x);
@@ -154,9 +154,9 @@ vec3 StarLayer(vec2 uv, float latitude_cos, float clump, vec2 cells, uint salt,
     // cost an SFU slot per covered pixel for the same visual spread.
     float disc = mix(Pow4(core), Pow4(Pow4(core)), tint_profile.y);
 
-    vec3 colour = mix(vec3(0.72, 0.85, 1.0), vec3(1.0, 0.82, 0.62),
+    vec3 color = mix(vec3(0.72, 0.85, 1.0), vec3(1.0, 0.82, 0.62),
         tint_profile.x);
-    return colour * (brightness * disc);
+    return color * (brightness * disc);
 }
 
 vec3 ProceduralStarField(vec3 rd) {
@@ -229,7 +229,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     // Per-ray horizon clip: rays below the spherical horizon hit the planet
     // (ground LUT region) and must not receive the discs. The clip must stay
     // per-ray: the disc/glow is still partly above the horizon while the
-    // disc centre is below it, so a centre-ray test would over-cull and
+    // disc center is below it, so a center-ray test would over-cull and
     // pop the disc out at the horizon.
     if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) return sky_color;
 

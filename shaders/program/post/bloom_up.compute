@@ -14,7 +14,7 @@ shared vec4 tile[21][21];
 
 // 5x5 Gaussian bloom upsample, pixel-center aligned: separable Gaussian
 // (sigma ~0.866, [1,4,6,4,1]/16) on the output's source position. Even axis
-// = 5-tap binomial; odd axis needs a 6th tap (half-texel centre - a
+// = 5-tap binomial; odd axis needs a 6th tap (half-texel center - a
 // truncated 5-tap drifts ~0.045 texel/level through the cascade).
 void main() {
     ivec2 full_size = imageSize(colorimg12);
@@ -40,7 +40,7 @@ void main() {
     ivec2 out_base = ivec2(gl_WorkGroupID.xy) * 32 + local * 2;
 
     // Separable 5x5 Gaussian on the output's source position: even axis
-    // 5-tap binomial; odd axis 6 taps at half offsets (centre stays at
+    // 5-tap binomial; odd axis 6 taps at half offsets (center stays at
     // k+1/2).
     const float weights_even[5] = float[5](0.0625, 0.25, 0.375, 0.25, 0.0625);
     const float weights_odd[6] = float[6](0.007144, 0.102815, 0.390041, 0.390041, 0.102815, 0.007144);

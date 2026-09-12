@@ -197,8 +197,8 @@ vec4 GetScattering(float h) {
 
 vec2 GetTransmittanceLUTUV(float r, float r2, float mu) {
     float rho = sqrt(r2 - ATM_PLANET_R2);
-    float disc = r2 * (mu * mu - 1.0) + ATM_ATMO_R2;
-    float d = max(0.0, (-r * mu + sqrt(max(disc, 0.0))));
+    float discriminant = r2 * (mu * mu - 1.0) + ATM_ATMO_R2;
+    float d = max(0.0, (-r * mu + sqrt(max(discriminant, 0.0))));
     float d_min = ATM_ATMO_R - r;
     float d_max = rho + ATM_H;
     float x_mu = (d - d_min) / max(d_max - d_min, 1.0e-5);
@@ -303,9 +303,9 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 
     // -- phase (loop-invariant) --
     float cos_vs = dot(view_dir, sun_dir);
-    float pr   = PhaseRayleigh(cos_vs);
-    float pm   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
-    float pm_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even
+    float phase_rayleigh   = PhaseRayleigh(cos_vs);
+    float phase_mie   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
+    float phase_mie_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even
 
     float dt      = max_dist / ATM_NUM_STEPS;
     vec4  trans   = vec4(1.0);
@@ -318,7 +318,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     vec4 acc_ray_moon = vec4(0.0);
     vec4 acc_mie_moon = vec4(0.0);
 
-    // -- midpoint stepping: sample at segment centre, analytic extinction --
+    // -- midpoint stepping: sample at segment center, analytic extinction --
     float t_prev = 0.0;
 
     for (float i = 1.0; i <= ATM_NUM_STEPS; i += 1.0) {
@@ -395,8 +395,8 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans * Saturate(-mu_sun_g);
     }
 
-    return ATM_SOLAR   * (pr * acc_ray + pm * acc_mie + acc_x + ground_sun_radiance)
-         + ATM_MOON_IRR * (pr * acc_ray_moon + pm_moon * acc_mie_moon + ground_moon_radiance);
+    return ATM_SOLAR   * (phase_rayleigh * acc_ray + phase_mie * acc_mie + acc_x + ground_sun_radiance)
+         + ATM_MOON_IRR * (phase_rayleigh * acc_ray_moon + phase_mie_moon * acc_mie_moon + ground_moon_radiance);
 }
 
 // ===============================================================

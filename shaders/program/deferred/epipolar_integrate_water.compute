@@ -48,7 +48,7 @@ void main() {
                 // brightness-proxy depth (same approach the blend pass uses);
                 // above water the column starts at the geometric surface.
                 float surface_y = isEyeInWater == 1
-                    ? start_scene.y + (1.0 - float(eyeBrightnessSmooth.y) / 240.0) * 15.0
+                    ? start_scene.y + (1.0 - float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE) * 15.0
                     : start_scene.y;
                 float light_path1 = max(surface_y - start_scene.y, 0.0) * per_metre;
                 float light_path2 = max(surface_y - end_scene.y, 0.0) * per_metre;

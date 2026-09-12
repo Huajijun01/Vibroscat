@@ -41,7 +41,7 @@ vec3 WaterFogCol() {
     // Runtime water-body coefficients from shaders.properties (u_water_*).
     vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(v_view_pos));
     float phase = PhaseCornetteShanks(dot(world_view_dir, normalize(u_world_light_dir)), WATER_PHASE_G);
-    return (u_water_scattering / u_water_absorption) * phase * (v_sun_light_col * eyeBrightnessSmooth.y * (1.0 / 240.0) + v_ambient_col * PHASE_ISOTROPIC * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / 240.0) : 1.0));
+    return (u_water_scattering / u_water_absorption) * phase * (v_sun_light_col * eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE) + v_ambient_col * PHASE_ISOTROPIC * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE) : 1.0));
 }
 
 void main() {

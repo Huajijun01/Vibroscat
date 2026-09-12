@@ -275,6 +275,8 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // FOG - Air fog
 // ==========================================================================
 const float eyeBrightnessHalflife = 3.0;
+// Minecraft lightmap units: eyeBrightnessSmooth components range 0..240.
+const float EYE_BRIGHTNESS_SCALE = 240.0;
 
 // Analytic air fog (composite2, after blend).
 #define AIR_FOG

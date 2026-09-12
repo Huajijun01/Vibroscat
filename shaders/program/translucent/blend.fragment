@@ -172,8 +172,8 @@ void main() {
     }
     if (isEyeInWater == 1) {
         // Underwater water-fog surface estimate: vertical distance to the water
-        // surface is approximated by (1 - eyeBrightnessSmooth.y / 240) * 15.
-        float fog_vertical_depth = (1.0 - float(eyeBrightnessSmooth.y) / 240.0) * 15.0;
+        // surface is approximated by (1 - eyeBrightnessSmooth.y / EYE_BRIGHTNESS_SCALE) * 15.
+        float fog_vertical_depth = (1.0 - float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE) * 15.0;
         fog_surface_world_y = cameraPosition.y + fog_vertical_depth;
     }
     vec3 color;

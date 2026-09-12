@@ -21,7 +21,7 @@
 vec2 SkyRadianceUV(vec3 dir) {
     // fract() folds the +pi/-pi seam onto u = 0; the bake's rightmost column
     // already transitions toward column 0, so CLAMP sampling is seamless.
-    float u = fract(atan(dir.z, dir.x) * (0.5 / PI) + 0.5);
+    float u = fract(atan(dir.z, dir.x) * INV_TWO_PI + 0.5);
     float v = dir.y * 0.5 + 0.5;
     return vec2(u, v);
 }

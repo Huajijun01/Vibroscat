@@ -352,7 +352,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // keep it off the erased-sample path.
         float sample_r2 = dot(sample_position, sample_position);
 
-        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * 0.61803398875);
+        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
         float sample_sun_radiance = 0.0;
         float sample_moon_radiance = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {

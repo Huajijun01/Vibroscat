@@ -74,7 +74,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         sum_shadow_weight += shadow_weight;
         sum_squared_shadow_weight += shadow_weight * shadow_weight;
 #endif
-        float angle = TAU * fract(stbn_noise.x + float(sample_index) * 0.61803398875);
+        float angle = TAU * fract(stbn_noise.x + float(sample_index) * GOLDEN_RATIO);
         vec2 sample_shadow_xy = receiver_shadow.xy + radial_distance * vec2(cos(angle), sin(angle));
         vec2 sample_clip = projection_xy * sample_shadow_xy + shadowProjection[3].xy;
         if (any(greaterThanEqual(abs(sample_clip), vec2(1.0)))) continue;

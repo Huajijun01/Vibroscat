@@ -52,7 +52,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         // (r = sqrtu1) lifted onto the hemisphere; azimuth dithered per block
         // and stratified per sample (golden angle).
         float u1 = (float(k) + stbn_noise.y) / float(SSAO_SAMPLES);
-        float u2 = fract(stbn_noise.x + float(k) * 0.61803398875);
+        float u2 = fract(stbn_noise.x + float(k) * GOLDEN_RATIO);
         float r = sqrt(u1);
         float phi = u2 * TAU;
         vec3 dir = tangent * (r * cos(phi)) + bitangent * (r * sin(phi))

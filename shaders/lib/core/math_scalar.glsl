@@ -5,6 +5,11 @@ const float centerDepthHalflife = 1.0;
 
 #define PI 3.14159265358979323846
 #define TAU (2.0 * PI)
+#define INV_TWO_PI (0.5 / PI)
+
+// Additive low-discrepancy increment (R1 sequence, the golden-ratio conjugate
+// 1/phi); the 2D analogue is R2Offset in noise.glsl.
+const float GOLDEN_RATIO = 0.61803398875;
 
 float Sqr(float x) { return x * x; }
 float Max0(float x) { return max(x, 0.0); }

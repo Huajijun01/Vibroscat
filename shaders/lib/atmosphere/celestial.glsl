@@ -161,7 +161,7 @@ vec3 StarLayer(vec2 uv, float latitude_cos, float clump, vec2 cells, uint salt,
 
 vec3 ProceduralStarField(vec3 rd) {
     float a = atan(rd.z, rd.x);
-    float u = mix(a, 0.0, float(isnan(a))) * (0.5 / PI) + 0.5;
+    float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
     float v = 0.5 - asin(clamp(rd.y, -1.0, 1.0)) * (1.0 / PI);
     v = clamp(v, 0.0, 1.0);
     float latitude_cos = sqrt(max(1.0 - rd.y * rd.y, 1.0e-6));
@@ -191,7 +191,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
     float night_fade = 1.0 - smoothstep(STAR_FADE_SUNRISE, STAR_FADE_SUNSET, sun_dir.y);
     if (night_fade <= 0.0) return vec3(0.0);
 
-    vec3 camera_pos = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
+    vec3 camera_pos = AtmosphereCameraPosition();
     float r = length(camera_pos);
     float r2 = r * r;
     if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) return vec3(0.0);
@@ -205,7 +205,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
     // Equirectangular sampling, Catmull-Rom bicubic; horizontal wrap at
     // RA 0/360, v clamped (poles never blend).
     float a = atan(rd.z, rd.x);
-    float u = mix(a, 0.0, float(isnan(a))) * (0.5 / PI) + 0.5;
+    float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
     float v = 0.5 - asin(clamp(rd.y, -1.0, 1.0)) * (1.0 / PI);
     v = clamp(v, 0.0, 1.0);
     // LogLuv32 HDR: bicubic in the encoded space, decode restores linear
@@ -222,7 +222,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
 }
 
 vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance) {
-    vec3 camera_pos = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
+    vec3 camera_pos = AtmosphereCameraPosition();
     float r = length(camera_pos);
     float r2 = r * r;
 

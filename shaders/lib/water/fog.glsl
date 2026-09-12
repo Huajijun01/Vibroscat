@@ -1,6 +1,7 @@
 #ifndef LIB_WATER_FOG_GLSL
 #define LIB_WATER_FOG_GLSL
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -98,9 +99,9 @@ void WaterFogRender(inout vec3 col, float raylen, float light_path1, float light
     col *= t;
     vec3 sca = WaterScatteringIntegral(raylen, light_path1, light_path2);
     col += sca * (caustic_factor * ground_light.rgb * phase_sun * eyeBrightnessSmooth.y
-            * (1.0 / 240.0) * epipolar_light
-        + fog_multi_scatter * phase_sky * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / 240.0) : 1.0));
-    col += WaterMultipleScattering(sca, epipolar_light) * ground_light.rgb * eyeBrightnessSmooth.y * (1.0 / 240.0);
+            * (1.0 / EYE_BRIGHTNESS_SCALE) * epipolar_light
+        + fog_multi_scatter * phase_sky * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE) : 1.0));
+    col += WaterMultipleScattering(sca, epipolar_light) * ground_light.rgb * eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE);
 }
 
 #endif

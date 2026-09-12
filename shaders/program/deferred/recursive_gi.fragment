@@ -245,8 +245,9 @@ void main() {
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
     vec4 material_data = texelFetch(colortex1, tx, 0);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
-    vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
-    vec3 fallback_normal = normalize(mat3(gbufferModelViewInverse) * normal_view);
+    // colortex4 carries the world-space geometric normal, which the SH
+    // fallback and the GI history metadata both consume directly.
+    vec3 fallback_normal = DecodeOctahedralNormal(geometry_data.xy);
 #if GI_MODE != 0
     int material_id = int(material_data.a * 255.0 + 0.5);
     float scene_depth = texelFetch(depthtex2, tx, 0).r;
@@ -295,6 +296,8 @@ void main() {
     gi_stbn_noise = fract(gi_stbn_noise
         + vec3(0.7548776662, 0.7548776662 * 0.7548776662, 0.7548776662)
             * float(frameCounter & 63));
+    // The screen-space trace builds its slice basis in view space.
+    vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
     raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, gi_stbn_noise, coverage, second_moment);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;

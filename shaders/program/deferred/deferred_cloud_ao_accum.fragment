@@ -99,7 +99,9 @@ void main() {
 #if defined(AO_TEMPORAL_ENABLED)
     {
         vec4 geometry_data = texelFetch(colortex4, tx, 0);
-        vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
+        // GTAOHistoryWeight compares two current-frame normals, so both sides
+        // stay in the stored world space.
+        vec3 geo_normal_world = DecodeOctahedralNormal(geometry_data.xy);
 #ifdef TAA
         vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, scene_depth);
 #else
@@ -119,7 +121,7 @@ void main() {
             if (isnan(history.a)) {
                 // AO history (A=NaN): accumulate with distance/normal
                 // rejection; full rejection reseeds with age reset.
-                float rejection = GTAOHistoryWeight(receiver_prev_view, geo_view_normal, history_uv, history);
+                float rejection = GTAOHistoryWeight(receiver_prev_view, geo_normal_world, history_uv, history);
                 accumulated = GTAOAccumulate(fresh_ao, history.r, history.g, rejection, next_age);
             } else {
                 // Cloud radiance or never-written slot: reseed from current frame.

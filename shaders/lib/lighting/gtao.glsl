@@ -115,7 +115,10 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     vec3 center_view = NDCToView(vec3(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0));
     vec3 view_axis = normalize(-center_view);  // toward camera
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
-    vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
+    // colortex4 carries the world-space geometric normal; the slices are built
+    // around the view axis, so the transform is paid once per pixel here.
+    vec3 normal_view = normalize(mat3(gbufferModelView)
+        * DecodeOctahedralNormal(geometry_data.xy));
 
     float slice_angle_base = stbn_noise.x * PI;
     float ndotv = dot(normal_view, view_axis);

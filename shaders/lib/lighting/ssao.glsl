@@ -39,7 +39,10 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     }
     vec3 center_view = NDCToView(vec3(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0));
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
-    vec3 normal_view = DecodeOctahedralNormal(geometry_data.xy);
+    // colortex4 carries the world-space geometric normal; the hemisphere
+    // sampler below is built in view space.
+    vec3 normal_view = normalize(mat3(gbufferModelView)
+        * DecodeOctahedralNormal(geometry_data.xy));
 
     // Tangent frame around the normal for the hemisphere sampling.
     vec3 up = abs(normal_view.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);

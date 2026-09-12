@@ -25,22 +25,23 @@ float Unsplit2x16(vec2 v) {
     return (v.x * 65535.0 + v.y) * (1.0 / 65535.0);
 }
 
-// GBuffer octahedral normal codec; contract for the RG channels of
-// colortex4 (geometric view normal).
-vec2 EncodeOctahedralNormal(vec3 normal_view) {
-    normal_view.xy /= abs(normal_view.x) + abs(normal_view.y) + abs(normal_view.z);
-    normal_view.xy = normal_view.z >= 0.0 ? normal_view.xy : (vec2(1.0) - abs(normal_view.yx)) * vec2(normal_view.x >= 0.0 ? 1.0 : -1.0,
-            normal_view.y >= 0.0 ? 1.0 : -1.0);
-    return normal_view.xy * 0.5 + 0.5;
+// Octahedral normal codec. The caller owns the space: colortex4 RG carries
+// the geometric world normal, shadowcolor0 BA the shadow-view RSM normal, and
+// the R32UI GI history an oct5 world normal.
+vec2 EncodeOctahedralNormal(vec3 unit_normal) {
+    unit_normal.xy /= abs(unit_normal.x) + abs(unit_normal.y) + abs(unit_normal.z);
+    unit_normal.xy = unit_normal.z >= 0.0 ? unit_normal.xy : (vec2(1.0) - abs(unit_normal.yx)) * vec2(unit_normal.x >= 0.0 ? 1.0 : -1.0,
+            unit_normal.y >= 0.0 ? 1.0 : -1.0);
+    return unit_normal.xy * 0.5 + 0.5;
 }
 
 vec3 DecodeOctahedralNormal(vec2 encoded) {
     vec2 oct = encoded * 2.0 - 1.0;
-    vec3 normal_view = vec3(oct, 1.0 - abs(oct.x) - abs(oct.y));
-    float t = max(-normal_view.z, 0.0);
-    normal_view.x += normal_view.x >= 0.0 ? -t : t;
-    normal_view.y += normal_view.y >= 0.0 ? -t : t;
-    return normalize(normal_view);
+    vec3 unit_normal = vec3(oct, 1.0 - abs(oct.x) - abs(oct.y));
+    float t = max(-unit_normal.z, 0.0);
+    unit_normal.x += unit_normal.x >= 0.0 ? -t : t;
+    unit_normal.y += unit_normal.y >= 0.0 ? -t : t;
+    return normalize(unit_normal);
 }
 
 #endif

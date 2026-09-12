@@ -35,8 +35,9 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 rece
 //    AO_HISTORY_DISTANCE_LIMIT -> smooth 0.
 //  - normal: current-frame normal at the reprojected position stands in for
 //    the previous (no previous-normal buffer); disagreement beyond
-//    AO_HISTORY_NORMAL_DOT_MIN -> 0.
-float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_uv, vec4 history) {
+//    AO_HISTORY_NORMAL_DOT_MIN -> 0. Both normals come from the same frame in
+//    the stored world space, so the dot product is space-agnostic.
+float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_uv, vec4 history) {
     // Distance consistency. Both points live in the previous frame's view
     // space: the history surface from PreviousScreenToView and the receiver
     // pushed forward by GTAOReprojectToPrevious. The view transform is rigid,
@@ -53,7 +54,7 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_
         ivec2(viewWidth, viewHeight) - 1);
     vec3 history_normal = DecodeOctahedralNormal(texelFetch(colortex4, history_texel, 0).xy);
     float normal_weight = smoothstep(
-        AO_HISTORY_NORMAL_DOT_MIN, 1.0, dot(history_normal, view_normal));
+        AO_HISTORY_NORMAL_DOT_MIN, 1.0, dot(history_normal, normal_world));
 
     return distance_weight * normal_weight;
 }

@@ -173,9 +173,13 @@ void main() {
     float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
     float screen_ao;
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
-    // decode geometric view normal from colortex4 (octahedral) -> world-space
-    vec3 geo_view_normal = DecodeOctahedralNormal(geometry_data.xy);
-    vec3 geo_normal = normalize(mat3(gbufferModelViewInverse) * geo_view_normal);
+    // colortex4 carries the world-space geometric normal (octahedral RG).
+    vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
+#if (CONTACT_SHADOWS == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))) || defined(GI_DENOISE)
+    // Contact shadows and the GI disocclusion repair work in view space. Both
+    // are compile-time gated, so the transform is paid only for them.
+    vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
+#endif
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
 #ifdef SHADOW_SSS

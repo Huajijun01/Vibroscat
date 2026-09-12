@@ -18,7 +18,7 @@
 //     G = normal.y     | normal.z
 //     B = perceptual roughness | raw specular selector
 //     A = emission     | auxiliary
-//   gbuf4.rg = octahedral-encoded geometric view normal
+//   gbuf4.rg = octahedral-encoded geometric world normal
 //   gbuf4.zw = lightmap coordinates
 //
 // Coordinate-first lightmap: v_lmcoord stores UV, normalized by 1/240;
@@ -90,7 +90,8 @@ void main() {
     // -- TBN: tangent -> world-space normal --
     // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
     // Programs without at_tangent cannot interpret tangent-space normal maps.
-    vec3 w_normal = normalize(v_world_normal);
+    vec3 geo_normal_world = normalize(v_world_normal);
+    vec3 w_normal = geo_normal_world;
     vec3 normal_tex = vec3(0.5, 0.5, 1.0);
     bool has_normal_texture = any(notEqual(textureSize(normals, 0), ivec2(1)));
     if (has_normal_texture) normal_tex = texture(normals, v_texcoord).rgb;
@@ -133,9 +134,11 @@ void main() {
         Pack2x8(w_normal.y * 0.5 + 0.5, w_normal.z * 0.5 + 0.5),
         Pack2x8(mat.perceptual_roughness, mat.specular_selector),
         Pack2x8(mat.emission, mat.auxiliary));
-    // colortex4 (RGBA8): octahedral view-space geometric normal in RG, lightmap in BA
-    vec3 geo_view_normal = normalize(mat3(gbufferModelView) * v_world_normal);
-    gbuf4 = vec4(EncodeOctahedralNormal(geo_view_normal), v_lmcoord.xy);
+    // colortex4 (RGBA8): octahedral world-space geometric normal in RG,
+    // lightmap in BA. World space keeps the stored value camera-independent:
+    // a view-space normal requantizes whenever the view turns, and that
+    // staircase reaches AO, contact shadows, the shadow bias, GI, and SSR.
+    gbuf4 = vec4(EncodeOctahedralNormal(geo_normal_world), v_lmcoord.xy);
     // Opaque coverage clears the translucent workspace before later layers.
     out_translucent_layer = vec4(0.0, 0.0, 0.0, 0.0);
 }

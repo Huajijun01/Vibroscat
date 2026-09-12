@@ -145,9 +145,9 @@ float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
     float height_gradient_x = (height_right - height_left) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
     float height_gradient_z = (height_up - height_down) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
     vec3 top_normal = normalize(vec3(-height_gradient_x, 1.0, -height_gradient_z));
-    float n_dot_l = dot(top_normal, light_dir);
+    float ndotl = dot(top_normal, light_dir);
     const float wrap = 0.5;
-    float boundary_lit = Saturate((n_dot_l + wrap) / (1.0 + wrap));
+    float boundary_lit = Saturate((ndotl + wrap) / (1.0 + wrap));
     return mix(1.0, boundary_lit, Saturate(CLOUD_MS_BOUNDARY_CONFIDENCE));
 }
 

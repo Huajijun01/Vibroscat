@@ -17,17 +17,17 @@ float DistributionGGX(float ndot_h, float alpha) {
 }
 
 // Height-correlated Smith visibility, including the 1 / (4 NdotL NdotV) term.
-float VisibilitySmithGGXCorrelated(float ndot_v, float ndot_l, float alpha) {
+float VisibilitySmithGGXCorrelated(float ndotv, float ndotl, float alpha) {
     float alpha2 = alpha * alpha;
-    float lambda_v = ndot_l * sqrt(ndot_v * ndot_v * (1.0 - alpha2) + alpha2);
-    float lambda_l = ndot_v * sqrt(ndot_l * ndot_l * (1.0 - alpha2) + alpha2);
+    float lambda_v = ndotl * sqrt(ndotv * ndotv * (1.0 - alpha2) + alpha2);
+    float lambda_l = ndotv * sqrt(ndotl * ndotl * (1.0 - alpha2) + alpha2);
     return 0.5 / max(lambda_v + lambda_l, 1e-5);
 }
 
-float DiffuseBurley(float ndot_v, float ndot_l, float ldot_h, float roughness) {
-    float fd90 = 0.5 + 2.0 * roughness * ldot_h * ldot_h;
-    float light_scatter = 1.0 + (fd90 - 1.0) * Pow5(1.0 - ndot_l);
-    float view_scatter = 1.0 + (fd90 - 1.0) * Pow5(1.0 - ndot_v);
+float DiffuseBurley(float ndotv, float ndotl, float ldoth, float roughness) {
+    float fd90 = 0.5 + 2.0 * roughness * ldoth * ldoth;
+    float light_scatter = 1.0 + (fd90 - 1.0) * Pow5(1.0 - ndotl);
+    float view_scatter = 1.0 + (fd90 - 1.0) * Pow5(1.0 - ndotv);
     return light_scatter * view_scatter * (1.0 / PI);
 }
 
@@ -145,36 +145,36 @@ float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius)
     float tan_radius = tan(light_radius);
 
     // Early out when the reflection ray already falls within the disc.
-    float r_dot_l = 2.0 * ndotl * ndotv - ldotv;
-    if (r_dot_l >= cos_radius) return 1.0;
+    float rdotl = 2.0 * ndotl * ndotv - ldotv;
+    if (rdotl >= cos_radius) return 1.0;
 
-    float scaled = cos_radius * tan_radius * inversesqrt(1.0 - r_dot_l * r_dot_l);
-    float n_dot_t = scaled * (ndotv - r_dot_l * ndotl);
-    float v_dot_t = scaled * (2.0 * ndotv * ndotv - 1.0 - r_dot_l * ldotv);
+    float scaled = cos_radius * tan_radius * inversesqrt(1.0 - rdotl * rdotl);
+    float ndott = scaled * (ndotv - rdotl * ndotl);
+    float vdott = scaled * (2.0 * ndotv * ndotv - 1.0 - rdotl * ldotv);
 
     // Triple product dot(cross(N, L), V).
     float triple = sqrt(max(1.0 - ndotl * ndotl - ndotv * ndotv - ldotv * ldotv + 2.0 * ndotl * ndotv * ldotv, 0.0));
-    float n_dot_b = scaled * triple;
-    float v_dot_b = scaled * (2.0 * triple * ndotv);
+    float ndotb = scaled * triple;
+    float vdotb = scaled * (2.0 * triple * ndotv);
 
     // One Newton iteration to improve the bent light direction.
-    float nl_rot = ndotl * cos_radius + ndotv + n_dot_t;
-    float lv_rot = ldotv * cos_radius + 1.0 + v_dot_t;
-    float p = n_dot_b * lv_rot;
+    float nl_rot = ndotl * cos_radius + ndotv + ndott;
+    float lv_rot = ldotv * cos_radius + 1.0 + vdott;
+    float p = ndotb * lv_rot;
     float q = nl_rot * lv_rot;
-    float s = v_dot_b * nl_rot;
-    float x_num = q * (-0.5 * p + 0.25 * v_dot_b * nl_rot);
+    float s = vdotb * nl_rot;
+    float x_num = q * (-0.5 * p + 0.25 * vdotb * nl_rot);
     float x_den = p * p + s * (s - 2.0 * p) + nl_rot * ((ndotl * cos_radius + ndotv) * lv_rot * lv_rot
             + q * (-0.5 * (lv_rot + ldotv * cos_radius) - 0.5));
     float two_x = 2.0 * x_num / (x_den * x_den + x_num * x_num);
     float sin_theta = two_x * x_den;
     float cos_theta = 1.0 - two_x * x_num;
-    n_dot_t = cos_theta * n_dot_t + sin_theta * n_dot_b;
-    v_dot_t = cos_theta * v_dot_t + sin_theta * v_dot_b;
+    ndott = cos_theta * ndott + sin_theta * ndotb;
+    vdott = cos_theta * vdott + sin_theta * vdotb;
 
     // (N.H)^2 from the bent light direction.
-    float new_ndotl = ndotl * cos_radius + n_dot_t;
-    float new_ldotv = ldotv * cos_radius + v_dot_t;
+    float new_ndotl = ndotl * cos_radius + ndott;
+    float new_ldotv = ldotv * cos_radius + vdott;
     float ndoth = ndotv + new_ndotl;
     float hdoth = 2.0 * new_ldotv + 2.0;
 

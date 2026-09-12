@@ -367,7 +367,7 @@ const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after th
 // Warm artificial-light palette, shared by deferred2 and the forward
 // translucent passes. TORCH_BRIGHTNESS scales the light intensity only;
 // the warm tint stays fixed.
-#define TORCH_BRIGHTNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
+#define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
 const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 // Minimum ambient light floor added to every surface's sky ambient, so caves

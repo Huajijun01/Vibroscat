@@ -33,9 +33,8 @@ vec4 AirScatteringIntegral(float segment_length, vec4 sigma_s, vec4 sigma_t) {
 
 // View-ray length clamped to `far` (sphere approx of the loaded area;
 // shared by air_fog.fragment and epipolar_integrate_air.compute).
-bool AirFogSegment(float depth_dist, float radius, out float segment_length) {
-    segment_length = min(depth_dist, radius);
-    return true;
+float AirFogSegmentLength(float depth_dist, float radius) {
+    return min(depth_dist, radius);
 }
 
 // Unitless spectral fraction -> linear sRGB, normalized so a neutral
@@ -65,10 +64,7 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     result.transmittance = vec3(1.0);
     result.in_scattering = vec3(0.0);
 
-    float segment_length;
-    if (!AirFogSegment(depth_dist, radius, segment_length)) {
-        return result;
-    }
+    float segment_length = AirFogSegmentLength(depth_dist, radius);
 
     vec4 trans_spectral = exp(-medium.extinction * segment_length);
 
@@ -86,7 +82,7 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     // Direct sun scattering shadowed by the epipolar air term (a
     // transmittance-weighted average visibility: light shafts without
     // full-res marching).
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
     vec3 sun_visibility = epipolar_light;
 #else
     vec3 sun_visibility = vec3(shadow_fallback);

@@ -10,7 +10,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 
 // Air-fog depth key for the epipolar filter: nearest visible surface
 // (depthtex0), because air fog composites over the final water surface too.
@@ -18,7 +18,7 @@
 // viewZ, same space as the water key (see EpipolarColumnKey).
 float EpipolarAirColumnKey(vec2 uv01, ivec2 texel) {
     if (isEyeInWater == 1) return 0.0;
-    return EpipolarViewZ(uv01, texelFetch(depthtex0, texel, 0).r);
+    return LinearDepthFromScreenDepth(texelFetch(depthtex0, texel, 0).r);
 }
 
 // Air shadow ratio: no light-direction OD, view-path transmittance only
@@ -64,5 +64,5 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     return Saturate(num / max(den, vec3(1e-6)));
 }
 
-#endif // EPIPOLAR_WATER
+#endif // EPIPOLAR_VOLUMETRICS
 #endif // LIB_VOLUME_AIR_EPIPOLAR_GLSL

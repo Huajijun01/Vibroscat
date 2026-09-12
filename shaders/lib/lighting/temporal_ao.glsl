@@ -32,10 +32,10 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 rece
 
 // History trust in [0, 1], product of two checks:
 //  - distance: static geometry = zero displacement (full trust); beyond
-//    GTAO_HISTORY_DISTANCE_LIMIT -> smooth 0.
+//    AO_HISTORY_DISTANCE_LIMIT -> smooth 0.
 //  - normal: current-frame normal at the reprojected position stands in for
 //    the previous (no previous-normal buffer); disagreement beyond
-//    GTAO_HISTORY_NORMAL_DOT_MIN -> 0.
+//    AO_HISTORY_NORMAL_DOT_MIN -> 0.
 float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_uv, vec4 history) {
     // Distance consistency. Both points live in the previous frame's view
     // space: the history surface from PreviousScreenToView and the receiver
@@ -44,7 +44,7 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_
     // without inverting the previous modelview per pixel.
     vec3 previous_view = PreviousScreenToView(vec3(history_uv, 1.0 - history.b));
     float displacement = length(previous_view - receiver_prev_view);
-    float distance_weight = 1.0 - smoothstep(0.0, GTAO_HISTORY_DISTANCE_LIMIT, displacement);
+    float distance_weight = 1.0 - smoothstep(0.0, AO_HISTORY_DISTANCE_LIMIT, displacement);
 
     // Normal consistency (current-frame normal at the reprojected position).
     ivec2 history_texel = clamp(
@@ -53,7 +53,7 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_
         ivec2(viewWidth, viewHeight) - 1);
     vec3 history_normal = DecodeOctahedralNormal(texelFetch(colortex4, history_texel, 0).xy);
     float normal_weight = smoothstep(
-        GTAO_HISTORY_NORMAL_DOT_MIN, 1.0, dot(history_normal, view_normal));
+        AO_HISTORY_NORMAL_DOT_MIN, 1.0, dot(history_normal, view_normal));
 
     return distance_weight * normal_weight;
 }
@@ -64,7 +64,7 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 view_normal, vec2 history_
 // history replaced quickly). Full rejection -> fresh sample, age reset.
 float GTAOAccumulate(float fresh_ao, float hist_ao, float hist_age,
                      float rejection, out float next_age) {
-    float pixel_age = min(hist_age, GTAO_AGE_LIMIT) * rejection;
+    float pixel_age = min(hist_age, AO_AGE_LIMIT) * rejection;
     float samples = pixel_age;
     float base_alpha = samples < float(AO_ACCUMULATION_BOX_SAMPLES)
         ? 1.0 / max(samples + 1.0, 1.0)

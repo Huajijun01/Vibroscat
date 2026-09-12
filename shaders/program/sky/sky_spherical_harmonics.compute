@@ -9,7 +9,7 @@
 layout(local_size_x = 256) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
 
-layout(rgba16f) uniform readonly image2D uimg_skylut_cloud;
+layout(rgba16f) uniform readonly image2D uimg_sky_radiance;
 
 shared float row_sin[256];
 shared float row_cos[256];
@@ -20,15 +20,15 @@ shared float reduce_24[256];
 // Equal-area texture: d(phi) * d(sin(theta)) = (2pi/N) * (2/N) = 4pi/N^2
 // for every texel, so the SH integral is a plain sum with one constant
 // weight. No per-pixel Jacobian is needed.
-const float SH_SOLID_ANGLE = 4.0 * PI / (float(CLOUD_SKYBOX_SIZE) * float(CLOUD_SKYBOX_SIZE));
+const float SH_SOLID_ANGLE = 4.0 * PI / (float(SKY_RADIANCE_LUT_SIZE) * float(SKY_RADIANCE_LUT_SIZE));
 
 void main() {
     uint tid = gl_LocalInvocationIndex;
     // Rows are shared because every lane visits all 256 rows. The column
     // basis is lane-local because the workgroup has one lane per column.
-    row_sin[tid] = 2.0 * (float(tid) + 0.5) / float(CLOUD_SKYBOX_SIZE) - 1.0;
+    row_sin[tid] = 2.0 * (float(tid) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
     row_cos[tid] = sqrt(max(1.0 - row_sin[tid] * row_sin[tid], 0.0));
-    float col_angle = (float(tid) + 0.5) / float(CLOUD_SKYBOX_SIZE) * TAU - PI;
+    float col_angle = (float(tid) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
     float col_cos_tid = cos(col_angle);
     float col_sin_tid = sin(col_angle);
     barrier();
@@ -43,8 +43,8 @@ void main() {
     vec4 sh_b2 = vec4(0.0);
     float sh_b24 = 0.0;
 
-    for (uint y = 0u; y < uint(CLOUD_SKYBOX_SIZE); ++y) {
-        vec3 color = imageLoad(uimg_skylut_cloud, ivec2(tid, y)).rgb;
+    for (uint y = 0u; y < uint(SKY_RADIANCE_LUT_SIZE); ++y) {
+        vec3 color = imageLoad(uimg_sky_radiance, ivec2(tid, y)).rgb;
 
         float sy = row_sin[y];
         float cy = row_cos[y];

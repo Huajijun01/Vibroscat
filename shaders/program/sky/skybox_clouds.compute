@@ -23,7 +23,7 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 const ivec3 workGroups = ivec3(16, 16, 1);
 
-layout(rgba16f) uniform image2D uimg_skylut_cloud;
+layout(rgba16f) uniform image2D uimg_sky_radiance;
 
 // Fixed-ratio EMA per texel refresh: one texel per cell per 4-frame cycle,
 // so the SH probe converges smoothly without re-baking every frame.
@@ -40,7 +40,7 @@ const ivec2[4] skybox_checkerboard_2x2 = ivec2[4](
 
 void main() {
     ivec2 cell = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(cell, ivec2(CLOUD_SKYBOX_SIZE / 2)))) return;
+    if (any(greaterThanEqual(cell, ivec2(SKY_RADIANCE_LUT_SIZE / 2)))) return;
 
     uint phase_index = uint(frameCounter) % 4u;
     ivec2 phase_offset = skybox_checkerboard_2x2[phase_index];
@@ -62,9 +62,9 @@ void main() {
         // v = sin(elevation) (constant solid angle 4pi/N2, no per-pixel
         // Jacobian for SH). World-aligned: +X at u = 0.5, zenith at v = 1.
         ivec2 texel = cell * 2 + offset;
-        float mu = 2.0 * (float(texel.y) + 0.5) / float(CLOUD_SKYBOX_SIZE) - 1.0;
+        float mu = 2.0 * (float(texel.y) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
         float cos_theta = sqrt(max(1.0 - mu * mu, 0.0));
-        float phi = (float(texel.x) + 0.5) / float(CLOUD_SKYBOX_SIZE) * TAU - PI;
+        float phi = (float(texel.x) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
         vec3 view_dir = vec3(cos_theta * cos(phi), mu, cos_theta * sin(phi));
 
         vec3 sky_color = texture(usam_skylut, SkyLUTUV(
@@ -122,15 +122,15 @@ void main() {
 #endif
         // Fixed-ratio history blend; the first write (fresh start/reload)
         // replaces unconditionally.
-        vec4 previous = imageLoad(uimg_skylut_cloud, texel);
+        vec4 previous = imageLoad(uimg_sky_radiance, texel);
         vec3 fresh = sky_color;
-        if (texel.x == CLOUD_SKYBOX_SIZE - 1 && !full_init) {
+        if (texel.x == SKY_RADIANCE_LUT_SIZE - 1 && !full_init) {
             // Manual repeat for the clamped image: the rightmost column
             // copies column 0 (continuous azimuth seam). Safe here: only
             // phases writing odd x texels read it (even columns unwritten
             // this frame).
             fresh = imageLoad(
-                uimg_skylut_cloud,
+                uimg_sky_radiance,
                 ivec2(0, texel.y)
             ).rgb;
         }
@@ -138,7 +138,7 @@ void main() {
             ? 1.0
             : CLOUD_SKYBOX_HISTORY_ALPHA;
         imageStore(
-            uimg_skylut_cloud,
+            uimg_sky_radiance,
             texel,
             vec4(mix(previous.rgb, fresh, alpha), 1.0)
         );

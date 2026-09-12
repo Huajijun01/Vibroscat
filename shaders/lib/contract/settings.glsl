@@ -148,7 +148,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.10 1.15 1.20 1.25] centroid-distance safety scale
 #define CLOUD_AGE_LIMIT 24 // [8 12 16 24 32 48] accepted-frame/history-weight cap
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
-#define CLOUD_HISTORY_NO_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
+#define HISTORY_NO_CLOUD_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 
 // ==========================================================================
 // SHADOWS - Shadows / PCSS / SSS
@@ -238,7 +238,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 
 // Screen-space reflections march budget: samples along the full reflection
 // path (McGuire & Mara 2014). Quality/perf knob for the water forward pass.
-#define SSR_STEPS 16 // [8 10 12 16 20 24 32] water SSR march samples
+#define WATER_SSR_STEPS 16 // [8 10 12 16 20 24 32] water SSR march samples
 
 // Water fog caustic modulation: the screen-space Jacobian of the water
 // surface normal approximates sunlight focusing/defocusing by the waves.
@@ -253,8 +253,8 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // Water parallax search budget: coarse fixed-step height-chase samples and
 // bisection refinement iterations (mode selected by POM_BISECTION_ENABLED in
 // ocean.glsl). LOW profile disables POM entirely, so these stay at defaults.
-#define VALUE_NOISE_POM_COARSE_STEPS 4 // [2 3 4 5 6 8] coarse POM height-chase steps
-#define VALUE_NOISE_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
+#define OCEAN_POM_COARSE_STEPS 4 // [2 3 4 5 6 8] coarse POM height-chase steps
+#define OCEAN_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
 
 // Epipolar water volume light: E(x) = active-light shadow visibility along
 // the water column, multiplied onto the analytic water fog direct term.
@@ -263,7 +263,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // rescales the light path so the ratio stays consistent. LOW tier uses 8 m
 // to cut noise.
 #define WATER_EPIPOLAR_MAX_DISTANCE 32.0 // [6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
-#define EPIPOLAR_WATER
+#define EPIPOLAR_VOLUMETRICS
 #define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
 #define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
 #define EPIPOLAR_SHADOW_STEPS 64 // [16 24 32 48 64 96 128 192 256]
@@ -328,14 +328,14 @@ const float ambientOcclusionLevel = 1.0;
 // Temporal accumulation (deferred1 fragment): full-resolution history in the
 // merged colortex8 buffer with reprojection, soft depth rejection and an
 // age-capped exponential blend.
-#define GTAO_TEMPORAL // temporal toggle: enables the history accumulation
-#ifdef GTAO_TEMPORAL
-#define GTAO_TEMPORAL_ENABLED
+#define AO_TEMPORAL // temporal toggle: enables the history accumulation
+#ifdef AO_TEMPORAL
+#define AO_TEMPORAL_ENABLED
 #endif
 // AO generation is plain half resolution: every half-res texel is evaluated
 // every frame at its full-res block origin and upsampled bilinearly - one
 // sample per pixel per frame at full convergence speed.
-#define GTAO_AGE_LIMIT 48 // [2 4 6 8 10 16 24 32 48] history age cap (frames) before full trust
+#define AO_AGE_LIMIT 48 // [2 4 6 8 10 16 24 32 48] history age cap (frames) before full trust
 // AO accumulation matches the cloud temporal scheme: box-average the first
 // AO_ACCUMULATION_BOX_SAMPLES phase samples (one 2x2 checkerboard cycle),
 // then a steady-state EMA with AO_ACCUMULATION_ALPHA. Rejection lifts the
@@ -357,8 +357,8 @@ const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after th
 // depth stays under the distance limit and the normal at the reprojected
 // position agrees with the current pixel beyond the dot floor; both weights
 // ramp smoothly to zero (GTAOHistoryWeight in lib/lighting/temporal_ao.glsl).
-#define GTAO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
-#define GTAO_HISTORY_NORMAL_DOT_MIN 0.866 // [0.94 0.91 0.866 0.82 0.71 0.5] history rejection: min normal dot (cos 30 deg)
+#define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
+#define AO_HISTORY_NORMAL_DOT_MIN 0.866 // [0.94 0.91 0.866 0.82 0.71 0.5] history rejection: min normal dot (cos 30 deg)
 
 // ==========================================================================
 // LIGHTING - Lighting constants

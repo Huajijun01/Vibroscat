@@ -130,7 +130,7 @@ option.AE = Auto Exposure
 option.AE.comment = Automatic eye adaptation, like a phone camera's auto brightness: walk into a cave and the image gradually brightens; step into sunlight and it dims. Off = one fixed manual brightness.
 option.AE_TARGET_LUMINANCE = Auto Exposure Target
 option.AE_TARGET_LUMINANCE.comment = The average brightness auto exposure aims for: lower = the whole game renders darker and moodier, higher = brighter. 0.18 is the standard neutral value.
-option.AE_ADAPTATION_STRENGTH = Adaptation Strength
+option.AE_ADAPTATION_STRENGTH = Auto Exposure Adaptation
 option.AE_ADAPTATION_STRENGTH.comment = How strongly the exposure follows the scene. 0 = never react (fixed brightness everywhere); 1 = nearly every scene gets equalized to the same average brightness, which flattens natural contrast. In between keeps some of the game's own light differences.
 
 #Post: antialiasing
@@ -284,8 +284,8 @@ option.AO_MODE.comment = Ambient occlusion: the soft darkening inside corners, c
 value.AO_MODE.0 = Off
 value.AO_MODE.1 = GTAO
 value.AO_MODE.2 = SSAO
-option.GTAO_TEMPORAL = Temporal Accumulation
-option.GTAO_TEMPORAL.comment = Smooths the corner darkening across several frames so it looks clean instead of grainy. Off = noisier but reacts instantly, with no smoothing lag.
+option.AO_TEMPORAL = Temporal Accumulation
+option.AO_TEMPORAL.comment = Smooths the corner darkening across several frames so it looks clean instead of grainy. Off = noisier but reacts instantly, with no smoothing lag.
 option.GTAO_SLICES = GTAO Slices
 option.GTAO_SLICES.comment = Quality of the corner-darkening calculation: higher = smoother and more accurate, slower.
 option.GTAO_HORIZON_STEPS = GTAO Horizon Steps
@@ -298,12 +298,12 @@ option.GTAO_MULTIBOUNCE = GTAO Multi-Bounce
 option.GTAO_MULTIBOUNCE.comment = Lets bright surfaces bounce a little light back into the corners, so dark corners take on a slight tint of their surroundings instead of going pure black.
 option.GTAO_FALLOFF_START = GTAO Falloff Start
 option.GTAO_FALLOFF_START.comment = Where inside the radius the darkening starts to fade out: lower = tight dark contact lines, higher = the darkening spreads more evenly.
-option.GTAO_AGE_LIMIT = GTAO History Age Limit
-option.GTAO_AGE_LIMIT.comment = How many frames of smoothing are blended before a result counts as settled: higher = smoother, but corner darkening reacts more slowly to changes.
-option.GTAO_HISTORY_DISTANCE_LIMIT = History Distance Limit
-option.GTAO_HISTORY_DISTANCE_LIMIT.comment = How far something may move between frames before its stored smoothing is thrown away: lower = fewer smears when things move, possibly more grain.
-option.GTAO_HISTORY_NORMAL_DOT_MIN = History Normal Limit
-option.GTAO_HISTORY_NORMAL_DOT_MIN.comment = How strictly a surface must keep facing the same direction for its stored smoothing to be reused: higher = fewer smears when turning the camera, possibly more grain.
+option.AO_AGE_LIMIT = AO History Age Limit
+option.AO_AGE_LIMIT.comment = How many frames of smoothing are blended before a result counts as settled: higher = smoother, but corner darkening reacts more slowly to changes.
+option.AO_HISTORY_DISTANCE_LIMIT = AO History Distance Limit
+option.AO_HISTORY_DISTANCE_LIMIT.comment = How far something may move between frames before its stored smoothing is thrown away: lower = fewer smears when things move, possibly more grain.
+option.AO_HISTORY_NORMAL_DOT_MIN = AO History Normal Limit
+option.AO_HISTORY_NORMAL_DOT_MIN.comment = How strictly a surface must keep facing the same direction for its stored smoothing to be reused: higher = fewer smears when turning the camera, possibly more grain.
 option.SSAO_SAMPLES = SSAO Samples
 option.SSAO_SAMPLES.comment = Quality of the alternative SSAO mode: higher = smoother corner darkening, slower.
 option.SSAO_RADIUS = SSAO Radius
@@ -316,20 +316,20 @@ option.AO_DARKEN_SLOWDOWN.comment = Slows the fade-in of new darkening so added 
 #Water
 option.WATER_SSR = Water SSR
 option.WATER_SSR.comment = Lets water reflect the actual world in front of it - mountains, buildings, trees - instead of only the sky.
-option.SSR_STEPS = Water SSR Quality
-option.SSR_STEPS.comment = Reflection quality: higher = reflections reach farther with fewer broken or faded areas, slower.
+option.WATER_SSR_STEPS = Water SSR Quality
+option.WATER_SSR_STEPS.comment = Reflection quality: higher = reflections reach farther with fewer broken or faded areas, slower.
 option.WATER_POM = Water Parallax
 option.WATER_POM.comment = Gives the wave surface real 3D depth: waves visibly rise and shift as you move past. Off = flat water with painted-on wave shading.
-option.VALUE_NOISE_POM_COARSE_STEPS = POM Coarse Steps
-option.VALUE_NOISE_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate wave relief, slower.
-option.VALUE_NOISE_POM_BISECT_STEPS = POM Bisection Steps
-option.VALUE_NOISE_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
+option.OCEAN_POM_COARSE_STEPS = POM Coarse Steps
+option.OCEAN_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate wave relief, slower.
+option.OCEAN_POM_BISECT_STEPS = POM Bisection Steps
+option.OCEAN_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
 option.WATER_FOG_CAUSTICS = Water Caustics
 option.WATER_FOG_CAUSTICS.comment = Underwater, waves focus and scatter sunlight, producing moving bright patterns in the water haze - like real caustic light patterns on a pool floor.
 option.WATER_FOG_CAUSTIC_STRENGTH = Caustic Strength
 option.WATER_FOG_CAUSTIC_STRENGTH.comment = Intensity of those underwater light patterns.
-option.EPIPOLAR_WATER = Epipolar Water Light
-option.EPIPOLAR_WATER.comment = Draws shafts of sunlight beaming through the water (underwater god rays), correctly shadowed by terrain above the surface.
+option.EPIPOLAR_VOLUMETRICS = Epipolar Volumetric Light
+option.EPIPOLAR_VOLUMETRICS.comment = Draws epipolar sunlight shafts through participating media (underwater god rays and air light shafts), correctly shadowed by terrain.
 option.EPIPOLAR_SLICES = Epipolar Slices
 option.EPIPOLAR_SLICES.comment = Resolution of the light-shaft grid across the screen: higher = crisper, more stable rays, slower.
 value.EPIPOLAR_SLICES.256 = 256
@@ -342,15 +342,15 @@ value.EPIPOLAR_SAMPLES.128 = 128
 value.EPIPOLAR_SAMPLES.256 = 256
 value.EPIPOLAR_SAMPLES.512 = 512
 value.EPIPOLAR_SAMPLES.1024 = 1024
-option.EPIPOLAR_SHADOW_STEPS = Shadow Steps
+option.EPIPOLAR_SHADOW_STEPS = Epipolar Shadow Steps
 option.EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of a ray checks whether sunlight is blocked: higher = shadow detail inside the water, slower.
 option.WATER_EPIPOLAR_MAX_DISTANCE = Water Epipolar March Distance
 option.WATER_EPIPOLAR_MAX_DISTANCE.comment = How far underwater the shadow calculation runs precisely; beyond this distance the water is simply treated as sunlit. Lower = less noise, but far water loses shadow detail.
-option.EPIPOLAR_DEPTH_TOLERANCE = Depth Tolerance
+option.EPIPOLAR_DEPTH_TOLERANCE = Epipolar Depth Tolerance
 option.EPIPOLAR_DEPTH_TOLERANCE.comment = How leniently neighbouring pixels may share each other's results: higher = fewer artifacts but slightly blurrier rays.
-option.EPIPOLAR_EDGE_SHARPEN = Edge Sharpen
+option.EPIPOLAR_EDGE_SHARPEN = Epipolar Edge Sharpen
 option.EPIPOLAR_EDGE_SHARPEN.comment = Sharpens the edges of the light shafts against their surroundings.
-option.EPIPOLAR_EDGE_EXTEND = Edge Extend
+option.EPIPOLAR_EDGE_EXTEND = Epipolar Edge Extend
 option.EPIPOLAR_EDGE_EXTEND.comment = How far the effect searches for a valid neighbouring sample when a pixel has none: higher = fewer holes or gaps in the rays.
 
 #Fog

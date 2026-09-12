@@ -11,7 +11,7 @@ layout(local_size_x = 1, local_size_y = 128) in;
 // Max 2048 slices; EPIPOLAR_SLICES / EPIPOLAR_SAMPLES are enforced by guards.
 const ivec3 workGroups = ivec3(2048, 1, 1);
 
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
 
 // Water-column integrate pass (composite1_a, consumed by composite1.fsh

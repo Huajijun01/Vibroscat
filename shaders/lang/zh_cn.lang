@@ -130,7 +130,7 @@ option.AE = 自动曝光
 option.AE.comment = 自动眼睛适应，类似手机相机的自动亮度：走进洞穴画面渐渐变亮，走到阳光下画面压暗。关闭后使用固定的手动亮度。
 option.AE_TARGET_LUMINANCE = 自动曝光目标亮度
 option.AE_TARGET_LUMINANCE.comment = 自动曝光瞄准的平均亮度：越低整个游戏渲染得越暗、越有氛围，越高越亮。0.18 是标准中性值。
-option.AE_ADAPTATION_STRENGTH = 适应强度
+option.AE_ADAPTATION_STRENGTH = 自动曝光适应强度
 option.AE_ADAPTATION_STRENGTH.comment = 曝光跟随场景的程度：0 = 完全不跟随（处处固定亮度）；1 = 几乎所有场景都被拉到相同的平均亮度，会抹平真实的明暗差异。中间值保留一部分游戏本身的光差。
 
 #Post: antialiasing
@@ -284,8 +284,8 @@ option.AO_MODE.comment = 环境光遮蔽：墙角、缝隙和物体接地处的�
 value.AO_MODE.0 = 关闭
 value.AO_MODE.1 = GTAO
 value.AO_MODE.2 = SSAO
-option.GTAO_TEMPORAL = 时域累积
-option.GTAO_TEMPORAL.comment = 把边角压暗跨多帧平滑，消除颗粒感。关闭 = 更噪，但即时响应、没有平滑延迟。
+option.AO_TEMPORAL = 时域累积
+option.AO_TEMPORAL.comment = 把边角压暗跨多帧平滑，消除颗粒感。关闭 = 更噪，但即时响应、没有平滑延迟。
 option.GTAO_SLICES = GTAO 切片数
 option.GTAO_SLICES.comment = 边角压暗的计算精度：越高越平滑准确，速度越慢。
 option.GTAO_HORIZON_STEPS = GTAO 地平线步数
@@ -298,12 +298,12 @@ option.GTAO_MULTIBOUNCE = GTAO 多重反弹
 option.GTAO_MULTIBOUNCE.comment = 让明亮表面往角落里反弹少量光，暗角带上一点周围环境的颜色，而不是死黑。
 option.GTAO_FALLOFF_START = GTAO 衰减起点
 option.GTAO_FALLOFF_START.comment = 压暗在半径内从哪里开始衰减：越低接触处的暗线越紧，越高压暗铺得越匀。
-option.GTAO_AGE_LIMIT = GTAO 历史年龄上限
-option.GTAO_AGE_LIMIT.comment = 平滑结果被视为"稳定"前混合的帧数：越高画面越平滑，但边角压暗对新变化的反应更慢。
-option.GTAO_HISTORY_DISTANCE_LIMIT = 历史距离上限
-option.GTAO_HISTORY_DISTANCE_LIMIT.comment = 物体在帧间移动多远就作废其历史数据：越低物体移动时残影越少，可能更噪。
-option.GTAO_HISTORY_NORMAL_DOT_MIN = 历史法线下限
-option.GTAO_HISTORY_NORMAL_DOT_MIN.comment = 表面朝向要多么一致才能继续沿用历史数据：越高转视角时残影越少，可能更噪。
+option.AO_AGE_LIMIT = AO 历史年龄上限
+option.AO_AGE_LIMIT.comment = 平滑结果被视为"稳定"前混合的帧数：越高画面越平滑，但边角压暗对新变化的反应更慢。
+option.AO_HISTORY_DISTANCE_LIMIT = AO 历史距离上限
+option.AO_HISTORY_DISTANCE_LIMIT.comment = 物体在帧间移动多远就作废其历史数据：越低物体移动时残影越少，可能更噪。
+option.AO_HISTORY_NORMAL_DOT_MIN = AO 历史法线下限
+option.AO_HISTORY_NORMAL_DOT_MIN.comment = 表面朝向要多么一致才能继续沿用历史数据：越高转视角时残影越少，可能更噪。
 option.SSAO_SAMPLES = SSAO 采样数
 option.SSAO_SAMPLES.comment = SSAO 备选模式的精度：越高边角压暗越平滑，速度越慢。
 option.SSAO_RADIUS = SSAO 半径
@@ -316,20 +316,20 @@ option.AO_DARKEN_SLOWDOWN.comment = 放慢新增压暗的淡入速度，让阴�
 #Water
 option.WATER_SSR = 水面 SSR
 option.WATER_SSR.comment = 让水面反射眼前真实的世界——山、建筑、树木——而不只是天空。
-option.SSR_STEPS = 水面反射质量
-option.SSR_STEPS.comment = 反射质量：越高反射延伸越远、破损或淡出的区域越少，速度越慢。
+option.WATER_SSR_STEPS = 水面反射质量
+option.WATER_SSR_STEPS.comment = 反射质量：越高反射延伸越远、破损或淡出的区域越少，速度越慢。
 option.WATER_POM = 水面视差贴图
 option.WATER_POM.comment = 给波浪表面真实的 3D 起伏：经过时波浪会明显隆起、错动。关闭 = 平面水 + 贴图画出来的假波浪。
-option.VALUE_NOISE_POM_COARSE_STEPS = 视差粗步数
-option.VALUE_NOISE_POM_COARSE_STEPS.comment = 波浪深度搜索的精度：越高浪形越准确，速度越慢。
-option.VALUE_NOISE_POM_BISECT_STEPS = 视差二分步数
-option.VALUE_NOISE_POM_BISECT_STEPS.comment = 粗搜索之后细化浪形的迭代次数：越高波峰越锐利，速度越慢。
+option.OCEAN_POM_COARSE_STEPS = 视差粗步数
+option.OCEAN_POM_COARSE_STEPS.comment = 波浪深度搜索的精度：越高浪形越准确，速度越慢。
+option.OCEAN_POM_BISECT_STEPS = 视差二分步数
+option.OCEAN_POM_BISECT_STEPS.comment = 粗搜索之后细化浪形的迭代次数：越高波峰越锐利，速度越慢。
 option.WATER_FOG_CAUSTICS = 水体焦散
 option.WATER_FOG_CAUSTICS.comment = 水下波浪会聚拢、散射阳光，在水中雾气里形成晃动的亮纹——就像泳池底真实的焦散光斑。
 option.WATER_FOG_CAUSTIC_STRENGTH = 焦散强度
 option.WATER_FOG_CAUSTIC_STRENGTH.comment = 这些水下光纹的强度。
-option.EPIPOLAR_WATER = 水体极线体积光
-option.EPIPOLAR_WATER.comment = 绘制穿过水体的阳光光柱（水下丁达尔光），并且能被水面上方的地形正确遮挡。
+option.EPIPOLAR_VOLUMETRICS = 极线体积光
+option.EPIPOLAR_VOLUMETRICS.comment = 以极线采样绘制穿过参与介质（水体与空气雾）的阳光光柱，并能被地形正确遮挡。
 option.EPIPOLAR_SLICES = 极线切片数
 option.EPIPOLAR_SLICES.comment = 屏幕上光柱网格的分辨率：越高光线越清晰稳定，速度越慢。
 value.EPIPOLAR_SLICES.256 = 256
@@ -342,15 +342,15 @@ value.EPIPOLAR_SAMPLES.128 = 128
 value.EPIPOLAR_SAMPLES.256 = 256
 value.EPIPOLAR_SAMPLES.512 = 512
 value.EPIPOLAR_SAMPLES.1024 = 1024
-option.EPIPOLAR_SHADOW_STEPS = 阴影步数
+option.EPIPOLAR_SHADOW_STEPS = 极线阴影步数
 option.EPIPOLAR_SHADOW_STEPS.comment = 光线上每一点检查阳光是否被挡住的精细度：越高水下阴影细节越多，速度越慢。
 option.WATER_EPIPOLAR_MAX_DISTANCE = 水极线步进距离
 option.WATER_EPIPOLAR_MAX_DISTANCE.comment = 水下阴影计算的精确作用距离，超过后水体一律按被阳光照亮处理：越低噪点越少，但远处水域失去阴影细节。
-option.EPIPOLAR_DEPTH_TOLERANCE = 深度容差
+option.EPIPOLAR_DEPTH_TOLERANCE = 极线深度容差
 option.EPIPOLAR_DEPTH_TOLERANCE.comment = 相邻像素共享结果的宽松程度：越高瑕疵越少，但光柱略微发糊。
-option.EPIPOLAR_EDGE_SHARPEN = 边缘锐化
+option.EPIPOLAR_EDGE_SHARPEN = 极线边缘锐化
 option.EPIPOLAR_EDGE_SHARPEN.comment = 锐化光柱与背景之间的边缘。
-option.EPIPOLAR_EDGE_EXTEND = 边缘延伸
+option.EPIPOLAR_EDGE_EXTEND = 极线边缘扩展
 option.EPIPOLAR_EDGE_EXTEND.comment = 像素没有可用采样时向外搜索的范围：越高光柱里的孔洞和断缝越少。
 
 #Fog

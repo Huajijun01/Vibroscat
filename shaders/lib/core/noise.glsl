@@ -73,7 +73,7 @@ uint LowBias32Hash(uint x) {
 // Continuous R2 offset for sub-resolution grids. The first frame starts at
 // the cell center; subsequent frames cover the cell without a finite phase
 // table.
-vec2 CloudR2Offset(int frame) {
+vec2 R2Offset(int frame) {
     return fract(vec2(0.5) + float(frame) * vec2(
         1.0 / 1.3247179572,
         1.0 / 1.7548776662

@@ -107,7 +107,7 @@ vec3 CausticLightContribution(vec3 caustic_world_pos, vec3 caustic_brdf, vec3 tr
     // Direct light is column-attenuated; the caustic delta modulates it
     // (caller removes the unattenuated component). Underwater path =
     // (1 - lmcoord.y) * 15 * pathPerMetre.
-    vec3 caustic_attenuation = WaterTransmittance(caustic_path);
+    vec3 caustic_attenuation = WaterAbsorptionTransmittance(caustic_path);
     // Fade only the delta in with the column; base direct light must not
     // black out at zero path.
     float caustic_fade = smoothstep(0.0, CAUSTIC_FADE_DEPTH, caustic_path);
@@ -152,7 +152,7 @@ void main() {
     vec3 fog_multi_scatter = vec3(0.0);
     float fog_surface_world_y = 0.0;
     if (water_shading) {
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
         if (isEyeInWater == 1) {
             epipolar_light = EpipolarSampleE(texcoord * 2.0 - 1.0,
                                             EpipolarColumnKey(texcoord, ivec2(gl_FragCoord.xy)));
@@ -240,7 +240,7 @@ void main() {
             // premultiplied layer once.
             vec3 surface_world = ViewToSceneSpace(view_pos0) + cameraPosition;
             vec3 receiver_world = ViewToSceneSpace(view_pos1) + cameraPosition;
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
             // The column follows the refracted ray: sample the epipolar term
             // at the refracted receiver, not the screen texel.
             vec2 epi_texel = clamp(refract_coord / u_view_pixel_size, vec2(0.5),

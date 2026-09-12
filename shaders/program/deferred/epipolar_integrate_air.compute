@@ -11,7 +11,7 @@ layout(local_size_x = 1, local_size_y = 128) in;
 // Max 2048 slices; EPIPOLAR_SLICES / EPIPOLAR_SAMPLES are enforced by guards.
 const ivec3 workGroups = ivec3(2048, 1, 1);
 
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
 
 // Air-fog integrate pass (composite2.csh, consumed by composite2.fsh
@@ -44,12 +44,12 @@ void main() {
             // fog slab and the render-distance radius.
             if (isEyeInWater == 0) {
                 float depth0 = texelFetch(depthtex0, texel, 0).r;
-                air_key = EpipolarViewZ(uv01, depth0);
+                air_key = LinearDepthFromScreenDepth(depth0);
                 vec3 air_end = EpipolarViewToScene(uv01, depth0);
                 vec3 world_dir = normalize(air_end - air_start);
                 float depth_dist = length(air_end - air_start);
-                float segment_length;
-                if (AirFogSegment(depth_dist, far, segment_length)) {
+                float segment_length = AirFogSegmentLength(depth_dist, far);
+                {
                     vec3 clamped_end = air_start + world_dir * segment_length;
                     // The epipolar grid cell seeds the STBN spatial slice;
                     // without TAA the time slice pins to 0 (no temporal

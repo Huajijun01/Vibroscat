@@ -71,7 +71,7 @@ void main() {
     }
 
     vec3 epipolar_light = vec3(1.0);
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
     float air_key = EpipolarAirColumnKey(uv, ivec2(gl_FragCoord.xy));
     epipolar_light = EpipolarSampleE(uv * 2.0 - 1.0, air_key);
 #endif
@@ -92,7 +92,7 @@ void main() {
 
     float shadow_fallback = 1.0;
 #ifdef AIR_FOG_SHADOWS
-#ifndef EPIPOLAR_WATER
+#ifndef EPIPOLAR_VOLUMETRICS
     shadow_fallback = texture(shadowtex1, ProjectToShadow(scene_pos));
 #endif
 #endif

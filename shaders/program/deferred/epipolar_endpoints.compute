@@ -8,7 +8,7 @@ layout(local_size_x = 128) in;
 // Max 2048 slices / 128 lanes = 16 groups; EPIPOLAR_SLICES is enforced by guard.
 const ivec3 workGroups = ivec3(16, 1, 1);
 
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 // Full uniform set (compiled even when unused here).
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_endpoints;
 

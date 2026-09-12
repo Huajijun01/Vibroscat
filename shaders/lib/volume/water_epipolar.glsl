@@ -12,7 +12,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 
 // Linear-viewZ key of the water column for a screen texel (0 = no column).
 // Above water the column ends at the opaque receiver (depthtex1); underwater
@@ -21,9 +21,9 @@
 // (raw depth01 saturates at distance and mis-accepts columns at low
 // epipolar resolution).
 float EpipolarColumnKey(vec2 uv01, ivec2 texel) {
-    if (isEyeInWater == 1) return EpipolarViewZ(uv01, texelFetch(depthtex0, texel, 0).r);
+    if (isEyeInWater == 1) return LinearDepthFromScreenDepth(texelFetch(depthtex0, texel, 0).r);
     if (texelFetch(colortex2, texel, 0).a < 0.99) return 0.0;
-    return EpipolarViewZ(uv01, texelFetch(depthtex1, texel, 0).r);
+    return LinearDepthFromScreenDepth(texelFetch(depthtex1, texel, 0).r);
 }
 
 // Water column segment for a screen texel, in camera-relative scene space.
@@ -36,7 +36,7 @@ bool EpipolarWaterSegment(ivec2 texel, vec2 uv01, out vec3 start_scene, out vec3
         float surface_depth = texelFetch(depthtex0, texel, 0).r;
         start_scene = EyePositionSceneSpace(); // the eye, not the feet-space origin
         end_scene = EpipolarViewToScene(uv01, surface_depth);
-        column_key = EpipolarViewZ(uv01, surface_depth);
+        column_key = LinearDepthFromScreenDepth(surface_depth);
         return true;
     }
     if (texelFetch(colortex2, texel, 0).a < 0.99) {
@@ -46,7 +46,7 @@ bool EpipolarWaterSegment(ivec2 texel, vec2 uv01, out vec3 start_scene, out vec3
     float surface_depth = texelFetch(depthtex0, texel, 0).r;
     start_scene = EpipolarViewToScene(uv01, surface_depth);
     end_scene = EpipolarViewToScene(uv01, opaque_depth);
-    column_key = EpipolarViewZ(uv01, opaque_depth);
+    column_key = LinearDepthFromScreenDepth(opaque_depth);
     return true;
 }
 
@@ -142,5 +142,5 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
     return Saturate((num + tail) / max(den, vec3(1e-6)));
 }
 
-#endif // EPIPOLAR_WATER
+#endif // EPIPOLAR_VOLUMETRICS
 #endif // LIB_VOLUME_WATER_EPIPOLAR_GLSL

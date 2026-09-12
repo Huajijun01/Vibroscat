@@ -20,7 +20,7 @@
 
 #include "/lib/core/coordinates.glsl"
 
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 
 // Project the active light into NDC. The pole is the light's projective
 // screen position: behind the camera it mirrors (lines stay valid); at
@@ -143,15 +143,6 @@ float EpipolarSliceOf(vec2 ndc, vec2 pole) {
 vec3 EpipolarViewToScene(vec2 uv01, float depth01) {
     vec3 view_pos = NDCToView(vec3(uv01 * 2.0 - 1.0, depth01 * 2.0 - 1.0));
     return ViewToSceneSpace(view_pos);
-}
-
-// Linear |view z| (meters) for a screen texel. The epipolar column keys are
-// stored in this linear space instead of raw depth01: the non-linear depth
-// encoding saturates at distance and makes any absolute tolerance either too
-// tight up close or meaningless far away. Relative comparison against these
-// keys is scale-invariant (see EpipolarEdgeWeight).
-float EpipolarViewZ(vec2 uv01, float depth01) {
-    return LinearDepthFromScreenDepth(depth01);
 }
 
 // Depth-aware unwarp weight: columns differing from the pixel's are
@@ -291,5 +282,5 @@ vec3 EpipolarSampleE(vec2 ndc, float pixel_key) {
     return (e0 * ((1.0 - w) * w0) + e1 * (w * w1)) / wsum;
 }
 
-#endif // EPIPOLAR_WATER
+#endif // EPIPOLAR_VOLUMETRICS
 #endif // LIB_VOLUME_EPIPOLAR_CORE_GLSL

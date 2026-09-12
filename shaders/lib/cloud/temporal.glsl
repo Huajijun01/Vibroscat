@@ -26,7 +26,7 @@ vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
 #else
-    vec2 r2_offset = CloudR2Offset(frameCounter);
+    vec2 r2_offset = R2Offset(frameCounter);
 #endif
     return (vec2(full_res_texel) + 0.5) / cell_size - r2_offset;
 }
@@ -58,12 +58,6 @@ bool CloudHistoryInvalid(CloudFrame history) {
     return any(isnan(history.radiance)) || isnan(history.surface_distance) || !(history.surface_distance > 0.0);
 }
 
-// Reproject the cloud point at distanceKm along viewDirWorld to the previous
-// UV (false = behind the previous camera / off-screen).
-bool CloudReprojectToPrevious(vec3 view_dir_world, float distance_km, out vec2 previous_uv) {
-    return CloudProjectToPrevious(view_dir_world, distance_km, previous_uv);
-}
-
 // Sample history at a fractional previous-frame UV with the fast Catmull-Rom
 // bicubic. The reprojected center texel gates first: CR taps crossing the
 // sky/geometry boundary would propagate the AO-side NaN marker (A = 0 would
@@ -77,8 +71,8 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
     ivec2 center_texel = ivec2(clamped_uv * history_size);
     if (!(texelFetch(colortex8, center_texel, 0).a > 0.0)) {
         CloudFrame invalid;
-        invalid.radiance = vec3(CLOUD_HISTORY_NO_DATA);
-        invalid.surface_distance = CLOUD_HISTORY_NO_DATA;
+        invalid.radiance = vec3(HISTORY_NO_CLOUD_DATA);
+        invalid.surface_distance = HISTORY_NO_CLOUD_DATA;
         return invalid;
     }
 

@@ -82,10 +82,10 @@ uniform sampler3D utex_caustics;              // baked water caustics volume
 
 // -- Custom images (image bindings; sampler side only) --
 uniform sampler2D usam_skylut;        // sky view LUT (128x128 RGBA16F)
-uniform sampler2D usam_skylut_cloud;  // cloud skybox LUT (256x256 RGBA16F)
+uniform sampler2D usam_sky_radiance;  // cloud skybox LUT (256x256 RGBA16F)
 uniform sampler2D usam_clouds_current; // low-res cloud current frame
 uniform sampler2D usam_ao;            // half-res AO (full evaluation every frame)
-#ifdef EPIPOLAR_WATER
+#ifdef EPIPOLAR_VOLUMETRICS
 uniform sampler2D usam_epipolar_endpoints; // epipolar slice endpoints
 uniform sampler2D usam_epipolar_term;      // epipolar E/column-key terms (shared: water in composite1, air in composite2)
 #endif

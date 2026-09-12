@@ -403,7 +403,7 @@ void main() {
         vec3 ssr_reflection_half;
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(
             normal, view_to_eye, material.perceptual_roughness,
-            OpaqueSSRRandom2(tx), ssr_reflection_half);
+            OpaqueSSRSTBNPair(tx), ssr_reflection_half);
         vec3 ssr_incident_radiance = texelFetch(colortex3, tx, 0).rgb;
         float ssr_reflection_ndotv = sh_reflection_ndotv;
         float ssr_reflection_ndotl = Max0(

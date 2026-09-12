@@ -44,7 +44,7 @@ float WaterColumnLightPath(vec3 world_pos, float surface_world_y) {
 // forward (sun) direction.
 const float WATER_PHASE_G = 0.3; // forward-scattering lobe
 
-vec3 WaterTransmittance(float dist) {
+vec3 WaterAbsorptionTransmittance(float dist) {
     return exp(-u_water_absorption * dist);
 }
 
@@ -77,12 +77,12 @@ vec3 WaterScatteringIntegral(float segment_length, float light_path1, float ligh
 // raylen-dependent) avoids perspective inconsistency. Epipolar visibility
 // softened to 0.8R+0.2 (scattering leaks into shadows).
 
-const float MS_SCALE = 0.3;
+const float WATER_MS_SCALE = 0.3;
 
 vec3 WaterMultipleScattering(vec3 sca, vec3 epipolar_light) {
     vec3 v_ms = u_water_scattering / max(u_water_absorption, vec3(1e-3))
              * PHASE_ISOTROPIC;
-    return MS_SCALE * sca * v_ms * (epipolar_light * 0.8 + 0.2);
+    return WATER_MS_SCALE * sca * v_ms * (epipolar_light * 0.8 + 0.2);
 }
 
 // Water fog compositing. Caller must provide the Iris uniforms (wetness,

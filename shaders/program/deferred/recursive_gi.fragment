@@ -52,6 +52,8 @@ float GIPartialSlice(float x, float sin_view_normal) {
     float d1 = 1.0 - slope1;
     float f0 = d0 * (PI * x - (0.5 * PI - FastAcos(x)));
     float f1 = d1 * (x - 1.0);
+    // Rational-fit join: kk = k^2; h0/h1 smooth-clip the two branch values
+    // (sqrt(f^2 + k^2) - k); hh joins them by harmonic mean.
     float kk = k * k;
     float h0 = sqrt(f0 * f0 + kk) - k;
     float h1 = sqrt(f1 * f1 + kk) - k;

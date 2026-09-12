@@ -33,6 +33,8 @@ const mat3 SRGB_TO_XYZ = mat3(
     vec3(0.1804375, 0.0721750, 0.9503041));
 
 // OKLAB
+// l/m/s are the LMS cone responses, l_/m_/s_ their cube roots (Ottosson's
+// reference notation).
 vec3 RGBToOKLAB(vec3 c) {
     float l = 0.4121656120 * c.r + 0.5362752080 * c.g + 0.0514575653 * c.b;
     float m = 0.2118591070 * c.r + 0.6807189584 * c.g + 0.1074065790 * c.b;
@@ -119,8 +121,8 @@ vec3 TonemapAGX(vec3 linear_rgb) {
     look_gamma *= TONEMAP_AGX_GAMMA;
     look_saturation *= TONEMAP_AGX_SATURATION;
 
-    float formed_luma = dot(working, vec3(0.2126, 0.7152, 0.0722));
-    working = mix(vec3(formed_luma), working, look_saturation);
+    float working_luma = dot(working, vec3(0.2126, 0.7152, 0.0722));
+    working = mix(vec3(working_luma), working, look_saturation);
     working = pow(max(working, 0.0), vec3(look_gamma));
 
     // Linearize the 2.4-encoded AgX Base image, then outset back to sRGB.

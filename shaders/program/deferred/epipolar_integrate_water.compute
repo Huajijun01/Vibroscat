@@ -24,14 +24,16 @@ void main() {
     bool line_valid = !all(equal(line, vec4(0.0)));
     float sample_denominator = float(EPIPOLAR_SAMPLES - 1);
     int slice_i = int(slice);
-    uint loop = uint((EPIPOLAR_SAMPLES + 127) / 128);
+    uint sample_group_count = uint((EPIPOLAR_SAMPLES + 127) / 128);
     // Frame-constant medium inputs: identical for every sample, so evaluate
     // them once per invocation instead of once per sample.
     float per_metre = WaterLightPathPerMetre();
     vec3 extinction = u_water_absorption + u_water_scattering;
-    for (uint i = 0u; i < loop; ++i) {
+    for (uint i = 0u; i < sample_group_count; ++i) {
         uint sample_index = gl_LocalInvocationID.y + i * 128u;
         if (sample_index >= uint(EPIPOLAR_SAMPLES)) break;
+        // water_e is the column radiance sample "E" (EpipolarSampleE
+        // vocabulary); packed vec4(E, key) into the epipolar term image.
         vec3 water_e = vec3(1.0);
         float water_key = 0.0;
         if (line_valid) {

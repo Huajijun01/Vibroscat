@@ -5,8 +5,8 @@
 #include "/lib/contract/uniforms.glsl"
 
 // View space <-> camera-relative player space.
-vec3 ViewToSceneSpace(vec3 vp) {
-    return (gbufferModelViewInverse * vec4(vp, 1.0)).xyz;
+vec3 ViewToSceneSpace(vec3 view_pos) {
+    return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 
 // Eye position in camera-relative scene (feet-player) space. Depth

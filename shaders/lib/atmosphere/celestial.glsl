@@ -37,11 +37,11 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
     vec2 resolution = vec2(textureSize(utex_starmap, 0));
     vec2 rcp_resolution = 1.0 / resolution;
 
-    vec2 st = uv * resolution;
-    vec2 frac = fract(st - 0.5);
-    vec2 base = (floor(st - 0.5) + 0.5) * rcp_resolution;
+    vec2 texel = uv * resolution;
+    vec2 cell_fract = fract(texel - 0.5);
+    vec2 base = (floor(texel - 0.5) + 0.5) * rcp_resolution;
 
-    vec2 t = frac;
+    vec2 t = cell_fract;
     vec2 t2 = t * t;
     vec2 t3 = t2 * t;
     const float s = 0.5;

@@ -255,7 +255,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
             // 1/D scale.
             float scattering_source = sigma_s * interval_weight;
             float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
-            float isotropic_build = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
+            float isotropic_buildup = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
             float inverse_distance = 1.0 / max(sample_distance, 1.0e-4);
             // HP's source confidence is evaluated at each light-ray source. The
             // bottom term uses the local source height; the boundary term uses
@@ -273,7 +273,7 @@ CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 lig
                 * source_propagation
                 * scattering_source
                 * sigma_t
-                * isotropic_build
+                * isotropic_buildup
                 * inverse_distance
                 * source_confidence;
             total_optical_depth += segment_optical_depth;

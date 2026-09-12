@@ -27,6 +27,9 @@ mat3 BuildOrthonormalBasis(vec3 normal) {
     return mat3(tangent, cross(normal, tangent), normal);
 }
 
+// VNDF sampling (Heitz 2018, "Sampling the GGX Distribution of Visible
+// Normals"). wi_std/wm_std live in the standard (alpha-stretched) space;
+// the return maps the sampled normal back to roughness space.
 vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
     vec3 wi_std = normalize(vec3(local_v.xy * alpha, local_v.z));
     float phi = 2.0 * PI * u.x;

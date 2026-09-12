@@ -211,14 +211,14 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 void OceanValueNoisePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
 #ifdef WATER_POM
 #if POM_BISECTION_ENABLED
-    vec2 xzp = OceanPOMOffsetBisection(xz, view_world, time);
+    vec2 xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
 #else
-    vec2 xzp = OceanPOMOffset(xz, view_world, time);
+    vec2 xz_offset = OceanPOMOffset(xz, view_world, time);
 #endif
 #else
-    vec2 xzp = xz;
+    vec2 xz_offset = xz;
 #endif
-    OceanValueNoiseNormal(xzp, time, normal);
+    OceanValueNoiseNormal(xz_offset, time, normal);
 }
 
 // Height field + world-space normal (y up). xz is absolute world XZ.

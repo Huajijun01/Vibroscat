@@ -209,6 +209,8 @@ vec3 EpipolarSampleOnSlice(int slice, vec2 ndc, float pixel_key,
         // E=1 stays only for a slice with no valid column at all (sky /
         // no medium), where it is the correct neutral value.
         if (pixel_key > 0.0) {
+            // nsum/nval/nkey_*: edge-extend weight sum, weighted radiance
+            // numerator, and weighted key normalizer; ck = candidate key.
             float nsum = 0.0;
             vec3 nval = vec3(0.0);
             float nkey_w = 0.0;

@@ -108,14 +108,14 @@ float SSSAmountForId(int id) {
 // LabPBR format (default since MC 1.14): X and Y channels store the 2D
 // tangent-space normal (Z reconstructed). Compatible with OptiFine / Iris
 // LabPBR normal maps (normal.xy remapped from [0,1] to [-1,1]).
-vec3 DecodeLabPBR(vec3 nm) {
-    vec2 xy = nm.xy * 2.0 - 1.0;
+vec3 DecodeLabPBR(vec3 packed_normal) {
+    vec2 xy = packed_normal.xy * 2.0 - 1.0;
     return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
 }
 
 // Full-XYZ normal format: XYZ stored in RGB, remapped from [0,1] to [-1,1].
-vec3 DecodeXYZNormal(vec3 nm) {
-    return normalize(nm * 2.0 - 1.0);
+vec3 DecodeXYZNormal(vec3 packed_normal) {
+    return normalize(packed_normal * 2.0 - 1.0);
 }
 
 #endif

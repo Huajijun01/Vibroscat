@@ -293,10 +293,10 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 #if ATM_HORIZON_DIP
         ground_radius = max(ATM_PLANET_R - ATM_HORIZON_DIP_SCALE, 1.0);
 #endif
-        float te0, te1;
-        if (RayIntersectSphere(camera_pos, view_dir, ground_radius, te0, te1) && te0 > 0.0) {
-            max_dist = te0;
-            t_ground = te0;
+        float t_entry, t_exit;
+        if (RayIntersectSphere(camera_pos, view_dir, ground_radius, t_entry, t_exit) && t_entry > 0.0) {
+            max_dist = t_entry;
+            t_ground = t_entry;
         }
     }
     if (max_dist <= 0.0) return vec4(0.0);
@@ -341,6 +341,10 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float r_lut   = max(r_mid, ATM_PLANET_R);
         float r2_lut  = r_lut * r_lut;
 
+        // Midpoint sigmas, vec4 = (Rayleigh, Mie, Ozone) RGB packing shared
+        // with the LUTs: sr/sm/so are the scattering components, sigma_t the
+        // total, ss the scattering sum; rs/ms_raw fold in the transmittance,
+        // ms is the multi-scatter LUT sample, xs their product.
         vec4 sr_mid = GetSigmaSRay(h_mid);
         vec4 sm_mid = GetSigmaSMie(h_mid);
         vec4 so_mid = GetSigmaAOzone(h_mid);

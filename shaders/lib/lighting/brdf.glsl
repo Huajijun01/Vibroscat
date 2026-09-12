@@ -166,6 +166,8 @@ float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius)
     float x_num = q * (-0.5 * p + 0.25 * vdotb * nl_rot);
     float x_den = p * p + s * (s - 2.0 * p) + nl_rot * ((ndotl * cos_radius + ndotv) * lv_rot * lv_rot
             + q * (-0.5 * (lv_rot + ldotv * cos_radius) - 0.5));
+    // two_x is twice the Newton step; (sin_theta, cos_theta) rotate the
+    // bent direction by that step's angle.
     float two_x = 2.0 * x_num / (x_den * x_den + x_num * x_num);
     float sin_theta = two_x * x_den;
     float cos_theta = 1.0 - two_x * x_num;

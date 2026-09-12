@@ -87,6 +87,31 @@ float ScreenDepthFromLinearDepth(float linear_depth) {
     return linear_depth * 0.5 + 0.5;
 }
 
+// -- Screen-rect ray exit (screen-space marches) --
+
+// Forward exit parameter t where a perspective ray leaves the [-1,1]^2 NDC
+// rect. The ray arrives in homogeneous clip form: the screen position
+// (origin_clip.xy / origin_clip.w) travels along
+// (origin_clip.xy + t * direction_clip.xy)
+//     / (origin_clip.w + t * direction_clip.w),
+// so t keeps the caller's own ray parametrization. Per axis the solver
+// intersects x = +-1 and y = +-1; a zero denominator is a ray parallel to
+// that edge pair and is skipped. Returns fallback_t when no edge is crossed
+// forward, so callers keep one min() chain for their remaining extent
+// limits (far plane, max distance).
+float ClipRayScreenExitT(vec4 origin_clip, vec4 direction_clip, float fallback_t) {
+    vec2 t1 = (vec2(1.0) * origin_clip.w - origin_clip.xy)
+        / (direction_clip.xy - vec2(1.0) * direction_clip.w);
+    vec2 t2 = (vec2(-1.0) * origin_clip.w - origin_clip.xy)
+        / (direction_clip.xy - vec2(-1.0) * direction_clip.w);
+    float exit_t = fallback_t;
+    if (t1.x > 0.0) exit_t = min(exit_t, t1.x);
+    if (t1.y > 0.0) exit_t = min(exit_t, t1.y);
+    if (t2.x > 0.0) exit_t = min(exit_t, t2.x);
+    if (t2.y > 0.0) exit_t = min(exit_t, t2.y);
+    return exit_t;
+}
+
 // -- Shadow-space transforms (world -> shadow clip / NDC, distortion, bias) --
 
 // Analytic shadow distortion: compresses clip-space XY toward center.

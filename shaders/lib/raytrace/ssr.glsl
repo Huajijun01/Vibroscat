@@ -80,17 +80,14 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     if (projected_length < 1e-6) return miss;
     vec3 dir = projected_direction / projected_length;
 
-    float s_end = 1e20;
-    if (dir.x > 0.0) {
-        s_end = min(s_end, (1.0 - start_pos.x) / dir.x);
-    } else if (dir.x < 0.0) {
-        s_end = min(s_end, (0.0 - start_pos.x) / dir.x);
-    }
-    if (dir.y > 0.0) {
-        s_end = min(s_end, (1.0 - start_pos.y) / dir.y);
-    } else if (dir.y < 0.0) {
-        s_end = min(s_end, (0.0 - start_pos.y) / dir.y);
-    }
+    // Screen-edge extent in UV-parametrization units. The clip-form mapping
+    // (uv * 2 - 1, w = 1; dir_uv * 2, w = 0) leaves t unchanged, and the
+    // shared solver reduces to the same per-axis (edge - origin) / direction
+    // minimum for an in-rect origin.
+    float s_end = ClipRayScreenExitT(
+        vec4(start_pos.xy * 2.0 - 1.0, 0.0, 1.0),
+        vec4(dir.xy * 2.0, 0.0, 0.0),
+        1.0e20);
     if (dir.z > 0.0) {
         s_end = min(s_end, (1.0 - start_pos.z) / dir.z);
     }

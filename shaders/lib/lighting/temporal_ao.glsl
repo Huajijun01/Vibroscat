@@ -67,7 +67,7 @@ float GTAOAccumulate(float fresh_ao, float hist_ao, float hist_age,
     float pixel_age = min(hist_age, AO_AGE_LIMIT) * rejection;
     float samples = pixel_age;
     float base_alpha = samples < float(AO_ACCUMULATION_BOX_SAMPLES)
-        ? 1.0 / max(samples + 1.0, 1.0)
+        ? 1.0 / (samples + 1.0)
         : AO_ACCUMULATION_ALPHA;
     float alpha = 1.0 - (1.0 - base_alpha) * rejection;
     // Darkening slowdown: fresh < hist scales the fresh weight by

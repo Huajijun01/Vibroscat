@@ -293,7 +293,7 @@ void main() {
         float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
         float average_albedo = Luminance(albedo);
         float absorption = (1.0 - 0.75 * Saturate(average_albedo))
-            * SHADOW_SSS_DENSITY / max(sss_amount, 1.0e-3);
+            * SHADOW_SSS_DENSITY / sss_amount;
         float map_transmission = exp(-absorption * sss_thickness_world);
         // Blend the evaluated transmission, not thickness: fading optical
         // depth first would brighten the transition before removing it.
@@ -432,8 +432,7 @@ void main() {
     // Sundial-style rough-material gate: dielectric reflection reaches zero
     // at the configured roughness cutoff, while metalness moves that cutoff
     // toward rougher materials. The same weight applies to SH and SSR.
-    float reflection_roughness = clamp(
-        material.perceptual_roughness, 0.0, 1.0);
+    float reflection_roughness = material.perceptual_roughness;
     float reflection_smoothness = 1.0 - reflection_roughness;
     float reflection_threshold = clamp(
         OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD, 1e-3, 1.0);

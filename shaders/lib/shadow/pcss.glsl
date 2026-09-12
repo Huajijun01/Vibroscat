@@ -87,10 +87,8 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 rot_x, vec2 rot_y, int block
 //   sssThicknessWorld - out: foliage thickness along the light in meters
 float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, float stbn_dither, float sss_amount,
                               out float sss_thickness_world) {
+    // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     sss_thickness_world = 0.0;
-    if (any(lessThan(sp.xy, vec2(0.0))) || any(greaterThan(sp.xy, vec2(1.0)))) {
-        return 1.0;
-    }
     // Keep the blocker search only for SSS materials (thickness estimate);
     // opaque surfaces skip it entirely in this tier.
     if (sss_amount > 1e-3) {
@@ -115,10 +113,8 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, float stbn_dither, float s
 //   sssThicknessWorld - out: foliage thickness along the light in meters
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
                        float sss_amount, float ndotl, out float sss_thickness_world) {
+    // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     sss_thickness_world = 0.0;
-    if (any(lessThan(sp.xy, vec2(0.0))) || any(greaterThan(sp.xy, vec2(1.0)))) {
-        return 1.0;
-    }
 
     // One dither value + rotation basis serves both passes (coherent dither).
     float angle = stbn_dither * TAU;

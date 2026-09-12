@@ -41,6 +41,17 @@ vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness
     return col / weight_sum;
 }
 
+// Cubic B-spline basis weights for a fractional texel offset in [0, 1].
+// Shared by the shadow-map PCF filter and the caustics sampler.
+void BsplineWeights(vec2 f, out vec2 w0, out vec2 w1, out vec2 w2, out vec2 w3) {
+    vec2 f2 = f * f;
+    vec2 f3 = f2 * f;
+    w0 = (1.0 / 6.0) * (f * (f * (-f + 3.0) - 3.0) + 1.0);
+    w1 = (1.0 / 6.0) * (f2 * (3.0 * f - 6.0) + 4.0);
+    w2 = (1.0 / 6.0) * (f * (f * (-3.0 * f + 3.0) + 3.0) + 1.0);
+    w3 = (1.0 / 6.0) * f3;
+}
+
 // Separable cubic B-spline over a sampler2DShadow (Sigg-style 4 taps/axis);
 // each tap uses hardware PCF, so the 16-tap result is smoother than a single
 // lookup.
@@ -52,13 +63,12 @@ float Shadow2DFastBspline(sampler2DShadow tex0, vec3 sp, float res, float texel)
     vec2 pm = floor(uv);
 
     vec2 pf = fract(uv);
-    vec2 pf2 = pf * pf;
-    vec2 pf3 = pf2 * pf;
 
-    vec2 w0 = (1.0 / 6.0) * (pf * (pf * (-pf + 3.0) - 3.0) + 1.0);
-    vec2 w1 = (1.0 / 6.0) * (pf2 * (3.0 * pf - 6.0) + 4.0);
-    vec2 w2 = (1.0 / 6.0) * (pf * (pf * (-3.0 * pf + 3.0) + 3.0) + 1.0);
-    vec2 w3 = (1.0 / 6.0) * pf3;
+    vec2 w0;
+    vec2 w1;
+    vec2 w2;
+    vec2 w3;
+    BsplineWeights(pf, w0, w1, w2, w3);
 
     vec2 g0 = w0 + w1;
     vec2 g1 = w2 + w3;

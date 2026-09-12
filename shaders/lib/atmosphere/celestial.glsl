@@ -67,6 +67,17 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
 }
 #endif
 
+// Equirectangular star-map UV from a world direction. The NaN guard absorbs
+// the atan branch cut at the antimeridian; v is clamped (poles never blend)
+// and u wraps through the sampler's horizontal repeat. Shared by the baked
+// star-map path (STARMAP) and the procedural fallback below.
+vec2 StarMapEquirectUV(vec3 rd) {
+    float a = atan(rd.z, rd.x);
+    float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
+    float v = 0.5 - asin(clamp(rd.y, -1.0, 1.0)) * (1.0 / PI);
+    return vec2(u, clamp(v, 0.0, 1.0));
+}
+
 #ifndef STARMAP
 // LOW and MEDIUM declare no star map texture, so the stars come from two hash
 // layers at unrelated cell scales. Two scales matter for the look: one
@@ -160,13 +171,9 @@ vec3 StarLayer(vec2 uv, float latitude_cos, float clump, vec2 cells, uint salt,
 }
 
 vec3 ProceduralStarField(vec3 rd) {
-    float a = atan(rd.z, rd.x);
-    float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
-    float v = 0.5 - asin(clamp(rd.y, -1.0, 1.0)) * (1.0 / PI);
-    v = clamp(v, 0.0, 1.0);
     float latitude_cos = sqrt(max(1.0 - rd.y * rd.y, 1.0e-6));
 
-    vec2 uv = vec2(u, v);
+    vec2 uv = StarMapEquirectUV(rd);
     vec3 octaves = StarClumpOctaves(rd);
     vec3 stars = StarLayer(uv, latitude_cos,
         StarClumping(octaves, STAR_CLUMP_WEIGHTS),
@@ -204,13 +211,9 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
 #ifdef STARMAP
     // Equirectangular sampling, Catmull-Rom bicubic; horizontal wrap at
     // RA 0/360, v clamped (poles never blend).
-    float a = atan(rd.z, rd.x);
-    float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
-    float v = 0.5 - asin(clamp(rd.y, -1.0, 1.0)) * (1.0 / PI);
-    v = clamp(v, 0.0, 1.0);
     // LogLuv32 HDR: bicubic in the encoded space, decode restores linear
     // radiance.
-    vec3 star_color = LogLuv32ToLinear(SampleStarMapFastBicubic(vec2(u, v)));
+    vec3 star_color = LogLuv32ToLinear(SampleStarMapFastBicubic(StarMapEquirectUV(rd)));
 #else
     vec3 star_color = ProceduralStarField(rd);
 #endif

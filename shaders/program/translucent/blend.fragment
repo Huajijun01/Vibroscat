@@ -3,6 +3,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/core.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
@@ -41,10 +42,11 @@ vec4 CausticSampleBspline(vec2 uv, float time) {
     vec2 center = floor(p) + 0.5;
     vec2 texel = 1.0 / size;
 
-    vec2 w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
-    vec2 w3 = f * f * f / 6.0;
-    vec2 w1 = (3.0 * f * f * f - 6.0 * f * f + 4.0) / 6.0;
-    vec2 w2 = (-3.0 * f * f * f + 3.0 * f * f + 3.0 * f + 1.0) / 6.0;
+    vec2 w0;
+    vec2 w1;
+    vec2 w2;
+    vec2 w3;
+    BsplineWeights(f, w0, w1, w2, w3);
 
     vec2 c_a = w0 + w1;
     vec2 c_b = w2 + w3;

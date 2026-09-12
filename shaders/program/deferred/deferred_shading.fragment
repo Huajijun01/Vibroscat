@@ -65,14 +65,13 @@ void main() {
         return;
 #else
         vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
-        vec3 ndc = vec3(uv * 2.0 - 1.0, 1.0);
-        vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
-        vec3 view_dir = normalize(mat3(gbufferModelViewInverse) * (view_h.xyz / view_h.w));
+        vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
+            * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
         vec3 sun_dir = normalize(u_world_sun_dir);
         vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
         vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
         // Discs stay out of the LUT so clouds attenuate them by real transmittance.
-        vec3 camera_pos = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
+        vec3 camera_pos = AtmosphereCameraPosition();
         float camera_r = length(camera_pos);
         vec4 view_transmittance = SampleTransmittance(
             TRANSMITTANCE_LUT, camera_r, camera_r * camera_r,
@@ -292,7 +291,7 @@ void main() {
         float sss_availability = edge_fade * depth_fade * distance_fade;
         float ldotv = dot(light_direction, view_to_eye);
         float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
-        float average_albedo = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
+        float average_albedo = Luminance(albedo);
         float absorption = (1.0 - 0.75 * Saturate(average_albedo))
             * SHADOW_SSS_DENSITY / max(sss_amount, 1.0e-3);
         float map_transmission = exp(-absorption * sss_thickness_world);

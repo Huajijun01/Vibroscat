@@ -36,9 +36,7 @@ vec3 ViewToNDC(vec3 view_pos) {
 
 // Reconstructs a camera-relative player-space position from screen UV and depth.
 vec3 DepthToWorldPos(vec2 texcoord, float depth) {
-    vec3 ndc = vec3(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0);
-    vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
-    vec3 view_pos = view_h.xyz / view_h.w;
+    vec3 view_pos = NDCToView(vec3(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0));
     return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 
@@ -134,8 +132,8 @@ float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels
     float fx = one_minus_d + DISTORT_FACTOR * abs(x);
     float fy = one_minus_d + DISTORT_FACTOR * abs(y);
 
-    float dx_view = (2.0 * fx * fx) / (abs(shadow_a) * one_minus_d * float(shadowMapResolution) + 1e-5);
-    float dy_view = (2.0 * fy * fy) / (abs(shadow_b) * one_minus_d * float(shadowMapResolution) + 1e-5);
+    float dx_view = (2.0 * fx * fx) / (abs(shadow_a) * one_minus_d * real_shadow_map_resolution + 1e-5);
+    float dy_view = (2.0 * fy * fy) / (abs(shadow_b) * one_minus_d * real_shadow_map_resolution + 1e-5);
     float texel_world_size = max(dx_view, dy_view);
 
     float clamped_ndotl = clamp(ndotl, 0.0, 1.0);

@@ -128,7 +128,7 @@ vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, ve
 vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     out vec3 cirrus_surface_pos, out vec3 cirrus_transmittance
 ) {
-    vec3 ray_start = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
+    vec3 ray_start = AtmosphereCameraPosition();
     float ci_height = ATM_PLANET_R + CIRRUS_HEIGHT_KM;
     float ci_height_diff = ci_height - length(ray_start);
 

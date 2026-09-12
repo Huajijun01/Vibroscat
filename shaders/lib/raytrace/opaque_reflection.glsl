@@ -32,7 +32,7 @@ mat3 BuildOrthonormalBasis(vec3 normal_world) {
 // the return maps the sampled normal back to roughness space.
 vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
     vec3 wi_std = normalize(vec3(local_v.xy * alpha, local_v.z));
-    float phi = 2.0 * PI * u.x;
+    float phi = TAU * u.x;
     float z = (1.0 - u.y) * (1.0 + wi_std.z) - wi_std.z;
     float sin_theta = sqrt(clamp(1.0 - z * z, 0.0, 1.0));
     vec3 cap = vec3(sin_theta * cos(phi), sin_theta * sin(phi), z);

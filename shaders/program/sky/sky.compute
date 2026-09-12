@@ -34,7 +34,7 @@ void main() {
     }
 
     vec3 view_dir = vec3(cos(theta) * cos(phi), sin(theta), cos(theta) * sin(phi));
-    vec4 spectral_radiance = ComputeSkyRadiance(vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0), view_dir, sun_dir);
+    vec4 spectral_radiance = ComputeSkyRadiance(AtmosphereCameraPosition(), view_dir, sun_dir);
     vec3 rgb = Rec2020ToSRGB(SpectralToLinearRec2020(spectral_radiance)) * ATM_EXPOSURE;
 
     // Static interleaved gradient noise dither - no temporal component to avoid flicker

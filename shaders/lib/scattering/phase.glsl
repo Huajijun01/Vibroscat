@@ -26,7 +26,7 @@ float PhaseRayleigh(float cos_theta) {
 float PhaseHenyeyGreenstein(float cos_theta, float eccentricity) {
     float eccentricity2 = eccentricity * eccentricity;
     float denominator = max(1.0 + eccentricity2 - 2.0 * eccentricity * cos_theta, 1.0e-4);
-    return (1.0 / (4.0 * PI)) * (1.0 - eccentricity2) / (denominator * sqrt(denominator));
+    return PHASE_ISOTROPIC * (1.0 - eccentricity2) / (denominator * sqrt(denominator));
 }
 
 // Dual-lobe HG: an unweighted forward lobe plus a mirrored backward lobe

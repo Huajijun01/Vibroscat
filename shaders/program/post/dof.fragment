@@ -1,6 +1,7 @@
 /* RENDERTARGETS: 0 */
 
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/color/dither.glsl"
@@ -15,13 +16,10 @@ vec3 DepthOfField(vec2 uv) {
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     if (scene_depth >= 1.0) return texelFetch(colortex0, tx, 0).rgb;
 
-    vec3 ndc = vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0);
-    vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
-    vec3 view_pos = view_h.xyz / view_h.w;
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
 
     float center_depth = centerDepthSmooth;
-    vec4 focus_h = gbufferProjectionInverse * vec4(vec3(0.0, 0.0, center_depth * 2.0 - 1.0), 1.0);
-    vec3 focus_pos = focus_h.xyz / focus_h.w;
+    vec3 focus_pos = NDCToView(vec3(0.0, 0.0, center_depth * 2.0 - 1.0));
 
     float dist = distance(view_pos, focus_pos);
     float factor = dist * 0.5 / max(-focus_pos.z, 0.01);

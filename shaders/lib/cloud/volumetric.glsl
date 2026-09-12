@@ -16,7 +16,6 @@
 // HPVolumeCloud is MIT licensed with an additional attribution requirement;
 // see licenses/THIRD_PARTY_NOTICES.md section 2.
 
-const float CLOUD_MAX_DISTANCE_KM = 180.0;
 const int CLOUD_MS_OCTAVES = 3;
 const float CLOUD_PHI_OMEGA0 = 0.75;
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
@@ -72,7 +71,6 @@ bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float 
         march_end = min(march_end, ground_near);
     }
 
-    march_end = min(march_end, CLOUD_MAX_DISTANCE_KM);
     return march_end > march_start + 1.0e-5;
 }
 

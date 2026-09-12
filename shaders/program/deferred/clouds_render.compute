@@ -106,8 +106,9 @@ void main() {
     );
 
     // Stop the interval at the opaque surface depth (no tracing behind
-    // terrain).
-    float terrain_end_km = CLOUD_MAX_DISTANCE_KM;
+    // terrain). A sky pixel has no opaque surface, so the cloud shell is the
+    // only bound and the no-cloud sentinel stands in for the far plane.
+    float terrain_end_km = CLOUD_NO_CLOUD_DISTANCE;
     ivec2 depth_texel = clamp(
         sample_pos_i,
         ivec2(0),

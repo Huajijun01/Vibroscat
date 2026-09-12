@@ -113,12 +113,12 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
 #define CIRRUS // Enable the high-altitude cirrus shell; independent of the volumetric layer.
-#define CLOUD_VIEW_MIN_STEPS 32 // [24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
-#define CLOUD_VIEW_MAX_STEPS 128 // [64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
+#define CLOUD_VIEW_MIN_STEPS 20 // [24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
+#define CLOUD_VIEW_MAX_STEPS 40 // [64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.
-#define CLOUD_LIGHT_STEPS 8 // [3 4 5 6 8] Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
+#define CLOUD_LIGHT_STEPS 6 // [3 4 5 6 8] Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
 #define CLOUD_BASE_ALTITUDE 1.4 // [0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud base altitude above terrain (km).
-#define CLOUD_THICKNESS_KM 1.5 // [0.6 0.8 1.0 1.2 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
+#define CLOUD_THICKNESS_KM 1.3 // [0.6 0.8 1.0 1.2 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
 #define CLOUD_COVERAGE 0.5 // [0.35 0.4 0.45 0.5 0.55 0.58 0.62 0.66 0.7 0.75] Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
 #define CLOUD_DISTRIBUTION_SCALE_KM 280.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0 240.0 280.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).

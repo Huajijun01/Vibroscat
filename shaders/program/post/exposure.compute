@@ -1,17 +1,30 @@
 // Phase 1: 64 workgroups gather a log-luminance statistic and a weighted
 // histogram. The second pass derives robust percentiles from these bins.
+//
+// 64 bins over a full-resolution frame is a heavy oversampling, so the sweep
+// reads a strided sub-grid: a quarter of the pixels place the median and the
+// 90th percentile within a fraction of one bin while cutting image loads and
+// shared atomics to a quarter. The stride phase rotates over four frames so a
+// fixed screen-space pattern cannot bias the statistic.
+//
+// The 64 workgroup count and the ExposureData arrays are one contract: wid
+// indexes log_lum_sums, weight_sums and a 64-bin slice of luminance_histogram,
+// and bufferObject.0 is sized for exactly 64 of each.
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/color/color.glsl"
 
-layout(local_size_x = 256) in;
+layout(local_size_x = 512) in;
 const ivec3 workGroups = ivec3(8, 8, 1);
+
+// Per-axis sampling stride. 1 = every pixel, 2 = every other pixel per axis.
+const uint AE_SAMPLE_STRIDE = 2u;
 
 layout(r11f_g11f_b10f) readonly uniform image2D colorimg0;
 
-shared float log_cache[256];
-shared float weight_cache[256];
+shared float log_cache[512];
+shared float weight_cache[512];
 shared uint histogram_cache[64];
 
 void main() {
@@ -22,19 +35,29 @@ void main() {
     uint size_x = uint(size.x);
     uint size_y = uint(size.y);
     vec2 size_f = vec2(size);
-    uint total_pixels = size_x * size_y;
-    uint px_per_group = (total_pixels + 63u) / 64u;
 
-    uint start = wid * px_per_group;
-    uint end = min(start + px_per_group, total_pixels);
+    uint phase_x = uint(frameCounter) & 1u;
+    uint phase_y = (uint(frameCounter) >> 1) & 1u;
+    uint grid_w = max((size_x - phase_x + AE_SAMPLE_STRIDE - 1u) / AE_SAMPLE_STRIDE, 1u);
+    uint grid_h = max((size_y - phase_y + AE_SAMPLE_STRIDE - 1u) / AE_SAMPLE_STRIDE, 1u);
+    uint sample_count = grid_w * grid_h;
+    uint samples_per_group = (sample_count + 63u) / 64u;
+
+    uint start = wid * samples_per_group;
+    uint end = min(start + samples_per_group, sample_count);
 
     float log_sum = 0.0;
     float weight_sum = 0.0;
     if (tid < 64u) histogram_cache[tid] = 0u;
     barrier();
 
-    for (uint i = start + tid; i < end; i += 256u) {
-        ivec2 pos = ivec2(i % size_x, i / size_x);
+    // Row-major walk over the sampled grid with an incremental column index:
+    // one integer division up front instead of one per sampled pixel.
+    uint sample_index = start + tid;
+    uint row = sample_index / grid_w;
+    uint col = sample_index - row * grid_w;
+    for (; sample_index < end; sample_index += 512u) {
+        ivec2 pos = ivec2(col * AE_SAMPLE_STRIDE + phase_x, row * AE_SAMPLE_STRIDE + phase_y);
         vec3 c = imageLoad(colorimg0, pos).rgb;
         float luminance = max(Luminance(max(c, vec3(0.0))), 1.0e-5);
         float log_luminance = log2(luminance);
@@ -47,13 +70,19 @@ void main() {
         float exposure_ev = clamp(log2(luminance / 0.18), -12.0, 8.0);
         uint bin = uint(clamp((exposure_ev + 12.0) * (64.0 / 20.0), 0.0, 63.0));
         atomicAdd(histogram_cache[bin], sample_weight);
+
+        col += 512u;
+        while (col >= grid_w) {
+            col -= grid_w;
+            row += 1u;
+        }
     }
 
     log_cache[tid] = log_sum;
     weight_cache[tid] = weight_sum;
     barrier();
 
-    for (uint s = 128u; s > 0u; s >>= 1u) {
+    for (uint s = 256u; s > 0u; s >>= 1u) {
         if (tid < s) {
             log_cache[tid] += log_cache[tid + s];
             weight_cache[tid] += weight_cache[tid + s];

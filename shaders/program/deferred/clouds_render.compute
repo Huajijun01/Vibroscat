@@ -29,13 +29,13 @@ void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, in
     ivec2 history_max = ivec2(history_size) - ivec2(1);
     ivec2 current_texel = clamp(ivec2(current_uv * history_size), ivec2(0), history_max);
     vec4 seed = texelFetch(colortex8, current_texel, 0);
-    if (!(seed.a > 0.0) || !(seed.b < 0.99999)) return;
+    if (any(isnan(seed)) || !(seed.a > 0.0) || !(seed.b < 0.99999)) return;
 
     vec2 previous_uv;
     if (!CloudProjectToPrevious(view_dir, seed.a, previous_uv)) return;
     ivec2 previous_texel = clamp(ivec2(previous_uv * history_size), ivec2(0), history_max);
     vec4 history = texelFetch(colortex8, previous_texel, 0);
-    if (!(history.a > 0.0) || !(history.b < 0.99999)) return;
+    if (any(isnan(history)) || !(history.a > 0.0) || !(history.b < 0.99999)) return;
 
     // Recover the previous-frame ray at the accepted texel, move its
     // centroid into the current camera space, project onto the current ray.
@@ -122,11 +122,7 @@ void main() {
     vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
     float march_start = 0.0;
     float march_end = 0.0;
-    // Texels whose ray never traced the cloud shell (terrain, ground-blocked
-    // sky) store 0: the temporal consumer treats 0 as "no cloud distance
-    // here". Publishing the ground distance instead would let silhouette
-    // pixels anchor their history reprojection at the ground's parallax.
-    float cloud_top_distance = 0.0;
+    float cloud_top_distance = terrain_end_km;
     bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, march_start, march_end);
     int step_count = 0;
     if (cloud_visible) {
@@ -139,6 +135,8 @@ void main() {
 #ifdef CLOUD_HISTORY_GUIDED_MARCH_END
             CloudHistoryGuidedEnd(uv, view_dir, march_start, march_end);
 #endif
+        } else {
+            cloud_top_distance = march_end;
         }
     }
 

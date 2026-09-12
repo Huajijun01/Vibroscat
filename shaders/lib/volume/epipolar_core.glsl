@@ -165,7 +165,6 @@ float EpipolarEdgeWeight(float pixel_key, float sample_key) {
     float max_z = max(pixel_key, max(sample_key, 1.0));
     float rel = abs(pixel_key - sample_key) / max_z;
     float w = EPIPOLAR_DEPTH_TOLERANCE / max(rel, EPIPOLAR_DEPTH_TOLERANCE);
-    w = clamp(w, 0.0, 1.0);
     float w2 = w * w;
     return w2 * w2;
 }
@@ -216,11 +215,10 @@ vec3 EpipolarSampleOnSlice(int slice, vec2 ndc, float pixel_key,
         // E=1 stays only for a slice with no valid column at all (sky /
         // no medium), where it is the correct neutral value.
         if (pixel_key > 0.0) {
-            // nsum/nval/nkey_*: edge-extend weight sum, weighted radiance
-            // numerator, and weighted key normalizer; ck = candidate key.
+            // nsum/nval: edge-extend weight sum and weighted radiance
+            // numerator; nkey_sum weights keys by the same w; ck = key.
             float nsum = 0.0;
             vec3 nval = vec3(0.0);
-            float nkey_w = 0.0;
             float nkey_sum = 0.0;
             for (int k = 1; k <= EPIPOLAR_EDGE_EXTEND; ++k) {
                 int lo = max(s - k, 0);
@@ -232,7 +230,6 @@ vec3 EpipolarSampleOnSlice(int slice, vec2 ndc, float pixel_key,
                     nsum += w;
                     nval += w * c.rgb;
                     nkey_sum += w * ck;
-                    nkey_w += w;
                 }
                 c = texelFetch(usam_epipolar_term, ivec2(slice, hi), 0);
                 ck = c.a;
@@ -241,11 +238,10 @@ vec3 EpipolarSampleOnSlice(int slice, vec2 ndc, float pixel_key,
                     nsum += w;
                     nval += w * c.rgb;
                     nkey_sum += w * ck;
-                    nkey_w += w;
                 }
             }
             if (nsum > 1e-4) {
-                sample_key = nkey_sum / max(nkey_w, 1e-6);
+                sample_key = nkey_sum / nsum;
                 return nval / nsum;
             }
         }

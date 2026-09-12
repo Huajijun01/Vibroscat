@@ -50,8 +50,9 @@ vec4 CausticSampleBspline(vec2 uv, float time) {
 
     vec2 c_a = w0 + w1;
     vec2 c_b = w2 + w3;
-    vec2 a_pos = (center - 1.0) + w1 / max(c_a, vec2(1.0e-5));
-    vec2 b_pos = (center + 1.0) + w3 / max(c_b, vec2(1.0e-5));
+    // c_a/c_b are the partition-of-unity halves: [1/6, 5/6] on f in [0,1].
+    vec2 a_pos = (center - 1.0) + w1 / c_a;
+    vec2 b_pos = (center + 1.0) + w3 / c_b;
 
     vec2 uv_a = a_pos * texel;
     vec2 uv_b = b_pos * texel;
@@ -87,7 +88,8 @@ float CausticWaterPath(vec3 world_pos, float caustic_surface_y, vec3 light_dir) 
     // Refraction bends the path toward vertical: path = vertical drop /
     // refracted y component.
     vec3 refracted = refract(-light_dir, vec3(0.0, 1.0, 0.0), 1.0 / caustic_water_ior);
-    float path_per_metre = 1.0 / max(-refracted.y, 1.0e-3);
+    // eta < 1 refraction cannot TIR: -refracted.y >= cos(asin(1/1.333)) ~ 0.66.
+    float path_per_metre = 1.0 / -refracted.y;
     return max(caustic_surface_y - world_pos.y, 0.0) * path_per_metre;
 }
 

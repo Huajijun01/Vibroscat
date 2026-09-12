@@ -77,8 +77,10 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma, vec3 receiver_wor
             vec2 bilinear = mix(vec2(1.0) - fraction, fraction, vec2(x, y));
             float weight = bilinear.x * bilinear.y * (1.0 - plane_distance / plane_tolerance_m);
             vec3 history = texelFetch(colortex9, sample_texel, 0).rgb;
-            // colortex9 writers are bounded (clamped GI radiance, finite SH
-            // and RSM sums); no NaN filter, matching RepairGIDisocclusion.
+            // Explicit non-finite filter on both colortex9 readers:
+            // comparison-based rejection is not trusted on this driver
+            // (docs/defensive-code-audit.md items 9/10).
+            if (any(isnan(history)) || any(isinf(history))) continue;
             history_sum += history * weight;
             age_sum += age * weight;
             weight_sum += weight;
@@ -147,7 +149,9 @@ bool RepairGIDisocclusion(ivec2 center_texel, vec3 receiver_view, vec3 normal_vi
             // Older neighbors carry more converged history; fresh (age 1)
             // entries still help as raw spatial averages.
             float weight = min(age, 4.0) * (1.0 - plane_distance / plane_tolerance_m);
-            repair_sum += texelFetch(colortex9, sample_texel, 0).rgb * weight;
+            vec3 history = texelFetch(colortex9, sample_texel, 0).rgb;
+            if (any(isnan(history)) || any(isinf(history))) continue;
+            repair_sum += history * weight;
             weight_sum += weight;
         }
     }

@@ -23,12 +23,7 @@
 //   https://www.shadertoy.com/view/lXBfWm
 // colortex5 is read-only scene radiance from the existing pipeline; this
 // pass owns the colortex9/10 GI temporal history pair.
-const int GI_STEPS = 16;
-// March width in screen pixels (the reference's Raymarching_Width).
-const float GI_LENGTH = 512.0;
-// Sample geometry thickness in view-depth meters (the reference's Thickness).
-const float GI_THICKNESS = 0.5;
-const float GI_RADIANCE_LIMIT = 128.0;
+// Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
 
 layout(location = 0) out vec3 out_gi;
 layout(location = 1) out uint out_gi_metadata;
@@ -147,10 +142,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     vec2 sample_range = (target_coord - origin_coord) * u_screen_res;
     float inv_range = inversesqrt(dot(sample_range, sample_range));
     vec2 step_dir = sample_range * inv_range * u_view_pixel_size;
-    // Reference march schedule: GI_STEPS geometric steps that grow to the
+    // Reference march schedule: SSGI_STEPS geometric steps that grow to the
     // clamped march width, with the first step jittered by stbn_noise.y.
-    float march_width = min(GI_LENGTH, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
-    float step_scale = pow(march_width, 1.0 / float(GI_STEPS));
+    float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
+    float step_scale = pow(march_width, 1.0 / float(SSGI_STEPS));
     float step_size = pow(step_scale, stbn_noise.y);
     vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
     vec2 inverse_projection_bias = gbufferProjectionInverse[3].xy;
@@ -184,7 +179,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     uint occupied = 0u;
     vec3 gi = vec3(0.0);
     float hit_coverage = 0.0;
-    for (int i = 0; i < GI_STEPS; ++i) {
+    for (int i = 0; i < SSGI_STEPS; ++i) {
         vec2 sample_uv = origin_coord + step_dir * step_size;
         step_size *= step_scale;
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThanEqual(sample_uv, vec2(1.0)))) break;
@@ -201,9 +196,9 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         vec3 delta_front = sample_view - origin_view_position;
         // Reference perspective arm ("required for correctness"): the back
         // face is the same pixel's ray reprojected at depth + Thickness,
-        // i.e. GI_THICKNESS farther along the camera-to-sample ray (equal to
-        // the reference's normalize(samplePosVS) * Thickness arm).
-        vec3 delta_back = delta_front + normalize(sample_view) * GI_THICKNESS;
+        // i.e. SSGI_THICKNESS farther along the camera-to-sample ray (equal
+        // to the reference's normalize(samplePosVS) * Thickness arm).
+        vec3 delta_back = delta_front + normalize(sample_view) * SSGI_THICKNESS;
         float front_cos = dot(delta_front, view_direction) * inversesqrt(max(dot(delta_front, delta_front), 1.0e-6));
         float back_cos = dot(delta_back, view_direction) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
@@ -309,7 +304,7 @@ void main() {
     float mean_luminance = Luminance(raw_gi);
     sample_sigma = sqrt(max(second_moment + fallback_luminance * fallback_luminance * miss_fraction
         - mean_luminance * mean_luminance, 0.0));
-    raw_gi = clamp(raw_gi, vec3(0.0), vec3(GI_RADIANCE_LIMIT));
+    raw_gi = clamp(raw_gi, vec3(0.0), vec3(SSGI_RADIANCE_LIMIT));
 #endif
 #ifdef GI_DENOISE
     float history_age;

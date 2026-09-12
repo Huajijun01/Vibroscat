@@ -19,6 +19,12 @@
 #define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
 #define GI_DENOISE
 #define GI_HISTORY_FRAMES 24 // [4 8 16 24 31]
+// Screen-space GI trace budget (GI_MODE 1), ported from the GT-VBGI
+// reference constants in recursive_gi.fragment.
+#define SSGI_STEPS 16 // [4 8 12 16 24 32 48 64] Geometric march steps per pixel; higher = smoother distant bounce light, linear cost.
+#define SSGI_MARCH_PIXELS 512.0 // [128.0 256.0 384.0 512.0 768.0 1024.0] March width cap in screen pixels (the reference's Raymarching_Width).
+#define SSGI_THICKNESS 0.5 // [0.1 0.25 0.5 0.75 1.0 1.5 2.0] Sample geometry thickness in view-depth meters (the reference's Thickness).
+#define SSGI_RADIANCE_LIMIT 128.0 // [16.0 32.0 64.0 128.0 256.0 512.0] Firefly clamp bounding the stored GI history radiance.
 #define RSM_SAMPLES 16 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]

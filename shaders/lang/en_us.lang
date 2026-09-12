@@ -400,6 +400,7 @@ option.GI_MODE.comment = Bounced sunlight: light that lands on a surface and the
 value.GI_MODE.0 = None
 value.GI_MODE.1 = SSGI
 value.GI_MODE.2 = Reflective Shadow Map
+screen.SSGI = Screen Space GI
 screen.RSM = Reflective Shadow Map
 option.RSM_SAMPLES = RSM Samples
 option.RSM_SAMPLES.comment = How many bounce-light samples each pixel gathers per frame: higher = smoother, more detailed colored bounce light, slower.
@@ -410,6 +411,15 @@ option.GI_DENOISE = GI Temporal Denoising
 option.GI_DENOISE.comment = Smooths the bounce light across consecutive frames to remove grain. Off shows the raw, noisy bounce light.
 option.GI_HISTORY_FRAMES = GI History Length
 option.GI_HISTORY_FRAMES.comment = How many frames of bounce light are blended together: higher = cleaner and steadier, but lighting changes (placing torches, the moving sun) settle slightly later.
+option.SSGI_STEPS = SSGI March Steps
+option.SSGI_STEPS.comment = Depth samples traced per pixel: higher = smoother, more detailed bounce light in the distance, slower.
+option.SSGI_MARCH_PIXELS = SSGI March Width
+option.SSGI_MARCH_PIXELS.comment = How far the bounce-light ray marches across the screen, in pixels: higher = bounce light reaches farther from its source, slower.
+option.SSGI_THICKNESS = SSGI Thickness
+option.SSGI_THICKNESS.comment = Assumed depth thickness of the surfaces hit by the rays, in meters: higher = thin geometry blocks bounce light more (less leak-through), lower = more light passes through thin surfaces.
+suffix.SSGI_THICKNESS = m
+option.SSGI_RADIANCE_LIMIT = SSGI Radiance Clamp
+option.SSGI_RADIANCE_LIMIT.comment = Upper bound on the stored bounce light: lower = fewer bright firefly sparkles but dimmer highlight bounce; raise only for unusually bright scenes.
 option.RSM_STRENGTH = RSM Strength
 option.RSM_STRENGTH.comment = Intensity of the bounced sunlight. Does not change the direct sun or the ambient sky light.
 option.RSM_SKY_OCCLUSION = RSM Sky Occlusion

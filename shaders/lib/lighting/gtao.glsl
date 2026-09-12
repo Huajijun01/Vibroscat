@@ -37,16 +37,6 @@
 
 
 // Per-block STBN: x = slice rotation, y = horizon-step dither. Point-sampled
-// (bilinear would correlate the blue noise and break TAA resolvability).
-// Called by the ao pass main; the kernels take the pair as input.
-vec2 GTAOSTBNNoise(vec2 texel, int frame) {
-    ivec2 stbn_texel = ivec2(texel * 0.5);
-    int slice = frame & 63;
-    float rotation = SampleSTBN(stbn_texel, slice);
-    float step_noise = SampleSTBN(stbn_texel, slice + STBN_STREAM_3);
-    return vec2(rotation, step_noise);
-}
-
 // Slice-plane tangent at azimuth `angle` around the toward-camera axis.
 vec3 GTAOSliceTangent(vec3 view_axis, float angle) {
     vec3 up = abs(view_axis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
@@ -113,7 +103,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
 }
 
 // Screen-space GTAO at one pixel (full-res UV and texel). stbn_noise is the
-// GTAOSTBNNoise pair sampled by the pass main. Returns AO in [0,1].
+// SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].
 float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
     float center_depth = texelFetch(depthtex2, center_texel, 0).r;

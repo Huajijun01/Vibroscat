@@ -16,6 +16,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/lighting/ssao.glsl"
@@ -36,8 +37,11 @@ void main() {
     ivec2 block_origin = half_texel * 2;
     vec2 uv = (vec2(block_origin) + vec2(1.0)) * u_view_pixel_size;
     // The AO temporal accumulator runs with or without TAA, so the STBN pair
-    // keeps advancing with frameCounter (no STBNFrame() pinning here).
-    vec2 stbn_noise = GTAOSTBNNoise(vec2(block_origin), frameCounter);
+    // keeps advancing with frameCounter (no STBNFrame() pinning here). The
+    // evaluation point is half-res: shift nothing spatially, offset the
+    // second stream by the registry's STBN_STREAM_3.
+    vec2 stbn_noise = SampleSTBNPair(
+        ivec2(vec2(block_origin) * 0.5), frameCounter, STBN_STREAM_3, ivec2(0));
 #ifdef GTAO
     float ao = ComputeGTAO(uv, vec2(block_origin), stbn_noise);
 #elif defined(SSAO)

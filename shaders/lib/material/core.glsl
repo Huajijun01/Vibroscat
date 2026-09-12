@@ -25,7 +25,7 @@ struct Material {
     float reserved;
 };
 
-Material MaterialDefaults(int id, vec4 spec) {
+Material MaterialDefaults(vec4 spec) {
     Material m;
     // smoothness inverted to roughness
     m.roughness  = 1.0 - spec.r;
@@ -114,7 +114,7 @@ vec3 DecodeLabPBR(vec3 nm) {
 }
 
 // Full-XYZ normal format: XYZ stored in RGB, remapped from [0,1] to [-1,1].
-vec3 DecodeOldPBR(vec3 nm) {
+vec3 DecodeXYZNormal(vec3 nm) {
     return normalize(nm * 2.0 - 1.0);
 }
 

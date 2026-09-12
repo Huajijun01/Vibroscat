@@ -251,7 +251,7 @@ float DRTRefineUpperChroma(float chroma, float lightness, vec3 direction) {
     return chroma + min(step.r, min(step.g, step.b));
 }
 
-float DRTSoftMin(float value, float limit, float power) {
+float SoftMin(float value, float limit, float power) {
     if (value <= 0.0 || limit <= 0.0) return 0.0;
     float lower = min(value, limit);
     float higher = max(value, limit);
@@ -259,7 +259,7 @@ float DRTSoftMin(float value, float limit, float power) {
     return lower * pow(1.0 + pow(ratio, power), -1.0 / power);
 }
 
-float DRTSoftMin4(float value, float limit) {
+float SoftMin4(float value, float limit) {
     if (value <= 0.0 || limit <= 0.0) return 0.0;
     float lower = min(value, limit);
     float higher = max(value, limit);
@@ -279,7 +279,7 @@ float DRTSaturationCap(float lightness, float maximum_saturation, vec3 direction
     float t = clamp((lightness - cusp) / (1.0 - cusp), 0.0, 1.0);
     float shoulder = t * (1.0 - t);
     white_chroma *= 1.0 - 0.0035 * 16.0 * shoulder * shoulder;
-    float rounded_chroma = DRTSoftMin4(black_chroma, white_chroma);
+    float rounded_chroma = SoftMin4(black_chroma, white_chroma);
     return max(rounded_chroma / lightness, 0.0);
 }
 
@@ -309,7 +309,7 @@ vec3 DRTMapLinearRgb(vec3 color, float overexposure) {
     float maximum_saturation = DRTConnectedSaturation(hue, DRTMaxSaturation(hue, direction));
     float desired_saturation = input_saturation * DRTChromaRetention(output_lightness);
     float cap = DRTSaturationCap(output_lightness, maximum_saturation, direction);
-    float output_saturation = DRTSoftMin(desired_saturation, cap, DRTRoundingPower(output_lightness));
+    float output_saturation = SoftMin(desired_saturation, cap, DRTRoundingPower(output_lightness));
     return DRT_OKLAB_RGB_HEADROOM * OKLABToRGB(vec3(
         output_lightness, output_lightness * output_saturation * hue));
 }
@@ -321,7 +321,7 @@ vec3 TonemapOklabDRT(vec3 linear_rgb) {
 
 // --- HSV helpers (shared by the Reinhard-Gamut hue protection) ---
 
-vec3 DRTRGBToHSV(vec3 color) {
+vec3 RGBToHSV(vec3 color) {
     float maximum = max(color.r, max(color.g, color.b));
     float minimum = min(color.r, min(color.g, color.b));
     float chroma = maximum - minimum;
@@ -339,7 +339,7 @@ vec3 DRTRGBToHSV(vec3 color) {
     return vec3(hue, saturation, maximum);
 }
 
-vec3 DRTHSVToRGB(vec3 hsv) {
+vec3 HSVToRGB(vec3 hsv) {
     vec3 primary = clamp(abs(fract(hsv.x + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
     return hsv.z * mix(vec3(1.0), primary, hsv.y);
 }
@@ -370,15 +370,15 @@ vec3 DRTReinhardCurve(vec3 color, float middle_gray, float curve_peak) {
 
 vec3 DRTProtectHue(vec3 original_linear, vec3 mapped_display, float retention) {
     if (retention <= 0.0) return mapped_display;
-    vec3 original_hsv = DRTRGBToHSV(FromLinear(original_linear));
-    vec3 mapped_hsv = DRTRGBToHSV(mapped_display);
+    vec3 original_hsv = RGBToHSV(FromLinear(original_linear));
+    vec3 mapped_hsv = RGBToHSV(mapped_display);
     if (original_hsv.y <= 1.0e-7 || mapped_hsv.y <= 1.0e-7)
         return mapped_display;
 
     float hue_offset = original_hsv.x - mapped_hsv.x;
     hue_offset -= floor(hue_offset + 0.5);
     mapped_hsv.x = fract(mapped_hsv.x + retention * hue_offset);
-    return DRTHSVToRGB(mapped_hsv);
+    return HSVToRGB(mapped_hsv);
 }
 
 vec3 TonemapReinhardGamut(vec3 linear_rgb) {
@@ -407,7 +407,7 @@ vec3 TonemapReinhardGamut(vec3 linear_rgb) {
 
 // ln(1 + distance). The series branch keeps the tangent at the segment join
 // from cancelling into noise for the small distances the join produces.
-float DRTLogDistance(float distance) {
+float Log1p(float distance) {
     if (distance < 0.001)
         return distance * (1.0 + distance * (-0.5 + distance / 3.0));
     return 0.6931471805599453 * log2(1.0 + distance);
@@ -443,7 +443,7 @@ DRTReinhardAgxShape DRTReinhardAgxShapeFromOptions() {
     shape.shoulder_extent = shoulder_extent;
     shape.shoulder_power = TONEMAP_RA_SHOULDER_POWER;
     shape.shoulder_coefficient =
-        1.0 - pow(DRTLogDistance(join_distance), -TONEMAP_RA_SHOULDER_POWER);
+        1.0 - pow(Log1p(join_distance), -TONEMAP_RA_SHOULDER_POWER);
     return shape;
 }
 
@@ -454,7 +454,7 @@ DRTReinhardAgxShape DRTReinhardAgxShapeFromOptions() {
 float DRTReinhardAgxComponent(float value, DRTReinhardAgxShape shape) {
     if (value <= shape.compression_start)
         return shape.linear_slope * value;
-    float distance = DRTLogDistance(
+    float distance = Log1p(
         shape.linear_slope * (value - shape.compression_start) / shape.shoulder_extent);
     return shape.linear_slope * shape.compression_start
         + shape.shoulder_extent * distance
@@ -547,25 +547,25 @@ const mat3 GT7_ICTCP_TO_LMS = mat3(
     vec3(0.2179053500, -0.0041539000, -0.2137514500));
 
 // ST 2084 transfer on the sample's frame-buffer scale (1.0 = 100 nits).
-float GT7InverseEotfST2084(float framebuffer) {
+float InverseEotfST2084(float framebuffer) {
     float shaped = pow(max(framebuffer, 0.0) * 0.01, 0.1593017578125);
     return pow((0.8359375 + 18.8515625 * shaped) / (1.0 + 18.6875 * shaped), 78.84375);
 }
 
-float GT7EotfST2084(float pq) {
+float EotfST2084(float pq) {
     float shaped = pow(max(pq, 0.0), 1.0 / 78.84375);
     return 100.0 * pow(max(shaped - 0.8359375, 0.0) / (18.8515625 - 18.6875 * shaped), 6.277394636015);
 }
 
-vec3 GT7RgbToICtCp(vec3 rgb) {
+vec3 RgbToICtCp(vec3 rgb) {
     vec3 lms = GT7_BT2020_TO_LMS * rgb;
-    lms = vec3(GT7InverseEotfST2084(lms.r), GT7InverseEotfST2084(lms.g), GT7InverseEotfST2084(lms.b));
+    lms = vec3(InverseEotfST2084(lms.r), InverseEotfST2084(lms.g), InverseEotfST2084(lms.b));
     return GT7_LMS_TO_ICTCP * lms;
 }
 
-vec3 GT7ICtCpToRgb(vec3 ictcp) {
+vec3 ICtCpToRgb(vec3 ictcp) {
     vec3 lms = GT7_ICTCP_TO_LMS * ictcp;
-    lms = vec3(GT7EotfST2084(lms.r), GT7EotfST2084(lms.g), GT7EotfST2084(lms.b));
+    lms = vec3(EotfST2084(lms.r), EotfST2084(lms.g), EotfST2084(lms.b));
     return max(GT7_LMS_TO_BT2020 * lms, 0.0);
 }
 
@@ -607,7 +607,7 @@ float GT7Curve(float x) {
 
 vec3 TonemapGT7(vec3 linear_rgb) {
     vec3 rgb = SRGB_TO_BT2020 * (GT7_MID_GREY_SCALE * max(linear_rgb, 0.0));
-    vec3 ucs = GT7RgbToICtCp(rgb);
+    vec3 ucs = RgbToICtCp(rgb);
 
     // Step 1: per-channel curve pass (color-accurate midtones, hue twist
     // in the shoulder).
@@ -615,11 +615,11 @@ vec3 TonemapGT7(vec3 linear_rgb) {
 
     // Step 2: UCS pass - twisted luma, original chroma faded toward white
     // as the scene luminance approaches paper white.
-    vec3 skewed_ucs = GT7RgbToICtCp(skewed);
+    vec3 skewed_ucs = RgbToICtCp(skewed);
     float chroma_scale = 1.0 - smoothstep(
         TONEMAP_GT7_CHROMA_FADE_START, TONEMAP_GT7_CHROMA_FADE_END,
         ucs.x / GT7_TARGET_LUMA_UCS);
-    vec3 faded = GT7ICtCpToRgb(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));
+    vec3 faded = ICtCpToRgb(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));
 
     // Step 3: blend the paths and apply the SDR paper-white correction.
     vec3 blended = mix(skewed, faded, TONEMAP_GT7_BLEND);
@@ -655,13 +655,11 @@ vec3 FastInvtonemap(vec3 y) {
 // HDR compression for the TAA history round-trip: HDRCompress =
 // sqrt(FastTonemap), inverse = HDRDecompress. Consumer: taa.fragment.
 vec3 HDRCompress(vec3 x) {
-    x = x / (0.903453 * x + 0.427205);
-    return sqrt(x);
+    return sqrt(FastTonemap(x));
 }
 
 vec3 HDRDecompress(vec3 y) {
-    y = y * y;
-    return 0.427205 * y / (1.0 - 0.903453 * y);
+    return FastInvtonemap(y * y);
 }
 
 // LogLuv32 -> linear sRGB, per [ERI07] Ericson, Christer. "Converting RGB to

@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
 #include "/lib/color/color.glsl"
@@ -25,15 +26,6 @@ const float STAR_FADE_SUNSET   = 0.15;    // above this sun elevation: no stars
 
 float CelestialAngularMask(float cos_view, float disc_radius, float glow_radius) {
     return smoothstep(cos(glow_radius), cos(disc_radius), cos_view);
-}
-
-bool CelestialBlockedByEarth(vec3 origin, float origin_r2, vec3 dir) {
-    float b = 2.0 * dot(origin, dir);
-    float c = origin_r2 - ATM_PLANET_R2;
-    float discriminant = b * b - 4.0 * c;
-    if (discriminant <= 0.0) return false;
-    float ground_near = 0.5 * (-b - sqrt(discriminant));
-    return ground_near > 1.0e-5;
 }
 
 #ifdef STARMAP
@@ -108,29 +100,17 @@ const float STAR_FINE_KEEP = 0.42;     // fine-layer keep scale
 const vec3 STAR_CLUMP_WEIGHTS = vec3(0.42, 0.30, 0.15);
 const vec3 STAR_FINE_CLUMP_WEIGHTS = vec3(0.34, 0.24, 0.26);
 
-// 32-bit avalanche hash (Wellons' lowbias32 constants). Interleaved gradient
-// noise is a dither pattern, not a hash: over cell indices its values are far
-// from uniform and correlate across the draws this field needs.
-uint StarHashUint(uint x) {
-    x ^= x >> 16;
-    x *= 0x7feb352du;
-    x ^= x >> 15;
-    x *= 0x846ca68bu;
-    x ^= x >> 16;
-    return x;
-}
-
 // One hash, two draws: the low and high halves of the avalanche are
 // independent enough to feed separate values.
 vec2 StarHash2(vec2 cell, uint salt) {
     uint key = uint(cell.x) * 0x9e3779b9u ^ uint(cell.y) * 0x85ebca6bu;
-    uint h = StarHashUint(key ^ salt);
+    uint h = LowBias32Hash(key ^ salt);
     return vec2(float(h & 0xffffu), float(h >> 16)) * (1.0 / 65536.0);
 }
 
 float StarHash(vec2 cell, uint salt) {
     uint key = uint(cell.x) * 0x9e3779b9u ^ uint(cell.y) * 0x85ebca6bu;
-    return float(StarHashUint(key ^ salt) & 0xffffu) * (1.0 / 65536.0);
+    return float(LowBias32Hash(key ^ salt) & 0xffffu) * (1.0 / 65536.0);
 }
 
 // The three clumping octaves, evaluated once per pixel and combined per layer.
@@ -214,7 +194,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
     vec3 camera_pos = vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
     float r = length(camera_pos);
     float r2 = r * r;
-    if (CelestialBlockedByEarth(camera_pos, r2, view_dir)) return vec3(0.0);
+    if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) return vec3(0.0);
 
     // Rotation about world Y keeping the map fixed on the sphere.
     float c = clamp(sun_dir.x, -1.0, 1.0);
@@ -251,7 +231,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     // per-ray: the disc/glow is still partly above the horizon while the
     // disc centre is below it, so a centre-ray test would over-cull and
     // pop the disc out at the horizon.
-    if (CelestialBlockedByEarth(camera_pos, r2, view_dir)) return sky_color;
+    if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) return sky_color;
 
     vec3 sun_dir = normalize(u_world_sun_dir);
     vec3 moon_dir = -sun_dir;

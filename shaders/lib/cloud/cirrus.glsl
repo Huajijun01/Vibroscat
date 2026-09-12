@@ -54,7 +54,7 @@ const int CIRRUS_LIGHT_MAX_STEPS = 3;
 // baked into the periodic 64x64 R8 texture; uv = fract((pos + 0.5)/64),
 // linear + repeat. pos kept in [0, 64) via mod (octave transforms must not
 // destroy float precision on planet-centered input).
-float GetFlaCloNoise(vec3 ps) {
+float CirrusCoverageDensity(vec3 ps) {
     // vec2 pos = ps.zx * 0.15;
 
     // float noise = 0.0;
@@ -82,10 +82,6 @@ float GetFlaCloNoise(vec3 ps) {
     return density * density;
 }
 
-float CirrusDensity(vec3 atmosphere_position) {
-    return GetFlaCloNoise(atmosphere_position);
-}
-
 // Rational attenuation for the shadow march: soft-shouldered, taps never
 // fully occlude the receiver.
 float CirrusTransmittance(float optical_depth) {
@@ -111,7 +107,7 @@ float CirrusLightTransmittance(vec3 sample_position, vec3 normal, vec3 light_dir
     float optical_depth = 0.0;
     for (int i = 0; i < step_count; i++) {
         float sample_distance = (float(i) + jitter) * stratum_width;
-        optical_depth += CirrusDensity(sample_position + tangent_dir * sample_distance) * stratum_width;
+        optical_depth += CirrusCoverageDensity(sample_position + tangent_dir * sample_distance) * stratum_width;
     }
     return CirrusTransmittance(optical_depth * CIRRUS_EXTINCTION);
 }
@@ -155,7 +151,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     cirrus_transmittance = vec3(1.0);
     float height = length(sample_position);
     vec3 normal = sample_position / height;
-    float sample_density = CirrusDensity(sample_position);
+    float sample_density = CirrusCoverageDensity(sample_position);
 
     vec3 ci_in_sctr = vec3(0.0);
     vec3 ci_transmittance = vec3(1.0);

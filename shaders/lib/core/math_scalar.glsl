@@ -18,6 +18,11 @@ float Pow4(float x) { x = x * x; return x * x; }
 
 float Pow5(float x) { float x2 = x * x; return x2 * x2 * x; }
 
+// True when every component is neither NaN nor infinite.
+bool IsFinite(vec3 value) {
+    return !any(isnan(value)) && !any(isinf(value));
+}
+
 // Base-2 radical inverse (van der Corput) via one bitfield reversal: the
 // basis of Hammersley sampling.
 float RadicalInverse(int i) {

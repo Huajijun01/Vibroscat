@@ -197,7 +197,7 @@ void EvaluateBRDF(vec3 albedo, vec2 texcoord, vec3 normal_view, vec3 view_direct
 ) {
     vec4 spec_tex = vec4(0.0);
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, texcoord);
-    Material mat = MaterialDefaults(0, spec_tex);
+    Material mat = MaterialDefaults(spec_tex);
 
     vec3 half_direction = normalize(view_direction + light_direction);
     float ndotv = Max0(dot(normal_view, view_direction));

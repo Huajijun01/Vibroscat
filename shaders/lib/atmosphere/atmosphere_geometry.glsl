@@ -27,4 +27,17 @@ bool RayIntersectSphere(vec3 origin, vec3 dir, float radius, out float t0, out f
     return true;
 }
 
+// True when `dir` from `origin` (planet-centered, r2 = dot(origin, origin))
+// dips below the planet of radius squared `planet_r2`: light from that
+// direction is planet-occluded. Near root only (no far root).
+bool PlanetHorizonOccluded(vec3 origin, float origin_r2, vec3 dir, float planet_r2) {
+    float b = 2.0 * dot(origin, dir);
+    float c = origin_r2 - planet_r2;
+    float discriminant = b * b - 4.0 * c;
+    if (discriminant <= 0.0) return false;
+
+    float ground_near = 0.5 * (-b - sqrt(discriminant));
+    return ground_near > 1.0e-5;
+}
+
 #endif

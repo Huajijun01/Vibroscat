@@ -30,7 +30,7 @@
 #include "/lib/lighting/gtao.glsl"
 
 // Screen-space SSAO at one pixel (full-res UV and texel). stbn_noise is the
-// GTAOSTBNNoise pair sampled by the pass main. Returns AO in [0,1].
+// SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].
 float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
     float center_depth = texelFetch(depthtex2, center_texel, 0).r;

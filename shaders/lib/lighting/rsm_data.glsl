@@ -16,7 +16,7 @@ vec4 EncodeRSMSource(vec3 diffuse_reflectance, vec3 normal_shadow) {
     return vec4(vec2(packed_rgb & 255u, packed_rgb >> 8u) / 255.0, encoded_normal);
 }
 
-vec3 DecodeRSMReflectance(vec4 source_data) {
+vec3 DecodeRSMSource(vec4 source_data) {
     uvec2 bytes = uvec2(round(source_data.rg * 255.0));
     uint packed_rgb = bytes.x | (bytes.y << 8u);
     return ToLinear(vec3(packed_rgb >> 11u, (packed_rgb >> 5u) & 63u, packed_rgb & 31u)

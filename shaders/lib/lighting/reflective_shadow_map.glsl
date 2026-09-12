@@ -104,7 +104,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         // Only the reserved translucent payload is absent. Black emitters
         // still occupy directions and must attenuate the sky fallback.
         if (all(equal(source_data, vec4(0.0)))) continue;
-        vec3 reflectance = DecodeRSMReflectance(source_data);
+        vec3 reflectance = DecodeRSMSource(source_data);
 
 #ifndef RSM_SKY_OCCLUSION
         texel_extent_m = 2.0 * distort_factor * distort_factor

@@ -18,7 +18,7 @@
 //   ground hit:   T = T_lut(r_d, -mu_d) / T_lut(r, -mu)   (reciprocity)
 // The baked LUT stores the full chord for non-ground directions (incl.
 // slightly negative cosines), so the first branch is valid for dir.y < 0.
-vec3 CloudSurfaceTransmittance(vec3 surface_pos, vec3 view_dir) {
+vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
     if (any(notEqual(surface_pos, vec3(0.0)))) {
         vec3 camera_pos = AtmosphereCameraPosition();
         float r = length(camera_pos);
@@ -31,7 +31,7 @@ vec3 CloudSurfaceTransmittance(vec3 surface_pos, vec3 view_dir) {
 
         vec4 numerator;
         vec4 denominator;
-        if (CloudLightBlockedByEarth(camera_pos, r2, view_dir)) {
+        if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) {
             // The ray hits the ground: upward LUT samples via reciprocity.
             numerator = SampleTransmittance(TRANSMITTANCE_LUT, r_d, r_d2, -mu_d);
             denominator = SampleTransmittance(TRANSMITTANCE_LUT, r, r2, -mu);
@@ -110,8 +110,8 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     // Atmospheric fades blend each composite toward the sky but must NOT
     // touch the true transmittance (a faded far cloud would otherwise let
     // the layer behind show through).
-    vec3 volumetric_fade = CloudSurfaceTransmittance(volumetric_surface_pos, view_dir);
-    vec3 cirrus_fade = CloudSurfaceTransmittance(cirrus_surface_pos, view_dir);
+    vec3 volumetric_fade = AtmosphereTransmittanceToSurface(volumetric_surface_pos, view_dir);
+    vec3 cirrus_fade = AtmosphereTransmittanceToSurface(cirrus_surface_pos, view_dir);
     vec3 volumetric_faded = mix(sky_color, volumetric_composite, volumetric_fade);
     vec3 cirrus_faded = mix(sky_color, cirrus_composite, cirrus_fade);
 

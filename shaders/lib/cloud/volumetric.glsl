@@ -110,19 +110,6 @@ bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 pre
         && all(lessThanEqual(previous_uv, vec2(1.0)));
 }
 
-// Light below the local horizon is planet-occluded: near sphere intersection
-// only (no far root); caller passes r2 to share the dot product.
-bool CloudLightBlockedByEarth(vec3 atmosphere_position, float atmosphere_r2, vec3 light_dir
-) {
-    float b = 2.0 * dot(atmosphere_position, light_dir);
-    float c = atmosphere_r2 - ATM_PLANET_R2;
-    float discriminant = b * b - 4.0 * c;
-    if (discriminant <= 0.0) return false;
-
-    float ground_near = 0.5 * (-b - sqrt(discriminant));
-    return ground_near > 1.0e-5;
-}
-
 float RemapCloudErosion(float density, float threshold) {
     threshold = Saturate(threshold);
     return Saturate((density - threshold) / max(1.0 - threshold, 1.0e-5));
@@ -363,14 +350,14 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         CloudDensitySample density_sample = SampleCloudDensity(sample_position);
         if (density_sample.density < 1.0e-4) continue;
 
-        // Only CloudLightBlockedByEarth consumes the squared radius below;
+        // Only PlanetHorizonOccluded consumes the squared radius below;
         // keep it off the erased-sample path.
         float sample_r2 = dot(sample_position, sample_position);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * 0.61803398875);
         float sample_sun_radiance = 0.0;
         float sample_moon_radiance = 0.0;
-        if (!CloudLightBlockedByEarth(sample_position, sample_r2, sun_dir)) {
+        if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter);
             float directional_sun_radiance = 0.0;
             for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
@@ -383,7 +370,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
                 * CLOUD_PHI_OMEGA0
                 + MapCloudIsotropicDiffuse(sun_transport.isotropic_diffuse);
         }
-        if (!CloudLightBlockedByEarth(sample_position, sample_r2, moon_dir)) {
+        if (!PlanetHorizonOccluded(sample_position, sample_r2, moon_dir, ATM_PLANET_R2)) {
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
             CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter);

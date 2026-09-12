@@ -7,15 +7,13 @@
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
-#if CLOUD_TEMPORAL_UPSCALING == 1
+// This dispatch directive must stay a bare literal: Iris parses dispatch
+// directives at pack load, where option defines do not exist yet, so an
+// option-conditional directive would be stripped and dispatch would silently
+// fall back to this same full-coverage default. The upscaling tier saves
+// through the reduced image that main() walks via imageSize(), not through
+// dispatch.
 const vec2 workGroupsRender = vec2(1.0, 1.0);
-#elif CLOUD_TEMPORAL_UPSCALING == 2
-const vec2 workGroupsRender = vec2(0.5, 0.5);
-#elif CLOUD_TEMPORAL_UPSCALING == 3
-const vec2 workGroupsRender = vec2(0.333333, 0.333333);
-#elif CLOUD_TEMPORAL_UPSCALING == 4
-const vec2 workGroupsRender = vec2(0.25, 0.25);
-#endif
 
 layout(rgba16f) uniform restrict writeonly image2D uimg_clouds_current;
 

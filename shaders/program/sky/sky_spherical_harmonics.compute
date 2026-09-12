@@ -6,16 +6,35 @@
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
 
-layout(local_size_x = 256) in;
+// Row stripes. workGroups must stay a literal ivec3(1, 1, 1) because Iris
+// parses that token with Integer.parseInt, so the whole reduction lives in one
+// workgroup and therefore on one SM. local_size_y exists only to put more
+// warps on that SM: lane x stays one LUT column (so the column basis stays
+// lane-local), and lane y owns one contiguous block of rows. Every
+// (column, row) pair is still visited exactly once.
+#define SH_ROW_STRIPES 2
+#define SH_WORKGROUP_THREADS (SKY_RADIANCE_LUT_SIZE * SH_ROW_STRIPES)
+#define SH_ROWS_PER_STRIPE (SKY_RADIANCE_LUT_SIZE / SH_ROW_STRIPES)
+#define SH_REDUCE_START (SH_WORKGROUP_THREADS / 2)
+
+// Row sampling stride. The LUT's vertical axis is v = sin(elevation) sampled at
+// the midpoint of 256 equal cells, so keeping every other row and doubling the
+// weight is the same midpoint rule on 128 double-width cells. SH_SAMPLE_WEIGHT
+// carries the reciprocal of the retained fraction.
+#define SH_ROW_SAMPLE_STRIDE 2
+#define SH_SAMPLE_SCALE SH_ROW_SAMPLE_STRIDE
+#define SH_SAMPLE_WEIGHT (SH_SOLID_ANGLE * SH_SAMPLE_SCALE)
+
+layout(local_size_x = SKY_RADIANCE_LUT_SIZE, local_size_y = SH_ROW_STRIPES) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
 
 layout(rgba16f) uniform readonly image2D uimg_sky_radiance;
 
-shared float row_sin[256];
-shared float row_cos[256];
-shared vec4 reduce_01[256];
-shared vec4 reduce_2[256];
-shared float reduce_24[256];
+shared float row_sin[SKY_RADIANCE_LUT_SIZE];
+shared float row_cos[SKY_RADIANCE_LUT_SIZE];
+shared vec4 reduce_01[SH_WORKGROUP_THREADS];
+shared vec4 reduce_2[SH_WORKGROUP_THREADS];
+shared float reduce_24[SH_WORKGROUP_THREADS];
 
 // Equal-area texture: d(phi) * d(sin(theta)) = (2pi/N) * (2/N) = 4pi/N^2
 // for every texel, so the SH integral is a plain sum with one constant
@@ -24,13 +43,17 @@ const float SH_SOLID_ANGLE = 4.0 * PI / (float(SKY_RADIANCE_LUT_SIZE) * float(SK
 
 void main() {
     uint tid = gl_LocalInvocationIndex;
-    // Rows are shared because every lane visits all 256 rows. The column
-    // basis is lane-local because the workgroup has one lane per column.
-    row_sin[tid] = 2.0 * (float(tid) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
-    row_cos[tid] = sqrt(max(1.0 - row_sin[tid] * row_sin[tid], 0.0));
-    float col_angle = (float(tid) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
-    float col_cos_tid = cos(col_angle);
-    float col_sin_tid = sin(col_angle);
+    uint col = uint(gl_LocalInvocationID.x);
+    uint stripe = uint(gl_LocalInvocationID.y);
+    // Rows are shared because every lane visits its own stripe's rows. The
+    // column basis is lane-local because lane x is column x.
+    if (tid < uint(SKY_RADIANCE_LUT_SIZE)) {
+        row_sin[tid] = 2.0 * (float(tid) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
+        row_cos[tid] = sqrt(max(1.0 - row_sin[tid] * row_sin[tid], 0.0));
+    }
+    float col_angle = (float(col) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
+    float col_cos = cos(col_angle);
+    float col_sin = sin(col_angle);
     barrier();
 
     vec4 sh_r01 = vec4(0.0);
@@ -43,13 +66,15 @@ void main() {
     vec4 sh_b2 = vec4(0.0);
     float sh_b24 = 0.0;
 
-    for (uint y = 0u; y < uint(SKY_RADIANCE_LUT_SIZE); ++y) {
-        vec3 color = imageLoad(uimg_sky_radiance, ivec2(tid, y)).rgb;
+    uint row_begin = stripe * uint(SH_ROWS_PER_STRIPE);
+    uint row_end = row_begin + uint(SH_ROWS_PER_STRIPE);
+    for (uint y = row_begin; y < row_end; y += uint(SH_ROW_SAMPLE_STRIDE)) {
+        vec3 color = imageLoad(uimg_sky_radiance, ivec2(int(col), int(y))).rgb;
 
         float sy = row_sin[y];
         float cy = row_cos[y];
-        float dx = cy * col_cos_tid;
-        float dz = cy * col_sin_tid;
+        float dx = cy * col_cos;
+        float dz = cy * col_sin;
 
         // World-space orthonormal SH basis, L = 0..2, 9 terms.
         float basis_y0 = SH_Y0;
@@ -76,15 +101,18 @@ void main() {
         sh_b24 += color.b * y2x2z2;
     }
 
-    // Reduce one color channel at a time. This preserves the original
-    // pairwise order, cuts synchronization by two thirds, and keeps the
-    // shared footprint bounded while processing colors independently.
+    // Reduce one color channel at a time. gl_LocalInvocationIndex is
+    // col + LUT_SIZE * stripe, so the first tree step pairs the two stripes of
+    // the same column and the remaining steps are the column tree. The pairing
+    // order differs from the pre-stripe version (which summed all 256 rows
+    // before combining columns); the value is the same sum reassociated, so the
+    // result moves only by float rounding.
     #define REDUCE_COLOR(field01, field2, field24, out0, out1, out24) \
         reduce_01[tid] = field01; \
         reduce_2[tid] = field2; \
         reduce_24[tid] = field24; \
         barrier(); \
-        for (uint s = 128u; s > 0u; s >>= 1u) { \
+        for (uint s = SH_REDUCE_START; s > 0u; s >>= 1u) { \
             if (tid < s) { \
                 reduce_01[tid] += reduce_01[tid + s]; \
                 reduce_2[tid] += reduce_2[tid + s]; \
@@ -93,9 +121,9 @@ void main() {
             barrier(); \
         } \
         if (tid == 0u) { \
-            out0 = reduce_01[0] * SH_SOLID_ANGLE; \
-            out1 = reduce_2[0] * SH_SOLID_ANGLE; \
-            out24 = reduce_24[0] * SH_SOLID_ANGLE; \
+            out0 = reduce_01[0] * SH_SAMPLE_WEIGHT; \
+            out1 = reduce_2[0] * SH_SAMPLE_WEIGHT; \
+            out24 = reduce_24[0] * SH_SAMPLE_WEIGHT; \
         }
 
     REDUCE_COLOR(sh_r01, sh_r2, sh_r24, sky_sh_r0, sky_sh_r1, sky_sh_r2.x)

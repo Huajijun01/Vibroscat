@@ -104,7 +104,14 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
             u = -log(max(t_sample, 1e-6)) / tau;
             u = clamp(u, 0.0, 1.0);
             // Jacobian of the inverse CDF: du/dp = (1-t_end)/(tau*t_sample),
-            // so the Riemann cell width in t is S*du.
+            // so the Riemann cell width in t is S*du. Measured against an exact
+            // reference this leaves a smooth ~2-3% deficit in the channel that
+            // decays faster than the shared CDF channel (red at 24 steps; 0 in
+            // the CDF channel) and is nearly independent of the shadow layout.
+            // Taking the width from the jittered cell edges instead, or moving
+            // the CDF onto the mean or the fastest channel, measured worse: it
+            // adds a layout-dependent +1..6% bias on shadowed columns, which is
+            // the contrast this term exists to draw.
             du = (1.0 - t_end) / (tau * max(t_sample, 1e-6)) * inv_steps;
         }
         float shadow = EpipolarShadowVisibility(s, e, u);

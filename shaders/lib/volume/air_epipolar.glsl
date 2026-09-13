@@ -45,15 +45,18 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
             u = p;
             weight = vec3(exp(-extinction * (u * segment_length)));
         } else {
+            // t_sample decays arithmetically in p, so u = -log(t_sample)/tau is
+            // the inverse CDF of the view-path transmittance: every step
+            // already carries an equal share of the transmittance mass and its
+            // estimator weight is 1. Weighting it by t_sample as well squares
+            // the sampling density, which biases the ratio toward the far end
+            // of the column (int(T^2*V)/int(T^2) instead of int(T*V)/int(T))
+            // and does not vanish with more steps. The identity degrades
+            // gracefully once t_end saturates at 1e-6 (~11.5 km of continuous
+            // sea-level air, unreachable inside the fog slab).
             float t_sample = 1.0 + p * (t_end - 1.0);
             u = clamp(-log(max(t_sample, 1e-6)) / tau, 0.0, 1.0);
-            // tau == extinction * segment_length (seg_optical aliases
-            // segment_length), so this step's path transmittance is exactly
-            // exp(-tau * u) == t_sample in real math; the extra exp only
-            // re-derives what t_sample already encodes. The identity
-            // degrades gracefully once t_end saturates at 1e-6 (~11.5 km
-            // of continuous sea-level air, unreachable inside the fog slab).
-            weight = vec3(t_sample);
+            weight = vec3(1.0);
         }
         float shadow = EpipolarShadowVisibility(s, e, u);
         numerator += weight * shadow;

@@ -35,11 +35,11 @@ const float CIRRUS_SCATTERING = 3.0;
 const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // This layer's multiple-scattering reference length, in km: the length over
 // which one scattering order spreads inside this deck, and the scale the
-// series' knee is measured against. At 3 km^-1 a full-density sample reaches
-// one optical depth over 0.33 km, so a reference just above that puts the knee
-// across the middle of the density range: at a density whose vertical optical
-// depth is about 1.5 the added orders return roughly what single scattering
-// does, and a thin edge returns almost nothing.
+// series' knee is measured against. At 3 km^-1 the knee sits at a density of
+// 1 / (3 * 1.2) = 0.28, near the lower end of the density range: a thin edge
+// still returns little (about 0.18x single scattering at a density of 0.05)
+// while the body of the deck runs past single scattering, about 3.3x at a
+// density whose vertical optical depth is near 1.5.
 // It is this layer's own constant, not the volumetric layer's. A length
 // calibrated for 100 km^-1 would leave this shell permanently below its knee
 // and the series would contribute a tenth of a percent rather than a

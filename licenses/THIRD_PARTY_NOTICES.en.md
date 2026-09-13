@@ -234,20 +234,15 @@ This pack's in-cloud multiple-scattering approximation comes from
 
 <https://zhuanlan.zhihu.com/p/457997155>
 
-that is, the saturation factor `fms = omega * (1 - exp2(-300 * sigma_t))`, the
-isotropic geometric series `fms / (1 - fms)` for every order past the first, and
-a sky term that estimates the transmittance to the zenith from the light path's
-optical depth.
+that is, the saturation factor `fms = omega * (1 - exp2(-300 * sigma_t))` and
+the isotropic geometric series `fms / (1 - fms)` for every order past the
+first.
 
 `shaders/lib/cloud/multiple_scattering.glsl` is the single owner of those
-primitives and both cloud layers include it:
-
-- The volumetric layer additionally folds the sun and moon into one traced
-  direction.
-- The cirrus layer instead evaluates the sky term on its own vertical optical
-  depth, which it measures directly, rather than recovering that depth from the
-  sun path and the sine of the elevation as the source does, and it does not
-  fold the two lights.
+primitives and both cloud layers include it. Both layers add the series to the
+sun and moon direct terms; the ambient path does not go through it. The
+volumetric layer additionally folds the sun and moon into one traced direction,
+and the cirrus layer does not fold them.
 
 The file header and the constant comments record the values and the
 implementation choices this pack makes around them. The three-octave directional

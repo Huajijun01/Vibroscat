@@ -214,9 +214,7 @@ option.CLOUD_MS_ISOTROPIC.comment = 填满厚云内部的各向同性多重散�
 option.CLOUD_SKY_LIGHT_STRENGTH = 天光强度
 option.CLOUD_SKY_LIGHT_STRENGTH.comment = 云接收的天空环境光强度：越高云的背光面和底面越亮，云看起来更柔、更白。
 option.CIRRUS_MS_ISOTROPIC = 卷云内散射强度
-option.CIRRUS_MS_ISOTROPIC.comment = 卷云在自身内部往复散射的光量。它随该处云层的浓密程度缩放，所以薄边依旧薄：越高云体越饱满明亮，整片云的明暗反差越小。
-option.CIRRUS_SKY_LIGHT_STRENGTH = 卷云天光强度
-option.CIRRUS_SKY_LIGHT_STRENGTH.comment = 卷云在自身厚度削光之前接收到的天空环境光：越高云的底面越亮，整片云更柔、更白。
+option.CIRRUS_MS_ISOTROPIC.comment = 卷云在自身内部往复散射、加到日月直射光上的光量。它随该处云层的浓密程度缩放，所以薄边依旧薄：越高云体越饱满明亮，整片云的明暗反差越小。
 option.CLOUD_HISTORY_GUIDED_END_SCALE = 历史引导系数
 option.CLOUD_HISTORY_GUIDED_END_SCALE.comment = 一项实验性加速的安全余量——利用上一帧的数据提前停止云采样；仅在该功能启用时生效。越高越晚停止（画面更保险，加速越少）。
 

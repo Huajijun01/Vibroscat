@@ -53,14 +53,4 @@ float CloudIsotropicOrders(float sigma_t_per_m, float strength) {
     return strength * PHASE_ISOTROPIC * CloudMultipleScatteringOrders(sigma_t_per_m);
 }
 
-// Fraction of the sky dome a deck of this vertical optical depth passes.
-// Physically the sky term is the medium's response to an isotropic ambient:
-// with a normalized phase and a conservative medium that is one unit at zero
-// depth, falling off with the deck's own opacity. The published form recovers
-// the vertical depth from the sun path and sin(elevation) because it has no
-// direct measure of it; both layers here do, so they pass it in.
-float CloudSkyOrders(float vertical_optical_depth) {
-    return 1.0 / (1.0 + max(vertical_optical_depth, 0.0));
-}
-
 #endif // LIB_CLOUD_MULTIPLE_SCATTERING_GLSL

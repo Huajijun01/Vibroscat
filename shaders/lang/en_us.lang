@@ -214,9 +214,7 @@ option.CLOUD_MS_ISOTROPIC.comment = Strength of the isotropic multiple scatterin
 option.CLOUD_SKY_LIGHT_STRENGTH = Sky Light Strength
 option.CLOUD_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the clouds receive: higher = brighter shadowed sides and undersides, so clouds look softer and whiter.
 option.CIRRUS_MS_ISOTROPIC = Cirrus Interior Scatter
-option.CIRRUS_MS_ISOTROPIC.comment = Strength of the light the cirrus bounces around inside itself. It scales with how dense that part of the sheet is, so thin edges stay thin: higher = fuller, brighter cirrus bodies and less contrast in the sheet.
-option.CIRRUS_SKY_LIGHT_STRENGTH = Cirrus Sky Light
-option.CIRRUS_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the cirrus receives before its own thickness dims it: higher = brighter undersides and a softer, whiter sheet.
+option.CIRRUS_MS_ISOTROPIC.comment = Strength of the light the cirrus bounces around inside itself, added to the sun and moon. It scales with how dense that part of the sheet is, so thin edges stay thin: higher = fuller, brighter cirrus bodies and less contrast in the sheet.
 option.CLOUD_HISTORY_GUIDED_END_SCALE = History Guided Scale
 option.CLOUD_HISTORY_GUIDED_END_SCALE.comment = Safety margin for an experimental speed-up that stops scanning clouds early using the previous frame's data; only used when that feature is active. Higher = stops later (safer image, smaller saving).
 

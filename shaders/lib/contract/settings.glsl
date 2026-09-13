@@ -146,8 +146,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_ALBEDO 0.9 // [0.90 0.95 0.97 0.98 0.99 0.995 0.999 1.00] Single-scattering albedo of the cloud medium; scales the scattered radiance linearly.
 #define CLOUD_MS_ISOTROPIC 0.3 // [0.0 0.1 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
-#define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength; higher = brighter, more filled cirrus bodies.
-#define CIRRUS_SKY_LIGHT_STRENGTH 3.0 // [0.0 0.5 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus sky ambient scale; the opacity curve then darkens it with the deck's own depth.
+#define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.

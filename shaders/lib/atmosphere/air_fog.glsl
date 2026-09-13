@@ -2,6 +2,7 @@
 #define LIB_ATMOSPHERE_AIR_FOG_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/core.glsl"

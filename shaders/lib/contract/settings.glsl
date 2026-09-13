@@ -376,6 +376,14 @@ const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after th
 #define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
 const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
+// Sky ambient (SH) strength: scales the SH sky irradiance that
+// lib/lighting/ambient_light.glsl feeds into every surface's ambient term, so
+// the no-GI ambient of the deferred shading pass and the SH fallback both GI
+// sources leave in their uncovered directions share one control. Direct
+// sunlight, the AMBIENT_BASE floor below and the SH environment reflection are
+// outside this scale.
+#define SKY_AMBIENT_STRENGTH 0.9 // [0.0 0.25 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.25 1.5 2.0] sky SH ambient light intensity multiplier
+
 // Minimum ambient light floor added to every surface's sky ambient, so caves
 // and deep shadows never render fully black (see AmbientLight in
 // lib/lighting/ambient_light.glsl).

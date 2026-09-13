@@ -466,6 +466,8 @@ value.RSM_DEBUG.3 = 滤波辐照度
 value.RSM_DEBUG.4 = 历史帧龄
 option.AMBIENT_BASE = 最低环境光
 option.AMBIENT_BASE.comment = 加到所有表面上的保底光照，让没有光源的洞穴和最深的阴影保留一丝可见度，而不是纯黑。0 = 完全真实的黑暗。
+option.SKY_AMBIENT_STRENGTH = 天空环境光强度
+option.SKY_AMBIENT_STRENGTH.comment = 所有表面接收的天空环境光（SH 辐照度）亮度。调低只压低背光面的天光填充，直射阳光不变；GI 在屏幕追踪覆盖不到的方向回退的 SH 也按同一系数缩放。1.0 = 原始天空 SH 辐照度。
 option.TORCH_BRIGHTNESS = 火把亮度
 option.TORCH_BRIGHTNESS.comment = 火把、灯笼等暖色人工光源的亮度，暖色调保持不变。
 option.STAR_MAP_INTENSITY = 星空亮度

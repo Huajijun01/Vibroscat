@@ -44,6 +44,7 @@
 - **宏名重命名**（跨文件同步设置契约、properties、两份语言文件与测试）：`SHADOW_SUN_HEIGHT_BOOST` → `SHADOW_PENUMBRA_CAP_BOOST`、`AO_DARKEN_SLOWDOWN` → `AO_DARKEN_FADE_SCALE`、`EPIPOLAR_EDGE_SHARPEN` → `EPIPOLAR_SHARPEN_THRESHOLD`、`AMBIENT_BASE` → `AMBIENT_FLOOR`、`STARMAP` → `STAR_MAP`、`AO_HISTORY_NORMAL_DOT_MIN` → `AO_HISTORY_NORMAL_DOT_FLOOR`。
 - **取值组合守卫**：云步数最小/最大、PCF 采样最小/最大、GT7 色度渐隐起止三组滑条都能被配成反序，而 GLSL 的 `clamp`（minVal > maxVal）与 `smoothstep`（edge0 >= edge1）在反序时结果未定义。三处改为先取 `min`/`max` 再传入。
 - **GI 调试视图修复**：`RSM_DEBUG` 的"滤波辐照度"一档此前与"时域辐照度"输出同一张图（邻域修复排在调试提前返回之后）。现在邻域修复排在调试分支之前，"滤波"一档输出的是光照路径真正使用的修复值。
+- **删掉水雾焦散调制**：`WATER_FOG_CAUSTICS` 与 `WATER_FOG_CAUSTIC_STRENGTH` 只用波浪法线的面积代理去削弱水雾里的阳光散射项（系数恒在 0 与 1 之间，只会变暗不会变亮），且只在"从空中看向水面"这一条分支生效，画面上几乎看不出来。真正的焦散光斑来自 `program/translucent/blend.fragment` 里 256×256×64 的烘焙体积（`utex_caustics`，按折射光路在 1/4/9/16 米四个深度层之间混合），一直不受这两项控制。两项设置、`WaterFogRender` 的 `caustic_factor` 参数与那一段调制代码一并删除，体积焦散保持不变。
 
 ### 已知情况
 

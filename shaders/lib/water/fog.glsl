@@ -91,12 +91,12 @@ vec3 WaterMultipleScattering(vec3 sca, vec3 epipolar_light) {
 // light and the ambient sky lobe. fogMultiScatter: the SH sky-light
 // evaluation (EvalSkyLight) standing in for the multi-scatter/ambient lobe.
 void WaterFogRender(inout vec3 col, float raylen, float light_path1, float light_path2, float phase_sun, float phase_sky,
-                    vec3 fog_multi_scatter, vec3 epipolar_light, float caustic_factor) {
+                    vec3 fog_multi_scatter, vec3 epipolar_light) {
     vec3 t = WaterExtinctionTransmittance(raylen);
     t = mix(t, vec3(Luminance(t)), wetness * 0.8);
     col *= t;
     vec3 sca = WaterScatteringIntegral(raylen, light_path1, light_path2);
-    col += sca * (caustic_factor * ground_light.rgb * phase_sun * eyeBrightnessSmooth.y
+    col += sca * (ground_light.rgb * phase_sun * eyeBrightnessSmooth.y
             * (1.0 / EYE_BRIGHTNESS_SCALE) * epipolar_light
         + fog_multi_scatter * phase_sky * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE) : 1.0));
     col += WaterMultipleScattering(sca, epipolar_light) * ground_light.rgb * eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE);

@@ -254,11 +254,6 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // path (McGuire & Mara 2014). Quality/perf knob for the water forward pass.
 #define WATER_SSR_STEPS 16 // [8 10 12 16 20 24 32] water SSR march samples
 
-// Water fog caustic modulation: the screen-space Jacobian of the water
-// surface normal approximates sunlight focusing/defocusing by the waves.
-#define WATER_FOG_CAUSTICS
-#define WATER_FOG_CAUSTIC_STRENGTH 2.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 8.0 15.0 30.0]
-
 // Water parallax occlusion mapping (ocean.glsl): normal evaluated at the
 // parallax-corrected position. LOW profile disables it (normal at the plane
 // position) to save cost.

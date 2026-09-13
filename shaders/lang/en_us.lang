@@ -378,10 +378,6 @@ option.WATER_POM_COARSE_STEPS = POM Coarse Steps
 option.WATER_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate wave relief, slower.
 option.WATER_POM_BISECT_STEPS = POM Bisection Steps
 option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
-option.WATER_FOG_CAUSTICS = Water Caustics
-option.WATER_FOG_CAUSTICS.comment = Underwater, waves focus and scatter sunlight, producing moving bright patterns in the water haze - like real caustic light patterns on a pool floor.
-option.WATER_FOG_CAUSTIC_STRENGTH = Caustic Strength
-option.WATER_FOG_CAUSTIC_STRENGTH.comment = Intensity of those underwater light patterns.
 option.EPIPOLAR_VOLUMETRICS = Epipolar Light (Water and Air)
 option.EPIPOLAR_VOLUMETRICS.comment = Draws epipolar sunlight shafts through participating media (underwater god rays and air light shafts), correctly shadowed by terrain.
 option.EPIPOLAR_SLICES = Epipolar Slices

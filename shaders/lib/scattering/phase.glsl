@@ -29,10 +29,10 @@ float PhaseHenyeyGreenstein(float cos_theta, float eccentricity) {
     return PHASE_ISOTROPIC * (1.0 - eccentricity2) / (denominator * sqrt(denominator));
 }
 
-// Dual-lobe HG: an unweighted forward lobe plus a mirrored backward lobe
-// (the volumetric-cloud directional phase, HanPi port). The sum of two
-// normalized phases is intentionally not renormalized; callers treat the
-// result as a directional weight, matching the upstream formulation.
+// Dual-lobe HG: an unweighted forward lobe plus a mirrored backward lobe, the
+// volumetric-cloud directional phase. The sum of two normalized phases is
+// intentionally not renormalized; callers treat the result as a directional
+// weight.
 float PhaseHenyeyGreensteinDualLobe(float cos_theta, float forward_g, float backward_g) {
     return PhaseHenyeyGreenstein(cos_theta, forward_g) + PhaseHenyeyGreenstein(cos_theta, -backward_g);
 }

@@ -13,43 +13,9 @@ Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义�
 
 Photon 自定义许可协议中的再分发限制不适用于本包当前代码。历史移植与清理记录保留在 Git 历史中。
 
-## 2. HanPi Volume Cloud（派生代码，MIT + 附加署名）
+## 2. 体积云多重散射的早期参考（历史；当前代码不含派生代码）
 
-`shaders/lib/scattering/phase.glsl` 的体积云 dual-lobe HG 相位函数，以及 `shaders/lib/cloud/volumetric.glsl` 的三 octave 方向光多重散射求和（`Σ c_k·P_k/(1 + a_k·τ)`，由 `CLOUD_MS_ATTENUATION`、`CLOUD_MS_CONTRIBUTION`、`CLOUD_MS_ECCENTRICITY` 驱动），派生自 HanPi Volume Cloud（AshenOneArt），MIT 许可并附额外署名要求。同一来源的 phi_fwd 各向同性多重散射场曾位于同一文件，已于 2026-09 替换为 Revelation 的 HaringPro 模型（见第 19 节），phi_fwd 的代码表达不再残留：
-
-> MIT License
->
-> Copyright (c) 2026 AshenOneArt
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
->
-> Additional Attribution Requirement
->
-> Any use, modification, or redistribution of this Software (in source or
-> binary form), including incorporation into other projects, must include
-> visible attribution to "HanPi Volume Cloud" / AshenOneArt and a link to:
-> https://github.com/AshenOneArt/HPVolumeCloud
->
-> Acceptable locations include: project README, documentation, credits screen,
-> or third-party notices file shipped with the product.
-
-来源：https://github.com/AshenOneArt/HPVolumeCloud （其中的 Docs/PhiFwd_FromRTE.md 为本地参考，不随发布物分发）。
+本包体积云散射的早期实现曾参考 HanPi Volume Cloud（AshenOneArt，MIT 许可并附额外署名要求），其中的 phi_fwd 各向同性多重散射场位于 `shaders/lib/cloud/volumetric.glsl`。该场及其许可声明已于 2026-09 整体移除，当前体积云改用第 19 节记录的近似；本节不再附带该项目的许可条款，历史移植与清理记录保留在 Git 历史中。
 
 ## 3. AgX（概念 + MIT 实现）
 
@@ -251,36 +217,15 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 - 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、
   `TONEMAP_GT7_CHROMA_FADE_END`（默认值均为官方样例值）。
 
-## 19. Revelation（Apache-2.0，体积云散射移植）
+## 19. 体积云多重散射近似（算法出处）
 
-`shaders/lib/cloud/volumetric.glsl` 的体积云散射模型移植自 Revelation（Apache-2.0）的
-`shaders/lib/atmosphere/clouds/Render.glsl`，具体为 `CloudMultiScatteringApproxHaringPro`
-的方向光分量（本包的太阳与月球两个通道各算一次）：`1/4π · fms/(1-fms)` 的各向同性几何级数多重散射项，
-上游同函数里的 `msVolume / (1 + 0.5τ)` 体积项、地面反弹项与天光分量均未移植。方向光的相位 octave 求和来自本包原有实现，见第 2 节。多重散射近似本身出自
-<https://zhuanlan.zhihu.com/p/457997155>。
+`shaders/lib/cloud/volumetric.glsl` 采用的云内多重散射近似出自
 
-移植适配说明（本包相对上游的改动）：
+<https://zhuanlan.zhihu.com/p/457997155>
 
-- 相位输入保留本包的 dual-lobe HG（见第 2 节），未导入 Revelation 的 `CloudPhaseLut.bin`
-  烘焙 Mie 相位表，因此没有引入第三方贴图。
-- 上游把日月折成单一光方向，并把 `CloudMultiScatteringApproxHaringPro` 的第二个分量
-  （天光项）交给天空辐照度。本包用 `CLOUD_SINGLE_LIGHT`（默认开启）复刻该折叠，关闭时
-  回到太阳与月球各自独立追踪；环境光路径保持本包原有实现，因此只移植了该函数的方向光
-  分量，天光分量未移植。
-- 光色方面上游把日月辐照度直接相加，并靠其大气透射率 LUT 里的 earth-shadow 项削掉地平线
-  以下的太阳。本包没有这一项，改为用 `CloudTwilightWeight` 在地平线以下的火烧云带里保留
-  太阳颜色，等反日点一侧完全接管后再释放。
-- 两边亮度单位不同：`CLOUD_MS_ALBEDO` 与 `CLOUD_MS_ISOTROPIC` 是本包的标定参数，对应上游
-  写死的量。上游用同一个层反照率既驱动几何级数的饱和值又做最终缩放，本包把饱和值固定在
-  `CLOUD_MS_FMS_ALBEDO` 常量上，只让 `CLOUD_MS_ALBEDO` 线性缩放辐射，因为 `ω0/(1-ω0)`
-  的映射会让滑条动一格就换来两个数量级的跳变。
-- 上游光照光学深度按 `density * (i + 0.5)` 加权再整体缩放；本包保留同样的二次分层，改用
-  精确的区间权重。
-- 上游方向光用 Beer 透射 `exp(-τ)`；本包沿用自身的 `1 / (1 + τ)` 透射。
-- 上游方向光只有一个相位项；本包保留自身的三 octave HanPi 求和，HaringPro 的各向同性级数作为
-  独立的一项叠加其上，不上替换它。
-
-Apache-2.0 全文见附录 A。
+即饱和因子 `fms = ω0 · (1 - exp2(-300 · σ_t))`、代表首次以后各阶散射的各向同性几何级数
+`fms / (1 - fms)`，以及把日月折叠成单一方向的光照追踪。文件头与常量注释记录了本包在这些
+环节上的取值与实现方式。
 
 ## 附录 A：Apache License 2.0 全文
 

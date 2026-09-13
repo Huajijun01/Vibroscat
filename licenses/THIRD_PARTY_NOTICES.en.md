@@ -13,43 +13,9 @@ Photon Shaders (Copyright © 2021-2025 Benjamin Stott "SixthSurge", custom licen
 
 The redistribution restrictions of Photon's custom license do not apply to the pack's current code. The historical port and cleanup records remain in the Git history.
 
-## 2. HanPi Volume Cloud (derived code, MIT + additional attribution)
+## 2. Early reference for cloud multiple scattering (historical; no derived code remains)
 
-The volumetric-cloud dual-lobe HG phase function in `shaders/lib/scattering/phase.glsl`, and the three-octave directional multiple-scattering sum in `shaders/lib/cloud/volumetric.glsl` (`sum c_k*P_k/(1 + a_k*tau)`, driven by `CLOUD_MS_ATTENUATION`, `CLOUD_MS_CONTRIBUTION` and `CLOUD_MS_ECCENTRICITY`), are derived from HanPi Volume Cloud (AshenOneArt), MIT licensed with an additional attribution requirement. The isotropic multiple-scattering field (phi_fwd) from the same source lived in the same file until 2026-09, when it was replaced by Revelation's HaringPro model (see section 19); no phi_fwd code expression remains:
-
-> MIT License
->
-> Copyright (c) 2026 AshenOneArt
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
->
-> Additional Attribution Requirement
->
-> Any use, modification, or redistribution of this Software (in source or
-> binary form), including incorporation into other projects, must include
-> visible attribution to "HanPi Volume Cloud" / AshenOneArt and a link to:
-> https://github.com/AshenOneArt/HPVolumeCloud
->
-> Acceptable locations include: project README, documentation, credits screen,
-> or third-party notices file shipped with the product.
-
-Source: https://github.com/AshenOneArt/HPVolumeCloud (its Docs/PhiFwd_FromRTE.md is kept as a local reference and is not distributed with the pack).
+The pack's early cloud scattering work referenced HanPi Volume Cloud (AshenOneArt, MIT licensed with an additional attribution requirement); its isotropic multiple-scattering field (phi_fwd) lived in `shaders/lib/cloud/volumetric.glsl`. That field and its license declaration were removed in 2026-09 and the cloud now uses the approximation recorded in section 19; this section no longer carries that project's license terms. The historical port and cleanup records remain in the Git history.
 
 ## 3. AgX (concept + MIT implementation)
 
@@ -262,52 +228,18 @@ Porting adaptations:
 - Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,
   `TONEMAP_GT7_CHROMA_FADE_END` (defaults are the official sample values).
 
-## 19. Revelation (Apache-2.0, volumetric-cloud scattering port)
+## 19. Cloud multiple-scattering approximation (algorithm source)
 
-The volumetric-cloud scattering model in `shaders/lib/cloud/volumetric.glsl` is
-ported from Revelation (Apache-2.0), `shaders/lib/atmosphere/clouds/Render.glsl`,
-specifically the directional component of `CloudMultiScatteringApproxHaringPro`,
-evaluated once per light channel for both this pack's sun and its moon: the
-the `1/4pi * fms/(1-fms)` isotropic geometric-series multiple-scattering
-term. Upstream's `msVolume / (1 + 0.5*tau)` volume term, its ground bounce and its
-skylight component are all unported. The directional phase octave
-sum comes from this pack's own implementation, see section 2. The
-multiple-scattering approximation itself comes from <https://zhuanlan.zhihu.com/p/457997155>.
+The in-cloud multiple-scattering approximation used by
+`shaders/lib/cloud/volumetric.glsl` comes from
 
-Porting adaptations (this pack's changes relative to upstream):
+<https://zhuanlan.zhihu.com/p/457997155>
 
-- The phase input stays this pack's dual-lobe HG (section 2); Revelation's baked
-  `CloudPhaseLut.bin` Mie phase table is not imported, so no third-party
-  texture enters the pack.
-- Upstream folds the sun and the moon into a single light direction and routes
-  the second component of `CloudMultiScatteringApproxHaringPro` (its skylight
-  term) through the sky irradiance. This pack reproduces the fold behind the
-  `CLOUD_SINGLE_LIGHT` switch (on by default) and falls back to independent sun
-  and moon traces when it is off; the ambient path is this pack's own, so only
-  the function's directional component is ported and the skylight component is
-  not.
-- For the light colour, upstream sums both illuminances and relies on the
-  earth-shadow term in its transmittance LUT to cut the sun off below the
-  horizon. This pack has no such term, so `CloudTwilightWeight` holds the sun's
-  colour through the fire-cloud band below the horizon and releases it once the
-  antisolar side has fully taken over.
-- The two packs use different radiance units: `CLOUD_MS_ALBEDO` and
-  `CLOUD_MS_ISOTROPIC` are this pack's calibration parameters for quantities
-  upstream hardcodes. Upstream drives both the geometric series' saturation and
-  the final radiance scale from one layer albedo; this pack pins the saturation
-  to the `CLOUD_MS_FMS_ALBEDO` constant and lets `CLOUD_MS_ALBEDO` scale the
-  radiance linearly, because the `omega / (1 - omega)` mapping turns one slider
-  step into a two-order-of-magnitude swing.
-- Upstream weights its light optical-depth samples by `density * (i + 0.5)` and
-  rescales globally; this pack keeps the same quadratic stratification with
-  exact interval weights.
-- Upstream transmits the direct term with Beer `exp(-tau)`; this pack keeps its
-  own `1 / (1 + tau)` transmittance.
-- Upstream has a single phase term; this pack keeps its three-octave HanPi sum
-  and carries the HaringPro isotropic series as a separate added term rather
-  than a replacement.
-
-The full Apache-2.0 text is in Appendix A.
+that is, the saturation factor `fms = omega * (1 - exp2(-300 * sigma_t))`, the
+isotropic geometric series `fms / (1 - fms)` for every order past the first, and
+folding the sun and moon into a single traced direction. The file header and the
+constant comments record the values and the implementation choices this pack
+makes around them.
 
 ## Appendix A: Apache License 2.0 (full text)
 

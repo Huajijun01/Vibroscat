@@ -9,33 +9,19 @@
 
 // Vibroscat volumetric clouds.
 //
-// The scattering model is the HaringPro multiple-scattering approximation used
-// by Revelation (Apache-2.0), transcribed from
-//   shaders/lib/atmosphere/clouds/Render.glsl
-//     CloudMultiScatteringApproxHaringPro + RenderClouds
-// The multiple-scattering term itself follows
+// In-cloud multiple scattering follows the approximation published at
 //   https://zhuanlan.zhihu.com/p/457997155
-// See licenses/THIRD_PARTY_NOTICES.md section 19.
+// that is, a saturation factor fms = omega * (1 - exp2(-300 * sigma_t)), an
+// isotropic geometric series fms / (1 - fms) for every order past the first,
+// and one folded sun/moon direction per light trace. See
+// licenses/THIRD_PARTY_NOTICES.md section 19.
 //
-// Deviations from upstream:
-//   - the directional term keeps this pack's three-octave HanPi sum, carried
-//     alongside the HaringPro isotropic series rather than upstream's single
-//     phase term;
-//   - the light-path transmittance uses this pack's historical 1 / (1 + tau)
-//     instead of upstream's Beer exp(-tau);
-//   - the geometric series keeps a fixed saturation albedo instead of being
-//     driven by the albedo slider, whose omega / (1 - omega) mapping turned one
-//     step of that slider into a hundredfold swing in the isotropic term;
-//   - with CLOUD_SINGLE_LIGHT the sun and moon fold into one traced direction
-//     like upstream's, but the light colour keeps the sun through the band just
-//     below the horizon instead of summing both illuminants outright.
-//
-// Shared with upstream:
-//   - the phase input stays this pack's dual-lobe HG (lib/scattering/phase.glsl)
-//     instead of Revelation's baked Mie phase LUT, so no third-party texture or
-//     custom image enters the pack.
+// The direct term keeps this pack's three-octave directional sum on a
+// 1 / (1 + tau) transmittance, and the light colour holds the sun through the
+// band just below the horizon where the cloud layer still catches it. Those are
+// this pack's own choices; they are described where they are implemented.
 
-// --- HaringPro constants -----------------------------------------------
+// --- Multiple-scattering constants --------------------------------------
 // The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
 // per-meter extinction even though this file marches in kilometers.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
@@ -48,8 +34,8 @@ const float CLOUD_MS_FMS_ALBEDO = 0.99;
 // 1 - fms only needs a guard against an albedo of exactly 1. At the default
 // albedo the ratio peaks at 999 and never reaches this floor.
 const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
-// HanPi directional octaves: each step widens the phase, weakens its
-// contribution and softens the optical-depth falloff of the next order.
+// Directional octaves: each step widens the phase, weakens its contribution
+// and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
 // Sine-of-elevation window across which the traced direction hands over from the
 // sun to the antisolar point. The layer sits 1.4 to 2.7 km up, so its own
@@ -148,17 +134,16 @@ vec2 CloudDistributionUv(vec2 world_km) {
             frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
 }
 
-// 0 while the sun is up, 1 once it is past the fade window. This is the defined
-// form of Revelation's smoothstep(-0.03, -0.05, sun_dir_y), whose edge0 > edge1
-// ordering the GLSL spec leaves undefined.
+// 0 while the sun is up, 1 once it is past the fade window. Written in the
+// argument order smoothstep requires; a reversed pair is undefined by the spec.
 float CloudMoonlightFactor(float sun_dir_y) {
     return 1.0 - smoothstep(CLOUD_MOON_FADE_LOW, CLOUD_MOON_FADE_HIGH, sun_dir_y);
 }
 
-// Revelation folds the moon in by scaling the sun direction with
-// (1 - 2 * moonlightFactor); that normalization passes through a zero vector at
-// the crossover, so this flips the direction at the same midpoint instead. This
-// pack's moon is the exact antipode of the sun, so the flip lands on it.
+// The folded light direction: the sun while it is up, the antisolar point once
+// it has set. Flipping at the midpoint avoids normalizing a vector that reaches
+// zero there. This pack's moon is the exact antipode of the sun, so the flip
+// lands on it.
 vec3 CloudLightDirection(vec3 sun_dir, float moonlight_factor) {
     return moonlight_factor < 0.5 ? sun_dir : -sun_dir;
 }
@@ -169,8 +154,7 @@ float CloudTwilightWeight(float sun_dir_y) {
     return 1.0 - smoothstep(CLOUD_TWILIGHT_FADE_START, CLOUD_TWILIGHT_FADE_END, -sun_dir_y);
 }
 
-// HanPi directional octaves for one light direction, evaluated once per light
-// per ray.
+// Directional octaves for one light direction, evaluated once per light per ray.
 void CloudPhaseOctaves(float cos_theta, out float phase_weight[CLOUD_MS_OCTAVES]) {
     float contribution_factor = 1.0;
     float eccentricity_factor = 1.0;
@@ -255,11 +239,9 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     return RemapCloudErosion(broad_density, fine_threshold);
 }
 
-// Optical depth from the receiver toward the light, over the same quadratic
-// strata Revelation's CloudVolumeOpticalDepth uses: CLOUD_LIGHT_STEPS steps,
-// densest at the receiver, each sampled at a jittered point inside its
-// interval. Revelation weights the samples by (i + 0.5) and rescales by its own
-// step length; this keeps the exact interval weight instead.
+// Optical depth from the receiver toward the light. CLOUD_LIGHT_STEPS quadratic
+// strata, densest at the receiver, each sampled at a jittered point inside its
+// interval and weighted by its exact interval length.
 float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
     float light_distance = min(
         CloudDistanceToShellExit(atmosphere_position, light_dir),
@@ -290,10 +272,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
     vec3 sun_dir = normalize(u_world_sun_dir);
-    // Revelation samples one phase per ray from its Mie LUT; the pack keeps its
-    // dual-lobe HG at the same point in the pipeline, once per octave. The terms
-    // depend only on the fixed cosines and the constant octave factors, so they
-    // are evaluated once per light per ray.
+    // The phase terms depend only on the fixed cosines and the constant octave
+    // factors, so they are evaluated once per light per ray.
 #ifdef CLOUD_SINGLE_LIGHT
     // One traced direction: the antisolar fold. The sun keeps its colour through
     // the handover, see CloudTwilightWeight at the relight.
@@ -414,10 +394,10 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 
     hit = surface_weight > 1.0e-5;
     surface_position = surface_position_accumulator / max(surface_weight, 1.0e-5);
-    // Revelation scales the complete accumulated scattering by the
-    // single-scattering albedo at the end of the march; the fms series carries
-    // its own copy of it. Packed output: x = in-scatter, y = second light
-    // channel, z = remaining view transmittance.
+    // The accumulated scattering is scaled by the single-scattering albedo at
+    // the end of the march; the fms series already carries its own copy of it.
+    // Packed output: x = in-scatter, y = second light channel, z = remaining
+    // view transmittance.
     float albedo = CLOUD_MS_ALBEDO;
 #ifdef CLOUD_SINGLE_LIGHT
     // The folded trace feeds the directional channel; the channel the separate

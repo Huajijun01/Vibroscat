@@ -2,14 +2,13 @@
 #define LIB_CLOUD_TEMPORAL_GLSL
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/core/filters.glsl"
-#include "/lib/core/noise.glsl"
-#include "/lib/cloud/volumetric.glsl"
-
 // Previous-frame camera transforms, shared with TAA and the GTAO temporal
 // accumulation (temporal_ao.glsl); declared in uniforms.glsl so both
 // include cleanly.
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/filters.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/cloud/volumetric.glsl"
 
 struct CloudFrame {
     vec3 radiance;   // x = sun, y = moon, z = transmittance

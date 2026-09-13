@@ -3,7 +3,8 @@
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
+#include "/lib/color/tonemap.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/color/purkinje.glsl"
 

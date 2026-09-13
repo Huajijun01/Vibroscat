@@ -13,7 +13,7 @@
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 
 layout(local_size_x = 512) in;
 const ivec3 workGroups = ivec3(8, 8, 1);

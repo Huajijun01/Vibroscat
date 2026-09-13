@@ -2,7 +2,7 @@
 #define LIB_COLOR_PURKINJE_GLSL
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 
 // ============================================================================
 // Rod-mediated night vision (Purkinje shift).

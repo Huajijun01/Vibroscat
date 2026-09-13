@@ -3,7 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/gi_history.glsl"
 
 // Half-depth quantization and oct5 normals share the existing R32UI history.

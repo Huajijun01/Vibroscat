@@ -7,7 +7,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/rsm_data.glsl"
 
 vec3 RSMOccludedSky(vec3 sky_fallback, float shadow_occlusion) {

@@ -4,7 +4,8 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
+#include "/lib/color/tonemap.glsl"
 #include "/lib/color/dither.glsl"
 
 const float COLOR_JITTER_SEED = 47.0;

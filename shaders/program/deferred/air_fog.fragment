@@ -9,7 +9,7 @@
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 #include "/lib/scattering/phase.glsl"
 #include "/lib/volume/air_epipolar.glsl"

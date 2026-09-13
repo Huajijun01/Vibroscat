@@ -12,7 +12,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/raytrace/ssr.glsl"

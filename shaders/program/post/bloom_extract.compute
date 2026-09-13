@@ -1,4 +1,4 @@
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 #include "/lib/post/bloom.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;

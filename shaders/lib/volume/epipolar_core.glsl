@@ -19,7 +19,7 @@
 // fragment stage right after its own integrate pass.
 
 #include "/lib/core/coordinates.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 
 #ifdef EPIPOLAR_VOLUMETRICS
 

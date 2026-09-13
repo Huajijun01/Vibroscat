@@ -2,7 +2,7 @@
 #define LIB_LIGHTING_RSM_DATA_GLSL
 
 #include "/lib/core/packing.glsl"
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 
 // RGBA8, nearest-only: two RGB565 bytes and two octahedral normal bytes.
 // Companding reflectance preserves dark colors without widening shadowcolor0.

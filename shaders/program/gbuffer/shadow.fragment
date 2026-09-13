@@ -11,7 +11,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #if GI_MODE == 2
-#include "/lib/color/color.glsl"
+#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/rsm_data.glsl"
 #include "/lib/material/model.glsl"

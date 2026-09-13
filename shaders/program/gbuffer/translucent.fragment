@@ -9,7 +9,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
-#include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
@@ -18,6 +17,7 @@
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/scattering/phase.glsl"
+#include "/lib/shadow/filter.glsl"
 #include "/lib/water/fog.glsl"
 #include "/lib/water/ocean.glsl"
 

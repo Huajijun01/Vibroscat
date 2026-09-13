@@ -142,8 +142,10 @@ option.CAS_SHARPNESS = CAS Sharpness
 option.CAS_SHARPNESS.comment = Sharpening strength: 0 = off, higher = crisper (too high shows bright halos around edges).
 
 #Post: color dither
+option.COLOR_DITHER = Color Dither
+option.COLOR_DITHER.comment = Adds a fine grain that hides color banding - the ugly striped rings you can otherwise see in smooth sky, fog and shadow gradients. The grain pattern is fixed to the screen, so it never fades out and reads as a regular crosshatch over sky and clouds. Off by default; turn it on only when banding bothers you more than the grain.
 option.COLOR_DITHER_STRENGTH = Color Dither Strength
-option.COLOR_DITHER_STRENGTH.comment = Adds an almost invisible fine grain that hides color banding - the ugly striped rings you can otherwise see in smooth sky, fog and shadow gradients. The default 1.0 is a good balance; higher = stronger de-banding but slightly more visible grain.
+option.COLOR_DITHER_STRENGTH.comment = Only applies while Color Dither is on. Grain strength: 0.5 = conservative, 1.0 = default, 2.0 = aggressive de-banding but a more visible grain.
 
 #Clouds: temporal upscaling values
 value.CLOUD_TEMPORAL_UPSCALING.1 = 1x (Full)

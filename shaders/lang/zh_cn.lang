@@ -142,8 +142,10 @@ option.CAS_SHARPNESS = CAS 锐化强度
 option.CAS_SHARPNESS.comment = 锐化强度：0 = 关闭，越高越锐利（过高会在物体边缘出现亮边）。
 
 #Post: color dither
+option.COLOR_DITHER = 颜色抖动
+option.COLOR_DITHER.comment = 加入一层细颗粒，用来遮盖色带——平滑的天空、雾和阴影渐变中出现的难看条纹。颗粒图案固定在屏幕上，不会随时间淡出，表现为覆盖天空和云的规则交叉纹。默认关闭；只有在色带比颗粒更碍眼时才开启。
 option.COLOR_DITHER_STRENGTH = 颜色抖动强度
-option.COLOR_DITHER_STRENGTH.comment = 加入一层几乎看不见的细噪点，用来遮盖色带——平滑的天空、雾和阴影渐变中出现的难看条纹。默认 1.0 是良好平衡；越高去色带越强，但噪点略微更明显。
+option.COLOR_DITHER_STRENGTH.comment = 仅在开启颜色抖动时生效。颗粒强度：0.5 = 保守，1.0 = 默认，2.0 = 去色带更强但颗粒更明显。
 
 #Clouds: temporal upscaling values
 value.CLOUD_TEMPORAL_UPSCALING.1 = 1x（全分辨率）

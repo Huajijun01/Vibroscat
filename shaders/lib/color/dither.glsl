@@ -8,6 +8,11 @@
 #define COLOR_DITHER_STRENGTH 1.0
 #endif
 
+// COLOR_DITHER off returns every jitter unchanged: the offset is the only
+// reason these helpers exist, and every caller already passes a non-negative
+// color, so no clamp is owed back.
+#ifdef COLOR_DITHER
+
 float ColorDitherNoise(vec2 pixel, float seed) {
     vec2 seed_offset = vec2(seed * 17.0, seed * 47.0);
     return InterleavedGradientNoise(pixel + seed_offset) - 0.5;
@@ -33,6 +38,20 @@ vec3 JitterRGBA16F(vec3 color, vec2 pixel, float seed
 vec3 JitterSRGB8(vec3 color, vec2 pixel, float seed) {
     float noise = ColorDitherNoise(pixel, seed);
     return clamp(color + noise * (1.0 / 255.0) * COLOR_DITHER_STRENGTH, 0.0, 1.0);
+}
+
+#else
+
+vec3 JitterR11G11B10F(vec3 color, vec2 pixel, float seed) {
+    return color;
+}
+
+vec3 JitterRGBA16F(vec3 color, vec2 pixel, float seed) {
+    return color;
+}
+
+vec3 JitterSRGB8(vec3 color, vec2 pixel, float seed) {
+    return color;
 }
 
 #endif

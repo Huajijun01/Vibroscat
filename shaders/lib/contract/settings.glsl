@@ -36,6 +36,12 @@
 
 #define BLOOM
 #define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
+// Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
+// gradients. Its pattern is a fixed function of the screen position, so a
+// still camera accumulates it instead of averaging it out, and it stays as a
+// regular hatch over sky, clouds and fog. Off by default: enable it only when
+// banding is worse than the grain.
+//#define COLOR_DITHER
 #define COLOR_DITHER_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Color dither strength: 0.5=conservative, 1.0=default, 2.0=aggressive
 
 #define AE

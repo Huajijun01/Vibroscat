@@ -37,8 +37,8 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
     vec3 numerator = vec3(0.0);
     vec3 denominator = vec3(0.0);
-    for (int k = 0; k < EPIPOLAR_SHADOW_STEPS; ++k) {
-        float p = (float(k) + stbn_jitter) / float(EPIPOLAR_SHADOW_STEPS);
+    for (int k = 0; k < AIR_EPIPOLAR_SHADOW_STEPS; ++k) {
+        float p = (float(k) + stbn_jitter) / float(AIR_EPIPOLAR_SHADOW_STEPS);
         float u;
         vec3 weight;
         if (uniform_steps) {

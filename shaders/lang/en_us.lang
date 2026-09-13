@@ -392,11 +392,13 @@ value.EPIPOLAR_SAMPLES.128 = 128
 value.EPIPOLAR_SAMPLES.256 = 256
 value.EPIPOLAR_SAMPLES.512 = 512
 value.EPIPOLAR_SAMPLES.1024 = 1024
-option.EPIPOLAR_SHADOW_STEPS = Epipolar Shadow Steps
-option.EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of a ray checks whether sunlight is blocked: higher = shadow detail inside the water, slower.
+option.WATER_EPIPOLAR_SHADOW_STEPS = Water Shadow Steps
+option.WATER_EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of a water ray checks whether sunlight is blocked: higher = more shadow detail in the underwater rays, slower.
 option.WATER_EPIPOLAR_MAX_DISTANCE = Water Epipolar March Distance
 option.WATER_EPIPOLAR_MAX_DISTANCE.comment = How far underwater the shadow calculation runs precisely; beyond this distance the water is simply treated as sunlit. Lower = less noise, but far water loses shadow detail.
 suffix.WATER_EPIPOLAR_MAX_DISTANCE = m
+option.AIR_EPIPOLAR_SHADOW_STEPS = Air Shadow Steps
+option.AIR_EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of an air light shaft checks whether sunlight is blocked: higher = crisper shadow edges in the shafts, slower.
 option.EPIPOLAR_DEPTH_TOLERANCE = Epipolar Depth Tolerance (%)
 option.EPIPOLAR_DEPTH_TOLERANCE.comment = How leniently neighbouring pixels may share each other's results: higher = fewer artifacts but slightly blurrier rays.
 option.EPIPOLAR_SHARPEN_THRESHOLD = Epipolar Sharpen Threshold

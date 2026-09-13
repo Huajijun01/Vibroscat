@@ -277,7 +277,12 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define EPIPOLAR_VOLUMETRICS
 #define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
 #define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
-#define EPIPOLAR_SHADOW_STEPS 24 // [8 12 16 24 32 48 64]
+// Shadow march steps per column, one budget per medium. Water and air share
+// the grid (slices x samples) but not the march: the water column is short and
+// high-contrast, while the air column is a long low-contrast haze, so a single
+// step count forced one of them to pay for the other's needs.
+#define WATER_EPIPOLAR_SHADOW_STEPS 24 // [8 12 16 24 32 48 64] water column shadow march steps
+#define AIR_EPIPOLAR_SHADOW_STEPS 12 // [8 12 16 24 32 48 64] air column shadow march steps
 #define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08] Relative viewZ column-match tolerance (3%).
 #define EPIPOLAR_SHARPEN_THRESHOLD 0.25 // [0.1 0.2 0.25 0.3 0.4] Sample-difference threshold above which the epipolar blend is pushed toward the sharp value; lower = stronger sharpening.
 #define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]

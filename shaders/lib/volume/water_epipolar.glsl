@@ -91,8 +91,8 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
     vec3 numerator = vec3(0.0);
-    float inv_steps = 1.0 / float(EPIPOLAR_SHADOW_STEPS);
-    for (int k = 0; k < EPIPOLAR_SHADOW_STEPS; ++k) {
+    float inv_steps = 1.0 / float(WATER_EPIPOLAR_SHADOW_STEPS);
+    for (int k = 0; k < WATER_EPIPOLAR_SHADOW_STEPS; ++k) {
         float p = (float(k) + stbn_jitter) * inv_steps;
         float t_sample = 1.0 + p * (t_end - 1.0); // arithmetic transmittance decay
         float u;

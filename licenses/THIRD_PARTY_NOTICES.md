@@ -255,7 +255,7 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 
 `shaders/lib/cloud/volumetric.glsl` 的体积云散射模型移植自 Revelation（Apache-2.0）的
 `shaders/lib/atmosphere/clouds/Render.glsl`，具体为 `CloudMultiScatteringApproxHaringPro`
-的太阳分量：`(phase + 1/4π · fms/(1-fms)) · exp(-τ)` 的单次散射加几何级数多重散射、
+的方向光分量（本包的太阳与月球两个通道各算一次）：`(phase + 1/4π · fms/(1-fms)) · exp(-τ)` 的单次散射加几何级数多重散射、
 `msVolume / (1 + 0.5τ)` 各向同性体积项，以及地面反弹项。多重散射近似本身出自
 <https://zhuanlan.zhihu.com/p/457997155>。
 

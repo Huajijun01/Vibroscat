@@ -30,6 +30,18 @@ const float CIRRUS_HEIGHT_KM = 7.0;
 // is the multiple-scattering series, not a gain applied to this pair.
 const float CIRRUS_SCATTERING = 3.0;
 const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
+// This layer's multiple-scattering reference length, in km: the length over
+// which one scattering order spreads inside this deck, and the scale the
+// series' knee is measured against. At 3 km^-1 a full-density sample reaches
+// one optical depth over 0.33 km, so a reference just above that puts the knee
+// across the middle of the density range: at a density whose vertical optical
+// depth is about 1.5 the added orders return roughly what single scattering
+// does, and a thin edge returns almost nothing.
+// It is this layer's own constant, not the volumetric layer's. A length
+// calibrated for 100 km^-1 would leave this shell permanently below its knee
+// and the series would contribute a tenth of a percent rather than a
+// comparable share.
+const float CIRRUS_MS_REFERENCE_LENGTH_KM = 0.5;
 // Triple-lobe phase: the narrow + mid forward lobes keep the silver lining,
 // the backward lobe lifts the anti-lit side (cloud-bow analog) so decks
 // facing away from the light keep a visible response instead of collapsing
@@ -136,8 +148,8 @@ vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, ve
     vec3 moon_phase, vec3 ambient_irradiance, float sample_scattering, float sample_extinction,
     float sample_transmittance
 ) {
-    float isotropic_orders = CloudIsotropicOrders(
-        sample_extinction * CLOUD_EXTINCTION_PER_KM_TO_PER_M, CIRRUS_MS_ISOTROPIC);
+    float reference_optical_depth = sample_extinction * CIRRUS_MS_REFERENCE_LENGTH_KM;
+    float isotropic_orders = CloudIsotropicOrders(reference_optical_depth, CIRRUS_MS_ISOTROPIC);
     vec3 in_scattering = sun_color * sun_visible * (sun_phase + isotropic_orders)
         + moon_color * moon_visible * (moon_phase + isotropic_orders);
     in_scattering += ambient_irradiance;

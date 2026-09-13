@@ -19,6 +19,13 @@
 // band just below the horizon where the cloud layer still catches it. Those are
 // this pack's own choices; they are described where they are implemented.
 
+// This layer's multiple-scattering reference length, in meters. The full
+// extinction of a dense sample is 100 km^-1, so one optical depth is reached
+// over 10 m; the reference sits well above that and the series is saturated
+// across most of the density range, which is what gives a thick water cloud
+// its milky interior. It is this layer's own constant: a length calibrated for
+// 100 km^-1 lands nowhere useful on a medium three decades thinner.
+const float CLOUD_MS_REFERENCE_LENGTH_M = 300.0;
 // Directional octaves: each step widens the phase, weakens its contribution
 // and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
@@ -323,7 +330,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // Per-sample scattering material, shared by both light channels.
         float sigma_t_per_m = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
-        float isotropic_orders = CloudIsotropicOrders(sigma_t_per_m, CLOUD_MS_ISOTROPIC);
+        float reference_optical_depth = sigma_t_per_m * CLOUD_MS_REFERENCE_LENGTH_M;
+        float isotropic_orders = CloudIsotropicOrders(reference_optical_depth, CLOUD_MS_ISOTROPIC);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
 #ifdef CLOUD_SINGLE_LIGHT

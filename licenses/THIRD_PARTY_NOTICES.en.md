@@ -234,13 +234,20 @@ This pack's in-cloud multiple-scattering approximation comes from
 
 <https://zhuanlan.zhihu.com/p/457997155>
 
-that is, the saturation factor `fms = omega * (1 - exp2(-300 * sigma_t))` and
-the isotropic geometric series `fms / (1 - fms)` for every order past the
-first.
+that is, a saturation factor and the isotropic geometric series standing for
+every order past the first. The source writes it as
+`fms = omega * (1 - exp2(-300 * sigma_t))`, driven by the extinction in m^-1.
+This pack rewrites the argument as a DIMENSIONLESS reference optical depth whose
+knee is one optical depth over a reference length owned by the layer itself: 300 m
+for the volumetric layer, which is equivalent to its previous value, and 0.5 km
+for the cirrus shell, which is that deck's own scale. It is not a shareable
+constant, because the 300 in `300 * sigma_t` carries a length: a length
+calibrated on a 100 km^-1 medium never reaches its knee in a 3 km^-1 shell, and
+the series then contributes nothing.
 
-`shaders/lib/cloud/multiple_scattering.glsl` is the single owner of those
-primitives and both cloud layers include it. Both layers add the series to the
-sun and moon direct terms; the ambient path does not go through it. The
+`shaders/lib/cloud/multiple_scattering.glsl` is the single owner of that
+dimensionless form and both cloud layers include it. Both layers add the series
+to the sun and moon direct terms; the ambient path does not go through it. The
 volumetric layer additionally folds the sun and moon into one traced direction,
 and the cirrus layer does not fold them.
 

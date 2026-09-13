@@ -372,7 +372,7 @@ const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after th
 // trusted only when the world-space displacement from the previous-frame
 // depth stays under the distance limit and the normal at the reprojected
 // position agrees with the current pixel beyond the dot floor; both weights
-// ramp smoothly to zero (GTAOHistoryWeight in lib/lighting/temporal_ao.glsl).
+// ramp smoothly to zero (AOHistoryWeight in lib/lighting/temporal_ao.glsl).
 #define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
 #define AO_HISTORY_NORMAL_DOT_FLOOR 0.866 // [0.5 0.71 0.82 0.866 0.91 0.94] history rejection: min normal dot (cos 30 deg)
 

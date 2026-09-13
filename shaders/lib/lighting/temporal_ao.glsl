@@ -13,13 +13,13 @@
 // A = NaN "not cloud"); this module provides per-pixel math only. Generation
 // is half-res, bilinear upsample, one sample/pixel/frame (full convergence).
 // Rejection trusts the history only within the distance limit and the normal
-// dot floor (GTAOHistoryWeight); both ramp smoothly to zero.
+// dot floor (AOHistoryWeight); both ramp smoothly to zero.
 
 // Reproject a camera-relative world position into the previous frame's UV.
 // Also outputs the receiver in the previous frame's view space for
-// GTAOHistoryWeight (the forward push the reprojection already computed).
+// AOHistoryWeight (the forward push the reprojection already computed).
 // Returns false when the point is behind the previous camera or off-screen.
-bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiver_prev_view) {
+bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiver_prev_view) {
     vec3 camera_delta = cameraPosition - previousCameraPosition;
     vec4 previous_view = gbufferPreviousModelView * vec4(world_pos + camera_delta, 1.0);
     receiver_prev_view = previous_view.xyz;
@@ -37,10 +37,10 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 rece
 //    the previous (no previous-normal buffer); disagreement beyond
 //    AO_HISTORY_NORMAL_DOT_FLOOR -> 0. Both normals come from the same frame in
 //    the stored world space, so the dot product is space-agnostic.
-float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_uv, vec4 history) {
+float AOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_uv, vec4 history) {
     // Distance consistency. Both points live in the previous frame's view
     // space: the history surface from PreviousScreenToView and the receiver
-    // pushed forward by GTAOReprojectToPrevious. The view transform is rigid,
+    // pushed forward by AOReprojectToPrevious. The view transform is rigid,
     // so this equals the world-space displacement the limit is expressed in,
     // without inverting the previous modelview per pixel.
     vec3 previous_view = PreviousScreenToView(vec3(history_uv, 1.0 - history.b));
@@ -63,7 +63,7 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history
 // average 1/(samples+1) over the first AO_ACCUMULATION_BOX_SAMPLES, then
 // steady-state AO_ACCUMULATION_ALPHA; rejection lifts it toward 1 (untrusted
 // history replaced quickly). Full rejection -> fresh sample, age reset.
-float GTAOAccumulate(float fresh_ao, float hist_ao, float hist_age,
+float AOAccumulate(float fresh_ao, float hist_ao, float hist_age,
                      float rejection, out float next_age) {
     float pixel_age = min(hist_age, AO_HISTORY_FRAMES) * rejection;
     float samples = pixel_age;

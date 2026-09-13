@@ -39,7 +39,7 @@ const float CLOUD_MS_FMS_SCALE = 300.0;
 // omega / (1 - omega), so this stays a fixed constant: exposing it as a slider
 // would make the isotropic term swing by two orders of magnitude across one
 // step. CLOUD_MS_ISOTROPIC scales the result linearly instead.
-const float CLOUD_MS_FMS_ALBEDO = 0.999;
+const float CLOUD_MS_FMS_ALBEDO = 0.99;
 // 1 - fms only needs a guard against an albedo of exactly 1. At the default
 // albedo the ratio peaks at 999 and never reaches this floor.
 const float CLOUD_MS_FMS_FLOOR = 1.0e-4;

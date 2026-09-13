@@ -25,13 +25,21 @@
 //     alongside the HaringPro isotropic series rather than upstream's single
 //     phase term;
 //   - the light-path transmittance uses this pack's historical 1 / (1 + tau)
-//     instead of upstream's Beer exp(-tau).
+//     instead of upstream's Beer exp(-tau);
+//   - the geometric series keeps a fixed saturation albedo instead of being
+//     driven by the albedo slider, whose omega / (1 - omega) mapping turned one
+//     step of that slider into a hundredfold swing in the isotropic term.
 
 // --- HaringPro constants -----------------------------------------------
 // The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
 // per-meter extinction even though this file marches in kilometers.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
 const float CLOUD_MS_FMS_SCALE = 300.0;
+// Saturation albedo of the geometric series. The series converges to
+// omega / (1 - omega), so this stays a fixed constant: exposing it as a slider
+// would make the isotropic term swing by two orders of magnitude across one
+// step. CLOUD_MS_ISOTROPIC scales the result linearly instead.
+const float CLOUD_MS_FMS_ALBEDO = 0.999;
 // 1 - fms only needs a guard against an albedo of exactly 1. At the default
 // albedo the ratio peaks at 999 and never reaches this floor.
 const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
@@ -280,9 +288,9 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // first, carried by the isotropic phase.
         float sigma_t_per_m = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
-        float fms = CLOUD_MS_ALBEDO
+        float fms = CLOUD_MS_FMS_ALBEDO
             * (1.0 - exp2(-CLOUD_MS_FMS_SCALE * sigma_t_per_m));
-        float isotropic_orders = PHASE_ISOTROPIC * fms
+        float isotropic_orders = CLOUD_MS_ISOTROPIC * PHASE_ISOTROPIC * fms
             / max(1.0 - fms, CLOUD_MS_FMS_FLOOR);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);

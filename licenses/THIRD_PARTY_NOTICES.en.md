@@ -284,8 +284,13 @@ Porting adaptations (this pack's changes relative to upstream):
   term) through the sky irradiance. This pack keeps its independent sun and moon
   light channels plus its existing ambient path, so only the function's
   directional component is ported; the skylight component is not.
-- The two packs use different radiance units: `CLOUD_MS_ALBEDO` is this pack's
-  calibration parameter for a quantity upstream hardcodes.
+- The two packs use different radiance units: `CLOUD_MS_ALBEDO` and
+  `CLOUD_MS_ISOTROPIC` are this pack's calibration parameters for quantities
+  upstream hardcodes. Upstream drives both the geometric series' saturation and
+  the final radiance scale from one layer albedo; this pack pins the saturation
+  to the `CLOUD_MS_FMS_ALBEDO` constant and lets `CLOUD_MS_ALBEDO` scale the
+  radiance linearly, because the `omega / (1 - omega)` mapping turns one slider
+  step into a two-order-of-magnitude swing.
 - Upstream weights its light optical-depth samples by `density * (i + 0.5)` and
   rescales globally; this pack keeps the same quadratic stratification with
   exact interval weights.

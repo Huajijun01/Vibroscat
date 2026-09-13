@@ -26,7 +26,7 @@
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
-#include "/lib/cloud/render.glsl"
+#include "/lib/cloud/composite.glsl"
 #include "/lib/cloud/volumetric.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/color/dither.glsl"

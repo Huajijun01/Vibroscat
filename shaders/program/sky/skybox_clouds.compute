@@ -16,7 +16,7 @@
 #define CLOUD_VIEW_MIN_STEPS CLOUD_SKYBOX_MIN_STEPS
 #undef CLOUD_LIGHT_STEPS
 #define CLOUD_LIGHT_STEPS CLOUD_SKYBOX_LIGHT_STEPS
-#include "/lib/cloud/render.glsl"
+#include "/lib/cloud/composite.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;

@@ -1,5 +1,5 @@
-#ifndef LIB_CLOUD_RENDER_GLSL
-#define LIB_CLOUD_RENDER_GLSL
+#ifndef LIB_CLOUD_COMPOSITE_GLSL
+#define LIB_CLOUD_COMPOSITE_GLSL
 
 // High-level cloud compositor: final sky color with volumetric clouds +
 // cirrus. Each layer fades toward the sky by the atmospheric transmittance
@@ -142,4 +142,4 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     return cirrus_faded + (volumetric_faded - sky_color) * cirrus_transmittance;
 }
 
-#endif // LIB_CLOUD_RENDER_GLSL
+#endif // LIB_CLOUD_COMPOSITE_GLSL

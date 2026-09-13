@@ -71,4 +71,4 @@ vec2 Rotate2D(vec2 value, vec2 rotation) {
         value.y * rotation.x + value.x * rotation.y);
 }
 
-#endif
+#endif // LIB_CORE_MATH_SCALAR_GLSL

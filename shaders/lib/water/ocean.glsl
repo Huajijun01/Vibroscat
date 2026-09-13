@@ -228,4 +228,4 @@ float OceanValueNoise(vec2 xz, float time, out vec3 normal) {
     return h;
 }
 
-#endif
+#endif // LIB_WATER_OCEAN_GLSL

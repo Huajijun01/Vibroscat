@@ -101,4 +101,4 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     return result;
 }
 
-#endif
+#endif // LIB_ATMOSPHERE_AIR_FOG_GLSL

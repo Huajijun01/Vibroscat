@@ -224,4 +224,4 @@ void EvaluateBRDF(vec3 albedo, vec2 texcoord, vec3 normal_view, vec3 view_direct
         direct_lighting, lambert_brdf, diffuse_reflectance);
 }
 
-#endif
+#endif // LIB_LIGHTING_BRDF_GLSL

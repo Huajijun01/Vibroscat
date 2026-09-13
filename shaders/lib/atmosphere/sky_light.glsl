@@ -114,4 +114,4 @@ vec3 EvalSkyLightAverage() {
     return max(vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * (SH_Y0 * SH_A0), vec3(0.0));
 }
 
-#endif
+#endif // LIB_ATMOSPHERE_SKY_LIGHT_GLSL

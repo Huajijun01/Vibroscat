@@ -118,4 +118,4 @@ vec3 DecodeXYZNormal(vec3 packed_normal) {
     return normalize(packed_normal * 2.0 - 1.0);
 }
 
-#endif
+#endif // LIB_MATERIAL_CORE_GLSL

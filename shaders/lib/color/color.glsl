@@ -682,4 +682,4 @@ vec3 LogLuv32ToLinear(vec4 v_log_luv) {
     return max(LOGLUV32_INVERSE_M * xyz_prime, vec3(0.0));
 }
 
-#endif // COLOR_GLSL
+#endif // LIB_COLOR_COLOR_GLSL

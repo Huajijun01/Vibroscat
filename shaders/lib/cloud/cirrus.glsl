@@ -278,4 +278,4 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     return sky_color * total_transmittance + total_in_scattering;
 }
 
-#endif
+#endif // LIB_CLOUD_CIRRUS_GLSL

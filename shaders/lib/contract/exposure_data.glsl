@@ -11,4 +11,4 @@ layout(std430, binding = 0) buffer ExposureData {
     uint luminance_histogram[4096];
 };
 
-#endif
+#endif // LIB_CONTRACT_EXPOSURE_DATA_GLSL

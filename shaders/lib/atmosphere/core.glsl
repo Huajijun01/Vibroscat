@@ -418,4 +418,4 @@ vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
     return Rec2020ToSRGB(SpectralToLinearRec2020(ss * ms * ATM_SOLAR)) * ATM_EXPOSURE;
 }
 
-#endif
+#endif // LIB_ATMOSPHERE_CORE_GLSL

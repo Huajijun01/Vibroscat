@@ -198,4 +198,4 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
     return shadow;
 }
 
-#endif
+#endif // LIB_SHADOW_PCSS_GLSL

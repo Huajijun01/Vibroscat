@@ -262,4 +262,4 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     return sky_color + Rec2020ToSRGB(contribution);
 }
 
-#endif
+#endif // LIB_ATMOSPHERE_CELESTIAL_GLSL

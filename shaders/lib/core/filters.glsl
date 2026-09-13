@@ -81,4 +81,4 @@ float Shadow2DFastBspline(sampler2DShadow tex0, vec3 sp, float res, float texel)
            g1.y * (g0.x * texture(tex0, vec3(p.xw, sp.z))  + g1.x * texture(tex0, vec3(p.zw, sp.z)));
 }
 
-#endif
+#endif // LIB_CORE_FILTERS_GLSL

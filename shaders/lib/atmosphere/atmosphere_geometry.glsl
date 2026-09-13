@@ -40,4 +40,4 @@ bool PlanetHorizonOccluded(vec3 origin, float origin_r2, vec3 dir, float planet_
     return ground_near > 1.0e-5;
 }
 
-#endif
+#endif // LIB_ATMOSPHERE_ATMOSPHERE_GEOMETRY_GLSL

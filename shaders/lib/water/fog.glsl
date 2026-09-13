@@ -104,4 +104,4 @@ void WaterFogRender(inout vec3 col, float raylen, float light_path1, float light
     col += WaterMultipleScattering(sca, epipolar_light) * ground_light.rgb * eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE);
 }
 
-#endif
+#endif // LIB_WATER_FOG_GLSL

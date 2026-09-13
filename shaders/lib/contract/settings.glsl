@@ -422,4 +422,4 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define INFO_PROFILE 0 //[0]
 #define INFO_TOOLTIPS 0 //[0]
 
-#endif
+#endif // LIB_CONTRACT_SETTINGS_GLSL

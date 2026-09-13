@@ -75,4 +75,4 @@ bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {
     history = max(history, vec3(0.0));
     return true;
 }
-#endif
+#endif // LIB_RAYTRACE_OPAQUE_REFLECTION_GLSL

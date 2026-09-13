@@ -21,4 +21,4 @@ layout(std430, binding = 1) buffer SkyLightData {
     vec4 ground_light;
 };
 
-#endif
+#endif // LIB_CONTRACT_SKY_LIGHT_DATA_GLSL

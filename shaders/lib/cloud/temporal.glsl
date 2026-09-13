@@ -105,4 +105,4 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
     return result;
 }
 
-#endif
+#endif // LIB_CLOUD_TEMPORAL_GLSL

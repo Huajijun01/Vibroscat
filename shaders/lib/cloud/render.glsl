@@ -139,4 +139,4 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     return cirrus_faded + (volumetric_faded - sky_color) * cirrus_transmittance;
 }
 
-#endif
+#endif // LIB_CLOUD_RENDER_GLSL

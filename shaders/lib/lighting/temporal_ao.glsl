@@ -82,4 +82,4 @@ float GTAOAccumulate(float fresh_ao, float hist_ao, float hist_age,
     return mix(hist_ao, fresh_ao, alpha);
 }
 
-#endif
+#endif // LIB_LIGHTING_TEMPORAL_AO_GLSL

@@ -403,4 +403,4 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 #endif
 }
 
-#endif
+#endif // LIB_CLOUD_VOLUMETRIC_GLSL

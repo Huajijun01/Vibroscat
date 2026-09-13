@@ -33,4 +33,4 @@ ivec2 GetBloomMipSize(ivec2 full_size, int mip) {
     return full_size >> mip;
 }
 
-#endif // POST_BLOOM_GLSL
+#endif // LIB_POST_BLOOM_GLSL

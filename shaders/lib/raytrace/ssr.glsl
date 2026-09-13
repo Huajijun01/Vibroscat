@@ -178,4 +178,4 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     return miss;
 }
 
-#endif
+#endif // LIB_RAYTRACE_SSR_GLSL

@@ -46,4 +46,4 @@ void SetupGbufferVertex() {
     v_color = gl_Color;
 }
 
-#endif
+#endif // LIB_CORE_GBUFFER_VERTEX_GLSL

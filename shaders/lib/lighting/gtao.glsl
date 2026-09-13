@@ -157,4 +157,4 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     return clamp(visibility / (2.0 * float(GTAO_SLICES)), 0.0, 1.0);
 }
 
-#endif
+#endif // LIB_LIGHTING_GTAO_GLSL

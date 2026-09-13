@@ -94,4 +94,4 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     return Saturate(1.0 - occlusion / float(SSAO_SAMPLES));
 }
 
-#endif
+#endif // LIB_LIGHTING_SSAO_GLSL

@@ -50,4 +50,4 @@ vec3 AmbientLight(vec3 normal_world, vec3 ao, float lm_sky) {
         * SKY_AMBIENT_STRENGTH + vec3(AMBIENT_FLOOR);
 }
 
-#endif
+#endif // LIB_LIGHTING_AMBIENT_LIGHT_GLSL

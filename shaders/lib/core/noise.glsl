@@ -80,4 +80,4 @@ vec2 R2Offset(int frame) {
     ));
 }
 
-#endif
+#endif // LIB_CORE_NOISE_GLSL

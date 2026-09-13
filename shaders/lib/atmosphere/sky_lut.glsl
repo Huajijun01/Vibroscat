@@ -45,4 +45,4 @@ vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir, float planet_r, float altitude) {
     return vec2(u * SKY_LUT_RCP_W, v * SKY_LUT_RCP_H);
 }
 
-#endif
+#endif // LIB_ATMOSPHERE_SKY_LUT_GLSL

@@ -221,4 +221,4 @@ vec2 DistortShadowClip(vec2 clip_pos) {
     return clip_pos / GetDistortFactor(clip_pos) * 0.5 + 0.5;
 }
 
-#endif
+#endif // LIB_CORE_COORDINATES_GLSL

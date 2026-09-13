@@ -108,4 +108,4 @@ uniform float wetness;
 uniform vec3 u_water_absorption;
 uniform vec3 u_water_scattering;
 
-#endif
+#endif // LIB_CONTRACT_UNIFORMS_GLSL

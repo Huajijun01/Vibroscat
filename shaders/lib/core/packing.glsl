@@ -44,4 +44,4 @@ vec3 DecodeOctahedralNormal(vec2 encoded) {
     return normalize(unit_normal);
 }
 
-#endif
+#endif // LIB_CORE_PACKING_GLSL

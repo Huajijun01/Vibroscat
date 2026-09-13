@@ -228,20 +228,35 @@ void main() {
     // One STBN read feeds both the shadow filter and the contact shadow:
     // same texel and time slice, so both consumers share the dither.
     float stbn_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
-    if (shadow_needed && all(greaterThanEqual(shadow_proj, vec3(0.0)))
-            && all(lessThanEqual(shadow_proj, vec3(1.0)))) {
+    // Shadow-map coverage confidence, shared by the direct-shadow fade-out
+    // and the plant-SSS transmission handoff. Evaluated in raw undistorted
+    // shadow clip space, where the extent maps linearly to world distance:
+    // the fade starts at SHADOW_SSS_FADE_START of the XY/depth extent and
+    // reaches zero exactly at the coverage border, so the direct shadow and
+    // the SSS thickness hand off on one curve instead of staggered ones.
+    float shadow_coverage = 1.0;
+    if (shadow_needed) {
+        vec3 shadow_clip = ProjectToShadowClip(world_pos);
+        float clip_edge = max(abs(shadow_clip.x), abs(shadow_clip.y));
+        float xy_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, clip_edge);
+        float z_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, abs(shadow_clip.z));
+        shadow_coverage = xy_coverage * z_coverage;
+        float shadow_filtered = 1.0;
+        if (shadow_coverage > 1.0e-3) {
 #ifdef SHADOW_PCSS
-        vec3 shadow_clip = ProjectToShadowClip(world_pos);
-        shadow_occlusion = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither, view_pos,
-            sss_amount, ndotl, sss_thickness_world);
+            shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither, view_pos,
+                sss_amount, ndotl, sss_thickness_world);
 #else
-        // LOW tier: hardware-bilinear PCF; the blocker search stays on so
-        // the plant-SSS thickness estimate keeps working (see
-        // ShadowFilterHardwarePCF).
-        vec3 shadow_clip = ProjectToShadowClip(world_pos);
-        shadow_occlusion = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, stbn_dither,
-            sss_amount, sss_thickness_world);
+            // LOW tier: hardware-bilinear PCF; the blocker search stays on
+            // so the plant-SSS thickness estimate keeps working (see
+            // ShadowFilterHardwarePCF).
+            shadow_filtered = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, stbn_dither,
+                sss_amount, sss_thickness_world);
 #endif
+        }
+        // Ease the shadow-map result into the unshadowed out-of-coverage
+        // response on the same curve; no hard switch at the map border.
+        shadow_occlusion = mix(1.0, shadow_filtered, shadow_coverage);
     }
 #if CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     if (shadow_needed) {
@@ -277,22 +292,9 @@ void main() {
         albedo, material.f0, material.diffuse_weight);
 
     if (sss_amount > 0.01) {
-        // Fade the shadow-map estimate into lightmap sky access, preserving
-        // the material response outside shadow coverage.
-        float shadow_ndc_edge = max(abs(shadow_proj.x * 2.0 - 1.0),
-            abs(shadow_proj.y * 2.0 - 1.0));
-        float shadow_dist_ratio = length(view_pos) / max(shadowDistance, 1.0);
-        float edge_fade = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0,
-            shadow_ndc_edge);
-        float depth_fade = 1.0 - smoothstep(0.85, 1.0,
-            abs(shadow_proj.z * 2.0 - 1.0));
-        // SSS needs a resolved foliage thickness; retire it well before the
-        // last shadow-map texels become undersampled at distance.
-        float distance_fade = 1.0 - smoothstep(0.35, 0.75,
-            shadow_dist_ratio);
-        // Do not hard-switch at the map border. The projected extent itself
-        // supplies a continuous confidence that reaches zero outside it.
-        float sss_availability = edge_fade * depth_fade * distance_fade;
+        // shadow_coverage (see the shadow section) fades the map-measured
+        // transmission into lightmap sky access, preserving the material
+        // response outside shadow coverage.
         float ldotv = dot(light_direction, view_to_eye);
         float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
         float average_albedo = Luminance(albedo);
@@ -302,12 +304,14 @@ void main() {
         // Blend the evaluated transmission, not thickness: fading optical
         // depth first would brighten the transition before removing it.
         float transmission = mix(SkyLightFromLm(lm.g), map_transmission,
-            sss_availability);
+            shadow_coverage);
         // Clamp the material budget first so ENERGY remains proportional
         // throughout 0..1, including when the legacy SCALE exceeds one.
+        // Energy carries no coverage factor: the transmission blend already
+        // trades the map estimate for the lightmap response, so a second
+        // fade here would zero the handoff and stage a second transition.
         float material_share = Saturate(sss_amount * SHADOW_SSS_SCALE);
-        float sss_energy = material_share * Saturate(SHADOW_SSS_ENERGY)
-            * sss_availability;
+        float sss_energy = material_share * Saturate(SHADOW_SSS_ENERGY);
         vec3 direct_diffuse = albedo * (vec3(1.0) - FresnelSchlick(vdoth, material.f0))
             * material.diffuse_weight
             * DiffuseBurley(ndotv, ndotl, ldoth, material.perceptual_roughness)

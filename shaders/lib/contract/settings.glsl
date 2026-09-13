@@ -203,6 +203,8 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_SSS_SCALE 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0]
 #define SHADOW_SSS_PENUMBRA_BOOST 7.0 // [0.0 1.0 2.0 3.0 5.0 7.0 10.0]
 #define SHADOW_SSS_PHASE_G 0.4 // [0.0 0.3 0.4 0.5 0.6 0.7 0.8 0.9]
+// Shadow-map coverage fade start (fraction of the XY/depth extent). One
+// curve drives the direct-shadow fade-out and the plant-SSS handoff.
 #define SHADOW_SSS_FADE_START 0.75 // [0.0 0.5 0.6 0.7 0.75 0.8 0.9 0.95]
 #define SHADOW_SSS_ENERGY 0.85 // [0.1 0.2 0.3 0.35 0.4 0.5 0.6 0.8 0.85 1.0]
 #define SHADOW_SSS_DEBUG 0 // [0 1] Isolate plant transmission in deferred shading.

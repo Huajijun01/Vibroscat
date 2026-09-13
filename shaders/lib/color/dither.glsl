@@ -50,4 +50,6 @@ vec3 JitterSRGB8(vec3 color, vec2 pixel, float seed) {
     return color;
 }
 
+#endif // COLOR_DITHER
+
 #endif // LIB_COLOR_DITHER_GLSL

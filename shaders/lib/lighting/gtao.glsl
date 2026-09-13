@@ -4,7 +4,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 
 // ============================================================================

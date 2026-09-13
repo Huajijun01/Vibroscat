@@ -2,7 +2,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/cloud/volumetric.glsl"
 

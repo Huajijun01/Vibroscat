@@ -5,7 +5,6 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
-#include "/lib/core/packing.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 #include "/lib/raytrace/ssr.glsl"

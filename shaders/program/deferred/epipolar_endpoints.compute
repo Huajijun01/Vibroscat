@@ -1,6 +1,5 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/coordinates.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
 layout(local_size_x = 128) in;

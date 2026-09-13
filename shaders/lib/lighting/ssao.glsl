@@ -18,8 +18,9 @@
 // Variance is NOT spatially filtered: the deferred1 temporal accumulation
 // (same pipeline as GTAO) is the denoiser.
 //
-// Shared plumbing from gtao.glsl (guarded); depth source matches GTAO
-// (depthtex2: opaque non-hand, no transparent).
+// The depth fetch and the screen-bounds guards mirror GTAO (depthtex2:
+// opaque non-hand, no transparent), but the hemisphere sample set is SSAO's
+// own, so this pass carries its own copy instead of including gtao.glsl.
 // ============================================================================
 
 #include "/lib/contract/settings.glsl"
@@ -27,7 +28,6 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
-#include "/lib/lighting/gtao.glsl"
 
 // Screen-space SSAO at one pixel (full-res UV and texel). stbn_noise is the
 // SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].

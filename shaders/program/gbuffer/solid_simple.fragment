@@ -2,8 +2,6 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/filters.glsl"
-#include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 #include "/lib/lighting/brdf.glsl"

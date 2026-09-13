@@ -3,7 +3,6 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/coordinates.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/lighting/gi_history.glsl"
 

@@ -4,7 +4,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/scattering/phase.glsl"
 

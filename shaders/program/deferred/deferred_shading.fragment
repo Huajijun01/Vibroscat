@@ -14,12 +14,10 @@
 
 /* RENDERTARGETS: 0,2,5 */
 
-#include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
-#include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"

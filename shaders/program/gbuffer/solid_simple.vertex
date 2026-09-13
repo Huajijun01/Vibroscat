@@ -2,7 +2,6 @@
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
-#include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 
 flat out vec3 v_normal;

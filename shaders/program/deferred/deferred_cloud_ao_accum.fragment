@@ -28,7 +28,6 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
 #include "/lib/cloud/temporal.glsl"
 #include "/lib/cloud/volumetric.glsl"
 #include "/lib/lighting/temporal_ao.glsl"

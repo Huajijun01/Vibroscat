@@ -12,8 +12,6 @@
 #include "/lib/core/filters.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
-#include "/lib/atmosphere/core.glsl"
-#include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/color/color.glsl"
 #include "/lib/lighting/ambient_light.glsl"

@@ -4,7 +4,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
 #include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/scattering/phase.glsl"
 

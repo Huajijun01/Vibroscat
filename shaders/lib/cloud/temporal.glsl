@@ -8,7 +8,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/filters.glsl"
 #include "/lib/core/noise.glsl"
-#include "/lib/cloud/volumetric.glsl"
 
 struct CloudFrame {
     vec3 radiance;   // x = sun, y = moon, z = transmittance

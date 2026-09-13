@@ -17,7 +17,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/noise.glsl"
-#include "/lib/core/packing.glsl"
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/lighting/ssao.glsl"
 

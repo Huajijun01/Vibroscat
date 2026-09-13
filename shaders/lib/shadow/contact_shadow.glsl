@@ -4,7 +4,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
-#include "/lib/core/math_scalar.glsl"
 
 // ============================================================================
 // Screen-space short-range contact shadows.

@@ -1,6 +1,5 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/coordinates.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 #include "/lib/volume/water_epipolar.glsl"

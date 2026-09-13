@@ -41,7 +41,7 @@ const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // calibrated for 100 km^-1 would leave this shell permanently below its knee
 // and the series would contribute a tenth of a percent rather than a
 // comparable share.
-const float CIRRUS_MS_REFERENCE_LENGTH_KM = 0.5;
+const float CIRRUS_MS_REFERENCE_LENGTH_KM = 1.2;
 // This layer's saturation albedo for the series, which the source writes as the
 // leading omega of fms. Ice crystals barely absorb in the visible, so this sits
 // just under 1: the series converges to omega / (1 - omega) and the model

@@ -158,7 +158,7 @@ void main() {
 #ifdef EPIPOLAR_VOLUMETRICS
         if (isEyeInWater == 1) {
             epipolar_light = EpipolarSampleE(texcoord * 2.0 - 1.0,
-                                            EpipolarColumnKey(texcoord));
+                                            EpipolarWaterColumnKey(texcoord));
         }
 #endif
         view_pos0 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth * 2.0 - 1.0));
@@ -247,7 +247,7 @@ void main() {
             // The column follows the refracted ray: sample the epipolar term
             // at the refracted receiver, not the screen texel.
             epipolar_light = EpipolarSampleE(refract_coord * 2.0 - 1.0,
-                                            EpipolarColumnKey(refract_coord));
+                                            EpipolarWaterColumnKey(refract_coord));
 #endif
             WaterFogRender(comp_color, max(length(view_pos1) - view_len0, 0.0), 0.0,
                 WaterColumnLightPath(receiver_world, surface_world.y), water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light, water_fog_caustic);

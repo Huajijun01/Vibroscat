@@ -58,7 +58,7 @@ void main() {
                 // the slices rotate and leaves residual shimmer.
                 ivec2 texel = EpipolarScreenTexel(uv01);
                 float stbn_jitter = SampleSTBN(texel, STBNFrame());
-                water_e = EpipolarShadowRatio(start_scene, end_scene, light_path1,
+                water_e = EpipolarWaterShadowRatio(start_scene, end_scene, light_path1,
                                               light_path2, extinction, stbn_jitter);
             }
         }

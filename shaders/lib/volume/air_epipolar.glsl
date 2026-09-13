@@ -15,7 +15,7 @@
 // Air-fog depth key for the epipolar filter: nearest visible surface
 // (depthtex0), because air fog composites over the final water surface too.
 // Underwater the air fog is disabled, so the key is invalid (0). Linear
-// viewZ, same space as the water key (see EpipolarColumnKey).
+// viewZ, same space as the water key (see EpipolarWaterColumnKey).
 float EpipolarAirColumnKey(vec2 uv01) {
     ivec2 texel = EpipolarScreenTexel(uv01);
     if (isEyeInWater == 1) return 0.0;
@@ -55,10 +55,7 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
             // of continuous sea-level air, unreachable inside the fog slab).
             weight = vec3(t_sample);
         }
-        vec3 clip = mix(s, e, u);
-        vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
-        float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
-        float shadow = texture(shadowtex1, vec3(uv, shadow_depth));
+        float shadow = EpipolarShadowVisibility(s, e, u);
         numerator += weight * shadow;
         denominator += weight;
     }

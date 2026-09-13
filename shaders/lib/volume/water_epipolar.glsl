@@ -20,7 +20,7 @@
 // enters the water. Linear depth keeps the unwarp tolerance scale-invariant
 // (raw depth01 saturates at distance and mis-accepts columns at low
 // epipolar resolution).
-float EpipolarColumnKey(vec2 uv01) {
+float EpipolarWaterColumnKey(vec2 uv01) {
     ivec2 texel = EpipolarScreenTexel(uv01);
     if (isEyeInWater == 1) return LinearDepthFromScreenDepth(texelFetch(depthtex0, texel, 0).r);
     if (texelFetch(colortex2, texel, 0).a < 0.99) return 0.0;
@@ -30,7 +30,7 @@ float EpipolarColumnKey(vec2 uv01) {
 // Water column segment for a screen position, in camera-relative scene space.
 // Returns false when the pixel has no water column (above water and nearest
 // translucent is not water). column_key is the column end in LINEAR viewZ
-// (same space as EpipolarColumnKey), 0 = no column.
+// (same space as EpipolarWaterColumnKey), 0 = no column.
 bool EpipolarWaterSegment(vec2 uv01, out vec3 start_scene, out vec3 end_scene, out float column_key) {
     ivec2 texel = EpipolarScreenTexel(uv01);
     float opaque_depth = texelFetch(depthtex1, texel, 0).r;
@@ -61,7 +61,7 @@ bool EpipolarWaterSegment(vec2 uv01, out vec3 start_scene, out vec3 end_scene, o
 // unshadowed analytically, so a shadowed near field darkens only the near
 // part instead of zeroing the whole analytic fog (which integrates over the
 // full ray length).
-vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, float light_path2,
+vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, float light_path2,
                          vec3 extinction, float stbn_jitter) {
     // Interpolate in undistorted shadow clip space (the distortion is
     // nonlinear - mixing warped UVs would curve the march); re-apply
@@ -107,10 +107,7 @@ vec3 EpipolarShadowRatio(vec3 start_scene, vec3 end_scene, float light_path1, fl
             // so the Riemann cell width in t is S*du.
             du = (1.0 - t_end) / (tau * max(t_sample, 1e-6)) * inv_steps;
         }
-        vec3 clip = mix(s, e, u);
-        vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
-        float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
-        float shadow = texture(shadowtex1, vec3(uv, shadow_depth));
+        float shadow = EpipolarShadowVisibility(s, e, u);
         float light_path = light_path1 + d_l * u;
         vec3 weight = exp(-extinction * (u * segment_length + light_path));
         numerator += weight * shadow * (segment_length * du);

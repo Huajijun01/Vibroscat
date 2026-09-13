@@ -30,6 +30,16 @@ ivec2 EpipolarScreenTexel(vec2 uv01) {
     return ivec2(clamp(uv01 * u_screen_res, vec2(0.5), u_screen_res - vec2(0.5)));
 }
 
+// Shadow-map visibility at one marched epipolar step. Both media march the
+// undistorted shadow clip segment and re-apply the projection distortion and
+// the protected depth per step, so that fetch has one owner.
+float EpipolarShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
+    vec3 clip = mix(shadow_clip_start, shadow_clip_end, u);
+    vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
+    float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
+    return texture(shadowtex1, vec3(uv, shadow_depth));
+}
+
 // Project the active light into NDC. The pole is the light's projective
 // screen position: behind the camera it mirrors (lines stay valid); at
 // clip.w ~ 0 it is at infinity (lines become parallel). poleInScreen =

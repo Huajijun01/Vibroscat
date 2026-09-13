@@ -28,7 +28,7 @@ float CelestialAngularMask(float cos_view, float disc_radius, float glow_radius)
     return smoothstep(cos(glow_radius), cos(disc_radius), cos_view);
 }
 
-#ifdef STARMAP
+#ifdef STAR_MAP
 // Fast Catmull-Rom (5-tap, "Bicubic filtering in fewer taps"): the w1/w2
 // pair is one bilinear sample at their midpoint (5 fetches instead of 16).
 // Wraps horizontally at RA 0/360; v clamped so the filter never bleeds
@@ -70,7 +70,7 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
 // Equirectangular star-map UV from a world direction. The NaN guard absorbs
 // the atan branch cut at the antimeridian; v is clamped (poles never blend)
 // and u wraps through the sampler's horizontal repeat. Shared by the baked
-// star-map path (STARMAP) and the procedural fallback below.
+// star-map path (STAR_MAP) and the procedural fallback below.
 vec2 StarMapEquirectUV(vec3 rd) {
     float a = atan(rd.z, rd.x);
     float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
@@ -78,7 +78,7 @@ vec2 StarMapEquirectUV(vec3 rd) {
     return vec2(u, clamp(v, 0.0, 1.0));
 }
 
-#ifndef STARMAP
+#ifndef STAR_MAP
 // LOW and MEDIUM declare no star map texture, so the stars come from two hash
 // layers at unrelated cell scales. Two scales matter for the look: one
 // jittered lattice reads as an even grid whatever the brightness law does,
@@ -208,7 +208,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
     float s = clamp(sun_dir.y, -1.0, 1.0);
     vec3 rd = vec3(c * view_dir.x - s * view_dir.z, view_dir.y, s * view_dir.x + c * view_dir.z);
 
-#ifdef STARMAP
+#ifdef STAR_MAP
     // Equirectangular sampling, Catmull-Rom bicubic; horizontal wrap at
     // RA 0/360, v clamped (poles never blend).
     // LogLuv32 HDR: bicubic in the encoded space, decode restores linear

@@ -175,7 +175,7 @@ void main() {
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // colortex4 carries the world-space geometric normal (octahedral RG).
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
-#if (CONTACT_SHADOWS == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))) || defined(GI_DENOISE)
+#if (CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))) || defined(GI_DENOISE)
     // Contact shadows and the GI disocclusion repair work in view space. Both
     // are compile-time gated, so the transform is paid only for them.
     vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
@@ -243,7 +243,7 @@ void main() {
             sss_amount, sss_thickness_world);
 #endif
     }
-#if CONTACT_SHADOWS == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
+#if CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     if (shadow_needed) {
         // Screen-space contact shadows, evaluated inline on the receiver: an
         // upper bound on the shadow-map result. The march fills PCF seam
@@ -269,7 +269,7 @@ void main() {
     out_direct_brdf = direct_visibility;
     // -- Light color sources (same colors as the gbuffer translucent passes) --
     vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
-    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_BASE floor (AmbientLight).
+    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor (AmbientLight).
     vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
     vec3 sss_lighting = vec3(0.0);
     // Same-argument reflectance as the torch term below; evaluated once.

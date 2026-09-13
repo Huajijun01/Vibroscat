@@ -12,7 +12,7 @@
 
 vec3 RSMOccludedSky(vec3 sky_fallback, float shadow_occlusion) {
     float sky_factor = mix(1.0, RSM_SKY_OCCLUSION_FLOOR, clamp(shadow_occlusion, 0.0, 1.0));
-    return (sky_fallback - vec3(AMBIENT_BASE)) * sky_factor + vec3(AMBIENT_BASE);
+    return (sky_fallback - vec3(AMBIENT_FLOOR)) * sky_factor + vec3(AMBIENT_FLOOR);
 }
 
 // In shadow view, larger z is nearer the light. Reject the receiver's own
@@ -163,7 +163,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     float shadow_variance = mean_shadow_occlusion * (1.0 - mean_shadow_occlusion)
         * sum_squared_shadow_weight / (sum_shadow_weight * sum_shadow_weight);
     float shadow_scale = (1.0 - RSM_SKY_OCCLUSION_FLOOR)
-        * Luminance(sky_fallback - vec3(AMBIENT_BASE)) * (1.0 - coverage);
+        * Luminance(sky_fallback - vec3(AMBIENT_FLOOR)) * (1.0 - coverage);
     sample_sigma = (sqrt(transport_variance / float(RSM_SAMPLES))
         + shadow_scale * sqrt(shadow_variance)) * availability;
 #else

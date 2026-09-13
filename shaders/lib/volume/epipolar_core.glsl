@@ -173,7 +173,7 @@ float EpipolarEdgeWeight(float pixel_key, float sample_key) {
 // strengthen the contrast of the blend weight continuously (no hard snap:
 // step() at low resolution turns sparse samples into blocky edges).
 float EpipolarSharpen(float w, float a, float b) {
-    float edge = smoothstep(0.05, EPIPOLAR_EDGE_SHARPEN, abs(a - b));
+    float edge = smoothstep(0.05, EPIPOLAR_SHARPEN_THRESHOLD, abs(a - b));
     float sharp = w * w * (3.0 - 2.0 * w); // smooth S-curve, same endpoints
     return mix(w, sharp, edge);
 }

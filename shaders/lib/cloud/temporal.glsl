@@ -84,7 +84,7 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
 }
 
 // Age-based history blending: the accepted-frame age is also the accumulated
-// history weight. The current frame keeps a 1/CLOUD_AGE_LIMIT contribution
+// history weight. The current frame keeps a 1/CLOUD_HISTORY_FRAMES contribution
 // after the cap. Radiance is mixed, distance is never EMA-mixed.
 CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
 ) {
@@ -94,7 +94,7 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
     }
     // Age counts accepted frames and doubles as the bounded accumulated
     // sample weight, matching the Alpha-style history cap.
-    float alpha = 1.0 / float(min(pixel_age + 1, CLOUD_AGE_LIMIT));
+    float alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
     CloudFrame result;
     // Radiance mixes linearly; transmittance is nonlinear (T = exp(-OD)),
     // so it mixes in log space (unbiased). Distance is a hit location, keeps

@@ -44,7 +44,7 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 rot_x, vec2 rot_y, int block
     vec2 texel_scale = 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
     // Convex corners project small false depth deltas; require a
     // world-space gap before counting a blocker (no corner darkening).
-    float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS);
+    float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_M);
     vec2 blocker_offset_scale = SHADOW_BLOCKER_SEARCH_TEXELS * texel_scale;
 
     float depth_sum = 0.0;
@@ -150,9 +150,10 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
         * smoothstep(10.0, 120.0, length(view_pos));
     penumbra_texels *= distance_factor;
 
-    // Filter capped inside the blocker search disk (grows at low sun).
+    // Filter capped inside the blocker search disk: a fixed multiplier, not
+    // a sun-height term, so the cap is the same at noon and at sunset.
     float max_penumbra_texels = SHADOW_BLOCKER_SEARCH_TEXELS
-        * (1.0 + SHADOW_SUN_HEIGHT_BOOST);
+        * (1.0 + SHADOW_PENUMBRA_CAP_BOOST);
     penumbra_texels = min(penumbra_texels, max_penumbra_texels);
 
     // Step 3: PCF with the penumbra radius; sample count grows with size,

@@ -76,7 +76,7 @@ void main() {
                         accumulated = current_frame;
                     } else {
                         accumulated = CloudAccumulate(current_frame, reprojected_history, pixel_age);
-                        new_age = min(pixel_age + 1, CLOUD_AGE_LIMIT);
+                        new_age = min(pixel_age + 1, CLOUD_HISTORY_FRAMES);
                     }
                 }
             }

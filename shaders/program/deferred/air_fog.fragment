@@ -122,7 +122,7 @@ void main() {
     if (weather.a > 0.0) {
         // Sky access behind the sheet: the opaque G-buffer still owns the
         // lightmap here, and sky pixels (depth >= 1.0) keep stale data there
-        // while being unobstructed by definition. No AMBIENT_BASE floor is
+        // while being unobstructed by definition. No AMBIENT_FLOOR floor is
         // added, so a sheet the sky does not reach stays dark, which is what
         // keeps rain out of caves and interiors.
         float weather_lm_sky = 1.0;

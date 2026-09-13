@@ -35,7 +35,7 @@ bool GTAOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 rece
 //    AO_HISTORY_DISTANCE_LIMIT -> smooth 0.
 //  - normal: current-frame normal at the reprojected position stands in for
 //    the previous (no previous-normal buffer); disagreement beyond
-//    AO_HISTORY_NORMAL_DOT_MIN -> 0. Both normals come from the same frame in
+//    AO_HISTORY_NORMAL_DOT_FLOOR -> 0. Both normals come from the same frame in
 //    the stored world space, so the dot product is space-agnostic.
 float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_uv, vec4 history) {
     // Distance consistency. Both points live in the previous frame's view
@@ -54,7 +54,7 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history
         ivec2(viewWidth, viewHeight) - 1);
     vec3 history_normal = DecodeOctahedralNormal(texelFetch(colortex4, history_texel, 0).xy);
     float normal_weight = smoothstep(
-        AO_HISTORY_NORMAL_DOT_MIN, 1.0, dot(history_normal, normal_world));
+        AO_HISTORY_NORMAL_DOT_FLOOR, 1.0, dot(history_normal, normal_world));
 
     return distance_weight * normal_weight;
 }
@@ -65,18 +65,18 @@ float GTAOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history
 // history replaced quickly). Full rejection -> fresh sample, age reset.
 float GTAOAccumulate(float fresh_ao, float hist_ao, float hist_age,
                      float rejection, out float next_age) {
-    float pixel_age = min(hist_age, AO_AGE_LIMIT) * rejection;
+    float pixel_age = min(hist_age, AO_HISTORY_FRAMES) * rejection;
     float samples = pixel_age;
     float base_alpha = samples < float(AO_ACCUMULATION_BOX_SAMPLES)
         ? 1.0 / (samples + 1.0)
         : AO_ACCUMULATION_ALPHA;
     float alpha = 1.0 - (1.0 - base_alpha) * rejection;
     // Darkening slowdown: fresh < hist scales the fresh weight by
-    // AO_DARKEN_SLOWDOWN. The condition is the darkening STATE (not the
+    // AO_DARKEN_FADE_SCALE. The condition is the darkening STATE (not the
     // per-frame rejection): the slow rate is carried by the age, so the
     // fade-in continues after rejection clears; brightening stays fast.
     if (fresh_ao < hist_ao) {
-        alpha *= AO_DARKEN_SLOWDOWN;
+        alpha *= AO_DARKEN_FADE_SCALE;
     }
     next_age = pixel_age + 1.0;
     return mix(hist_ao, fresh_ao, alpha);

@@ -23,7 +23,7 @@
 
 // POM search mode: 0 = fixed-step linear, 1 = coarse + bisection (same or
 // fewer height samples, tighter root; wave field and normals unchanged).
-// The step budgets (OCEAN_POM_COARSE_STEPS / _BISECT_STEPS) are user
+// The step budgets (WATER_POM_COARSE_STEPS / _BISECT_STEPS) are user
 // options declared in contract/settings.glsl.
 #define POM_BISECTION_ENABLED 1
 
@@ -175,15 +175,15 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
         dir *= OCEAN_POM_MAX_OFFSET / (dir_len * OCEAN_POM_MAX_DEPTH);
     }
 
-    float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(OCEAN_POM_COARSE_STEPS);
+    float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(WATER_POM_COARSE_STEPS);
     float depth_a = OCEAN_POM_MAX_DEPTH;
     float height_a = OceanValueNoisePOMHeight(xz + dir * depth_a, time);
-    for (int i = 1; i <= OCEAN_POM_COARSE_STEPS; ++i) {
+    for (int i = 1; i <= WATER_POM_COARSE_STEPS; ++i) {
         float depth_b = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
         float height_b = OceanValueNoisePOMHeight(xz + dir * depth_b, time);
         if (height_a <= depth_a && height_b > depth_b) {
             // f(depthA) <= 0, f(depthB) > 0: bisection inside the bracket.
-            for (int j = 0; j < OCEAN_POM_BISECT_STEPS; ++j) {
+            for (int j = 0; j < WATER_POM_BISECT_STEPS; ++j) {
                 float depth_m = 0.5 * (depth_a + depth_b);
                 float height_m = OceanValueNoisePOMHeight(xz + dir * depth_m, time);
                 if (height_m <= depth_m) {

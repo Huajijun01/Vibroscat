@@ -12,7 +12,7 @@
 //
 // GBuffer layout:
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
-//   gbuf1.a   = v_material_id / 255.0  (see lib/material/core.glsl for ranges)
+//   gbuf1.a   = v_material_id / 255.0  (see lib/material/model.glsl for ranges)
 //   gbuf2 (RGBA16, 2x8 packed):
 //     R = normal.x [0,1] | combined vertex/material AO
 //     G = normal.y     | normal.z
@@ -34,7 +34,7 @@
 
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/packing.glsl"
-#include "/lib/material/core.glsl"
+#include "/lib/material/model.glsl"
 
 in vec2 v_texcoord;
 in vec2 v_lmcoord;

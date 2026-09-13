@@ -1,5 +1,5 @@
-#ifndef LIB_MATERIAL_CORE_GLSL
-#define LIB_MATERIAL_CORE_GLSL
+#ifndef LIB_MATERIAL_MODEL_GLSL
+#define LIB_MATERIAL_MODEL_GLSL
 
 // ============================================================================
 // Material model - oldPBR/seusPBR-style specular map convention
@@ -17,25 +17,6 @@
 //   112-127 emissive (glowstone, torch, lava, beacon, etc.)
 //   128-134 SSS plants (grass, leaves, vines, crops, flowers, moss, ...)
 //   160-191 translucent (glass, ice, slime, stained glass)
-
-struct Material {
-    float roughness;
-    float metalness;
-    float emission;
-    float reserved;
-};
-
-Material MaterialDefaults(vec4 spec) {
-    Material m;
-    // smoothness inverted to roughness
-    m.roughness  = 1.0 - spec.r;
-    m.metalness  = spec.g;
-    m.emission   = spec.b;
-    m.reserved    = spec.a;
-
-    // class-based overrides disabled; the spec map alone drives the material.
-    return m;
-}
 
 struct OpaqueMaterial {
     float perceptual_roughness;
@@ -113,4 +94,4 @@ vec3 DecodeLabPBR(vec3 packed_normal) {
     return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
 }
 
-#endif // LIB_MATERIAL_CORE_GLSL
+#endif // LIB_MATERIAL_MODEL_GLSL

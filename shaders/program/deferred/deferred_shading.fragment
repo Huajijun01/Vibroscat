@@ -37,7 +37,7 @@
 #include "/lib/lighting/gi_denoise.glsl"
 #include "/lib/lighting/gi_history.glsl"
 #endif
-#include "/lib/material/core.glsl"
+#include "/lib/material/model.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/scattering/phase.glsl"
 #include "/lib/shadow/contact_shadow.glsl"

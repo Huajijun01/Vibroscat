@@ -14,7 +14,7 @@
 #include "/lib/color/color.glsl"
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/rsm_data.glsl"
-#include "/lib/material/core.glsl"
+#include "/lib/material/model.glsl"
 #endif
 
 in vec2 v_texcoord;

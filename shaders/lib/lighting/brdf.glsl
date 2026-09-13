@@ -3,7 +3,7 @@
 
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/material/core.glsl"
+#include "/lib/material/legacy.glsl"
 
 vec3 FresnelSchlick(float vdoth, vec3 f0) {
     return f0 + (vec3(1.0) - f0) * Pow5(1.0 - vdoth);

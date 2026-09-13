@@ -7,7 +7,6 @@
 #include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
-#include "/lib/color/color.glsl"
 
 // Sun/moon discs in linear HDR: TOA irradiance / disc solid angle,
 // attenuated by the view-ray transmittance (dims + reddens near the
@@ -21,6 +20,22 @@ const float BRIGHTNESS_FACT = 0.03;
 
 // STAR_MAP_INTENSITY (linear gain after LogLuv32 decode) is a user
 // option declared in contract/settings.glsl.
+// LogLuv32 -> linear sRGB, per [ERI07] Ericson, Christer. "Converting RGB to
+// LogLuv in a fragment shader". 2007. R = u', G = v', B = int(Le),
+// A = frac(Le), Le = 2*log2(Y) + 127. Decodes the star map's RGBA8 HDR
+// encoding.
+const mat3 LOGLUV32_INVERSE_M = mat3(6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268);
+
+vec3 LogLuv32ToLinear(vec4 v_log_luv) {
+    if (all(lessThanEqual(v_log_luv, vec4(0.0)))) return vec3(0.0);
+    float le = v_log_luv.z * 255.0 + v_log_luv.w;
+    vec3 xyz_prime;
+    xyz_prime.y = exp2((le - 127.0) * 0.5);
+    xyz_prime.z = xyz_prime.y / max(v_log_luv.y, 1.0e-6);
+    xyz_prime.x = v_log_luv.x * xyz_prime.z;
+    return max(LOGLUV32_INVERSE_M * xyz_prime, vec3(0.0));
+}
+
 const float STAR_FADE_SUNRISE  = -0.05;   // below this sun elevation: full stars
 const float STAR_FADE_SUNSET   = 0.15;    // above this sun elevation: no stars
 

@@ -666,20 +666,4 @@ vec3 HDRDecompress(vec3 y) {
     return FastInvtonemap(y * y);
 }
 
-// LogLuv32 -> linear sRGB, per [ERI07] Ericson, Christer. "Converting RGB to
-// LogLuv in a fragment shader". 2007. R = u', G = v', B = int(Le),
-// A = frac(Le), Le = 2*log2(Y) + 127. Decodes LogLuv32 RGBA8 HDR textures
-// (e.g. the night star map).
-const mat3 LOGLUV32_INVERSE_M = mat3(6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268);
-
-vec3 LogLuv32ToLinear(vec4 v_log_luv) {
-    if (all(lessThanEqual(v_log_luv, vec4(0.0)))) return vec3(0.0);
-    float le = v_log_luv.z * 255.0 + v_log_luv.w;
-    vec3 xyz_prime;
-    xyz_prime.y = exp2((le - 127.0) * 0.5);
-    xyz_prime.z = xyz_prime.y / max(v_log_luv.y, 1.0e-6);
-    xyz_prime.x = v_log_luv.x * xyz_prime.z;
-    return max(LOGLUV32_INVERSE_M * xyz_prime, vec3(0.0));
-}
-
 #endif // LIB_COLOR_COLOR_GLSL

@@ -13,7 +13,7 @@
 #if GI_MODE == 2
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/brdf.glsl"
-#include "/lib/lighting/rsm_data.glsl"
+#include "/lib/shadow/rsm_data.glsl"
 #include "/lib/material/model.glsl"
 #endif
 

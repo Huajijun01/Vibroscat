@@ -1,5 +1,5 @@
-#ifndef LIB_LIGHTING_REFLECTIVE_SHADOW_MAP_GLSL
-#define LIB_LIGHTING_REFLECTIVE_SHADOW_MAP_GLSL
+#ifndef LIB_SHADOW_REFLECTIVE_SHADOW_MAP_GLSL
+#define LIB_SHADOW_REFLECTIVE_SHADOW_MAP_GLSL
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
@@ -8,7 +8,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
-#include "/lib/lighting/rsm_data.glsl"
+#include "/lib/shadow/rsm_data.glsl"
 
 vec3 RSMOccludedSky(vec3 sky_fallback, float shadow_occlusion) {
     float sky_factor = mix(1.0, RSM_SKY_OCCLUSION_FLOOR, clamp(shadow_occlusion, 0.0, 1.0));
@@ -172,4 +172,4 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     return max(irradiance, vec3(0.0)) * availability + occluded_sky * (1.0 - coverage);
 }
 
-#endif // LIB_LIGHTING_REFLECTIVE_SHADOW_MAP_GLSL
+#endif // LIB_SHADOW_REFLECTIVE_SHADOW_MAP_GLSL

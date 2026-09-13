@@ -12,7 +12,7 @@
 #include "/lib/lighting/gi_history.glsl"
 #if GI_MODE == 2
 #include "/lib/lighting/ambient_occlusion.glsl"
-#include "/lib/lighting/reflective_shadow_map.glsl"
+#include "/lib/shadow/reflective_shadow_map.glsl"
 #endif
 
 // Port of the unidirectional GT-VBGI visibility-bitmask screen-space GI by

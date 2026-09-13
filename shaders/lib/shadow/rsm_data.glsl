@@ -1,5 +1,5 @@
-#ifndef LIB_LIGHTING_RSM_DATA_GLSL
-#define LIB_LIGHTING_RSM_DATA_GLSL
+#ifndef LIB_SHADOW_RSM_DATA_GLSL
+#define LIB_SHADOW_RSM_DATA_GLSL
 
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
@@ -23,4 +23,4 @@ vec3 DecodeRSMSource(vec4 source_data) {
         / vec3(31.0, 63.0, 31.0));
 }
 
-#endif // LIB_LIGHTING_RSM_DATA_GLSL
+#endif // LIB_SHADOW_RSM_DATA_GLSL

@@ -12,7 +12,8 @@
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
 //   colortex2   RGBA16           Opaque gbuffer (normal/AO/roughness/metalness/emission), then
 //                                translucent surface data after deferred clears it:
-//                                RG = refraction normal.xy, B = normal.z, A = water flag;
+//                                RGB = wave perturbation vs the flat face normal
+//                                (xzy-swizzled, 0.25-scaled), A = water flag;
 //                                blend off (nearest translucent surface wins)
 //   colortex3   R11F_G11F_B10F   Opaque reflection incident radiance transient
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +

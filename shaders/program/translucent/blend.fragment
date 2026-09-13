@@ -179,17 +179,14 @@ void main() {
         if (is_water) {
             float frag_depth1 = texelFetch(depthtex1, tx, 0).x;
             view_pos1 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth1 * 2.0 - 1.0));
-            // Refraction: nearest surface is water; use its stored normal
-            // (colortex2 xyz), no depth tricks.
-            vec3 waves_normal = refraction_data.xzy * 2.0 - 1.0;
+            // Refraction: nearest surface is water; colortex2 xyz stores the
+            // wave perturbation relative to the flat face normal (xzy
+            // swizzle, 0.25 scale), so flat faces of any orientation give no
+            // offset and the tilt alone bends the sample.
+            vec3 waves_delta = refraction_data.xzy * 4.0 - 2.0;
+            vec3 waves_delta_view = (gbufferModelView * vec4(waves_delta, 0.0)).xyz;
 
-            vec4 waves_normal_mv = gbufferModelView * vec4(waves_normal.xyz, 0.0);
-            vec3 waves_normal_view = normalize(waves_normal_mv.xyz);
-
-            vec4 view_up = gbufferModelView * vec4(0.0, 1.0, 0.0, 0.0);
-            view_up.xyz = normalize(view_up.xyz);
-
-            refract_coord = view_up.xy - waves_normal_view.xy;
+            refract_coord = -waves_delta_view.xy;
             refract_coord *= Saturate(length(view_pos1) - view_len0) * 0.5 / (view_len0 + 0.0001);
             refract_coord += texcoord;
 

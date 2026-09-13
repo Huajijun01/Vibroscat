@@ -7,12 +7,19 @@
 #ifdef HAS_MC_ENTITY
 in vec4 mc_Entity;
 #endif
+#ifdef HAS_AT_TANGENT
+in vec4 at_tangent;
+#endif
 
 flat out int v_id;
 flat out int v_glass;
 out vec3 v_world_pos;
 out vec3 v_view_pos;
 flat out vec3 v_normal;
+#ifdef HAS_AT_TANGENT
+out vec3 v_world_tangent;
+out vec3 v_world_bitangent;
+#endif
 flat out vec3 v_sun_light_col;
 out vec3 v_ambient_col;
 out vec3 v_shadow_proj_pos;
@@ -58,6 +65,12 @@ void main() {
     v_normal = normalize(gl_NormalMatrix * gl_Normal);
 
     vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+#ifdef HAS_AT_TANGENT
+    // Same world TBN construction as solid.vertex (handed bitangent).
+    vec3 world_tangent = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz));
+    v_world_tangent = world_tangent;
+    v_world_bitangent = cross(world_tangent, world_normal) * sign(at_tangent.w);
+#endif
     v_sun_light_col = ground_light.rgb;
     // Same sky ambient + lightmap remap as deferred2 (no AO in the gbuffer
     // stage).

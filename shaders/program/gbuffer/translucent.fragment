@@ -20,11 +20,16 @@
 #include "/lib/shadow/filter.glsl"
 #include "/lib/water/fog.glsl"
 #include "/lib/water/ocean.glsl"
+#include "/lib/water/value_noise.glsl"
 
 flat in int v_id;
 flat in int v_glass;
 flat in vec3 v_normal;
 flat in vec3 v_sun_light_col;
+#ifdef HAS_AT_TANGENT
+in vec3 v_world_tangent;
+in vec3 v_world_bitangent;
+#endif
 in vec3 v_world_pos;
 in vec3 v_view_pos;
 in vec3 v_ambient_col;
@@ -72,13 +77,31 @@ void main() {
 
     vec3 surface_normal = vec3(0.0, 0.0, 1.0);
     vec3 current_normal = v_normal;
+    // Flat geometry normal in world space: owns the vertical-face wave
+    // domain below and the refraction perturbation stored for blend.
+    vec3 geo_n_world = normalize(mat3(gbufferModelViewInverse) * v_normal);
     if(v_id == 1) {
 #if WATER_NORMAL_ENABLED
         // Fitted value-noise ocean (ocean.glsl); normal at the
         // parallax-corrected position, shared by lighting, reflections,
-        // and refraction.
+        // and refraction. Horizontal faces keep the POM path over world XZ;
+        // vertical faces re-parameterize the same wave field on the face
+        // plane through the geometry TBN (no POM: its march displaces along
+        // world vertical).
         vec3 world_n;
-        OceanValueNoisePOM((v_world_pos + cameraPosition).xz, normalize(v_world_pos), frameTimeCounter, world_n);
+        if (abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y) {
+            OceanValueNoisePOM((v_world_pos + cameraPosition).xz, normalize(v_world_pos), frameTimeCounter, world_n);
+        } else {
+#ifdef HAS_AT_TANGENT
+            vec3 face_pos = v_world_pos + cameraPosition;
+            vec3 ts_n;
+            OceanValueNoiseNormal(vec2(dot(face_pos, v_world_tangent), dot(face_pos, v_world_bitangent)),
+                frameTimeCounter, ts_n);
+            world_n = normalize(mat3(v_world_tangent, geo_n_world, v_world_bitangent) * ts_n);
+#else
+            world_n = geo_n_world; // no tangent attribute: flat side face
+#endif
+        }
         surface_normal = vec3(world_n.x, world_n.z, world_n.y);
         current_normal = normalize(mat3(gbufferModelView) * world_n);
 #endif
@@ -98,7 +121,16 @@ void main() {
         vec3 to_camera = -view_dir;
         current_normal = SoftClampWaterNormal(current_normal, to_camera);
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
-        surface_normal = vec3(world_n_clamped.x, world_n_clamped.z, world_n_clamped.y);
+        // Refraction perturbation stored for blend: the clamped normal minus
+        // the flat-surface reference in the wave field's frame — world up
+        // for horizontal faces (either side: the up-frame wave normal and
+        // its underwater negation both referenced +up), the face normal
+        // itself for vertical faces. Flat faces give no offset.
+        vec3 flat_ref = abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y
+            ? vec3(0.0, sign(geo_n_world.y), 0.0)
+            : geo_n_world;
+        vec3 world_delta = world_n_clamped - flat_ref;
+        surface_normal = vec3(world_delta.x, world_delta.z, world_delta.y);
     }
 
     // STBN dither for the translucent ray trace: spatial blue noise; the
@@ -213,8 +245,9 @@ void main() {
     vec3 comp_light = sun_reflect + sky_reflect + env_reflect * Saturate(out_alpha);
     out_layer_color = vec4(comp_light, Saturate(out_alpha));
 
-    // colortex2 (blend off, cleared by deferred2): RG = refraction normal.xy,
-    // B = z, A = water flag. Nearest translucent fragment wins (glass in
-    // front of water replaces the water data).
-    out_surface_data = vec4(surface_normal * 0.5 + 0.5, v_id == 1 ? 1.0 : 0.0);
+    // colortex2 (blend off, cleared by deferred2): RGB = wave perturbation
+    // relative to the flat face normal (xzy-swizzled, 0.25-scaled),
+    // A = water flag. Nearest translucent fragment wins (glass in front of
+    // water replaces the water data).
+    out_surface_data = vec4(surface_normal * 0.25 + 0.5, v_id == 1 ? 1.0 : 0.0);
 }

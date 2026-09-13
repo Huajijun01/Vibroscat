@@ -6,6 +6,8 @@
 // ===============================================================
 // Cloud multiple scattering - the shared form, owned once.
 //
+// The approximation is the one published at
+//   https://zhuanlan.zhihu.com/p/457997155
 // It splits a cloud sample's in-scattering into the single-scattering phase
 // and a geometric series standing for every order past the first:
 //
@@ -28,9 +30,10 @@
 // series at all. Each layer therefore owns the length and states it next to
 // its own extinction.
 //
-// saturation_albedo: this is the medium's single-scattering albedo, the
-// leading factor of fms. Water and ice are different media, and this pack
-// already gives them different albedos, so they cannot share this. It is passed in rather than read from a user-facing control
+// saturation_albedo: this is the medium's single-scattering albedo, which the
+// source writes as the leading omega of fms. Water and ice are different
+// media, and this pack already gives them different albedos, so they cannot
+// share this. It is passed in rather than read from a user-facing control
 // because the series converges to omega / (1 - omega) and would swing by orders
 // of magnitude across one march step; each layer pins its own value and lets
 // its strength control scale the result linearly.

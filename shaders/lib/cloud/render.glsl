@@ -70,7 +70,20 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
     vec3 ambient_cloud_radiance = GetAmbientColor(surface_position, sun_dir)
         * (1.0 - cloud_data.z)
         * CLOUD_SKY_LIGHT_STRENGTH;
+#ifdef CLOUD_SINGLE_LIGHT
+    // One trace means one directional channel, so the light colour has to carry
+    // both illuminants. Revelation sums them outright and lets the earth-shadow
+    // term in its transmittance LUT cut the sun off; this pack has no such term,
+    // so the handover is shaped here instead. The sun keeps its colour through
+    // the fire-cloud band, where it has crossed the sea-level horizon but the
+    // layer still catches it over its own dipped one, and is released only once
+    // the antisolar side has taken over.
+    vec3 light_color = sun_color * CloudTwilightWeight(sun_dir.y)
+        + moon_color * CloudMoonlightFactor(sun_dir.y);
+    return cloud_data.x * light_color + ambient_cloud_radiance;
+#else
     return cloud_data.x * sun_color + cloud_data.y * moon_color + ambient_cloud_radiance;
+#endif
 }
 
 // Compose volumetric + cirrus over the sky. Layer order follows the ray:

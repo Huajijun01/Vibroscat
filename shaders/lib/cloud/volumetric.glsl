@@ -17,10 +17,7 @@
 //   https://zhuanlan.zhihu.com/p/457997155
 // See licenses/THIRD_PARTY_NOTICES.md section 19.
 //
-// Three deliberate deviations from upstream:
-//   - the phase input stays this pack's dual-lobe HG (lib/scattering/phase.glsl)
-//     instead of Revelation's baked Mie phase LUT, so no third-party texture or
-//     custom image enters the pack;
+// Deviations from upstream:
 //   - the directional term keeps this pack's three-octave HanPi sum, carried
 //     alongside the HaringPro isotropic series rather than upstream's single
 //     phase term;
@@ -28,7 +25,15 @@
 //     instead of upstream's Beer exp(-tau);
 //   - the geometric series keeps a fixed saturation albedo instead of being
 //     driven by the albedo slider, whose omega / (1 - omega) mapping turned one
-//     step of that slider into a hundredfold swing in the isotropic term.
+//     step of that slider into a hundredfold swing in the isotropic term;
+//   - with CLOUD_SINGLE_LIGHT the sun and moon fold into one traced direction
+//     like upstream's, but the light colour keeps the sun through the band just
+//     below the horizon instead of summing both illuminants outright.
+//
+// Shared with upstream:
+//   - the phase input stays this pack's dual-lobe HG (lib/scattering/phase.glsl)
+//     instead of Revelation's baked Mie phase LUT, so no third-party texture or
+//     custom image enters the pack.
 
 // --- HaringPro constants -----------------------------------------------
 // The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
@@ -46,6 +51,17 @@ const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
 // HanPi directional octaves: each step widens the phase, weakens its
 // contribution and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
+// Sine-of-elevation window across which the traced direction hands over from the
+// sun to the antisolar point. The layer sits 1.4 to 2.7 km up, so its own
+// horizon dips 0.021 to 0.029 below the sea-level one; the handover starts just
+// past that, where the layer stops seeing the sun.
+const float CLOUD_MOON_FADE_LOW = -0.05;
+const float CLOUD_MOON_FADE_HIGH = -0.03;
+// The sun's colour is held through the band below the sea-level horizon where
+// the layer still catches it over its dipped horizon, which is what makes the
+// fire clouds, and is only released once the antisolar side has taken over.
+const float CLOUD_TWILIGHT_FADE_START = 0.03;
+const float CLOUD_TWILIGHT_FADE_END = 0.08;
 
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 // The distribution atlas is sampled twice: a large-scale coverage read and a
@@ -130,6 +146,57 @@ float RemapCloudErosion(float density, float threshold) {
 vec2 CloudDistributionUv(vec2 world_km) {
     return world_km / CLOUD_DISTRIBUTION_SCALE_KM + vec2(
             frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
+}
+
+// 0 while the sun is up, 1 once it is past the fade window. This is the defined
+// form of Revelation's smoothstep(-0.03, -0.05, sun_dir_y), whose edge0 > edge1
+// ordering the GLSL spec leaves undefined.
+float CloudMoonlightFactor(float sun_dir_y) {
+    return 1.0 - smoothstep(CLOUD_MOON_FADE_LOW, CLOUD_MOON_FADE_HIGH, sun_dir_y);
+}
+
+// Revelation folds the moon in by scaling the sun direction with
+// (1 - 2 * moonlightFactor); that normalization passes through a zero vector at
+// the crossover, so this flips the direction at the same midpoint instead. This
+// pack's moon is the exact antipode of the sun, so the flip lands on it.
+vec3 CloudLightDirection(vec3 sun_dir, float moonlight_factor) {
+    return moonlight_factor < 0.5 ? sun_dir : -sun_dir;
+}
+
+// 1 while the sun is up and through the fire-cloud band below the horizon,
+// fading to 0 by CLOUD_TWILIGHT_FADE_END below it.
+float CloudTwilightWeight(float sun_dir_y) {
+    return 1.0 - smoothstep(CLOUD_TWILIGHT_FADE_START, CLOUD_TWILIGHT_FADE_END, -sun_dir_y);
+}
+
+// HanPi directional octaves for one light direction, evaluated once per light
+// per ray.
+void CloudPhaseOctaves(float cos_theta, out float phase_weight[CLOUD_MS_OCTAVES]) {
+    float contribution_factor = 1.0;
+    float eccentricity_factor = 1.0;
+    for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
+        float forward_g = CLOUD_PHASE_FORWARD_G * eccentricity_factor;
+        float backward_g = CLOUD_PHASE_BACKWARD_G * eccentricity_factor;
+        phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(
+            cos_theta, forward_g, backward_g) * contribution_factor;
+        contribution_factor *= CLOUD_MS_CONTRIBUTION;
+        eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
+    }
+}
+
+// 1 / (1 + optical depth) approximates the falloff of the additional scattering
+// orders; each octave softens it further. The isotropic series rides the same
+// transmittance.
+float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
+    float octave_attenuation[CLOUD_MS_OCTAVES], float light_optical_depth,
+    float isotropic_orders
+) {
+    float radiance = 0.0;
+    for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
+        radiance += phase_weight[octave]
+            / (light_optical_depth * octave_attenuation[octave] + 1.0);
+    }
+    return radiance + isotropic_orders / (1.0 + light_optical_depth);
 }
 
 // Eroded density in [0, 1] at one point in the cloud layer.
@@ -223,33 +290,35 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
     vec3 sun_dir = normalize(u_world_sun_dir);
+    // Revelation samples one phase per ray from its Mie LUT; the pack keeps its
+    // dual-lobe HG at the same point in the pipeline, once per octave. The terms
+    // depend only on the fixed cosines and the constant octave factors, so they
+    // are evaluated once per light per ray.
+#ifdef CLOUD_SINGLE_LIGHT
+    // One traced direction: the antisolar fold. The sun keeps its colour through
+    // the handover, see CloudTwilightWeight at the relight.
+    float moonlight_factor = CloudMoonlightFactor(sun_dir.y);
+    vec3 light_dir = CloudLightDirection(sun_dir, moonlight_factor);
+    float light_cos_theta = clamp(dot(view_dir, light_dir), -1.0, 1.0);
+    float light_phase_weight[CLOUD_MS_OCTAVES];
+    CloudPhaseOctaves(light_cos_theta, light_phase_weight);
+#else
     // Moon sits opposite the sun (no separate uniform); its view cosine is the
     // exact negation of the sun's. Each light keeps its own march and its own
     // earth-occlusion gate.
     vec3 moon_dir = -sun_dir;
     float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
-    // Revelation samples one phase per ray from its Mie LUT; the pack keeps its
-    // dual-lobe HG at the same point in the pipeline, once per octave. The
-    // terms depend only on the fixed cosine and the constant octave factors, so
-    // they are evaluated once per ray.
     float sun_phase_weight[CLOUD_MS_OCTAVES];
     float moon_phase_weight[CLOUD_MS_OCTAVES];
+    CloudPhaseOctaves(sun_cos_theta, sun_phase_weight);
+    CloudPhaseOctaves(-sun_cos_theta, moon_phase_weight);
+#endif
     float octave_attenuation[CLOUD_MS_OCTAVES];
     {
         float attenuation_factor = 1.0;
-        float contribution_factor = 1.0;
-        float eccentricity_factor = 1.0;
         for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-            float forward_g = CLOUD_PHASE_FORWARD_G * eccentricity_factor;
-            float backward_g = CLOUD_PHASE_BACKWARD_G * eccentricity_factor;
-            sun_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(
-                sun_cos_theta, forward_g, backward_g) * contribution_factor;
-            moon_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(
-                -sun_cos_theta, forward_g, backward_g) * contribution_factor;
             octave_attenuation[octave] = attenuation_factor;
             attenuation_factor *= CLOUD_MS_ATTENUATION;
-            contribution_factor *= CLOUD_MS_CONTRIBUTION;
-            eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
         }
     }
 
@@ -260,8 +329,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float view_jitter = stbn_jitter.x;
     float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;
+#ifdef CLOUD_SINGLE_LIGHT
+    float light_radiance = 0.0;
+#else
     float sun_radiance = 0.0;
     float moon_radiance = 0.0;
+#endif
     vec3 surface_position_accumulator = vec3(0.0);
     float surface_weight = 0.0;
     float view_transmittance = 1.0;
@@ -294,19 +367,21 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             / max(1.0 - fms, CLOUD_MS_FMS_FLOOR);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
+#ifdef CLOUD_SINGLE_LIGHT
+        float sample_light = 0.0;
+        if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
+            float light_optical_depth = CloudLightOpticalDepth(
+                sample_position, light_dir, light_jitter);
+            sample_light = CloudDirectionalScattering(light_phase_weight,
+                octave_attenuation, light_optical_depth, isotropic_orders);
+        }
+#else
         float sample_sun = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, sun_dir, light_jitter);
-            // 1 / (1 + optical depth) approximates the falloff of the
-            // additional scattering orders; each octave softens it further.
-            float sun_octave_radiance = 0.0;
-            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-                sun_octave_radiance += sun_phase_weight[octave]
-                    / (light_optical_depth * octave_attenuation[octave] + 1.0);
-            }
-            sample_sun = sun_octave_radiance
-                + isotropic_orders / (1.0 + light_optical_depth);
+            sample_sun = CloudDirectionalScattering(sun_phase_weight,
+                octave_attenuation, light_optical_depth, isotropic_orders);
         }
         float sample_moon = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, moon_dir, ATM_PLANET_R2)) {
@@ -314,14 +389,10 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             float moon_light_jitter = fract(light_jitter + 0.5);
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, moon_dir, moon_light_jitter);
-            float moon_octave_radiance = 0.0;
-            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-                moon_octave_radiance += moon_phase_weight[octave]
-                    / (light_optical_depth * octave_attenuation[octave] + 1.0);
-            }
-            sample_moon = moon_octave_radiance
-                + isotropic_orders / (1.0 + light_optical_depth);
+            sample_moon = CloudDirectionalScattering(moon_phase_weight,
+                octave_attenuation, light_optical_depth, isotropic_orders);
         }
+#endif
         float optical_depth = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
             * step_length;
@@ -331,8 +402,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float segment_weight = step_transmittance * segment_absorption;
         surface_position_accumulator += sample_position * segment_weight;
         surface_weight += segment_weight;
+#ifdef CLOUD_SINGLE_LIGHT
+        light_radiance += segment_weight * sample_light;
+#else
         sun_radiance += segment_weight * sample_sun;
         moon_radiance += segment_weight * sample_moon;
+#endif
         view_transmittance *= segment_transmittance;
         if (view_transmittance < 1.0e-4) break;
     }
@@ -341,10 +416,16 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     surface_position = surface_position_accumulator / max(surface_weight, 1.0e-5);
     // Revelation scales the complete accumulated scattering by the
     // single-scattering albedo at the end of the march; the fms series carries
-    // its own copy of it. Packed output: x = sun in-scatter, y = moon
-    // in-scatter, z = remaining view transmittance.
+    // its own copy of it. Packed output: x = in-scatter, y = second light
+    // channel, z = remaining view transmittance.
     float albedo = CLOUD_MS_ALBEDO;
+#ifdef CLOUD_SINGLE_LIGHT
+    // The folded trace feeds the directional channel; the channel the separate
+    // moon march used to fill stays clear.
+    return vec3(light_radiance * albedo, 0.0, view_transmittance);
+#else
     return vec3(sun_radiance * albedo, moon_radiance * albedo, view_transmittance);
+#endif
 }
 
 #endif

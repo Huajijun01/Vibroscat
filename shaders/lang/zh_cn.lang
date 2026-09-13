@@ -156,6 +156,8 @@ option.VOLUMETRIC_CLOUDS = 体积云
 option.VOLUMETRIC_CLOUDS.comment = 用真正有体积、有纵深、被阳光照亮的 3D 云取代平面贴图云。是本整合包开销最高的特效之一。
 option.CIRRUS = 卷云
 option.CIRRUS.comment = 高空的薄云层，带银衬光照。远比体积云便宜且相互独立：关闭体积云不影响卷云，反之亦然。
+option.CLOUD_SINGLE_LIGHT = 单次光照追踪
+option.CLOUD_SINGLE_LIGHT.comment = 云层只朝日月折叠后的单一方向追踪一次，而不是两个光源各追一遍。更省，晚霞靠把太阳的颜色保留到地平线以下那一段来营造。关闭后两个光源分别追踪，开销更大但云层两侧各自独立受光。
 option.CLOUD_TEMPORAL_UPSCALING = 时域上采样
 option.CLOUD_TEMPORAL_UPSCALING.comment = 以降低的分辨率渲染云，再靠连续多帧重建完整细节。1x = 全分辨率（最清晰、最慢），4x = 四分之一分辨率（最快，快速转视角时可能轻微拖影）。
 option.CLOUD_AGE_LIMIT = 云历史年龄上限

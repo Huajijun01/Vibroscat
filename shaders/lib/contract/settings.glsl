@@ -119,6 +119,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
 #define CIRRUS // Enable the high-altitude cirrus shell; independent of the volumetric layer.
+#define CLOUD_SINGLE_LIGHT // Trace the cloud layer toward one folded sun/moon direction instead of marching both lights.
 #define CLOUD_VIEW_MIN_STEPS 20 // [24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
 #define CLOUD_VIEW_MAX_STEPS 40 // [64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.

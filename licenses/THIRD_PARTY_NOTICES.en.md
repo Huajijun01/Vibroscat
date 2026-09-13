@@ -281,9 +281,16 @@ Porting adaptations (this pack's changes relative to upstream):
   texture enters the pack.
 - Upstream folds the sun and the moon into a single light direction and routes
   the second component of `CloudMultiScatteringApproxHaringPro` (its skylight
-  term) through the sky irradiance. This pack keeps its independent sun and moon
-  light channels plus its existing ambient path, so only the function's
-  directional component is ported; the skylight component is not.
+  term) through the sky irradiance. This pack reproduces the fold behind the
+  `CLOUD_SINGLE_LIGHT` switch (on by default) and falls back to independent sun
+  and moon traces when it is off; the ambient path is this pack's own, so only
+  the function's directional component is ported and the skylight component is
+  not.
+- For the light colour, upstream sums both illuminances and relies on the
+  earth-shadow term in its transmittance LUT to cut the sun off below the
+  horizon. This pack has no such term, so `CloudTwilightWeight` holds the sun's
+  colour through the fire-cloud band below the horizon and releases it once the
+  antisolar side has fully taken over.
 - The two packs use different radiance units: `CLOUD_MS_ALBEDO` and
   `CLOUD_MS_ISOTROPIC` are this pack's calibration parameters for quantities
   upstream hardcodes. Upstream drives both the geometric series' saturation and

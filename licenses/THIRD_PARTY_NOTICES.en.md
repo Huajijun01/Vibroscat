@@ -268,7 +268,7 @@ The volumetric-cloud scattering model in `shaders/lib/cloud/volumetric.glsl` is
 ported from Revelation (Apache-2.0), `shaders/lib/atmosphere/clouds/Render.glsl`,
 specifically the directional component of `CloudMultiScatteringApproxHaringPro`,
 evaluated once per light channel for both this pack's sun and its moon: the
-`(phase + 1/4pi * fms/(1-fms)) * exp(-tau)` single-scattering plus
+`(phase + 1/4pi * fms/(1-fms))` single-scattering plus
 geometric-series multiple-scattering term, the `msVolume / (1 + 0.5*tau)`
 isotropic volume term, and the ground-bounce term. The multiple-scattering
 approximation itself comes from <https://zhuanlan.zhihu.com/p/457997155>.
@@ -289,6 +289,8 @@ Porting adaptations (this pack's changes relative to upstream):
 - Upstream weights its light optical-depth samples by `density * (i + 0.5)` and
   rescales globally; this pack keeps the same quadratic stratification with
   exact interval weights.
+- Upstream transmits the direct term with Beer `exp(-tau)`; this pack keeps its
+  own `1 / (1 + tau)` transmittance.
 
 The full Apache-2.0 text is in Appendix A.
 

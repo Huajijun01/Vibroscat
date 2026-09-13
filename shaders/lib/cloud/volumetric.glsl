@@ -17,9 +17,12 @@
 //   https://zhuanlan.zhihu.com/p/457997155
 // See licenses/THIRD_PARTY_NOTICES.md section 19.
 //
-// One deliberate deviation: the phase input stays this pack's dual-lobe HG
-// (lib/scattering/phase.glsl) instead of Revelation's baked Mie phase LUT, so
-// no third-party texture or custom image enters the pack.
+// Two deliberate deviations from upstream:
+//   - the phase input stays this pack's dual-lobe HG (lib/scattering/phase.glsl)
+//     instead of Revelation's baked Mie phase LUT, so no third-party texture or
+//     custom image enters the pack;
+//   - the direct term uses this pack's historical 1 / (1 + tau) transmittance
+//     instead of upstream's Beer exp(-tau).
 
 // --- HaringPro constants -----------------------------------------------
 // The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
@@ -273,9 +276,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             * (1.0 - exp2(-CLOUD_MS_FMS_SCALE * sigma_t_per_m));
         float isotropic_orders = PHASE_ISOTROPIC * fms
             / max(1.0 - fms, CLOUD_MS_FMS_FLOOR);
-        // The isotropic volume term is the only source that does not decay
-        // exponentially with the light-path depth; it is what keeps thick
-        // interiors from going black.
+        // The isotropic volume term is a separate source with its own, much
+        // slower falloff; it is what keeps thick interiors from going black.
         float volume_profile = Saturate((density_sample.dimensional_profile
             - CLOUD_MS_PROFILE_FLOOR) / (1.0 - CLOUD_MS_PROFILE_FLOOR));
         float ms_volume = volume_profile
@@ -290,7 +292,9 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, sun_dir, light_jitter);
-            sample_sun = (sun_phase + isotropic_orders) * exp(-light_optical_depth)
+            // Direct transmission keeps the pack's historical 1 / (1 + tau)
+            // falloff rather than Beer.
+            sample_sun = (sun_phase + isotropic_orders) / (1.0 + light_optical_depth)
                 + ms_volume / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth)
                 + ground_bounce_base * max(sun_dir.y, 0.0);
         }
@@ -300,7 +304,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             float moon_light_jitter = fract(light_jitter + 0.5);
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, moon_dir, moon_light_jitter);
-            sample_moon = (moon_phase + isotropic_orders) * exp(-light_optical_depth)
+            sample_moon = (moon_phase + isotropic_orders) / (1.0 + light_optical_depth)
                 + ms_volume / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth)
                 + ground_bounce_base * max(moon_dir.y, 0.0);
         }

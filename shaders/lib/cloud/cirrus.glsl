@@ -14,7 +14,10 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/media.glsl"
+#include "/lib/atmosphere/sky_radiance.glsl"
+#include "/lib/atmosphere/spectral.glsl"
+#include "/lib/atmosphere/transmittance.glsl"
 #include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/scattering/phase.glsl"
 

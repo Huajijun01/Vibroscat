@@ -6,7 +6,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/media.glsl"
+#include "/lib/atmosphere/spectral.glsl"
 
 // Sun/moon discs in linear HDR: TOA irradiance / disc solid angle,
 // attenuated by the view-ray transmittance (dims + reddens near the

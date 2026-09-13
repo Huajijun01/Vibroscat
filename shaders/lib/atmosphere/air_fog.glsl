@@ -4,8 +4,9 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/atmosphere/spectral.glsl"
 #include "/lib/scattering/phase.glsl"
 
 const float AIR_FOG_KM_TO_M = AIR_FOG_DENSITY / 1000.0;
@@ -35,13 +36,6 @@ vec4 AirScatteringIntegral(float segment_length, vec4 sigma_s, vec4 sigma_t) {
 // shared by air_fog.fragment and epipolar_integrate_air.compute).
 float AirFogSegmentLength(float depth_dist, float radius) {
     return min(depth_dist, radius);
-}
-
-// Unitless spectral fraction -> linear sRGB, normalized so a neutral
-// spectrum maps to white (same convention as TransmittanceToLinearSRGB).
-vec3 SpectralFractionToLinearSRGB(vec4 x) {
-    vec3 white = SpectralToLinearSRGB(vec4(1.0));
-    return SpectralToLinearSRGB(clamp(x, vec4(0.0), vec4(1.0))) / white;
 }
 
 // Per-metre extinction, max spectral channel (the shadow map is scalar, so

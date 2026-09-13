@@ -8,7 +8,10 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/media.glsl"
+#include "/lib/atmosphere/sky_radiance.glsl"
+#include "/lib/atmosphere/spectral.glsl"
+#include "/lib/atmosphere/transmittance.glsl"
 #include "/lib/cloud/cirrus.glsl"
 #include "/lib/cloud/volumetric.glsl"
 

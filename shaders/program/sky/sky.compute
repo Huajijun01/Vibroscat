@@ -2,8 +2,10 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/core.glsl"
+#include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/atmosphere/sky_radiance.glsl"
+#include "/lib/atmosphere/spectral.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
 const ivec3 workGroups = ivec3(8, 8, 1);

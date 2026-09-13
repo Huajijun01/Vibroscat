@@ -30,7 +30,7 @@
 - **默认值调整**：`sunPathRotation` -35° → -15°；`OPAQUE_PBR_EMISSION_SCALE` 1 → 10；GTAO 多重反弹（`GTAO_MULTIBOUNCE`）由 true/false 值选项改为独立编译开关并默认关闭。
 - **设置界面重构**：主界面与多个子界面改为双列布局；新增"曝光"子界面（自动曝光、目标亮度、手动曝光、普尔金涅）与"全局光照"/"反射阴影贴图"子界面；"天空"并入"环境"页（星空亮度 + 地平线下沉）；阴影页新增接触阴影与 SSS 能量分组。四档性能配置（LOW–ULTRA）统一加入 RSM 采样数与接触阴影步数/距离档位。主界面新增版本/作者栏与"信息"子界面（开源许可证、性能预设说明、设置说明查看方式），并去除主界面与曝光页的占位空槽；色彩抖动强度从后期处理页移入色调映射页。
 - **STBN 采样统一**：时空蓝噪声（STBN）的全部纹理采样集中到各 pass 的 `main`，库函数一律以参数接收噪声值；`lib/core/noise.glsl` 新增 `STBNFrame()` 时钟（无 TAA 时锁定时间片，避免无时间积累的效果闪烁）与 `STBN_STREAM_*` 时间片流注册表，替换此前散落各处的 `#ifdef TAA` 分支与 +16/+23/+32 魔法数。采样结果保持逐位一致，仅减少同像素重复读取（阴影滤波与接触阴影共享一次 STBN 读取，SSR 每像素 4 次 → 2 次）。
-- **文档与许可**：新增 `docs/`（渲染架构、风格指南、开发流程、调试笔记、GI/RSM 设计与审计文档）；`THIRD_PARTY_NOTICES` 新增 GT-VBGI（CC0 1.0）、RSM/SVGF 算法引用与 GT7（MIT，Polyphony Digital）条目；GI 中早期源自 Sundial-Lite（GPL-3.0）的表达已全部替换为 CC0/MIT 参考实现，仅保留经作者许可的齐次空间屏幕边缘射线截断；DRT 条目补充 Reinhard-AgX 与仓库转为 GPL-3.0 的许可状态。
+- **许可与出处**：`THIRD_PARTY_NOTICES` 新增 GT-VBGI（CC0 1.0）、RSM/SVGF 算法引用与 GT7（MIT，Polyphony Digital）条目；GI 中早期源自 Sundial-Lite（GPL-3.0）的表达已全部替换为 CC0/MIT 参考实现，仅保留经作者许可的齐次空间屏幕边缘射线截断；DRT 条目补充 Reinhard-AgX 与仓库转为 GPL-3.0 的许可状态。
 
 ### 已知情况
 

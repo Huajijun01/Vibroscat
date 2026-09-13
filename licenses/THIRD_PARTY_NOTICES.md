@@ -150,7 +150,7 @@ Copyright © 2026 GeForceLegend）移植版中的若干表达：切片相对 CDF
 的自有求解器 `ClipRayScreenExitT`（逐轴正 t slab 语义，独立编写，SSR 与
 GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Lite 的表达
 自此不在本包残留；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其
-设计层面的 2×2 历史模式比较记录见 `docs/recursive-gi-denoising-plan.md`。
+设计层面采用 2×2 历史模式比较。
 
 ## 17. Reflective Shadow Maps 与时域重建（算法引用）
 

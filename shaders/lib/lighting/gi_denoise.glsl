@@ -78,8 +78,7 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma, vec3 receiver_wor
             float weight = bilinear.x * bilinear.y * (1.0 - plane_distance / plane_tolerance_m);
             vec3 history = texelFetch(colortex9, sample_texel, 0).rgb;
             // Explicit non-finite filter on both colortex9 readers:
-            // comparison-based rejection is not trusted on this driver
-            // (docs/defensive-code-audit.md items 9/10).
+            // comparison-based rejection is not trusted on this driver.
             if (any(isnan(history)) || any(isinf(history))) continue;
             history_sum += history * weight;
             age_sum += age * weight;

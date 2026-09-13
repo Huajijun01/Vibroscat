@@ -151,8 +151,8 @@ screen-edge ray clamp (including its `far + 32.0` limit) is retained from
 Sundial-Lite with that author's explicit permission (verbal, 2026-09).
 Sundial-Lite is no longer an expression source for the GI trace in this file.
 The temporal reconstruction in `gi_denoise.glsl` remains an independent
-SVGF-style implementation; the design-level comparison of its 2x2 history
-pattern is recorded in `docs/recursive-gi-denoising-plan.md`.
+SVGF-style implementation; its design-level comparison uses a 2x2 history
+pattern.
 
 ## 17. Reflective Shadow Maps and temporal reconstruction (algorithmic references)
 

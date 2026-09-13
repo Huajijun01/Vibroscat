@@ -9,23 +9,41 @@
 
 // Vibroscat volumetric clouds.
 //
-// The isotropic multiple-scattering field (phi_fwd) implemented in this file
-// is derived from HanPi Volume Cloud (HPVolumeCloud) by AshenOneArt:
-//   https://github.com/AshenOneArt/HPVolumeCloud
-//   Docs/PhiFwd_FromRTE.md (upstream repo)
-// HPVolumeCloud is MIT licensed with an additional attribution requirement;
-// see licenses/THIRD_PARTY_NOTICES.md section 2.
+// The scattering model is the HaringPro multiple-scattering approximation used
+// by Revelation (Apache-2.0), transcribed from
+//   shaders/lib/atmosphere/clouds/Render.glsl
+//     CloudMultiScatteringApproxHaringPro + RenderClouds
+// The multiple-scattering term itself follows
+//   https://zhuanlan.zhihu.com/p/457997155
+// See licenses/THIRD_PARTY_NOTICES.md section 19.
+//
+// One deliberate deviation: the phase input stays this pack's dual-lobe HG
+// (lib/scattering/phase.glsl) instead of Revelation's baked Mie phase LUT, so
+// no third-party texture or custom image enters the pack.
 
-const int CLOUD_MS_OCTAVES = 3;
-const float CLOUD_PHI_OMEGA0 = 0.75;
+// --- HaringPro constants -----------------------------------------------
+// The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
+// per-meter extinction even though this file marches in kilometers.
+const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
+const float CLOUD_MS_FMS_SCALE = 300.0;
+// 1 - fms only needs a guard against an albedo of exactly 1. At the default
+// albedo the ratio peaks at 999 and never reaches this floor.
+const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
+// The isotropic volume term only appears where the pre-erosion profile is
+// dense and the sample sits above the bottom quarter of the layer.
+const float CLOUD_MS_PROFILE_FLOOR = 0.4;
+const float CLOUD_MS_HEIGHT_GATE = 4.0;
+// The skylight optical depth is estimated from the sun-path depth scaled by the
+// light elevation; the bias keeps the term finite at a level light direction.
+const float CLOUD_MS_SKY_ELEVATION_BIAS = 0.05;
+// This pack's moon rides the exact antipode of the sun, and the single light
+// direction folds between the two across this sun-elevation window.
+const float CLOUD_MOON_FADE_LOW = -0.05;
+const float CLOUD_MOON_FADE_HIGH = -0.03;
+
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
-const float CLOUD_ALPHA_SCATTERING_SRGB_GRAY = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_PHI_OMEGA0;
-// Isotropic multiple-scattering build rate: sigma_iso ~= (1 - g) * sigma_t
-// (PhiFwd_FromRTE.md section 5.3), using the forward HG eccentricity as g.
-const float CLOUD_PHI_BUILD_SCALE = 0.15;
 // The distribution atlas is sampled twice: a large-scale coverage read and a
-// detail read. The offset and scale keep the two reads decorrelated.
-const float CLOUD_DISTRIBUTION_UV_OFFSET = 0.114514;
+// detail read. The scale keeps the two reads decorrelated.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
 // Large-scale coverage modulates the base coverage by this linear boost.
 const float CLOUD_COVERAGE_BOOST_BASE = -0.1;
@@ -34,11 +52,10 @@ const float CLOUD_COVERAGE_BOOST_RANGE = 0.1;
 struct CloudDensitySample {
     float density;
     float height_fraction;
-};
-
-struct CloudLightTransport {
-    float optical_depth;
-    float isotropic_diffuse;
+    // Pre-erosion shape profile in [0, 1]: vertical profile times coverage,
+    // before the two erosion stages cut into it. The HaringPro volume term and
+    // the ground bounce read this, not the eroded density.
+    float dimensional_profile;
 };
 
 bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float march_end
@@ -118,40 +135,26 @@ vec2 CloudDistributionUv(vec2 world_km) {
             frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
 }
 
-// HP boundary confidence uses a cloud-top height proxy, not density or optical
-// depth. This project has no separate weather coverage-height LUT, so mirror
-// the actual top-fade driver used by SampleCloudDensity: the large-scale read
-// controls the lower edge of the top fade over [start, 1]. Its midpoint is the
-// effective top height used for the finite-difference normal.
-float CloudBoundaryHeightProxy(vec2 world_km) {
-    vec2 distribution_uv = CloudDistributionUv(world_km);
-    float large_scale_cloud = texture(utex_cloud_distribution_tex,
-        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
-    float top_fade_start = 0.2 + large_scale_cloud * large_scale_cloud * 0.4;
-    return Saturate(0.5 * (top_fade_start + 1.0));
+// 0 while the sun is up, 1 once it is below the fade window. This is the
+// defined form of Revelation's smoothstep(-0.03, -0.05, sun_dir.y), whose
+// edge0 > edge1 ordering the GLSL spec leaves undefined.
+float CloudMoonlightFactor(float sun_dir_y) {
+    return 1.0 - smoothstep(CLOUD_MOON_FADE_LOW, CLOUD_MOON_FADE_HIGH, sun_dir_y);
 }
 
-// HP's boundary term: finite-difference the top height, build the top normal,
-// and apply a wrap(N dot L) response. The caller passes a normalized light dir.
-float CloudBoundaryBacklight(vec2 world_km, vec3 light_dir) {
-    const float sample_step = CLOUD_DISTRIBUTION_SCALE_KM * (1.0 / 1024.0);
-    float height_left = CloudBoundaryHeightProxy(world_km - vec2(sample_step, 0.0));
-    float height_right = CloudBoundaryHeightProxy(world_km + vec2(sample_step, 0.0));
-    float height_down = CloudBoundaryHeightProxy(world_km - vec2(0.0, sample_step));
-    float height_up = CloudBoundaryHeightProxy(world_km + vec2(0.0, sample_step));
-    float slab_thickness = max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-3);
-    float height_gradient_x = (height_right - height_left) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    float height_gradient_z = (height_up - height_down) * slab_thickness / max(2.0 * sample_step, 1.0e-3);
-    vec3 top_normal = normalize(vec3(-height_gradient_x, 1.0, -height_gradient_z));
-    float ndotl = dot(top_normal, light_dir);
-    const float wrap = 0.5;
-    float boundary_lit = Saturate((ndotl + wrap) / (1.0 + wrap));
-    return mix(1.0, boundary_lit, Saturate(CLOUD_MS_BOUNDARY_CONFIDENCE));
+// The single cloud light direction. Revelation folds the moon in by scaling the
+// sun direction with (1 - 2 * moonlightFactor); that normalization passes
+// through a zero vector at the crossover, so this flips the direction at the
+// same midpoint instead. Both illuminants are near the horizon there and the
+// two light colors are mixed continuously, so the switch is not visible.
+vec3 CloudLightDirection(vec3 sun_dir, float moonlight_factor) {
+    return moonlight_factor < 0.5 ? sun_dir : -sun_dir;
 }
 
 CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
     CloudDensitySample result;
     result.density = 0.0;
+    result.dimensional_profile = 0.0;
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
     result.height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
@@ -162,7 +165,6 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
     vec2 distribution_uv = CloudDistributionUv(world_km);
-    // float large_scale_cloud = texture(utex_cloud_distribution_tex, distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
     float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
@@ -175,6 +177,7 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
     float macro_density = Saturate(distribution_density - height_penalty)
         * bottom_ramp
         * top_fade;
+    result.dimensional_profile = macro_density;
     if (macro_density <= 0.01) {
         return result;
     }
@@ -207,122 +210,49 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
     return result;
 }
 
-// phi_fwd: HPVolumeCloud isotropic multiple-scattering port. See the file
-// header for attribution and the derivation in Docs/PhiFwd_FromRTE.md.
-CloudLightTransport SampleCloudLightTransport(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
-    CloudLightTransport transport;
-    transport.optical_depth = 0.0;
-    transport.isotropic_diffuse = 0.0;
-
-    float light_distance = min(CloudDistanceToShellExit(atmosphere_position, light_dir), CLOUD_LIGHT_MAX_DISTANCE_KM);
-    if (light_distance <= 1.0e-5) return transport;
+// Optical depth from the receiver toward the light, over the same quadratic
+// strata Revelation's CloudVolumeOpticalDepth uses: CLOUD_LIGHT_STEPS steps,
+// densest at the receiver, each sampled at a jittered point inside its
+// interval. Revelation weights the samples by (i + 0.5) and rescales by its own
+// step length; this keeps the exact interval weight instead.
+float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
+    float light_distance = min(
+        CloudDistanceToShellExit(atmosphere_position, light_dir),
+        CLOUD_LIGHT_MAX_DISTANCE_KM
+    );
+    if (light_distance <= 1.0e-5) return 0.0;
 
     float inverse_step_count = 1.0 / float(CLOUD_LIGHT_STEPS);
-
-    // March from the receiver toward the sun, matching HPVolumeCloud's source
-    // semantics. Every source's build/propagation depth is measured from the
-    // receiver, and all exponentials remain non-positive.
-    float one_minus_omega0 = 1.0 - CLOUD_PHI_OMEGA0;
-    float kappa_per_optical_depth = sqrt(3.0 * one_minus_omega0);
-    float total_optical_depth = 0.0;
-    float weighted_source_sum = 0.0;
-
-    // Transform fixed x^2 strata into physical distance. Jitter moves the
-    // source within each stratum while the segment width remains deterministic;
-    // this keeps prefix optical depth stable for the nonlinear phi_fwd terms.
+    float optical_depth = 0.0;
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
         float x0 = float(i) * inverse_step_count;
         float x1 = float(i + 1) * inverse_step_count;
         float segment_start = light_distance * x0 * x0;
         float segment_end = light_distance * x1 * x1;
-        float interval_weight = segment_end - segment_start;
         float sample_distance = mix(segment_start, segment_end, light_jitter);
-        float sample_offset = sample_distance - segment_start;
-        vec3 source_position = atmosphere_position + light_dir * sample_distance;
-        CloudDensitySample density_sample = SampleCloudDensity(source_position);
-        float cloud_density = density_sample.density;
-        // With zero density the scattering source is +0.0 and every other
-        // factor is finite, so both accumulators would gain exactly +0.0;
-        // skipping the step body is bit-exact and sparse skies spend most
-        // light steps here.
-        if (cloud_density > 0.01) {
-            float sigma_t = cloud_density * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY;
-            float sigma_s = cloud_density * CLOUD_ALPHA_SCATTERING_SRGB_GRAY;
-            float segment_optical_depth = sigma_t * interval_weight;
-            // sigma_tr ~= sigma_t in the isotropic regime: the source carries the
-            // 1/D scale.
-            float scattering_source = sigma_s * interval_weight;
-            float optical_depth_from_receiver = total_optical_depth + sigma_t * sample_offset;
-            float isotropic_buildup = 1.0 - exp(-optical_depth_from_receiver * CLOUD_PHI_BUILD_SCALE);
-            float inverse_distance = 1.0 / max(sample_distance, 1.0e-4);
-            // HP's source confidence is evaluated at each light-ray source. The
-            // bottom term uses the local source height; the boundary term uses
-            // that source's XZ position.
-            float source_bottom_height = max(density_sample.height_fraction + CLOUD_MS_DEPTH_BIAS, 0.0);
-            float source_bottom_confidence = 1.0 - exp(-source_bottom_height * CLOUD_MS_DEPTH_POWER);
-            vec2 source_world_km = source_position.xz + cameraPosition.xz * 0.001;
-            float source_boundary_confidence = CloudBoundaryBacklight(source_world_km, light_dir);
-            float source_confidence = source_bottom_confidence * source_boundary_confidence;
-            // HP's T_cum is the receiver-to-source absorption before this
-            // segment; propagation reaches the jittered source point.
-            float source_absorption = exp(-one_minus_omega0 * total_optical_depth);
-            float source_propagation = exp(-kappa_per_optical_depth * optical_depth_from_receiver);
-            weighted_source_sum += source_absorption
-                * source_propagation
-                * scattering_source
-                * sigma_t
-                * isotropic_buildup
-                * inverse_distance
-                * source_confidence;
-            total_optical_depth += segment_optical_depth;
-        }
+        CloudDensitySample density_sample = SampleCloudDensity(
+            atmosphere_position + light_dir * sample_distance);
+        optical_depth += density_sample.density
+            * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
+            * (segment_end - segment_start);
     }
-    transport.optical_depth = total_optical_depth;
-
-    transport.isotropic_diffuse = weighted_source_sum * PHASE_ISOTROPIC;
-    return transport;
+    return optical_depth;
 }
 
-float MapCloudIsotropicDiffuse(float isotropic_diffuse) {
-    // Apply the soft saturation to the final phi_fwd scalar only. Boundary
-    // confidence and the sun-line integration remain linear inputs to it.
-    float phi_fwd_scalar = isotropic_diffuse * CLOUD_PHI_INTENSITY;
-    if (CLOUD_PHI_COMPRESSION > 0.0) {
-        return (1.0 - exp(-phi_fwd_scalar * CLOUD_PHI_COMPRESSION)) / CLOUD_PHI_COMPRESSION;
-    }
-    return phi_fwd_scalar;
-}
-
+// Single-scattering albedo and the directional/sky split live here; intensity
+// scaling happens at the relight consumer.
 vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_jitter,
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
     vec3 sun_dir = normalize(u_world_sun_dir);
-    // Moon sits opposite the sun (no separate uniform); its view cosine is the
-    // exact negation of the sun's. Each light is gated by earth occlusion below.
-    vec3 moon_dir = -sun_dir;
-    float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
-    // Phase terms depend only on the fixed cosine + constant octave factors:
-    // evaluated once per ray.
-    float sun_phase_weight[CLOUD_MS_OCTAVES];
-    float moon_phase_weight[CLOUD_MS_OCTAVES];
-    float octave_attenuation[CLOUD_MS_OCTAVES];
-    {
-        float attenuation_factor = 1.0;
-        float contribution_factor = 1.0;
-        float eccentricity_factor = 1.0;
-        for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-            float forward_g = CLOUD_PHASE_FORWARD_G * eccentricity_factor;
-            float backward_g = CLOUD_PHASE_BACKWARD_G * eccentricity_factor;
-            sun_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(sun_cos_theta, forward_g, backward_g)
-                * contribution_factor;
-            moon_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(-sun_cos_theta, forward_g, backward_g)
-                * contribution_factor;
-            octave_attenuation[octave] = attenuation_factor;
-            attenuation_factor *= CLOUD_MS_ATTENUATION;
-            contribution_factor *= CLOUD_MS_CONTRIBUTION;
-            eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
-        }
-    }
+    float moonlight_factor = CloudMoonlightFactor(sun_dir.y);
+    vec3 light_dir = CloudLightDirection(sun_dir, moonlight_factor);
+    float light_cos_theta = clamp(dot(view_dir, light_dir), -1.0, 1.0);
+    // Revelation samples one phase per ray from its Mie LUT; the pack keeps its
+    // dual-lobe HG at the same point in the pipeline.
+    float phase = PhaseHenyeyGreensteinDualLobe(
+        light_cos_theta, CLOUD_PHASE_FORWARD_G, CLOUD_PHASE_BACKWARD_G);
+
     // stbn_jitter is sampled by the pass main: the screen pass seeds it with
     // (view texel, frameCounter), the skybox with (skybox texel,
     // frameCounter / 4). x = view march jitter, y = light march base; the two
@@ -330,8 +260,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float view_jitter = stbn_jitter.x;
     float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;
-    float direct_sun_radiance = 0.0;
-    float direct_moon_radiance = 0.0;
+    float directional_radiance = 0.0;
+    float sky_radiance = 0.0;
     vec3 surface_position_accumulator = vec3(0.0);
     float surface_weight = 0.0;
     float view_transmittance = 1.0;
@@ -353,33 +283,43 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float sample_r2 = dot(sample_position, sample_position);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
-        float sample_sun_radiance = 0.0;
-        float sample_moon_radiance = 0.0;
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
-            CloudLightTransport sun_transport = SampleCloudLightTransport(sample_position, sun_dir, light_jitter);
-            float directional_sun_radiance = 0.0;
-            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-                // 1 / (1 + accumulated optical depth) approximates the
-                // falloff of additional scattering orders.
-                directional_sun_radiance += sun_phase_weight[octave] / (sun_transport.optical_depth
-                        * octave_attenuation[octave] + 1.0);
-            }
-            sample_sun_radiance = directional_sun_radiance
-                * CLOUD_PHI_OMEGA0
-                + MapCloudIsotropicDiffuse(sun_transport.isotropic_diffuse);
-        }
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, moon_dir, ATM_PLANET_R2)) {
-            // Half-period offset decorrelates the moon march from the sun's.
-            float moon_light_jitter = fract(light_jitter + 0.5);
-            CloudLightTransport moon_transport = SampleCloudLightTransport(sample_position, moon_dir, moon_light_jitter);
-            float directional_moon_radiance = 0.0;
-            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
-                directional_moon_radiance += moon_phase_weight[octave] / (moon_transport.optical_depth
-                        * octave_attenuation[octave] + 1.0);
-            }
-            sample_moon_radiance = directional_moon_radiance
-                * CLOUD_PHI_OMEGA0
-                + MapCloudIsotropicDiffuse(moon_transport.isotropic_diffuse);
+        float sample_directional = 0.0;
+        float sample_sky = 0.0;
+        if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
+            float light_optical_depth = CloudLightOpticalDepth(
+                sample_position, light_dir, light_jitter);
+            float sigma_t_per_m = density_sample.density
+                * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
+            // fms is the energy still available after one more scattering
+            // event. fms / (1 - fms) is the geometric series of every order
+            // past the first, carried by the isotropic phase.
+            float fms = CLOUD_MS_ALBEDO
+                * (1.0 - exp2(-CLOUD_MS_FMS_SCALE * sigma_t_per_m));
+            sample_directional = (phase + PHASE_ISOTROPIC * fms
+                    / max(1.0 - fms, CLOUD_MS_FMS_FLOOR))
+                * exp(-light_optical_depth);
+            // The isotropic volume term is the only source that does not decay
+            // exponentially with the sun-path depth; it is what keeps thick
+            // interiors from going black.
+            float volume_profile = Saturate((density_sample.dimensional_profile
+                - CLOUD_MS_PROFILE_FLOOR) / (1.0 - CLOUD_MS_PROFILE_FLOOR));
+            float ms_volume = volume_profile
+                * Saturate(CLOUD_MS_HEIGHT_GATE * density_sample.height_fraction)
+                * CLOUD_MS_VOLUME;
+            sample_directional += ms_volume
+                / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth);
+            // Ground bounce feeds both the directional and the sky term. The
+            // clamp only bites inside the moon crossover, where the light
+            // direction is within a couple degrees of the horizon.
+            float ground_bounce = (1.0 - density_sample.dimensional_profile
+                    * density_sample.dimensional_profile)
+                * (1.0 - density_sample.height_fraction)
+                * max(light_dir.y, 0.0) * PHASE_ISOTROPIC;
+            sample_directional += ground_bounce;
+            // Skylight optical depth: the sun-path depth scaled by the light
+            // elevation approximates the depth toward the zenith.
+            sample_sky = 1.0 / (1.0 + light_optical_depth
+                * (light_dir.y + CLOUD_MS_SKY_ELEVATION_BIAS)) + ground_bounce;
         }
         float optical_depth = density_sample.density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
@@ -390,19 +330,18 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float segment_weight = step_transmittance * segment_absorption;
         surface_position_accumulator += sample_position * segment_weight;
         surface_weight += segment_weight;
-        direct_sun_radiance += segment_weight
-            * sample_sun_radiance;
-        direct_moon_radiance += segment_weight
-            * sample_moon_radiance;
+        directional_radiance += segment_weight * sample_directional;
+        sky_radiance += segment_weight * sample_sky;
         view_transmittance *= segment_transmittance;
         if (view_transmittance < 1.0e-4) break;
     }
 
     hit = surface_weight > 1.0e-5;
     surface_position = surface_position_accumulator / max(surface_weight, 1.0e-5);
-    // Packed output: x = normalized sun irradiance, y = normalized moon
-    // irradiance, z = remaining view transmittance.
-    return vec3(direct_sun_radiance, direct_moon_radiance, view_transmittance);
+    // Packed output: x = directional (sun or moon) in-scatter, y = sky
+    // in-scatter, z = remaining view transmittance. Both scattering channels
+    // are already scaled by CLOUD_MS_ALBEDO.
+    return vec3(directional_radiance, sky_radiance, view_transmittance);
 }
 
 #endif

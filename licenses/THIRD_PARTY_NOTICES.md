@@ -15,7 +15,7 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 
 ## 2. HanPi Volume Cloud（派生代码，MIT + 附加署名）
 
-`shaders/lib/cloud/volumetric.glsl` 的各向同性多重散射场（phi_fwd）派生自 HanPi Volume Cloud（AshenOneArt），MIT 许可并附额外署名要求：
+`shaders/lib/scattering/phase.glsl` 的体积云 dual-lobe HG 相位函数派生自 HanPi Volume Cloud（AshenOneArt），MIT 许可并附额外署名要求。同一来源的 phi_fwd 各向同性多重散射场曾位于 `shaders/lib/cloud/volumetric.glsl`，已于 2026-09 整体替换为 Revelation 的 HaringPro 模型（见第 19 节），该文件自此不再包含 HP 代码表达：
 
 > MIT License
 >
@@ -250,6 +250,29 @@ Yasutomi），样例代码明确以 MIT 许可发布：
   精确求逆的常量。
 - 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、
   `TONEMAP_GT7_CHROMA_FADE_END`（默认值均为官方样例值）。
+
+## 19. Revelation（Apache-2.0，体积云散射移植）
+
+`shaders/lib/cloud/volumetric.glsl` 的体积云散射模型移植自 Revelation（Apache-2.0）的
+`shaders/lib/atmosphere/clouds/Render.glsl`，具体为 `CloudMultiScatteringApproxHaringPro`
+与 `RenderClouds` 的视图步进：`(phase + 1/4π · fms/(1-fms)) · exp(-τ)` 的单次散射加几何级数
+多重散射、`msVolume / (1 + 0.5τ)` 各向同性体积项、地面反弹项，以及用太阳路径光学深度乘光
+方向仰角估计的天光光学深度。多重散射近似本身出自
+<https://zhuanlan.zhihu.com/p/457997155>。
+
+移植适配说明（本包相对上游的改动）：
+
+- 相位输入保留本包的 dual-lobe HG（见第 2 节），未导入 Revelation 的 `CloudPhaseLut.bin`
+  烘焙 Mie 相位表，因此没有引入第三方贴图。
+- 两边亮度单位不同：`CLOUD_MS_ALBEDO`、`CLOUD_MS_VOLUME`、`CLOUD_MS_VOLUME_FALLOFF`
+  与 `CLOUD_SKY_LIGHT_STRENGTH` 是本包的标定参数，对应上游写死的量。
+- 上游 `smoothstep(-0.03, -0.05, y)` 的 edge0 大于 edge1，GLSL 规范对结果未定义；本包改用
+  `1 - smoothstep(-0.05, -0.03, y)`。上游 `normalize(sunDir * (1 - 2·moonlightFactor))`
+  在交叉点会归一化一个零向量，本包改为在同一中点翻转方向。
+- 上游光照光学深度按 `density * (i + 0.5)` 加权再整体缩放；本包保留同样的二次分层，改用
+  精确的区间权重。
+
+Apache-2.0 全文见附录 A。
 
 ## 附录 A：Apache License 2.0 全文
 

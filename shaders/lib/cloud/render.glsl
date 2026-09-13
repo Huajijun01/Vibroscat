@@ -65,14 +65,14 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
         SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
     vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
         SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
-    // Ambient evaluated once at the shared surface position, scaled by the
-    // absorbed fraction (1 - T).
+    // The march folds both illuminants into one light direction
+    // (CloudLightDirection), so the directional channel takes the matching
+    // color and the sky channel carries the marched sky weight directly.
+    vec3 light_color = mix(sun_color, moon_color, CloudMoonlightFactor(sun_dir.y));
     vec3 ambient_cloud_radiance = GetAmbientColor(surface_position, sun_dir)
-        * (1.0 - cloud_data.z)
+        * cloud_data.y
         * CLOUD_SKY_LIGHT_STRENGTH;
-    float direct_sun_radiance = cloud_data.x;
-    float direct_moon_radiance = cloud_data.y;
-    return direct_sun_radiance * sun_color + direct_moon_radiance * moon_color + ambient_cloud_radiance;
+    return cloud_data.x * light_color + ambient_cloud_radiance;
 }
 
 // Compose volumetric + cirrus over the sky. Layer order follows the ray:
@@ -81,7 +81,7 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
 // cirrus_light_jitter is the STBN dither for the cirrus light march, sampled
 // by the pass main.
 vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
-    vec3 volumetric_radiance,   // packed march output: x = sun, y = moon, z = T
+    vec3 volumetric_radiance,   // packed march output: x = directional, y = sky, z = T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
     float cirrus_light_jitter,

@@ -17,18 +17,21 @@
 //   https://zhuanlan.zhihu.com/p/457997155
 // See licenses/THIRD_PARTY_NOTICES.md section 19.
 //
-// Two deliberate deviations from upstream:
+// Three deliberate deviations from upstream:
 //   - the phase input stays this pack's dual-lobe HG (lib/scattering/phase.glsl)
 //     instead of Revelation's baked Mie phase LUT, so no third-party texture or
 //     custom image enters the pack;
-//   - the direct term uses this pack's historical 1 / (1 + tau) transmittance
+//   - the directional term keeps this pack's three-octave HanPi sum, carried
+//     alongside the HaringPro isotropic series rather than upstream's single
+//     phase term;
+//   - the light-path transmittance uses this pack's historical 1 / (1 + tau)
 //     instead of upstream's Beer exp(-tau).
 
 // --- HaringPro constants -----------------------------------------------
 // The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
 // per-meter extinction even though this file marches in kilometers.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
-const float CLOUD_MS_FMS_SCALE = 300.0;
+const float CLOUD_MS_FMS_SCALE = 150.0;
 // 1 - fms only needs a guard against an albedo of exactly 1. At the default
 // albedo the ratio peaks at 999 and never reaches this floor.
 const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
@@ -36,6 +39,9 @@ const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
 // dense and the sample sits above the bottom quarter of the layer.
 const float CLOUD_MS_PROFILE_FLOOR = 0.4;
 const float CLOUD_MS_HEIGHT_GATE = 4.0;
+// HanPi directional octaves: each step widens the phase, weakens its
+// contribution and softens the optical-depth falloff of the next order.
+const int CLOUD_MS_OCTAVES = 3;
 
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 // The distribution atlas is sampled twice: a large-scale coverage read and a
@@ -231,11 +237,29 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     vec3 moon_dir = -sun_dir;
     float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
     // Revelation samples one phase per ray from its Mie LUT; the pack keeps its
-    // dual-lobe HG at the same point in the pipeline.
-    float sun_phase = PhaseHenyeyGreensteinDualLobe(
-        sun_cos_theta, CLOUD_PHASE_FORWARD_G, CLOUD_PHASE_BACKWARD_G);
-    float moon_phase = PhaseHenyeyGreensteinDualLobe(
-        -sun_cos_theta, CLOUD_PHASE_FORWARD_G, CLOUD_PHASE_BACKWARD_G);
+    // dual-lobe HG at the same point in the pipeline, once per octave. The
+    // terms depend only on the fixed cosine and the constant octave factors, so
+    // they are evaluated once per ray.
+    float sun_phase_weight[CLOUD_MS_OCTAVES];
+    float moon_phase_weight[CLOUD_MS_OCTAVES];
+    float octave_attenuation[CLOUD_MS_OCTAVES];
+    {
+        float attenuation_factor = 1.0;
+        float contribution_factor = 1.0;
+        float eccentricity_factor = 1.0;
+        for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
+            float forward_g = CLOUD_PHASE_FORWARD_G * eccentricity_factor;
+            float backward_g = CLOUD_PHASE_BACKWARD_G * eccentricity_factor;
+            sun_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(
+                sun_cos_theta, forward_g, backward_g) * contribution_factor;
+            moon_phase_weight[octave] = PhaseHenyeyGreensteinDualLobe(
+                -sun_cos_theta, forward_g, backward_g) * contribution_factor;
+            octave_attenuation[octave] = attenuation_factor;
+            attenuation_factor *= CLOUD_MS_ATTENUATION;
+            contribution_factor *= CLOUD_MS_CONTRIBUTION;
+            eccentricity_factor *= CLOUD_MS_ECCENTRICITY;
+        }
+    }
 
     // stbn_jitter is sampled by the pass main: the screen pass seeds it with
     // (view texel, frameCounter), the skybox with (skybox texel,
@@ -292,9 +316,15 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, sun_dir, light_jitter);
-            // Direct transmission keeps the pack's historical 1 / (1 + tau)
-            // falloff rather than Beer.
-            sample_sun = (sun_phase + isotropic_orders) / (1.0 + light_optical_depth)
+            // 1 / (1 + optical depth) approximates the falloff of the
+            // additional scattering orders; each octave softens it further.
+            float sun_octave_radiance = 0.0;
+            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
+                sun_octave_radiance += sun_phase_weight[octave]
+                    / (light_optical_depth * octave_attenuation[octave] + 1.0);
+            }
+            sample_sun = sun_octave_radiance
+                + isotropic_orders / (1.0 + light_optical_depth)
                 + ms_volume / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth)
                 + ground_bounce_base * max(sun_dir.y, 0.0);
         }
@@ -304,7 +334,13 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             float moon_light_jitter = fract(light_jitter + 0.5);
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, moon_dir, moon_light_jitter);
-            sample_moon = (moon_phase + isotropic_orders) / (1.0 + light_optical_depth)
+            float moon_octave_radiance = 0.0;
+            for (int octave = 0; octave < CLOUD_MS_OCTAVES; ++octave) {
+                moon_octave_radiance += moon_phase_weight[octave]
+                    / (light_optical_depth * octave_attenuation[octave] + 1.0);
+            }
+            sample_moon = moon_octave_radiance
+                + isotropic_orders / (1.0 + light_optical_depth)
                 + ms_volume / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth)
                 + ground_bounce_base * max(moon_dir.y, 0.0);
         }

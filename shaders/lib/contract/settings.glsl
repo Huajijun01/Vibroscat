@@ -139,6 +139,9 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] HanPi forward HG eccentricity.
 #define CLOUD_PHASE_BACKWARD_G 0.3 // [0.15 0.2 0.25 0.3 0.35 0.4] HanPi backward HG eccentricity.
+#define CLOUD_MS_ATTENUATION 0.5 // [0.25 0.35 0.5 0.65 0.75 0.85 1.0] HanPi per-octave optical depth multiplier.
+#define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] HanPi per-octave energy multiplier.
+#define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] HanPi per-octave phase eccentricity multiplier.
 #define CLOUD_MS_ALBEDO 0.999 // [0.90 0.95 0.97 0.98 0.99 0.995 0.999] HaringPro single-scattering albedo of the cloud medium.
 #define CLOUD_MS_VOLUME 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] HaringPro isotropic volume-scattering strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_MS_VOLUME_FALLOFF 0.5 // [0.0 0.1 0.25 0.5 1.0 2.0] HaringPro volume-scattering falloff with sun-path optical depth; lower = light reaches deeper into thick clouds.

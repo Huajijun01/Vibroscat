@@ -15,7 +15,7 @@ The redistribution restrictions of Photon's custom license do not apply to the p
 
 ## 2. HanPi Volume Cloud (derived code, MIT + additional attribution)
 
-The volumetric-cloud dual-lobe HG phase function in `shaders/lib/scattering/phase.glsl` is derived from HanPi Volume Cloud (AshenOneArt), MIT licensed with an additional attribution requirement. The isotropic multiple-scattering field (phi_fwd) from the same source lived in `shaders/lib/cloud/volumetric.glsl` until 2026-09, when it was replaced wholesale by Revelation's HaringPro model (see section 19); that file no longer contains HP code expression:
+The volumetric-cloud dual-lobe HG phase function in `shaders/lib/scattering/phase.glsl`, and the three-octave directional multiple-scattering sum in `shaders/lib/cloud/volumetric.glsl` (`sum c_k*P_k/(1 + a_k*tau)`, driven by `CLOUD_MS_ATTENUATION`, `CLOUD_MS_CONTRIBUTION` and `CLOUD_MS_ECCENTRICITY`), are derived from HanPi Volume Cloud (AshenOneArt), MIT licensed with an additional attribution requirement. The isotropic multiple-scattering field (phi_fwd) from the same source lived in the same file until 2026-09, when it was replaced by Revelation's HaringPro model (see section 19); no phi_fwd code expression remains:
 
 > MIT License
 >
@@ -268,10 +268,11 @@ The volumetric-cloud scattering model in `shaders/lib/cloud/volumetric.glsl` is
 ported from Revelation (Apache-2.0), `shaders/lib/atmosphere/clouds/Render.glsl`,
 specifically the directional component of `CloudMultiScatteringApproxHaringPro`,
 evaluated once per light channel for both this pack's sun and its moon: the
-`(phase + 1/4pi * fms/(1-fms))` single-scattering plus
-geometric-series multiple-scattering term, the `msVolume / (1 + 0.5*tau)`
-isotropic volume term, and the ground-bounce term. The multiple-scattering
-approximation itself comes from <https://zhuanlan.zhihu.com/p/457997155>.
+the `1/4pi * fms/(1-fms)` isotropic geometric-series multiple-scattering
+term, the `msVolume / (1 + 0.5*tau)` isotropic volume term, and the
+ground-bounce term. The directional phase octave sum comes from this pack's own
+implementation, see section 2. The multiple-scattering approximation itself
+comes from <https://zhuanlan.zhihu.com/p/457997155>.
 
 Porting adaptations (this pack's changes relative to upstream):
 
@@ -291,6 +292,9 @@ Porting adaptations (this pack's changes relative to upstream):
   exact interval weights.
 - Upstream transmits the direct term with Beer `exp(-tau)`; this pack keeps its
   own `1 / (1 + tau)` transmittance.
+- Upstream has a single phase term; this pack keeps its three-octave HanPi sum
+  and carries the HaringPro isotropic series as a separate added term rather
+  than a replacement.
 
 The full Apache-2.0 text is in Appendix A.
 

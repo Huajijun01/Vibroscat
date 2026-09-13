@@ -199,6 +199,12 @@ option.CLOUD_PHASE_FORWARD_G = Forward Phase G
 option.CLOUD_PHASE_FORWARD_G.comment = Controls the bright "silver lining" when you look toward the sun through clouds: higher = a tighter, brighter glow around the sun.
 option.CLOUD_PHASE_BACKWARD_G = Backward Phase G
 option.CLOUD_PHASE_BACKWARD_G.comment = Controls how bright clouds look when your back is to the sun: higher = a stronger glow on the clouds across the sky from the sun.
+option.CLOUD_MS_ATTENUATION = MS Attenuation
+option.CLOUD_MS_ATTENUATION.comment = Part of the simulation of sunlight bouncing around inside a cloud (this is why shadowed cloud interiors are not pitch black). Controls how much light survives each bounce: higher = light penetrates deeper, giving brighter, softer shadowed interiors.
+option.CLOUD_MS_CONTRIBUTION = MS Contribution
+option.CLOUD_MS_CONTRIBUTION.comment = Overall strength of the simulated interior bounces: higher = brighter, milkier clouds.
+option.CLOUD_MS_ECCENTRICITY = MS Eccentricity
+option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow concentrates toward the sun's direction: higher = a stronger halo of light spreading through the cloud around the sun.
 option.CLOUD_MS_ALBEDO = Cloud Albedo
 option.CLOUD_MS_ALBEDO.comment = How much light a cloud particle scatters instead of absorbing. Water clouds barely absorb, so this sits close to 1: lower = greyer, heavier clouds with darker interiors.
 option.CLOUD_MS_VOLUME = Volume Scatter

@@ -31,14 +31,10 @@
 // The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
 // per-meter extinction even though this file marches in kilometers.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
-const float CLOUD_MS_FMS_SCALE = 150.0;
+const float CLOUD_MS_FMS_SCALE = 300.0;
 // 1 - fms only needs a guard against an albedo of exactly 1. At the default
 // albedo the ratio peaks at 999 and never reaches this floor.
 const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
-// The isotropic volume term only appears where the pre-erosion profile is
-// dense and the sample sits above the bottom quarter of the layer.
-const float CLOUD_MS_PROFILE_FLOOR = 0.4;
-const float CLOUD_MS_HEIGHT_GATE = 4.0;
 // HanPi directional octaves: each step widens the phase, weakens its
 // contribution and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
@@ -55,8 +51,8 @@ struct CloudDensitySample {
     float density;
     float height_fraction;
     // Pre-erosion shape profile in [0, 1]: vertical profile times coverage,
-    // before the two erosion stages cut into it. The HaringPro volume term and
-    // the ground bounce read this, not the eroded density.
+    // before the two erosion stages cut into it. The ground bounce reads this,
+    // not the eroded density.
     float dimensional_profile;
 };
 
@@ -300,13 +296,6 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             * (1.0 - exp2(-CLOUD_MS_FMS_SCALE * sigma_t_per_m));
         float isotropic_orders = PHASE_ISOTROPIC * fms
             / max(1.0 - fms, CLOUD_MS_FMS_FLOOR);
-        // The isotropic volume term is a separate source with its own, much
-        // slower falloff; it is what keeps thick interiors from going black.
-        float volume_profile = Saturate((density_sample.dimensional_profile
-            - CLOUD_MS_PROFILE_FLOOR) / (1.0 - CLOUD_MS_PROFILE_FLOOR));
-        float ms_volume = volume_profile
-            * Saturate(CLOUD_MS_HEIGHT_GATE * density_sample.height_fraction)
-            * CLOUD_MS_VOLUME;
         float ground_bounce_base = (1.0 - density_sample.dimensional_profile
                 * density_sample.dimensional_profile)
             * (1.0 - density_sample.height_fraction) * PHASE_ISOTROPIC;
@@ -325,7 +314,6 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             }
             sample_sun = sun_octave_radiance
                 + isotropic_orders / (1.0 + light_optical_depth)
-                + ms_volume / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth)
                 + ground_bounce_base * max(sun_dir.y, 0.0);
         }
         float sample_moon = 0.0;
@@ -341,7 +329,6 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             }
             sample_moon = moon_octave_radiance
                 + isotropic_orders / (1.0 + light_optical_depth)
-                + ms_volume / (1.0 + CLOUD_MS_VOLUME_FALLOFF * light_optical_depth)
                 + ground_bounce_base * max(moon_dir.y, 0.0);
         }
         float optical_depth = density_sample.density

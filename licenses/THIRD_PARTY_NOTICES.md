@@ -255,8 +255,8 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 
 `shaders/lib/cloud/volumetric.glsl` 的体积云散射模型移植自 Revelation（Apache-2.0）的
 `shaders/lib/atmosphere/clouds/Render.glsl`，具体为 `CloudMultiScatteringApproxHaringPro`
-的方向光分量（本包的太阳与月球两个通道各算一次）：`1/4π · fms/(1-fms)` 的各向同性几何级数多重散射项、
-`msVolume / (1 + 0.5τ)` 各向同性体积项，以及地面反弹项。方向光的相位 octave 求和来自本包原有实现，见第 2 节。上式的多重散射近似本身出自
+的方向光分量（本包的太阳与月球两个通道各算一次）：`1/4π · fms/(1-fms)` 的各向同性几何级数多重散射项，
+以及地面反弹项。上游同函数里的 `msVolume / (1 + 0.5τ)` 体积项与天光分量均未移植。方向光的相位 octave 求和来自本包原有实现，见第 2 节。多重散射近似本身出自
 <https://zhuanlan.zhihu.com/p/457997155>。
 
 移植适配说明（本包相对上游的改动）：
@@ -266,8 +266,7 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 - 上游把日月折成单一光方向，并把 `CloudMultiScatteringApproxHaringPro` 的第二个分量
   （天光项）交给天空辐照度。本包保留独立的太阳与月球双通道光照和原有的环境光路径，
   因此只移植了该函数的方向光分量，天光分量未移植。
-- 两边亮度单位不同：`CLOUD_MS_ALBEDO`、`CLOUD_MS_VOLUME`、`CLOUD_MS_VOLUME_FALLOFF`
-  是本包的标定参数，对应上游写死的量。
+- 两边亮度单位不同：`CLOUD_MS_ALBEDO` 是本包的标定参数，对应上游写死的量。
 - 上游光照光学深度按 `density * (i + 0.5)` 加权再整体缩放；本包保留同样的二次分层，改用
   精确的区间权重。
 - 上游方向光用 Beer 透射 `exp(-τ)`；本包沿用自身的 `1 / (1 + τ)` 透射。

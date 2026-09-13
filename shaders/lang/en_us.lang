@@ -207,10 +207,6 @@ option.CLOUD_MS_ECCENTRICITY = MS Eccentricity
 option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow concentrates toward the sun's direction: higher = a stronger halo of light spreading through the cloud around the sun.
 option.CLOUD_MS_ALBEDO = Cloud Albedo
 option.CLOUD_MS_ALBEDO.comment = How much light a cloud particle scatters instead of absorbing. Water clouds barely absorb, so this sits close to 1: lower = greyer, heavier clouds with darker interiors.
-option.CLOUD_MS_VOLUME = Volume Scatter
-option.CLOUD_MS_VOLUME.comment = Strength of the isotropic light that fills the inside of a thick cloud. This is what keeps shadowed cloud interiors from going black: higher = brighter, milkier cores.
-option.CLOUD_MS_VOLUME_FALLOFF = Volume Depth Falloff
-option.CLOUD_MS_VOLUME_FALLOFF.comment = How fast that interior light fades as sunlight has to travel farther into the cloud: lower = light reaches deeper, so tall clouds stay lit further down.
 option.CLOUD_SKY_LIGHT_STRENGTH = Sky Light Strength
 option.CLOUD_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the clouds receive: higher = brighter shadowed sides and undersides, so clouds look softer and whiter.
 option.CLOUD_HISTORY_GUIDED_END_SCALE = History Guided Scale

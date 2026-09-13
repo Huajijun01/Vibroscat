@@ -269,10 +269,10 @@ ported from Revelation (Apache-2.0), `shaders/lib/atmosphere/clouds/Render.glsl`
 specifically the directional component of `CloudMultiScatteringApproxHaringPro`,
 evaluated once per light channel for both this pack's sun and its moon: the
 the `1/4pi * fms/(1-fms)` isotropic geometric-series multiple-scattering
-term, the `msVolume / (1 + 0.5*tau)` isotropic volume term, and the
-ground-bounce term. The directional phase octave sum comes from this pack's own
-implementation, see section 2. The multiple-scattering approximation itself
-comes from <https://zhuanlan.zhihu.com/p/457997155>.
+term, and the ground-bounce term. Upstream's `msVolume / (1 + 0.5*tau)` volume
+term and its skylight component are both unported. The directional phase octave
+sum comes from this pack's own implementation, see section 2. The
+multiple-scattering approximation itself comes from <https://zhuanlan.zhihu.com/p/457997155>.
 
 Porting adaptations (this pack's changes relative to upstream):
 
@@ -284,9 +284,8 @@ Porting adaptations (this pack's changes relative to upstream):
   term) through the sky irradiance. This pack keeps its independent sun and moon
   light channels plus its existing ambient path, so only the function's
   directional component is ported; the skylight component is not.
-- The two packs use different radiance units: `CLOUD_MS_ALBEDO`,
-  `CLOUD_MS_VOLUME` and `CLOUD_MS_VOLUME_FALLOFF` are this pack's calibration
-  parameters for quantities upstream hardcodes.
+- The two packs use different radiance units: `CLOUD_MS_ALBEDO` is this pack's
+  calibration parameter for a quantity upstream hardcodes.
 - Upstream weights its light optical-depth samples by `density * (i + 0.5)` and
   rescales globally; this pack keeps the same quadratic stratification with
   exact interval weights.

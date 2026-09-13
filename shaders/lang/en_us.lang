@@ -311,7 +311,7 @@ value.SHADOW_SSS_DEBUG.1 = On
 option.SHADOW_SSS_PHASE_G = SSS Directionality
 option.SHADOW_SSS_PHASE_G.comment = Direction of the through-leaf glow: higher = brightest when you look toward the sun through the plant, like real backlit leaves.
 option.SHADOW_SSS_FADE_START = Shadow Fade Start
-option.SHADOW_SSS_FADE_START.comment = Shadows ease out toward the edge of the shadow map's coverage; this sets how close to the edge the fading begins (higher = shadows survive farther out). The plant-SSS transmission hands off to lightmap sky access on the same curve.
+option.SHADOW_SSS_FADE_START.comment = Shadows ease out toward the edge of the shadow map's coverage; this sets how close to the edge the fading begins (higher = shadows survive farther out). Plant SSS renders at full strength wherever the map still samples and ends at the border.
 option.CONTACT_SHADOW = Screen-Space Contact Shadows
 option.CONTACT_SHADOW.comment = Short-range screen-space shadows: a screen-projected ray is marched against the depth buffer to fill in the detail the shadow map misses, such as objects right at your feet, and it keeps working beyond the shadow map's range. Overworld and End only.
 value.CONTACT_SHADOW.0 = Off

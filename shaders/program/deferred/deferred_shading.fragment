@@ -229,11 +229,11 @@ void main() {
     // same texel and time slice, so both consumers share the dither.
     float stbn_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
     // Shadow-map coverage confidence, shared by the direct-shadow fade-out
-    // and the plant-SSS transmission handoff. Evaluated in raw undistorted
-    // shadow clip space, where the extent maps linearly to world distance:
-    // the fade starts at SHADOW_SSS_FADE_START of the XY/depth extent and
-    // reaches zero exactly at the coverage border, so the direct shadow and
-    // the SSS thickness hand off on one curve instead of staggered ones.
+    // and the plant-SSS presence gate. Evaluated in raw undistorted shadow
+    // clip space, where the extent maps linearly to world distance: the fade
+    // starts at SHADOW_SSS_FADE_START of the XY/depth extent and reaches
+    // zero exactly at the coverage border, so the shadow eases out on one
+    // curve and plant SSS renders exactly where the filter still samples.
     float shadow_coverage = 1.0;
     if (shadow_needed) {
         vec3 shadow_clip = ProjectToShadowClip(world_pos);
@@ -291,25 +291,21 @@ void main() {
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
 
-    if (sss_amount > 0.01) {
-        // shadow_coverage (see the shadow section) fades the map-measured
-        // transmission into lightmap sky access, preserving the material
-        // response outside shadow coverage.
+    if (sss_amount > 0.01 && shadow_coverage > 1.0e-3) {
+        // Plant SSS is a byproduct of the shadow-map measurement and has no
+        // transition of its own: inside the coverage border it renders at
+        // full strength from the measured thickness, and past the border
+        // (the same gate the shadow filter uses) the term is absent
+        // outright - no lightmap handoff, no distance blend. The surface
+        // out there is simply unshadowed.
         float ldotv = dot(light_direction, view_to_eye);
         float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
         float average_albedo = Luminance(albedo);
         float absorption = (1.0 - 0.75 * Saturate(average_albedo))
             * SHADOW_SSS_DENSITY / sss_amount;
-        float map_transmission = exp(-absorption * sss_thickness_world);
-        // Blend the evaluated transmission, not thickness: fading optical
-        // depth first would brighten the transition before removing it.
-        float transmission = mix(SkyLightFromLm(lm.g), map_transmission,
-            shadow_coverage);
+        float transmission = exp(-absorption * sss_thickness_world);
         // Clamp the material budget first so ENERGY remains proportional
         // throughout 0..1, including when the legacy SCALE exceeds one.
-        // Energy carries no coverage factor: the transmission blend already
-        // trades the map estimate for the lightmap response, so a second
-        // fade here would zero the handoff and stage a second transition.
         float material_share = Saturate(sss_amount * SHADOW_SSS_SCALE);
         float sss_energy = material_share * Saturate(SHADOW_SSS_ENERGY);
         vec3 direct_diffuse = albedo * (vec3(1.0) - FresnelSchlick(vdoth, material.f0))
@@ -443,9 +439,9 @@ void main() {
         indirect_specular = mix(sh_specular, ssr_specular, ssr_weight);
     }
 #endif
-    // Sundial-style rough-material gate: dielectric reflection reaches zero
-    // at the configured roughness cutoff, while metalness moves that cutoff
-    // toward rougher materials. The same weight applies to SH and SSR.
+    // Rough-material gate: dielectric reflection reaches zero at the
+    // configured roughness cutoff, while metalness moves that cutoff toward
+    // rougher materials. The same weight applies to SH and SSR.
     float reflection_roughness = material.perceptual_roughness;
     float reflection_smoothness = 1.0 - reflection_roughness;
     float reflection_threshold = clamp(

@@ -24,7 +24,6 @@
 // all other biomes keep the clear defaults.
 const vec3 WATER_ABSORPTION = vec3(0.34, 0.06, 0.04);
 const vec3 WATER_SCATTERING = vec3(0.022, 0.026, 0.032);
-const vec3 WATER_EXTINCTION = WATER_ABSORPTION + WATER_SCATTERING;
 // In-water sunlight path per metre of vertical drop (flat-surface
 // refraction, air->water IOR 1.333 inlined - no IOR config needed).
 float WaterLightPathPerMetre() {

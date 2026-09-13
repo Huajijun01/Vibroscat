@@ -81,12 +81,6 @@ float LinearDepthFromScreenDepth(float screen_depth) {
     return 1.0 / (screen_depth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
 }
 
-// Inverse of LinearDepthFromScreenDepth: linear depth back to screen [0,1].
-float ScreenDepthFromLinearDepth(float linear_depth) {
-    linear_depth = (1.0 / linear_depth - gbufferProjectionInverse[3][3]) / gbufferProjectionInverse[2][3];
-    return linear_depth * 0.5 + 0.5;
-}
-
 // -- Screen-rect ray exit (screen-space marches) --
 
 // Forward exit parameter t where a perspective ray leaves the [-1,1]^2 NDC

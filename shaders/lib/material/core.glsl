@@ -113,9 +113,4 @@ vec3 DecodeLabPBR(vec3 packed_normal) {
     return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
 }
 
-// Full-XYZ normal format: XYZ stored in RGB, remapped from [0,1] to [-1,1].
-vec3 DecodeXYZNormal(vec3 packed_normal) {
-    return normalize(packed_normal * 2.0 - 1.0);
-}
-
 #endif // LIB_MATERIAL_CORE_GLSL

@@ -15,16 +15,6 @@ vec2 Unpack2x8(float p16) {
     return vec2(hi8 / 255.0, lo8 / 255.0);
 }
 
-// Split a [0,1] value across two 16-bit UNORM channels (32-bit fixed point).
-vec2 Split2x16(float v) {
-    float scaled = v * 65535.0;
-    return vec2(floor(scaled) / 65535.0, fract(scaled));
-}
-
-float Unsplit2x16(vec2 v) {
-    return (v.x * 65535.0 + v.y) * (1.0 / 65535.0);
-}
-
 // Octahedral normal codec. The caller owns the space: colortex4 RG carries
 // the geometric world normal, shadowcolor0 BA the shadow-view RSM normal, and
 // the R32UI GI history an oct5 world normal.

@@ -221,11 +221,4 @@ void OceanValueNoisePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
     OceanValueNoiseNormal(xz_offset, time, normal);
 }
 
-// Height field + world-space normal (y up). xz is absolute world XZ.
-float OceanValueNoise(vec2 xz, float time, out vec3 normal) {
-    float h = OceanValueNoiseHeight(xz, time);
-    OceanValueNoiseNormal(xz, time, normal);
-    return h;
-}
-
 #endif // LIB_WATER_OCEAN_GLSL

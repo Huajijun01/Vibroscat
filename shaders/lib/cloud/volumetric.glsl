@@ -52,9 +52,6 @@ const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 // The distribution atlas is sampled twice: a large-scale coverage read and a
 // detail read. The scale keeps the two reads decorrelated.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
-// Large-scale coverage modulates the base coverage by this linear boost.
-const float CLOUD_COVERAGE_BOOST_BASE = -0.1;
-const float CLOUD_COVERAGE_BOOST_RANGE = 0.1;
 
 bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float march_end
 ) {

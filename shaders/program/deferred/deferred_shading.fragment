@@ -337,14 +337,10 @@ void main() {
         albedo, material.f0, material.diffuse_weight);
 #if GI_MODE != 0
     vec3 gi_ambient = texelFetch(colortex9, tx, 0).rgb;
-#if GI_MODE == 2 && RSM_DEBUG > 0
-#if RSM_DEBUG == 4
-    out_color = vec3(GIHistoryAge(texelFetch(colortex10, tx, 0).r) / float(GI_HISTORY_FRAMES));
-#else
-    out_color = gi_ambient;
-#endif
-    return;
-#endif
+    // The neighbourhood repair runs before the debug early-out so the
+    // "filtered" debug view can show it; the lighting path below uses the
+    // same repaired value it always did.
+    vec3 gi_filtered = gi_ambient;
 #ifdef GI_DENOISE
     // Rejected history (metadata age 1) leaves the raw 1-spp estimate in
     // colortex9; borrow the temporally filtered neighborhood before lighting.
@@ -352,17 +348,27 @@ void main() {
         vec3 repaired_irradiance;
         if (RepairGIDisocclusion(tx, view_pos, geo_view_normal, normal_world,
                 repaired_irradiance)) {
-            gi_ambient = repaired_irradiance;
+            gi_filtered = repaired_irradiance;
         }
     }
+#endif
+#if GI_MODE == 2 && RSM_DEBUG > 0
+#if RSM_DEBUG == 4
+    out_color = vec3(GIHistoryAge(texelFetch(colortex10, tx, 0).r) / float(GI_HISTORY_FRAMES));
+#elif RSM_DEBUG == 3
+    out_color = gi_filtered;
+#else
+    out_color = gi_ambient;
+#endif
+    return;
 #endif
     // Both GI estimators already include SH for uncovered directions.
 #if GI_MODE == 2
     // Retain local AO for occluders missing from RSM's first-surface
     // shadow map.
-    color += lambert_brdf * gi_ambient * ao_effective;
+    color += lambert_brdf * gi_filtered * ao_effective;
 #else
-    color += lambert_brdf * gi_ambient;
+    color += lambert_brdf * gi_filtered;
 #endif
 #else
     color += lambert_brdf * sky_ambient * ao_effective;

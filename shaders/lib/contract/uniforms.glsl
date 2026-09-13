@@ -33,8 +33,8 @@ uniform float frameTimeCounter;
 uniform float frameTime;           // fractional render time (s)
 uniform int frameCounter;
 
-// -- Previous-frame transforms (world space; written by the deferred1 or
-//    deferred2 program every frame, shared by TAA, cloud temporal, GTAO) --
+// -- Previous-frame transforms (world space; supplied by Iris every frame,
+//    shared by TAA, cloud temporal, GTAO) --
 uniform vec3 previousCameraPosition;
 uniform mat4 gbufferPreviousModelView;
 uniform mat4 gbufferPreviousProjection;

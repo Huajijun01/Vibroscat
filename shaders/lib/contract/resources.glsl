@@ -1,9 +1,11 @@
 #ifndef LIB_CONTRACT_RESOURCES_GLSL
 #define LIB_CONTRACT_RESOURCES_GLSL
 
-// ════════════════════════════════════════════════════════════════════════════
-// Buffer declarations — format declarations are in shaders.properties section
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
+// Buffer declarations: this file carries the Iris format and clear directives
+// for every colortex and shadowcolor attachment. shaders.properties carries
+// the customTexture formats and the blend state, not these.
+// ============================================================================
 //
 // Buffer map (deferred pipeline):
 //   colortex0   R11F_G11F_B10F   Scene color (post-processed) / TAA input
@@ -34,10 +36,12 @@
 // pass scheduling remain defined by Iris declarations and shaders.properties.
 
 /*
-// Format declarations: Iris reads these declarations as text before
-// compiling the shader, so the buffer formats stay effective even though
-// the block is commented out (the same constants are also injected by Iris
-// at compile time, which is why they cannot be declared live).
+// Format declarations. Iris reads them as raw source text
+// (ConstDirectiveParser.findDirectives matches any line that starts with
+// "const"), so they stay effective inside a block comment. The format names
+// are not GLSL identifiers, which is why the lines cannot be live code; the
+// block also keeps every line at column zero, and a trailing comment after
+// the semicolon is tolerated by the parser.
 const int colortex0Format  = R11F_G11F_B10F;
 const int colortex1Format  = RGBA8;
 const int colortex2Format  = RGBA16;
@@ -52,7 +56,7 @@ const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
 */
 
-// ── Clear flags ──
+// -- Clear flags --
 // true = cleared each frame before shader writes. false = carry data across frames.
 const bool colortex0Clear  = false;   // scene output
 const bool colortex1Clear  = false;   // GBuffer albedo

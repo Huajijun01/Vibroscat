@@ -11,21 +11,6 @@
 #define SKY_LUT_RCP_W (1.0 / float(SKY_LUT_W))
 #define SKY_LUT_RCP_H (1.0 / float(SKY_LUT_H))
 
-// World-aligned equal-area cloud skybox: u = azimuth, v = sin(elevation),
-// so every texel covers a constant solid angle (4*pi/N^2) and the SH pass
-// needs no per-pixel Jacobian.
-#define SKY_RADIANCE_LUT_SIZE 256
-
-// Inverse of the bake mapping: world direction -> equal-area skybox UV.
-// +X at u = 0.5, zenith at v = 1, v = (sin(elevation) + 1) / 2.
-vec2 SkyRadianceUV(vec3 dir) {
-    // fract() folds the +pi/-pi seam onto u = 0; the bake's rightmost column
-    // already transitions toward column 0, so CLAMP sampling is seamless.
-    float u = fract(atan(dir.z, dir.x) * INV_TWO_PI + 0.5);
-    float v = dir.y * 0.5 + 0.5;
-    return vec2(u, v);
-}
-
 // -- Sampling: view_dir + sun_dir -> LUT UV --
 vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir, float planet_r, float altitude) {
     float theta_h = asin(planet_r / (planet_r + altitude)) - PI * 0.5;

@@ -4,7 +4,7 @@
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
-#include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/atmosphere/skybox_uv.glsl"
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 

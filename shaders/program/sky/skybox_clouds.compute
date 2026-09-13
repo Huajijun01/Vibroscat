@@ -4,6 +4,7 @@
 #include "/lib/core/noise.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
+#include "/lib/atmosphere/skybox_uv.glsl"
 // The skybox feeds only the L0-L2 SH probe (fine detail averaged away), so
 // it bakes with a reduced march budget; the screen pass keeps the
 // settings-level budgets.

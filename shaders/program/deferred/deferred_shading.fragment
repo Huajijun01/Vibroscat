@@ -31,6 +31,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/ambient_occlusion.glsl"
 #include "/lib/lighting/brdf.glsl"
 #if GI_MODE != 0

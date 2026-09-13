@@ -42,6 +42,13 @@ const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // and the series would contribute a tenth of a percent rather than a
 // comparable share.
 const float CIRRUS_MS_REFERENCE_LENGTH_KM = 0.5;
+// This layer's saturation albedo for the series, which the source writes as the
+// leading omega of fms. Ice crystals barely absorb in the visible, so this sits
+// just under 1: the series converges to omega / (1 - omega) and the model
+// diverges at exactly 1, which would leave the guard doing the work instead of
+// the medium. The volumetric layer runs a different medium with a different
+// value and states it next to its own extinction.
+const float CIRRUS_MS_SAT_ALBEDO = 0.999;
 // Triple-lobe phase: the narrow + mid forward lobes keep the silver lining,
 // the backward lobe lifts the anti-lit side (cloud-bow analog) so decks
 // facing away from the light keep a visible response instead of collapsing
@@ -149,7 +156,8 @@ vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, ve
     float sample_transmittance
 ) {
     float reference_optical_depth = sample_extinction * CIRRUS_MS_REFERENCE_LENGTH_KM;
-    float isotropic_orders = CloudIsotropicOrders(reference_optical_depth, CIRRUS_MS_ISOTROPIC);
+    float isotropic_orders = CloudIsotropicOrders(
+        reference_optical_depth, CIRRUS_MS_SAT_ALBEDO, CIRRUS_MS_ISOTROPIC);
     vec3 in_scattering = sun_color * sun_visible * (sun_phase + isotropic_orders)
         + moon_color * moon_visible * (moon_phase + isotropic_orders);
     in_scattering += ambient_irradiance;

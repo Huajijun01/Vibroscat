@@ -26,6 +26,13 @@
 // its milky interior. It is this layer's own constant: a length calibrated for
 // 100 km^-1 lands nowhere useful on a medium three decades thinner.
 const float CLOUD_MS_REFERENCE_LENGTH_M = 300.0;
+// This layer's saturation albedo for the series, which the source writes as the
+// leading omega of fms. It is pinned here rather than driven by the
+// CLOUD_MS_ALBEDO control: the series converges to omega / (1 - omega), so a
+// slider reaching 1.0 would swing the isotropic term by orders of magnitude
+// across one march step. CLOUD_MS_ALBEDO still scales the marched radiance
+// linearly at the end of MarchVolumetricClouds.
+const float CLOUD_MS_SAT_ALBEDO = 0.99;
 // Directional octaves: each step widens the phase, weakens its contribution
 // and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
@@ -331,7 +338,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float sigma_t_per_m = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
         float reference_optical_depth = sigma_t_per_m * CLOUD_MS_REFERENCE_LENGTH_M;
-        float isotropic_orders = CloudIsotropicOrders(reference_optical_depth, CLOUD_MS_ISOTROPIC);
+        float isotropic_orders = CloudIsotropicOrders(
+            reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
 #ifdef CLOUD_SINGLE_LIGHT

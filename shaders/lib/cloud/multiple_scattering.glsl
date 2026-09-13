@@ -19,18 +19,24 @@
 // depth over that length, which is the same statement for any medium only
 // because the length is supplied per layer.
 //
-// It is deliberately not shared as a constant. A knee expressed in sigma_t
-// alone carries a length in its units, and a length calibrated for one medium
-// lands somewhere else entirely for another: this pack's volumetric layer runs
-// at 100 km^-1 and a cirrus shell at 3 km^-1, a factor of 33 apart. One knee
-// cannot put both at the same place on the curve, and a layer that never
-// reaches the knee gets no series at all. Each layer therefore owns the length
-// and states it next to its own extinction.
+// TWO of the model's inputs are per-layer and are therefore arguments, not
+// constants of this file.
 //
-// The saturation albedo is a fixed constant rather than the medium albedo: the
-// series converges to omega / (1 - omega) and would swing by orders of
-// magnitude across one march step if a user-facing albedo drove it. The medium
-// albedo stays a separate linear factor at the caller.
+// reference_optical_depth: a knee expressed in sigma_t alone carries a length
+// in its units, and a length calibrated for one medium lands somewhere else
+// entirely for another. This pack's volumetric layer runs at 100 km^-1 and a
+// cirrus shell at 3 km^-1, a factor of 33 apart. One knee cannot put both at
+// the same place on the curve, and a layer that never reaches the knee gets no
+// series at all. Each layer therefore owns the length and states it next to
+// its own extinction.
+//
+// saturation_albedo: this is the medium's single-scattering albedo, which the
+// source writes as the leading omega of fms. Water and ice are different
+// media, and this pack already gives them different albedos, so they cannot
+// share this. It is passed in rather than read from a user-facing control
+// because the series converges to omega / (1 - omega) and would swing by orders
+// of magnitude across one march step; each layer pins its own value and lets
+// its strength control scale the result linearly.
 //
 // This is the model that lets a layer return more radiance than single
 // scattering with a single-scattering albedo of at most 1. A constant gain on
@@ -40,15 +46,14 @@
 
 // Extinction in m^-1 for an extinction authored per kilometer.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
-// Saturation albedo of the geometric series; see the header.
-const float CLOUD_MS_SAT_ALBEDO = 0.99;
-// 1 - fms only needs a guard against an albedo of exactly 1. At the default
-// albedo the ratio peaks at 999 and never reaches this floor.
+// 1 - fms only needs a guard against an albedo of exactly 1. At a saturation
+// albedo of 0.99 the ratio peaks at 999 and never reaches this floor.
 const float CLOUD_MS_FLOOR = 1.0e-4;
 
 // fms / (1 - fms): every scattering order past the first, isotropized.
-float CloudMultipleScatteringOrders(float reference_optical_depth) {
-    float fms = CLOUD_MS_SAT_ALBEDO
+// saturation_albedo is the layer's own, not a shared constant; see the header.
+float CloudMultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {
+    float fms = saturation_albedo
         * (1.0 - exp2(-max(reference_optical_depth, 0.0)));
     return fms / max(1.0 - fms, CLOUD_MS_FLOOR);
 }
@@ -56,9 +61,9 @@ float CloudMultipleScatteringOrders(float reference_optical_depth) {
 // The added orders enter as an isotropic source, so they carry the isotropic
 // phase and sum directly with the single-scattering phase. strength is the
 // layer's own linear weight on those orders.
-float CloudIsotropicOrders(float reference_optical_depth, float strength) {
+float CloudIsotropicOrders(float reference_optical_depth, float saturation_albedo, float strength) {
     return strength * PHASE_ISOTROPIC
-        * CloudMultipleScatteringOrders(reference_optical_depth);
+        * CloudMultipleScatteringOrders(reference_optical_depth, saturation_albedo);
 }
 
 #endif // LIB_CLOUD_MULTIPLE_SCATTERING_GLSL

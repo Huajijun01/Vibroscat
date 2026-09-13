@@ -245,6 +245,11 @@ constant, because the 300 in `300 * sigma_t` carries a length: a length
 calibrated on a 100 km^-1 medium never reaches its knee in a 3 km^-1 shell, and
 the series then contributes nothing.
 
+The `omega` in that formula is per-layer as well: it is the medium's
+single-scattering albedo, and water and ice are not the same medium. The
+volumetric layer uses 0.99, pinned rather than driven by its CLOUD_MS_ALBEDO
+control, and the cirrus uses 0.999.
+
 `shaders/lib/cloud/multiple_scattering.glsl` is the single owner of that
 dimensionless form and both cloud layers include it. Both layers add the series
 to the sun and moon direct terms; the ambient path does not go through it. The

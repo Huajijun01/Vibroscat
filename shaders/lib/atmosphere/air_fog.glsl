@@ -14,16 +14,19 @@ const float AIR_FOG_KM_TO_M = AIR_FOG_DENSITY / 1000.0;
 // Air density is approximated constant at the camera altitude. The existing
 // atmosphere model returns km^-1 spectral coefficients; convert to m^-1.
 struct AirFogMedium {
-    vec4 extinction;      // Rayleigh + Mie
+    vec4 extinction;      // Rayleigh + aerosol (scattering and absorption) + ozone + wetness
     vec4 scattering_ray;
-    vec4 scattering_mie;
+    vec4 scattering_mie;  // includes the wetness increment: rain haze scatters too
 };
 
 AirFogMedium AirFogMediumAtCamera() {
     float scale = AIR_FOG_KM_TO_M;
+    // One extinction owns the whole fog, so the epipolar air column weights its
+    // march by exactly the transmittance this composite integrates.
+    vec4 extinction = GetExtinction(u_cam_altitude) * scale + wetness * 0.01;
     vec4 ray = GetSigmaSRay(u_cam_altitude) * scale;
     vec4 mie = GetSigmaSMie(u_cam_altitude) * scale + wetness * 0.01;
-    return AirFogMedium(ray + mie, ray, mie);
+    return AirFogMedium(extinction, ray, mie);
 }
 
 // Closed form of integral0^S sigmas*exp(-sigmat*t) dt; no light-direction OD
@@ -38,11 +41,14 @@ float AirFogSegmentLength(float depth_dist, float radius) {
     return min(depth_dist, radius);
 }
 
-// Per-metre extinction, max spectral channel (the shadow map is scalar, so
-// one weight suffices; max keeps the IS optical depth aligned with the
-// slowest channel).
+// Per-metre extinction of the composite's own medium, max spectral channel
+// (the shadow map is scalar, so one weight suffices; max keeps the IS optical
+// depth aligned with the slowest channel). Reading it from the medium instead
+// of rebuilding it keeps the epipolar visibility weighted by the same
+// transmittance the fog applies: a thinner sigma would stretch the averaging
+// span, which the rain wetness increment scales by two orders of magnitude.
 float AirExtinction() {
-    vec4 ext = GetScattering(u_cam_altitude) * AIR_FOG_KM_TO_M;
+    vec4 ext = AirFogMediumAtCamera().extinction;
     return max(max(ext.r, ext.g), ext.b);
 }
 

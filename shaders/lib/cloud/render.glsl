@@ -33,13 +33,13 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
         vec4 denominator;
         if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) {
             // The ray hits the ground: upward LUT samples via reciprocity.
-            numerator = SampleTransmittance(TRANSMITTANCE_LUT, r_d, r_d2, -mu_d);
-            denominator = SampleTransmittance(TRANSMITTANCE_LUT, r, r2, -mu);
+            numerator = SampleTransmittance(utex_tslut, r_d, r_d2, -mu_d);
+            denominator = SampleTransmittance(utex_tslut, r, r2, -mu);
         } else {
             // Upward ray exiting through the top, or a shallow downward ray
             // that misses the ground: both LUT cosines are valid.
-            numerator = SampleTransmittance(TRANSMITTANCE_LUT, r, r2, mu);
-            denominator = SampleTransmittance(TRANSMITTANCE_LUT, r_d, r_d2, mu_d);
+            numerator = SampleTransmittance(utex_tslut, r, r2, mu);
+            denominator = SampleTransmittance(utex_tslut, r_d, r_d2, mu_d);
         }
         // LUT has exact zeros near the horizon: guard the denominator (UE
         // divides unguarded).
@@ -62,9 +62,9 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
     float sun_mu = dot(surface_position, sun_dir) / surface_r;
     float moon_mu = dot(surface_position, moon_dir) / surface_r;
     vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-        SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
+        SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
     vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-        SampleTransmittance(TRANSMITTANCE_LUT, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
+        SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
     // Ambient evaluated once at the shared surface position, scaled by the
     // absorbed fraction (1 - T).
     vec3 ambient_cloud_radiance = GetAmbientColor(surface_position, sun_dir)

@@ -210,7 +210,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // sun's transmittance — exactly zero at night.
         float sun_mu = dot(sample_position, sun_dir) / height;
         vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-            SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
+            SampleTransmittance(utex_tslut, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
         float moon_mu = -sun_mu;
 
         // A light below the local horizon is occluded by the planet.
@@ -232,7 +232,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         }
 
         vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-            SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
+            SampleTransmittance(utex_tslut, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
         if (moon_visible > 0.0) {
             vec3 moon_half_vec = normalize(moon_dir - view_dir);
             moon_color *= CirrusTransmittance(CirrusLightOpticalDepth(

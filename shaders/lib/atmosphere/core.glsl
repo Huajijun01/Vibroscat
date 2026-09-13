@@ -16,10 +16,7 @@
 // ===============================================================
 
 // -- Custom Texture bindings (registered in shaders.properties) --
-
-#define TRANSMITTANCE_LUT utex_tslut
-#define MULTISCATTER_LUT utex_mslut
-
+//
 // MS LUT: raw 4-wave radiance in RGBA16F (32x32), no per-channel
 // normalization - sampled values are absolute spectral radiance.
 
@@ -322,10 +319,10 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec4 ss_mid = sr_mid + sm_mid;
 
         float mu_mid = dot(p_mid, sun_dir) / r_mid;
-        vec4 trans_mid = SampleTransmittance(TRANSMITTANCE_LUT, r_lut, r2_lut, mu_mid);
-        vec4 ms_mid = SampleMultiScatter(MULTISCATTER_LUT, r_lut, mu_mid);
+        vec4 trans_mid = SampleTransmittance(utex_tslut, r_lut, r2_lut, mu_mid);
+        vec4 ms_mid = SampleMultiScatter(utex_mslut, r_lut, mu_mid);
         // moonlight: opposite direction, shared extinction
-        vec4 ts_moon_mid = SampleTransmittance(TRANSMITTANCE_LUT, r_lut, r2_lut, -mu_mid);
+        vec4 ts_moon_mid = SampleTransmittance(utex_tslut, r_lut, r2_lut, -mu_mid);
 
         vec4 rs_mid      = trans_mid * sr_mid;
         vec4 ms_raw_mid  = trans_mid * sm_mid;
@@ -360,12 +357,12 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float mu_sun_g = dot(ground_pos, sun_dir) / max(length(ground_pos), 1.0e-4);
 
         // sunlight -> ground
-        vec4 trans_sun_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, mu_sun_g);
-        vec4 ms_g = SampleMultiScatter(MULTISCATTER_LUT, r_g, mu_sun_g);
+        vec4 trans_sun_g = SampleTransmittance(utex_tslut, r_g, r2_g, mu_sun_g);
+        vec4 ms_g = SampleMultiScatter(utex_mslut, r_g, mu_sun_g);
         ground_sun_radiance = (trans_sun_g * Saturate(mu_sun_g) * (1.0 / PI) + ms_g) * ATM_GROUND_ALBEDO * trans;
 
         // moonlight -> ground (no multiscat)
-        vec4 trans_moon_g = SampleTransmittance(TRANSMITTANCE_LUT, r_g, r2_g, -mu_sun_g);
+        vec4 trans_moon_g = SampleTransmittance(utex_tslut, r_g, r2_g, -mu_sun_g);
         ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans * Saturate(-mu_sun_g);
     }
 
@@ -384,7 +381,7 @@ vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
     float mu = dot(camera_pos, sun_dir) / r;
     float h = r - ATM_PLANET_R;
     vec4 ss = GetScattering(h);
-    vec4 ms = SampleMultiScatter(MULTISCATTER_LUT, r, mu);
+    vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
     return Rec2020ToSRGB(SpectralToLinearRec2020(ss * ms * ATM_SOLAR)) * ATM_EXPOSURE;
 }
 

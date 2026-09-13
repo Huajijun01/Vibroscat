@@ -75,7 +75,7 @@ void main() {
         vec3 camera_pos = AtmosphereCameraPosition();
         float camera_r = length(camera_pos);
         vec4 view_transmittance = SampleTransmittance(
-            TRANSMITTANCE_LUT, camera_r, camera_r * camera_r,
+            utex_tslut, camera_r, camera_r * camera_r,
             dot(camera_pos, view_dir) / camera_r);
         vec3 celestial = vec3(0.0);
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)

@@ -20,8 +20,6 @@ in vec4 mc_Entity;
 #ifdef HAS_AT_TANGENT
 in vec4 at_tangent;
 #endif
-#ifdef HAS_ENTITY_ID
-#endif
 
 void SetupGbufferVertex() {
     vec4 view_pos = gl_ModelViewMatrix * gl_Vertex;

@@ -53,11 +53,13 @@ void main() {
                 float segment_length = AirFogSegmentLength(depth_dist, far);
                 {
                     vec3 clamped_end = air_start + world_dir * segment_length;
-                    // The epipolar grid cell seeds the STBN spatial slice;
-                    // without TAA the time slice pins to 0 (no temporal
-                    // accumulation to hide the shimmer).
-                    float stbn_jitter = SampleSTBN(
-                        ivec2(slice_i, int(sample_index)), STBNFrame());
+                    // Jitter indexed by the column's SCREEN texel (the
+                    // reference implementation's choice): the noise pattern
+                    // stays fixed in screen space, so TAA's reprojection sees
+                    // per-frame decorrelated noise it can average down; an
+                    // epipolar-indexed pattern slides across the screen as
+                    // the slices rotate and leaves residual shimmer.
+                    float stbn_jitter = SampleSTBN(texel, STBNFrame());
                     air_e = EpipolarAirShadowRatio(
                     air_start, clamped_end, air_extinction, stbn_jitter);
                 }

@@ -201,7 +201,7 @@ void main() {
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
 
-    // -- Lightmap remapping (shared curves, see lib/lighting/ambient_light.glsl) --
+    // -- Lightmap remapping (shared curves, see lib/lighting/lightmap.glsl) --
     float block_light = BlockLightFromLm(lm.r);
 
     // -- Directional light (sun or moon) --

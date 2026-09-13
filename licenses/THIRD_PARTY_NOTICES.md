@@ -256,7 +256,7 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 `shaders/lib/cloud/volumetric.glsl` 的体积云散射模型移植自 Revelation（Apache-2.0）的
 `shaders/lib/atmosphere/clouds/Render.glsl`，具体为 `CloudMultiScatteringApproxHaringPro`
 的方向光分量（本包的太阳与月球两个通道各算一次）：`1/4π · fms/(1-fms)` 的各向同性几何级数多重散射项，
-以及地面反弹项。上游同函数里的 `msVolume / (1 + 0.5τ)` 体积项与天光分量均未移植。方向光的相位 octave 求和来自本包原有实现，见第 2 节。多重散射近似本身出自
+上游同函数里的 `msVolume / (1 + 0.5τ)` 体积项、地面反弹项与天光分量均未移植。方向光的相位 octave 求和来自本包原有实现，见第 2 节。多重散射近似本身出自
 <https://zhuanlan.zhihu.com/p/457997155>。
 
 移植适配说明（本包相对上游的改动）：

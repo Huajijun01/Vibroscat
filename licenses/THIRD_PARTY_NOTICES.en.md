@@ -269,8 +269,8 @@ ported from Revelation (Apache-2.0), `shaders/lib/atmosphere/clouds/Render.glsl`
 specifically the directional component of `CloudMultiScatteringApproxHaringPro`,
 evaluated once per light channel for both this pack's sun and its moon: the
 the `1/4pi * fms/(1-fms)` isotropic geometric-series multiple-scattering
-term, and the ground-bounce term. Upstream's `msVolume / (1 + 0.5*tau)` volume
-term and its skylight component are both unported. The directional phase octave
+term. Upstream's `msVolume / (1 + 0.5*tau)` volume term, its ground bounce and its
+skylight component are all unported. The directional phase octave
 sum comes from this pack's own implementation, see section 2. The
 multiple-scattering approximation itself comes from <https://zhuanlan.zhihu.com/p/457997155>.
 

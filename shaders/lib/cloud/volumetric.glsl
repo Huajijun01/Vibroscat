@@ -47,15 +47,6 @@ const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
 const float CLOUD_COVERAGE_BOOST_BASE = -0.1;
 const float CLOUD_COVERAGE_BOOST_RANGE = 0.1;
 
-struct CloudDensitySample {
-    float density;
-    float height_fraction;
-    // Pre-erosion shape profile in [0, 1]: vertical profile times coverage,
-    // before the two erosion stages cut into it. The ground bounce reads this,
-    // not the eroded density.
-    float dimensional_profile;
-};
-
 bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float march_end
 ) {
     float inner_radius = ATM_PLANET_R + CLOUD_BASE_ALTITUDE;
@@ -133,16 +124,14 @@ vec2 CloudDistributionUv(vec2 world_km) {
             frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
 }
 
-CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
-    CloudDensitySample result;
-    result.density = 0.0;
-    result.dimensional_profile = 0.0;
+// Eroded density in [0, 1] at one point in the cloud layer.
+float SampleCloudDensity(vec3 atmosphere_position) {
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
-    result.height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
+    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
 
     if (altitude_km <= CLOUD_BASE_ALTITUDE || altitude_km >= CLOUD_TOP_ALTITUDE) {
-        return result;
+        return 0.0;
     }
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
@@ -151,45 +140,44 @@ CloudDensitySample SampleCloudDensity(vec3 atmosphere_position) {
     // Rain pushes coverage toward full overcast.
     float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
-    float bottom_ramp = smoothstep(0.0, 0.15, result.height_fraction);
+    float bottom_ramp = smoothstep(0.0, 0.15, height_fraction);
     // Push density away from the very bottom of the layer to keep the base soft.
-    float height_penalty = Saturate((result.height_fraction - 0.15) / 0.85) * 0.5;
+    float height_penalty = Saturate((height_fraction - 0.15) / 0.85) * 0.5;
     // Fade the layer top; larger clouds get a thicker, softer cap.
-    float top_fade = 1.0 - smoothstep(0.5, 1.0, result.height_fraction);
+    float top_fade = 1.0 - smoothstep(0.5, 1.0, height_fraction);
     float macro_density = Saturate(distribution_density - height_penalty)
         * bottom_ramp
         * top_fade;
-    result.dimensional_profile = macro_density;
     if (macro_density <= 0.01) {
-        return result;
+        return 0.0;
     }
     vec3 erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_EROSION_SCALE_KM;
     float low_freq_erosion = texture(utex_cloud_erosion_tex, erosion_uv).r;
     // R bakes the weighted darkness sum of the erosion stages (single
     // threshold). Stronger erosion higher in the layer, base floor.
-    float height_exposure = smoothstep(0.0, 0.2, result.height_fraction) * 0.95 + 0.05;
+    float height_exposure = smoothstep(0.0, 0.2, height_fraction) * 0.95 + 0.05;
     float broad_density = macro_density;
     float erosion_threshold = (1.0 - low_freq_erosion)
         * CLOUD_EROSION_STRENGTH
         * height_exposure;
     broad_density = RemapCloudErosion(broad_density, erosion_threshold);
     // RemapCloudErosion(0, threshold) saturates to exactly +0.0, so once the
-    // broad pass erased the sample the fine fetch is dead; the initialized
-    // density is already the bit-exact result.
-    if (broad_density > 0.0) {
-        vec3 fine_erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_FINE_EROSION_SCALE_KM + vec3(
-                frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
-        // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
-        // field (baked curved flow).
-        float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
-        // A small base weight keeps fine erosion from fully erasing the base.
-        float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, result.height_fraction) * 0.9 + 0.1;
-        float fine_threshold = (1.0 - fine_erosion_noise)
-            * CLOUD_FINE_EROSION_STRENGTH
-            * fine_height_weight;
-        result.density = RemapCloudErosion(broad_density, fine_threshold);
+    // broad pass erased the sample the fine fetch is dead; the early return is
+    // already the bit-exact result.
+    if (broad_density <= 0.0) {
+        return 0.0;
     }
-    return result;
+    vec3 fine_erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_FINE_EROSION_SCALE_KM + vec3(
+            frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
+    // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
+    // field (baked curved flow).
+    float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
+    // A small base weight keeps fine erosion from fully erasing the base.
+    float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, height_fraction) * 0.9 + 0.1;
+    float fine_threshold = (1.0 - fine_erosion_noise)
+        * CLOUD_FINE_EROSION_STRENGTH
+        * fine_height_weight;
+    return RemapCloudErosion(broad_density, fine_threshold);
 }
 
 // Optical depth from the receiver toward the light, over the same quadratic
@@ -212,9 +200,9 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
         float segment_start = light_distance * x0 * x0;
         float segment_end = light_distance * x1 * x1;
         float sample_distance = mix(segment_start, segment_end, light_jitter);
-        CloudDensitySample density_sample = SampleCloudDensity(
+        float sample_density = SampleCloudDensity(
             atmosphere_position + light_dir * sample_distance);
-        optical_depth += density_sample.density
+        optical_depth += sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
             * (segment_end - segment_start);
     }
@@ -279,8 +267,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float sample_distance = march_start + (float(i) + view_jitter) * step_length;
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
-        CloudDensitySample density_sample = SampleCloudDensity(sample_position);
-        if (density_sample.density < 1.0e-4) continue;
+        float sample_density = SampleCloudDensity(sample_position);
+        if (sample_density < 1.0e-4) continue;
 
         // Only PlanetHorizonOccluded consumes the squared radius below;
         // keep it off the erased-sample path.
@@ -290,15 +278,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // the energy still available after one more scattering event;
         // fms / (1 - fms) is the geometric series of every order past the
         // first, carried by the isotropic phase.
-        float sigma_t_per_m = density_sample.density
+        float sigma_t_per_m = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
         float fms = CLOUD_MS_ALBEDO
             * (1.0 - exp2(-CLOUD_MS_FMS_SCALE * sigma_t_per_m));
         float isotropic_orders = PHASE_ISOTROPIC * fms
             / max(1.0 - fms, CLOUD_MS_FMS_FLOOR);
-        float ground_bounce_base = (1.0 - density_sample.dimensional_profile
-                * density_sample.dimensional_profile)
-            * (1.0 - density_sample.height_fraction) * PHASE_ISOTROPIC;
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
         float sample_sun = 0.0;
@@ -313,8 +298,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
                     / (light_optical_depth * octave_attenuation[octave] + 1.0);
             }
             sample_sun = sun_octave_radiance
-                + isotropic_orders / (1.0 + light_optical_depth)
-                + ground_bounce_base * max(sun_dir.y, 0.0);
+                + isotropic_orders / (1.0 + light_optical_depth);
         }
         float sample_moon = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, moon_dir, ATM_PLANET_R2)) {
@@ -328,10 +312,9 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
                     / (light_optical_depth * octave_attenuation[octave] + 1.0);
             }
             sample_moon = moon_octave_radiance
-                + isotropic_orders / (1.0 + light_optical_depth)
-                + ground_bounce_base * max(moon_dir.y, 0.0);
+                + isotropic_orders / (1.0 + light_optical_depth);
         }
-        float optical_depth = density_sample.density
+        float optical_depth = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
             * step_length;
         float segment_transmittance = exp(-optical_depth);

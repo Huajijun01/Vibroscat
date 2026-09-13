@@ -106,12 +106,11 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, float stbn_dither, float s
 //   clipPos   - undistorted shadow clip space [-1,1]^3 (projectToShadowClip)
 //   stbn_dither - STBN dither sampled by the pass main (serves the blocker
 //               search and the PCF pass with one coherent rotation)
-//   view_pos  - eye-space receiver position (for the distance response)
 //   sssAmount - plant translucency (0 = none); widens the blocker search so
 //               the thickness estimate is stable across sparse foliage
 //   NdotL       - surface dot(light); back faces return early with thickness
 //   sssThicknessWorld - out: foliage thickness along the light in meters
-float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
+float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
                        float sss_amount, float ndotl, out float sss_thickness_world) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     sss_thickness_world = 0.0;
@@ -143,12 +142,6 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
     float penumbra_texels = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS / texel_world_size;
     // SSS foliage scatters through a wider penumbra.
     penumbra_texels *= 1.0 + SHADOW_SSS_PENUMBRA_BOOST * sss_amount;
-
-    // Distance softening masks shadow-map resolution loss; view_pos is
-    // eye space, so length() is the true eye distance.
-    float distance_factor = 1.0 + (SHADOW_DISTANCE_BOOST - 1.0)
-        * smoothstep(10.0, 120.0, length(view_pos));
-    penumbra_texels *= distance_factor;
 
     // Filter capped inside the blocker search disk: a fixed multiplier, not
     // a sun-height term, so the cap is the same at noon and at sunset.

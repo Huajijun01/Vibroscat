@@ -290,8 +290,6 @@ option.SHADOW_PCF_GAIN = PCF Sample Growth
 option.SHADOW_PCF_GAIN.comment = How fast the sample count grows as shadows get softer: it multiplies the penumbra radius in texels to pick the sample count. Higher = better quality in soft regions at higher cost.
 option.SHADOW_PENUMBRA_CAP_BOOST = Penumbra Cap Boost
 option.SHADOW_PENUMBRA_CAP_BOOST.comment = Raises the ceiling on how wide the soft-shadow blur may grow. It is a fixed multiplier and carries no sun-height term, so noon and sunset behave exactly the same. Higher = the widest soft shadows may spread further, slower.
-option.SHADOW_DISTANCE_BOOST = Distance Softening
-option.SHADOW_DISTANCE_BOOST.comment = Makes shadows progressively blurrier with distance from you, like real life; this also hides the shadow map's range limit. 1.0 = no extra softening.
 option.SHADOW_SSS = Plant Translucency (SSS)
 option.SHADOW_SSS.comment = Lets dense foliage glow when backlit, using a shadow-map thickness estimate. Off removes the effect and its extra shadow-map sampling; the SSS sliders only apply while it is on.
 option.SHADOW_SSS_STEPS = SSS Steps

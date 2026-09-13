@@ -290,8 +290,6 @@ option.SHADOW_PCF_GAIN = PCF 采样增长
 option.SHADOW_PCF_GAIN.comment = 阴影越软时采样数增长多快：本项乘以半影半径的纹素数得到采样数。越高软影区质量越好、开销越大。
 option.SHADOW_PENUMBRA_CAP_BOOST = 半影上限增益
 option.SHADOW_PENUMBRA_CAP_BOOST.comment = 软阴影模糊半径上限的倍率。它不随太阳高度变化，正午与日落完全一样：越高，最宽的那类软影还能更宽，速度越慢。
-option.SHADOW_DISTANCE_BOOST = 距离柔化
-option.SHADOW_DISTANCE_BOOST.comment = 离你越远的影子越模糊，符合真实视觉；也顺势掩盖阴影贴图的覆盖范围。1.0 = 不做额外柔化。
 option.SHADOW_SSS = 植物透光（SSS）
 option.SHADOW_SSS.comment = 逆光时让茂密植物透出发光感，使用阴影贴图厚度估计。关闭后完全移除该效果及其额外阴影采样；各 SSS 滑条仅在开启时生效。
 option.SHADOW_SSS_STEPS = 透叶光步数

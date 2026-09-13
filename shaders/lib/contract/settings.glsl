@@ -193,7 +193,6 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_PCF_MAX_SAMPLES 16 // [6 8 10 12 16 20 24]
 #define SHADOW_PCF_GAIN 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5]
 #define SHADOW_PENUMBRA_CAP_BOOST 1.0 // [0.0 0.5 1.0 1.5 2.0] Multiplier on the penumbra-radius cap; no sun-height dependence.
-#define SHADOW_DISTANCE_BOOST 1.5 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0]
 #define SHADOW_BLOCKER_DEPTH_TOLERANCE_M 0.0 // [0.0 0.05 0.1 0.15 0.2 0.3 0.5]
 
 // Plant subsurface scattering settings.

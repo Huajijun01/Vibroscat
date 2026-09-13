@@ -244,7 +244,7 @@ void main() {
         float shadow_filtered = 1.0;
         if (shadow_coverage > 1.0e-3) {
 #ifdef SHADOW_PCSS
-            shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither, view_pos,
+            shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither,
                 sss_amount, ndotl, sss_thickness_world);
 #else
             // LOW tier: hardware-bilinear PCF; the blocker search stays on

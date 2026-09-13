@@ -1,8 +1,6 @@
 #ifndef LIB_CORE_MATH_SCALAR_GLSL
 #define LIB_CORE_MATH_SCALAR_GLSL
 
-const float centerDepthHalflife = 1.0;
-
 #define PI 3.14159265358979323846
 #define TAU (2.0 * PI)
 #define INV_TWO_PI (0.5 / PI)

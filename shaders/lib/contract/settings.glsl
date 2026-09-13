@@ -14,6 +14,11 @@
 //#define MOTION_BLUR
 #define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
+// Iris constant: half-life in ticks for the time-smoothed center depth that
+// the DOF focus distance reads (centerDepthSmooth). Lives with the other Iris
+// constant directives.
+const float centerDepthHalflife = 1.0;
+
 
 // Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
 #define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap

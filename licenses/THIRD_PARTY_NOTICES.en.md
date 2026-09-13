@@ -266,28 +266,25 @@ Porting adaptations:
 
 The volumetric-cloud scattering model in `shaders/lib/cloud/volumetric.glsl` is
 ported from Revelation (Apache-2.0), `shaders/lib/atmosphere/clouds/Render.glsl`,
-specifically `CloudMultiScatteringApproxHaringPro` and the `RenderClouds` view
-march: the `(phase + 1/4pi * fms/(1-fms)) * exp(-tau)` single-scattering plus
+specifically the sun component of `CloudMultiScatteringApproxHaringPro`: the
+`(phase + 1/4pi * fms/(1-fms)) * exp(-tau)` single-scattering plus
 geometric-series multiple-scattering term, the `msVolume / (1 + 0.5*tau)`
-isotropic volume term, the ground-bounce term, and the skylight optical depth
-estimated from the sun-path depth scaled by the light elevation. The
-multiple-scattering approximation itself comes from
-<https://zhuanlan.zhihu.com/p/457997155>.
+isotropic volume term, and the ground-bounce term. The multiple-scattering
+approximation itself comes from <https://zhuanlan.zhihu.com/p/457997155>.
 
 Porting adaptations (this pack's changes relative to upstream):
 
 - The phase input stays this pack's dual-lobe HG (section 2); Revelation's baked
   `CloudPhaseLut.bin` Mie phase table is not imported, so no third-party
   texture enters the pack.
+- Upstream folds the sun and the moon into a single light direction and routes
+  the second component of `CloudMultiScatteringApproxHaringPro` (its skylight
+  term) through the sky irradiance. This pack keeps its independent sun and moon
+  light channels plus its existing ambient path, so only the function's
+  directional component is ported; the skylight component is not.
 - The two packs use different radiance units: `CLOUD_MS_ALBEDO`,
-  `CLOUD_MS_VOLUME`, `CLOUD_MS_VOLUME_FALLOFF` and
-  `CLOUD_SKY_LIGHT_STRENGTH` are this pack's calibration parameters for
-  quantities upstream hardcodes.
-- Upstream's `smoothstep(-0.03, -0.05, y)` has edge0 > edge1, which the GLSL
-  spec leaves undefined; this pack uses `1 - smoothstep(-0.05, -0.03, y)`.
-  Upstream's `normalize(sunDir * (1 - 2*moonlightFactor))` normalizes a zero
-  vector at the crossover; this pack flips the direction at the same midpoint
-  instead.
+  `CLOUD_MS_VOLUME` and `CLOUD_MS_VOLUME_FALLOFF` are this pack's calibration
+  parameters for quantities upstream hardcodes.
 - Upstream weights its light optical-depth samples by `density * (i + 0.5)` and
   rescales globally; this pack keeps the same quadratic stratification with
   exact interval weights.

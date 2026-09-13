@@ -142,7 +142,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_ALBEDO 0.999 // [0.90 0.95 0.97 0.98 0.99 0.995 0.999] HaringPro single-scattering albedo of the cloud medium.
 #define CLOUD_MS_VOLUME 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] HaringPro isotropic volume-scattering strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_MS_VOLUME_FALLOFF 0.5 // [0.0 0.1 0.25 0.5 1.0 2.0] HaringPro volume-scattering falloff with sun-path optical depth; lower = light reaches deeper into thick clouds.
-#define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
+#define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.

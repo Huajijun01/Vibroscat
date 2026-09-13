@@ -12,7 +12,7 @@
 #include "/lib/contract/uniforms.glsl"
 
 struct CloudFrame {
-    vec3 radiance;   // x = directional, y = sky, z = transmittance
+    vec3 radiance;   // x = sun, y = moon, z = transmittance
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
 };
 

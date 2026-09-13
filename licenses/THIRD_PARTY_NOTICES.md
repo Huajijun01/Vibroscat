@@ -255,20 +255,19 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 
 `shaders/lib/cloud/volumetric.glsl` 的体积云散射模型移植自 Revelation（Apache-2.0）的
 `shaders/lib/atmosphere/clouds/Render.glsl`，具体为 `CloudMultiScatteringApproxHaringPro`
-与 `RenderClouds` 的视图步进：`(phase + 1/4π · fms/(1-fms)) · exp(-τ)` 的单次散射加几何级数
-多重散射、`msVolume / (1 + 0.5τ)` 各向同性体积项、地面反弹项，以及用太阳路径光学深度乘光
-方向仰角估计的天光光学深度。多重散射近似本身出自
+的太阳分量：`(phase + 1/4π · fms/(1-fms)) · exp(-τ)` 的单次散射加几何级数多重散射、
+`msVolume / (1 + 0.5τ)` 各向同性体积项，以及地面反弹项。多重散射近似本身出自
 <https://zhuanlan.zhihu.com/p/457997155>。
 
 移植适配说明（本包相对上游的改动）：
 
 - 相位输入保留本包的 dual-lobe HG（见第 2 节），未导入 Revelation 的 `CloudPhaseLut.bin`
   烘焙 Mie 相位表，因此没有引入第三方贴图。
+- 上游把日月折成单一光方向，并把 `CloudMultiScatteringApproxHaringPro` 的第二个分量
+  （天光项）交给天空辐照度。本包保留独立的太阳与月球双通道光照和原有的环境光路径，
+  因此只移植了该函数的方向光分量，天光分量未移植。
 - 两边亮度单位不同：`CLOUD_MS_ALBEDO`、`CLOUD_MS_VOLUME`、`CLOUD_MS_VOLUME_FALLOFF`
-  与 `CLOUD_SKY_LIGHT_STRENGTH` 是本包的标定参数，对应上游写死的量。
-- 上游 `smoothstep(-0.03, -0.05, y)` 的 edge0 大于 edge1，GLSL 规范对结果未定义；本包改用
-  `1 - smoothstep(-0.05, -0.03, y)`。上游 `normalize(sunDir * (1 - 2·moonlightFactor))`
-  在交叉点会归一化一个零向量，本包改为在同一中点翻转方向。
+  是本包的标定参数，对应上游写死的量。
 - 上游光照光学深度按 `density * (i + 0.5)` 加权再整体缩放；本包保留同样的二次分层，改用
   精确的区间权重。
 

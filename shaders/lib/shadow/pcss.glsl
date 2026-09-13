@@ -158,8 +158,11 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither, vec3 view_pos,
 
     // Step 3: PCF with the penumbra radius; sample count grows with size,
     // capped by quality.
-    int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels), SHADOW_PCF_MIN_SAMPLES,
-        SHADOW_PCF_MAX_SAMPLES);
+    // Ordered bounds: the two sliders may be set either way round, and GLSL
+    // clamp is undefined for minVal > maxVal.
+    int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels),
+        min(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES),
+        max(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES));
     vec2 factor = GetDistortFactor(clip_pos.xy);
     vec2 filter_texel_scale = 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
     float filter_radius = max(penumbra_texels, 1.0);

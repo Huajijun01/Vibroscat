@@ -129,8 +129,12 @@ void main() {
         march_end = min(march_end, terrain_end_km);
         cloud_visible = march_end > march_start + 1.0e-5;
         if (cloud_visible) {
+            // min()/max() keep the clamp defined when the two sliders are
+            // ordered the other way round (GLSL clamp is undefined for
+            // minVal > maxVal).
             step_count = clamp(int(ceil((march_end - march_start) / CLOUD_VIEW_TARGET_STEP_KM)),
-                CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
+                min(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS),
+                max(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS));
             cloud_top_distance = (view_dir.y < 0.0 && march_start > 0.0) ? march_start : march_end;
 #ifdef CLOUD_HISTORY_GUIDED_MARCH_END
             CloudHistoryGuidedEnd(uv, view_dir, march_start, march_end);

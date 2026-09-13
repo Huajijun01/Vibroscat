@@ -617,8 +617,11 @@ vec3 TonemapGT7(vec3 linear_rgb) {
     // Step 2: UCS pass - twisted luma, original chroma faded toward white
     // as the scene luminance approaches paper white.
     vec3 skewed_ucs = RgbToICtCp(skewed);
+    // Ordered edges: the two sliders may be set either way round, and
+    // smoothstep is undefined when edge0 >= edge1.
     float chroma_scale = 1.0 - smoothstep(
-        TONEMAP_GT7_CHROMA_FADE_START, TONEMAP_GT7_CHROMA_FADE_END,
+        min(TONEMAP_GT7_CHROMA_FADE_START, TONEMAP_GT7_CHROMA_FADE_END),
+        max(TONEMAP_GT7_CHROMA_FADE_START, TONEMAP_GT7_CHROMA_FADE_END),
         ucs.x / GT7_TARGET_LUMA_UCS);
     vec3 faded = ICtCpToRgb(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));
 

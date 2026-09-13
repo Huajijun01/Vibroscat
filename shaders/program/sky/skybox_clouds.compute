@@ -93,7 +93,8 @@ void main() {
         );
         if (cloud_visible) {
             int step_count = clamp(int(ceil((cloud_exit - cloud_entry) / CLOUD_VIEW_TARGET_STEP_KM)),
-                CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS);
+                min(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS),
+                max(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS));
             bool hit;
             cloud_data = MarchVolumetricClouds(
                 camera_atmosphere_pos,

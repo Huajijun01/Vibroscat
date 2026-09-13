@@ -230,16 +230,29 @@ Porting adaptations:
 
 ## 19. Cloud multiple-scattering approximation (algorithm source)
 
-The in-cloud multiple-scattering approximation used by
-`shaders/lib/cloud/volumetric.glsl` comes from
+This pack's in-cloud multiple-scattering approximation comes from
 
 <https://zhuanlan.zhihu.com/p/457997155>
 
 that is, the saturation factor `fms = omega * (1 - exp2(-300 * sigma_t))`, the
 isotropic geometric series `fms / (1 - fms)` for every order past the first, and
-folding the sun and moon into a single traced direction. The file header and the
-constant comments record the values and the implementation choices this pack
-makes around them.
+a sky term that estimates the transmittance to the zenith from the light path's
+optical depth.
+
+`shaders/lib/cloud/multiple_scattering.glsl` is the single owner of those
+primitives and both cloud layers include it:
+
+- The volumetric layer additionally folds the sun and moon into one traced
+  direction.
+- The cirrus layer instead evaluates the sky term on its own vertical optical
+  depth, which it measures directly, rather than recovering that depth from the
+  sun path and the sine of the elevation as the source does, and it does not
+  fold the two lights.
+
+The file header and the constant comments record the values and the
+implementation choices this pack makes around them. The three-octave directional
+phase sum and the `1 / (1 + tau)` light transmittance that `volumetric.glsl`
+also documents are this pack's own choices and are not part of this entry.
 
 ## Appendix A: Apache License 2.0 (full text)
 

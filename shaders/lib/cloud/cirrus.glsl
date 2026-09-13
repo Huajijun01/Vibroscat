@@ -5,15 +5,17 @@
 // Shape: periodic 64x64 R8 value noise (utex_noise2d_tex), domain-warped and
 // scrolled; sampled once at the shell crossing.
 // Light: thin-shell single sample; scalar scattering/extinction, triple-lobe
-// (forward silver lining + backward) HG phase, mixed rational/exp
-// attenuation, multi-octave phase scattering, sky ambient, up-sun
-// density-tap self shadowing, grazing-path horizon thickening,
-// camera-above/below blend ordering.
+// (forward silver lining + backward) HG phase, the isotropic multiple
+// scattering orders owned by /lib/cloud/multiple_scattering.glsl, sky ambient
+// on the same model's opacity curve, up-sun density-tap self shadowing,
+// grazing-path horizon thickening, camera-above/below blend ordering.
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
+#include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/scattering/phase.glsl"
 
 
@@ -23,10 +25,11 @@ const float CIRRUS_HEIGHT_KM = 7.0;
 // geometry H / mu. A thick core reaches OD ~ 1.0 over the 1 km zenith slab
 // (T ~ 0.4) while thin edges stay under 0.1, so the thin-to-thick gradient
 // stays visible.
+// Scattering equals extinction, so the single-scattering albedo is exactly 1:
+// ice barely absorbs. Everything a thicker deck returns past the first bounce
+// is the multiple-scattering series, not a gain applied to this pair.
 const float CIRRUS_SCATTERING = 3.0;
 const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
-// Radiance rebalance for the larger (1 - T) of the denser field.
-const float CIRRUS_SCATTERING_BOOST = 2.5;
 // Triple-lobe phase: the narrow + mid forward lobes keep the silver lining,
 // the backward lobe lifts the anti-lit side (cloud-bow analog) so decks
 // facing away from the light keep a visible response instead of collapsing
@@ -82,18 +85,23 @@ float CirrusCoverageDensity(vec3 ps) {
     return density * density;
 }
 
-// Rational attenuation for the shadow march: soft-shouldered, taps never
-// fully occlude the receiver.
+// Rational attenuation for the light trace: soft-shouldered, taps never fully
+// occlude the receiver. The volumetric layer attenuates its light march on the
+// same 1 / (1 + tau) curve, so both layers shadow and add their extra orders
+// on one curve.
 float CirrusTransmittance(float optical_depth) {
     return 1.0 / (1.0 + optical_depth);
 }
 
+// Optical depth from the receiver toward the light, unnormalized so each term
+// can apply its own curve.
+//
 // Self-shadowing for the direct lights: march a few density taps up-sun along
-// the shell tangent and Beer-shadow the receiver. A thin deck's light path
-// grows as the light grazes it (H / mu), so low light sweeps a long stretch
-// of deck and dense regions up-sun darken the sample. x^2 strata concentrate
-// taps near the receiver, matching the volumetric light march.
-float CirrusLightTransmittance(vec3 sample_position, vec3 shell_normal_world, vec3 light_dir, float light_mu, float jitter) {
+// the shell tangent and shadow the receiver. A thin deck's light path grows as
+// the light grazes it (H / mu), so low light sweeps a long stretch of deck and
+// dense regions up-sun darken the sample. x^2 strata concentrate taps near the
+// receiver, matching the volumetric light march.
+float CirrusLightOpticalDepth(vec3 sample_position, vec3 shell_normal_world, vec3 light_dir, float light_mu, float jitter) {
     float light_path_km = min(CIRRUS_LAYER_THICKNESS_KM / max(light_mu, CIRRUS_GRAZING_MIN_MU),
         float(CIRRUS_LIGHT_MAX_STEPS) * CIRRUS_LIGHT_STEP_KM);
     vec3 tangential = light_dir - light_mu * shell_normal_world;
@@ -109,17 +117,33 @@ float CirrusLightTransmittance(vec3 sample_position, vec3 shell_normal_world, ve
         float sample_distance = (float(i) + jitter) * stratum_width;
         optical_depth += CirrusCoverageDensity(sample_position + tangent_dir * sample_distance) * stratum_width;
     }
-    return CirrusTransmittance(optical_depth * CIRRUS_EXTINCTION);
+    return optical_depth * CIRRUS_EXTINCTION;
 }
 
-// Multi-octave phase scattering: 4 orders with per-order falloffs, packaged
-// as a single function. Each order blends the HG phase toward the uniform
-// phase and attenuates the light/ambient contributions.
+// Slab source at one shell crossing, which the caller turns into radiance with
+// the analytic (1 - T) / sigma_t integral.
+//
+// Single scattering keeps the triple-lobe HG phase. The orders past the first
+// are the isotropic geometric series owned by
+// /lib/cloud/multiple_scattering.glsl and they ride the very same light
+// colours, which already carry each light's 1 / (1 + tau) self shadow. Their
+// weight therefore follows the sample's own extinction: a denser or thicker
+// deck returns more of them, and a thin edge returns almost none.
+//
+// The sky ambient is scaled by the same model's opacity curve evaluated on the
+// deck's vertical optical depth. Sky light reaches the sample from above, so
+// it crosses the whole shell rather than the view path, and a thicker deck
+// passes less of it.
 vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, vec3 moon_color, float moon_visible,
-    vec3 moon_phase, vec3 ambient_irradiance, float sample_scattering, float sample_extinction, float sample_transmittance
+    vec3 moon_phase, vec3 ambient_radiance, float sample_scattering, float sample_extinction,
+    float sample_transmittance, float vertical_optical_depth
 ) {
-    vec3 in_scattering = sun_color * sun_visible * sun_phase + moon_color * moon_visible * moon_phase + ambient_irradiance;
-    in_scattering *= sample_scattering * CIRRUS_SCATTERING_BOOST;
+    float isotropic_orders = CloudIsotropicOrders(
+        sample_extinction * CLOUD_EXTINCTION_PER_KM_TO_PER_M, CIRRUS_MS_ISOTROPIC);
+    vec3 in_scattering = sun_color * sun_visible * (sun_phase + isotropic_orders)
+        + moon_color * moon_visible * (moon_phase + isotropic_orders);
+    in_scattering += ambient_radiance * CloudSkyOrders(vertical_optical_depth);
+    in_scattering *= sample_scattering;
     return (in_scattering - in_scattering * sample_transmittance) / max(sample_extinction, 1.0e-5);
 }
 
@@ -185,22 +209,29 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // the jitter by half a period to decorrelate its taps from the sun's.
         if (sun_visible > 0.0) {
             vec3 sun_half_vec = normalize(sun_dir - view_dir);
-            sun_color *= CirrusLightTransmittance(sample_position, shell_normal_world, sun_half_vec, sun_mu, light_jitter);
+            sun_color *= CirrusTransmittance(CirrusLightOpticalDepth(
+                sample_position, shell_normal_world, sun_half_vec, sun_mu, light_jitter));
         }
 
         vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
             SampleTransmittance(TRANSMITTANCE_LUT, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
         if (moon_visible > 0.0) {
             vec3 moon_half_vec = normalize(moon_dir - view_dir);
-            moon_color *= CirrusLightTransmittance(sample_position, shell_normal_world, moon_half_vec, moon_mu, light_jitter);
+            moon_color *= CirrusTransmittance(CirrusLightOpticalDepth(
+                sample_position, shell_normal_world, moon_half_vec, moon_mu, light_jitter));
         }
 
-        // Sky ambient from the multiscatter LUT.
-        vec3 ambient_irradiance = GetAmbientColor(sample_position, u_world_sun_dir) * 3.0;
-        // ambient_irradiance *= 0.8 + 0.2 * ci_transmittance;
+        // Sky ambient from the multiscatter LUT. The strength converts the
+        // probe's scattering-coefficient scale to the radiance the layer is lit
+        // with; the opacity curve in CirrusPhaseScattering then modulates it by
+        // the deck's own depth.
+        vec3 ambient_radiance = GetAmbientColor(sample_position, u_world_sun_dir) * CIRRUS_SKY_LIGHT_STRENGTH;
 
         float sample_scattering = CIRRUS_SCATTERING * sample_density;
         float sample_extinction = CIRRUS_EXTINCTION * sample_density;
+        // Sky light crosses the whole shell, so the sky term is attenuated by
+        // the vertical depth rather than by the view path.
+        float vertical_optical_depth = sample_extinction * CIRRUS_LAYER_THICKNESS_KM;
         // Slanted path through the effective slab: optical depth grows where
         // the view grazes the deck, so the horizon reads thick while the
         // zenith keeps the overhead thickness (capped by the true distance).
@@ -210,7 +241,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         float sample_transmittance = exp(-sample_optical_depth);
 
         ci_in_scattering = CirrusPhaseScattering(sun_color, sun_visible, sun_phase, moon_color, moon_visible, moon_phase,
-                                           ambient_irradiance, sample_scattering, sample_extinction, sample_transmittance);
+                                           ambient_radiance, sample_scattering, sample_extinction, sample_transmittance,
+                                           vertical_optical_depth);
         ci_transmittance = vec3(sample_transmittance);
         cirrus_transmittance = ci_transmittance;
     }

@@ -5,35 +5,20 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/core.glsl"
+#include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/scattering/phase.glsl"
 
 // Vibroscat volumetric clouds.
 //
-// In-cloud multiple scattering follows the approximation published at
-//   https://zhuanlan.zhihu.com/p/457997155
-// that is, a saturation factor fms = omega * (1 - exp2(-300 * sigma_t)), an
-// isotropic geometric series fms / (1 - fms) for every order past the first,
-// and one folded sun/moon direction per light trace. See
-// licenses/THIRD_PARTY_NOTICES.md section 19.
+// In-cloud multiple scattering is the isotropic geometric series owned by
+// /lib/cloud/multiple_scattering.glsl, summed with this pack's three-octave
+// directional phase. See licenses/THIRD_PARTY_NOTICES.md section 19.
 //
 // The direct term keeps this pack's three-octave directional sum on a
 // 1 / (1 + tau) transmittance, and the light colour holds the sun through the
 // band just below the horizon where the cloud layer still catches it. Those are
 // this pack's own choices; they are described where they are implemented.
 
-// --- Multiple-scattering constants --------------------------------------
-// The fms knee is calibrated on extinction in m^-1, so it is evaluated on the
-// per-meter extinction even though this file marches in kilometers.
-const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
-const float CLOUD_MS_FMS_SCALE = 300.0;
-// Saturation albedo of the geometric series. The series converges to
-// omega / (1 - omega), so this stays a fixed constant: exposing it as a slider
-// would make the isotropic term swing by two orders of magnitude across one
-// step. CLOUD_MS_ISOTROPIC scales the result linearly instead.
-const float CLOUD_MS_FMS_ALBEDO = 0.99;
-// 1 - fms only needs a guard against an albedo of exactly 1. At the default
-// albedo the ratio peaks at 999 and never reaches this floor.
-const float CLOUD_MS_FMS_FLOOR = 1.0e-4;
 // Directional octaves: each step widens the phase, weakens its contribution
 // and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
@@ -335,16 +320,10 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // keep it off the erased-sample path.
         float sample_r2 = dot(sample_position, sample_position);
 
-        // Per-sample scattering material, shared by both light channels. fms is
-        // the energy still available after one more scattering event;
-        // fms / (1 - fms) is the geometric series of every order past the
-        // first, carried by the isotropic phase.
+        // Per-sample scattering material, shared by both light channels.
         float sigma_t_per_m = sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
-        float fms = CLOUD_MS_FMS_ALBEDO
-            * (1.0 - exp2(-CLOUD_MS_FMS_SCALE * sigma_t_per_m));
-        float isotropic_orders = CLOUD_MS_ISOTROPIC * PHASE_ISOTROPIC * fms
-            / max(1.0 - fms, CLOUD_MS_FMS_FLOOR);
+        float isotropic_orders = CloudIsotropicOrders(sigma_t_per_m, CLOUD_MS_ISOTROPIC);
 
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
 #ifdef CLOUD_SINGLE_LIGHT

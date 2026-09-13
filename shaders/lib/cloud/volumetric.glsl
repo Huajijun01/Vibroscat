@@ -321,10 +321,12 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 
     hit = surface_weight > 1.0e-5;
     surface_position = surface_position_accumulator / max(surface_weight, 1.0e-5);
-    // Packed output: x = sun in-scatter, y = moon in-scatter, z = remaining
-    // view transmittance. Both scattering channels are already scaled by
-    // CLOUD_MS_ALBEDO.
-    return vec3(sun_radiance, moon_radiance, view_transmittance);
+    // Revelation scales the complete accumulated scattering by the
+    // single-scattering albedo at the end of the march; the fms series carries
+    // its own copy of it. Packed output: x = sun in-scatter, y = moon
+    // in-scatter, z = remaining view transmittance.
+    float albedo = CLOUD_MS_ALBEDO;
+    return vec3(sun_radiance * albedo, moon_radiance * albedo, view_transmittance);
 }
 
 #endif

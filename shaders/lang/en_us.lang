@@ -411,8 +411,10 @@ option.AIR_FOG = Air Fog
 option.AIR_FOG.comment = Distance haze: faraway terrain gently fades toward the horizon, like real atmospheric perspective.
 option.AIR_FOG_INTENSITY = Fog Intensity
 option.AIR_FOG_INTENSITY.comment = Overall strength of the haze.
-option.AIR_FOG_DENSITY = Fog Density
-option.AIR_FOG_DENSITY.comment = Base thickness of the haze: higher = terrain disappears at shorter distances.
+option.AIR_FOG_DENSITY_DAY = Day Fog Density
+option.AIR_FOG_DENSITY_DAY.comment = Haze thickness while the sun is high and through the night. 10.0 is light mist, 30.0 is three times as thick.
+option.AIR_FOG_DENSITY_DUSK = Dusk Fog Density
+option.AIR_FOG_DENSITY_DUSK.comment = Haze thickness around sunrise and sunset, where the sun sits on the horizon. It fades back into the day value within roughly 15 degrees of sun elevation.
 option.AIR_FOG_SKY_STRENGTH = Sky Scatter Strength
 option.AIR_FOG_SKY_STRENGTH.comment = Total strength of the sky-light scattering term inside the haze. Higher = brighter fog that takes on more of the sky's color; at 0 the haze keeps only the scattering of the sun and the ground.
 option.AIR_FOG_SHADOWS = Fog Shadows

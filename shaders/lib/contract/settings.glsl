@@ -297,16 +297,28 @@ const float EYE_BRIGHTNESS_SCALE = 240.0;
 // Analytic air fog (composite2, after blend).
 #define AIR_FOG
 #define AIR_FOG_INTENSITY 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.2 1.5 2.0 3.0 4.0]
-#define AIR_FOG_DENSITY 10.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0 5.0 6.0 8.0 10.0]
+// Haze density, absolute. Both values are blended by the sun's elevation in
+// AirFogDensity (lib/atmosphere/air_fog.glsl): 10.0 is thin haze, 30.0 is
+// three times as thick.
+#define AIR_FOG_DENSITY_DAY 10.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0 5.0 6.0 8.0 10.0 12.0 15.0 20.0 25.0 30.0]
+#define AIR_FOG_DENSITY_DUSK 30.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0 5.0 6.0 8.0 10.0 12.0 15.0 20.0 25.0 30.0]
 #define AIR_FOG_SKY_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
 #define AIR_FOG_SHADOWS
+
+// Twilight band, in the sun's elevation magnitude |sun.y| (the sine of its
+// angle above the horizon). The dusk density holds while the sun sits on the
+// horizon and has handed over to the day density by AIR_FOG_DUSK_FADE_END
+// (0.25 ~ 14.5 deg). Folding the elevation with abs() makes the band fire at
+// sunrise and sunset alike.
+const float AIR_FOG_DUSK_FADE_START = 0.0;
+const float AIR_FOG_DUSK_FADE_END = 0.25;
 
 // Boundary fog: fade near-boundary geometry into the clouded skybox so the
 // loaded-area edge is masked instead of cutting off. Applied in the air fog
 // composite (composite2) before the epipolar air fog; Overworld only, with air
 // fog.
 #define BOUNDARY_FOG
-#define BOUNDARY_FOG_START 0.5 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
+#define BOUNDARY_FOG_START 0.7 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
 #define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 0.8 1.0] sky-facing dampening
 

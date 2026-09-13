@@ -9,7 +9,24 @@
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/scattering/phase.glsl"
 
-const float AIR_FOG_KM_TO_M = AIR_FOG_DENSITY / 1000.0;
+// km^-1 -> m^-1; the density profile below is authored in km^-1.
+const float AIR_FOG_KM_TO_M = 1.0 / 1000.0;
+
+// Haze density for the current sun elevation (10.0 = thin haze, see the
+// AIR_FOG_DENSITY_* options). The elevation is folded about the horizon with
+// abs(), so the twilight band thickens the haze at sunrise and sunset alike,
+// while the day value carries noon, night, and anything past the band.
+float AirFogDensity() {
+    float sun_elevation = abs(u_world_sun_dir.y);
+    float dusk_weight = 1.0 - smoothstep(AIR_FOG_DUSK_FADE_START, AIR_FOG_DUSK_FADE_END, sun_elevation);
+    return mix(AIR_FOG_DENSITY_DAY, AIR_FOG_DENSITY_DUSK, dusk_weight);
+}
+
+// Per-metre medium scale at the current density, shared by the analytic fog
+// composite and the epipolar air column so both see the same haze.
+float AirFogMediumScale() {
+    return AirFogDensity() * AIR_FOG_KM_TO_M;
+}
 
 // Air density is approximated constant at the camera altitude. The existing
 // atmosphere model returns km^-1 spectral coefficients; convert to m^-1.
@@ -20,7 +37,7 @@ struct AirFogMedium {
 };
 
 AirFogMedium AirFogMediumAtCamera() {
-    float scale = AIR_FOG_KM_TO_M;
+    float scale = AirFogMediumScale();
     // One extinction owns the whole fog, so the epipolar air column weights its
     // march by exactly the transmittance this composite integrates.
     vec4 extinction = GetExtinction(u_cam_altitude) * scale + wetness * 0.01;

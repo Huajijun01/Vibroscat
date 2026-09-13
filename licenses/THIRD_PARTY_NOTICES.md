@@ -15,7 +15,7 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 
 ## 2. 体积云多重散射的早期参考（历史；当前代码不含派生代码）
 
-本包体积云散射的早期实现曾参考 HanPi Volume Cloud（AshenOneArt，MIT 许可并附额外署名要求），其中的 phi_fwd 各向同性多重散射场位于 `shaders/lib/cloud/volumetric.glsl`。该场及其许可声明已于 2026-09 整体移除，当前体积云改用第 19 节记录的近似；本节不再附带该项目的许可条款，历史移植与清理记录保留在 Git 历史中。
+本包体积云散射的早期实现曾参考 HanPi Volume Cloud（AshenOneArt，MIT 许可并附额外署名要求），其中的 phi_fwd 各向同性多重散射场位于 `shaders/lib/cloud/volumetric.glsl`。该场及其许可声明已于 2026-09 整体移除，当前体积云改用本包自己的多重散射近似；本节不再附带该项目的许可条款，历史移植与清理记录保留在 Git 历史中。
 
 ## 3. AgX（概念 + MIT 实现）
 
@@ -165,9 +165,8 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
   [作者发布页及论文](https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced)，
   [DOI: 10.1145/3105762.3105770](https://doi.org/10.1145/3105762.3105770)：
   去除材质调制的辐照度、逐采样历史有效性检查和边缘感知重建。本包并未实现完整 SVGF。
-- iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）及 Revelation
-  （`diffuse/Accumulate.frag`）仅用于架构比较。iterationT 的再分发许可未经确认，
-  Revelation 为 Apache-2.0。本次变更未复制上述两包的源码或资产。
+- iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）仅用于架构比较。其再分发许可
+  未经确认。本次变更未复制该包的源码或资产。
 
 ## 18. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
 
@@ -216,28 +215,6 @@ Yasutomi），样例代码明确以 MIT 许可发布：
   精确求逆的常量。
 - 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、
   `TONEMAP_GT7_CHROMA_FADE_END`（默认值均为官方样例值）。
-
-## 19. 云内多重散射近似（算法出处）
-
-本包的云内多重散射近似出自
-
-<https://zhuanlan.zhihu.com/p/457997155>
-
-即饱和因子与代表首次以后各阶散射的各向同性几何级数。出处写作 `fms = ω0 · (1 - exp2(-300 · σ_t))`，
-自变量是每米消光。本包把该自变量改写成**无量纲的参考光学厚度**，膝点落在"该层自身参考长度上一个
-光学厚度"处，参考长度由各层自己持有：体积云为 300 m（与其原有取值等价），卷云为 0.5 km（该壳层
-自身的尺度）。这不是可共用的常量，因为 `300 · σ_t` 里的 300 带长度单位，为 100 km⁻¹ 的介质标定
-的长度套到 3 km⁻¹ 的壳上时，膝点根本到不了，级数等于不出力。
-
-公式里的 `ω0` 同样按层持有：它是介质的单次散射反照率，水云与冰云不是同一种介质。本包体积云取
-0.99（固定值，不跟 `CLOUD_MS_ALBEDO` 滑条走，见下），卷云取 0.999。
-
-`shaders/lib/cloud/multiple_scattering.glsl` 是这条无量纲形式的唯一归属，体积云与卷云两个云层
-共同包含它。两个层都把它加在日月的直射项上；环境光路径不经过它。体积云另加把日月折叠成
-单一方向的光照追踪，卷云不折叠。
-
-文件头与常量注释记录了本包在这些环节上的取值与实现方式。`volumetric.glsl` 同样记录在案的
-三 octave 方向相位求和与 `1 / (1 + τ)` 光路透过率是本包自己的选择，不属于本节出处。
 
 ## 附录 A：Apache License 2.0 全文
 

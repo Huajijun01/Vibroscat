@@ -15,7 +15,7 @@ The redistribution restrictions of Photon's custom license do not apply to the p
 
 ## 2. Early reference for cloud multiple scattering (historical; no derived code remains)
 
-The pack's early cloud scattering work referenced HanPi Volume Cloud (AshenOneArt, MIT licensed with an additional attribution requirement); its isotropic multiple-scattering field (phi_fwd) lived in `shaders/lib/cloud/volumetric.glsl`. That field and its license declaration were removed in 2026-09 and the cloud now uses the approximation recorded in section 19; this section no longer carries that project's license terms. The historical port and cleanup records remain in the Git history.
+The pack's early cloud scattering work referenced HanPi Volume Cloud (AshenOneArt, MIT licensed with an additional attribution requirement); its isotropic multiple-scattering field (phi_fwd) lived in `shaders/lib/cloud/volumetric.glsl`. That field and its license declaration were removed in 2026-09 and the cloud now uses this pack's own multiple-scattering approximation; this section no longer carries that project's license terms. The historical port and cleanup records remain in the Git history.
 
 ## 3. AgX (concept + MIT implementation)
 
@@ -169,10 +169,9 @@ The RSM source encoding, sampling and reconstruction in
   [DOI: 10.1145/3105762.3105770](https://doi.org/10.1145/3105762.3105770):
   demodulated irradiance, independently validated history taps, and edge-aware
   reconstruction. This pack does not implement the full SVGF filter.
-- iterationT 3.2.0 (`GlobalIllumination.glsl` and shadow outputs) and Revelation
-  (`diffuse/Accumulate.frag`) were examined for architecture comparison only.
-  iterationT's redistribution permission was not established; Revelation is
-  Apache-2.0. No source or assets from either pack are included in this change.
+- iterationT 3.2.0 (`GlobalIllumination.glsl` and shadow outputs) was examined
+  for architecture comparison only. Its redistribution permission was not
+  established. No source or assets from that pack are included in this change.
 
 ## 18. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
 
@@ -227,39 +226,6 @@ Porting adaptations:
   inverse matrix is an exact-by-definition constant.
 - Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,
   `TONEMAP_GT7_CHROMA_FADE_END` (defaults are the official sample values).
-
-## 19. Cloud multiple-scattering approximation (algorithm source)
-
-This pack's in-cloud multiple-scattering approximation comes from
-
-<https://zhuanlan.zhihu.com/p/457997155>
-
-that is, a saturation factor and the isotropic geometric series standing for
-every order past the first. The source writes it as
-`fms = omega * (1 - exp2(-300 * sigma_t))`, driven by the extinction in m^-1.
-This pack rewrites the argument as a DIMENSIONLESS reference optical depth whose
-knee is one optical depth over a reference length owned by the layer itself: 300 m
-for the volumetric layer, which is equivalent to its previous value, and 0.5 km
-for the cirrus shell, which is that deck's own scale. It is not a shareable
-constant, because the 300 in `300 * sigma_t` carries a length: a length
-calibrated on a 100 km^-1 medium never reaches its knee in a 3 km^-1 shell, and
-the series then contributes nothing.
-
-The `omega` in that formula is per-layer as well: it is the medium's
-single-scattering albedo, and water and ice are not the same medium. The
-volumetric layer uses 0.99, pinned rather than driven by its CLOUD_MS_ALBEDO
-control, and the cirrus uses 0.999.
-
-`shaders/lib/cloud/multiple_scattering.glsl` is the single owner of that
-dimensionless form and both cloud layers include it. Both layers add the series
-to the sun and moon direct terms; the ambient path does not go through it. The
-volumetric layer additionally folds the sun and moon into one traced direction,
-and the cirrus layer does not fold them.
-
-The file header and the constant comments record the values and the
-implementation choices this pack makes around them. The three-octave directional
-phase sum and the `1 / (1 + tau)` light transmittance that `volumetric.glsl`
-also documents are this pack's own choices and are not part of this entry.
 
 ## Appendix A: Apache License 2.0 (full text)
 

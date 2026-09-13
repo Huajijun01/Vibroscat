@@ -4,10 +4,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/noise.glsl"
 
-#ifndef COLOR_DITHER_STRENGTH
-#define COLOR_DITHER_STRENGTH 1.0
-#endif
-
 // COLOR_DITHER off returns every jitter unchanged: the offset is the only
 // reason these helpers exist, and every caller already passes a non-negative
 // color, so no clamp is owed back.

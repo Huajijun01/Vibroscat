@@ -8,16 +8,12 @@ This file is the single declaration point for all third-party code, assets, and 
 
 Photon Shaders (Copyright © 2021-2025 Benjamin Stott "SixthSurge", custom license) was an early source for two features, both removed and replaced in 2026-08:
 
-- `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` (GGX spherical-area light with Newton-iterated bent light direction) was transcribed from Photon's `include/lighting/bsdf.glsl`; it has since been re-transcribed from the Guerrilla Decima Engine public lecture material (Johan Andersson, SIGGRAPH 2017), see section 11, and no longer contains Photon code expression.
+- `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` (GGX spherical-area light with Newton-iterated bent light direction) was transcribed from Photon's `include/lighting/bsdf.glsl`; it has since been re-transcribed from the Guerrilla Decima Engine public lecture material (Johan Andersson, SIGGRAPH 2017), see section 10, and no longer contains Photon code expression.
 - The temporal AO depth/offcenter rejection in `shaders/lib/lighting/temporal_ao.glsl` (GTAO_DEPTH_REJECTION=16.0, GTAO_OFFCENTER_STRENGTH=0.25, matching Photon's `d3_ao.fsh`; the offcenter trick is itself attributed by Photon to Zombye/Jessie) has been fully rewritten as an independent implementation (world-space displacement + normal-consistency rejection, see the file header comment); the original formulas and constants have been deleted.
 
 The redistribution restrictions of Photon's custom license do not apply to the pack's current code. The historical port and cleanup records remain in the Git history.
 
-## 2. Early reference for cloud multiple scattering (historical; no derived code remains)
-
-The pack's early cloud scattering work referenced HanPi Volume Cloud (AshenOneArt, MIT licensed with an additional attribution requirement); its isotropic multiple-scattering field (phi_fwd) lived in `shaders/lib/cloud/volumetric.glsl`. That field and its license declaration were removed in 2026-09 and the cloud now uses the approximation recorded in section 19; this section no longer carries that project's license terms. The historical port and cleanup records remain in the Git history.
-
-## 3. AgX (concept + MIT implementation)
+## 2. AgX (concept + MIT implementation)
 
 `TonemapAGX` in `shaders/lib/color/color.glsl` is based on the AgX-S2O3 analytic curve (linlin, MIT), with the AgX concept from Troy Sobotka:
 
@@ -50,21 +46,21 @@ The pack's early cloud scattering work referenced HanPi Volume Cloud (AshenOneAr
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-## 4. DRT tone mapping (direct author permission; GPL-3.0)
+## 3. DRT tone mapping (direct author permission; GPL-3.0)
 
 `TonemapOklabDRT` (Björn Ottosson "A display rendering transform", 2021), `TonemapReinhardGamut` (`TONEMAP_MODE == 3`) and `TonemapReinhardAgx` (`TONEMAP_MODE == 5`) are ported from DRT Bench (github.com/bWFuanVzYWth/DRT, by linlin). The virtual-primary gamut, the Reinhard curve, the AgX log shoulder and the HSV hue repair are that tool's designs; the Oklab concept and formulas come from Björn Ottosson's public articles.
 
 When Oklab and Reinhard-Gamut were ported in 2026-08 the repository had not selected an open-source license (publish=false), and the author granted Vibroscat permission directly (written confirmation available from linlin on request). Since 2026-09 the repository is published under `GPL-3.0-only` (LICENSE added in commit 49e67a3), which is compatible with this pack's main license, GNU GPL v3.
 
-## 5. AMD FidelityFX CAS (MIT)
+## 4. AMD FidelityFX CAS (MIT)
 
 `shaders/lib/third_party/fidelityfx/cas.glsl` is a trimmed GLSL adaptation of AMD FidelityFX Contrast Adaptive Sharpening (Copyright (c) 2017-2019 Advanced Micro Devices, Inc.), with the full MIT license retained in the file header. Original source: https://github.com/GPUOpen-Effects/FidelityFX-CAS
 
-## 6. Intel Outdoor Light Scattering (Apache-2.0, concept and framework)
+## 5. Intel Outdoor Light Scattering (Apache-2.0, concept and framework)
 
 The epipolar slice/fan parameterization in `shaders/lib/volume/epipolar_core.glsl` follows the Intel Outdoor Light Scattering Sample (Intel, Apache-2.0). Also referenced: Yusov, Egor. "Practical Implementation of Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary Trees". GDC 2013. The pack's implementation is an independent expression and does not copy lines. The full Apache-2.0 text is in Appendix A of this file.
 
-## 7. Unreal Engine Sky Atmosphere (MIT, algorithmic reference)
+## 6. Unreal Engine Sky Atmosphere (MIT, algorithmic reference)
 
 The atmospheric transmittance LUT reconstruction (GetTransmittance scheme in cloud/render.glsl) and the volumetric cloud noise layout (TileableVolumeNoise) reference Sebastien Hillaire's UE4 SkyAtmosphere implementation (Epic Games, MIT):
 
@@ -92,45 +88,45 @@ The atmospheric transmittance LUT reconstruction (GetTransmittance scheme in clo
 
 Also referenced (concept): Bruneton & Neyret, "Precomputed Atmospheric Scattering", CGF 27(4), 2008.
 
-## 8. NASA Deep Star Maps 2020 (public domain)
+## 7. NASA Deep Star Maps 2020 (public domain)
 
 `shaders/textures/starmap_2020_4k_logluv32.png` is baked from the linear EXR of NASA SVS #4851 "Deep Star Maps 2020" (Plate Carrée projection, LogLuv32 encoding).
 
 > Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
 > Source: https://svs.gsfc.nasa.gov/4851/ . NASA material is a work of the US government and is in the public domain.
 
-## 9. Spatiotemporal blue noise STBN (algorithmic reference)
+## 8. Spatiotemporal blue noise STBN (algorithmic reference)
 
 `shaders/textures/stbn_scalar_128x128x64.dat` is independently generated with the void-and-cluster algorithm; algorithm and default parameters from: Wolfe, Morrical, Akenine-Möller, Ramamoorthi. "Scalar Spatiotemporal Blue Noise Masks". 2022. (preceded by Heitz, Belcour, Ostromoukhov. "Spatiotemporal Blue Noise Masks". ACM TOG 2019.)
 
-## 10. LogLuv32 encoding (algorithmic reference)
+## 9. LogLuv32 encoding (algorithmic reference)
 
 LogLuv32 decoding (`LogLuv32ToLinear` in color.glsl) follows: Ericson, Christer. "Converting RGB to LogLuv in a fragment shader". 2007. The matrix stream matches Alpha Piscium v1.9.1 (GPLv3); GPLv3 is compatible with the pack's main license.
 
-## 11. Guerrilla Decima Engine (algorithmic reference)
+## 10. Guerrilla Decima Engine (algorithmic reference)
 
 The GGX spherical-area light approximation in `GetNdotHSquared` (including Newton-iterated bent light direction) is from: Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa (PDF: https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf)
 
-## 12. Blender EEVEE (GPL-2.0-or-later, algorithmic reference)
+## 11. Blender EEVEE (GPL-2.0-or-later, algorithmic reference)
 
 The index-of-refraction recovery in `F0ToIOR` uses the Blender EEVEE approximation (GPL-2.0-or-later, compatible with GPLv3).
 
-## 13. SSR lineage and independent rewrite (chocapic13)
+## 12. SSR lineage and independent rewrite (chocapic13)
 
 The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage (an earlier source label was corrected). The current file has been fully rewritten as an independent implementation: linear-depth hit criterion, constant-step march covering screen edges or the far plane, interval bisection refinement; no original structure, constants, or wording are retained. The rewrite record remains in the Git history.
 
-## 14. Other mathematical/convention references
+## 13. Other mathematical/convention references
 
 - `FastSin`: Bhaskara I sine approximation (circa 12th century, public-domain mathematics)
 - TAA jitter R2 sequence: Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences" (public constants 1.3247179572 / 1.7548776662)
 - `StarHashUint` in `celestial.glsl` (procedural star field): lowbias32 constants from Wellons, Chris. "Prospecting for Hash Functions" (released by the author as public domain)
 - specular channel convention in `material/core.glsl`: oldPBR/seusPBR specifications (data-format convention, not code)
 
-## 15. Atmosphere model provenance note
+## 14. Atmosphere model provenance note
 
-The 4-wave spectral atmosphere model (410/480/560/630 nm) in `lib/atmosphere/core.glsl` is the pack author's offline-fit implementation (the HSPEAtmosCreator tool is not shipped), with density/phase functions referencing Hillaire 2020 (see section 7). A previous "sky-tracer" comment pointing to an undocumented reference renderer has been removed from the code comments; if the author confirms the specific source and license, it will be appended to this section.
+The 4-wave spectral atmosphere model (410/480/560/630 nm) in `lib/atmosphere/core.glsl` is the pack author's offline-fit implementation (the HSPEAtmosCreator tool is not shipped), with density/phase functions referencing Hillaire 2020 (see section 6). A previous "sky-tracer" comment pointing to an undocumented reference renderer has been removed from the code comments; if the author confirms the specific source and license, it will be appended to this section.
 
-## 16. GT-VBGI / ReferenceGI (CC0 1.0)
+## 15. GT-VBGI / ReferenceGI (CC0 1.0)
 
 The screen-space visibility-bitmask GI in
 `shaders/program/deferred/recursive_gi.fragment` is ported from Mirko Salm's
@@ -145,16 +141,17 @@ Provenance correction (2026-09-09): an earlier adaptation of this GI borrowed
 several expressions from the Sundial-Lite (GPL-3.0, Copyright © 2026
 GeForceLegend) port: the inlined slice-relative CDF simplification with its
 [w0, 1] offset remap form, the `floatBitsToUint` sector quantization, and the
-distance-scaled geometry thickness term. All of them have been replaced with
-the corresponding forms of the CC0/MIT reference above. Only the homogeneous
-screen-edge ray clamp (including its `far + 32.0` limit) is retained from
-Sundial-Lite with that author's explicit permission (verbal, 2026-09).
-Sundial-Lite is no longer an expression source for the GI trace in this file.
-The temporal reconstruction in `gi_denoise.glsl` remains an independent
-SVGF-style implementation; its design-level comparison uses a 2x2 history
-pattern.
+distance-scaled geometry thickness term. All of them were replaced with the
+corresponding forms of the CC0/MIT reference above. Addendum (2026-09-12): the
+last retained item, the homogeneous screen-edge ray clamp with its `far + 32.0`
+limit, was also replaced by the pack's own solver `ClipRayScreenExitT` in
+`lib/core/coordinates.glsl` (per-axis positive-t slab semantics, independently
+written; the `far + 32.0` fallback limit is kept as a caller argument). No
+Sundial-Lite expression remains in this pack. The temporal reconstruction in
+`gi_denoise.glsl` is an independent SVGF-style implementation; its
+design-level comparison uses a 2x2 history pattern.
 
-## 17. Reflective Shadow Maps and temporal reconstruction (algorithmic references)
+## 16. Reflective Shadow Maps and temporal reconstruction (algorithmic references)
 
 The RSM source encoding, sampling and reconstruction in
 `shaders/lib/lighting/rsm_data.glsl`, `reflective_shadow_map.glsl` and
@@ -173,7 +170,7 @@ The RSM source encoding, sampling and reconstruction in
   for architecture comparison only. Its redistribution permission was not
   established. No source or assets from that pack are included in this change.
 
-## 18. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
+## 17. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
 
 `TonemapGT7` in `shaders/lib/color/color.glsl` (`TONEMAP_MODE == 4`) is ported
 from the official sample implementation `gt7_tone_mapping.cpp` released by
@@ -227,7 +224,7 @@ Porting adaptations:
 - Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,
   `TONEMAP_GT7_CHROMA_FADE_END` (defaults are the official sample values).
 
-## 19. Cloud multiple-scattering approximation (algorithm source)
+## 18. Cloud multiple-scattering approximation (algorithm source)
 
 This pack's in-cloud multiple-scattering approximation comes from
 

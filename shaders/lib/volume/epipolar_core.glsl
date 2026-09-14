@@ -2,7 +2,7 @@
 #define LIB_VOLUME_EPIPOLAR_CORE_GLSL
 // Epipolar slice/quadrant parametrization follows the Intel Outdoor Light
 // Scattering Sample (Intel, Apache-2.0; license in licenses/THIRD_PARTY_NOTICES.md
-// section 6 and appendix A). Additional reference: Yusov, "Practical Implementation of
+// section 5 and appendix A). Additional reference: Yusov, "Practical Implementation of
 // Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary
 // Trees", GDC 2013.
 #include "/lib/contract/settings.glsl"

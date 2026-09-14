@@ -11,7 +11,7 @@
 //
 // In-cloud multiple scattering is the isotropic geometric series owned by
 // /lib/cloud/multiple_scattering.glsl, summed with this pack's three-octave
-// directional phase. See licenses/THIRD_PARTY_NOTICES.md section 19.
+// directional phase. See licenses/THIRD_PARTY_NOTICES.md section 18.
 //
 // The direct term keeps this pack's three-octave directional sum on a
 // 1 / (1 + tau) transmittance, and the light colour holds the sun through the

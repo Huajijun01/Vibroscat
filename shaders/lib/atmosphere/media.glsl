@@ -7,9 +7,9 @@
 // ===============================================================
 // Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
 // Optimal wavelengths: 410, 480, 560, 630 nm
-// Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 7),
+// Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 6),
 // offline 4-wave spectral fit (HSPEAtmosCreator tool).
-// Provenance: licenses/THIRD_PARTY_NOTICES.md section 15.
+// Provenance: licenses/THIRD_PARTY_NOTICES.md section 14.
 // ===============================================================
 
 // ===============================================================

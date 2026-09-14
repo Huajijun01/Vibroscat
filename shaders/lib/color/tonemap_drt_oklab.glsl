@@ -10,7 +10,7 @@
 // Provenance:
 //   - Oklab DRT: Björn Ottosson "A display rendering transform" (2021); the
 //     DRT Bench port (linlin's permission; licenses/THIRD_PARTY_NOTICES.md
-//     section 4).
+//     section 3).
 //   - Reinhard-Gamut (mode 3): DRT Bench experiment (linlin's permission,
 //     2026-08).
 //   - Reinhard-AgX (mode 5): DRT Bench linear-shadow / AgX-shoulder hybrid

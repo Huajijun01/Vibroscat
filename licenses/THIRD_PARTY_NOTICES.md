@@ -8,16 +8,12 @@
 
 Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义许可协议）曾是两个功能的早期来源，均已于 2026-08 移除并替换：
 
-- `shaders/lib/lighting/brdf.glsl` 的 `GetNdotHSquared`（GGX 球形区域光，Newton 迭代弯曲光方向）曾转录自 Photon 的 `include/lighting/bsdf.glsl`；现已按 Guerrilla Decima Engine 公开讲座材料（Johan Andersson, SIGGRAPH 2017）重新转录，见第 11 节，不再包含 Photon 代码表达。
+- `shaders/lib/lighting/brdf.glsl` 的 `GetNdotHSquared`（GGX 球形区域光，Newton 迭代弯曲光方向）曾转录自 Photon 的 `include/lighting/bsdf.glsl`；现已按 Guerrilla Decima Engine 公开讲座材料（Johan Andersson, SIGGRAPH 2017）重新转录，见第 10 节，不再包含 Photon 代码表达。
 - `shaders/lib/lighting/temporal_ao.glsl` 的时序 AO 深度/offcenter 拒绝（GTAO_DEPTH_REJECTION=16.0、GTAO_OFFCENTER_STRENGTH=0.25，与 Photon `d3_ao.fsh` 相同；offcenter 技巧由 Photon 自身标注源自 Zombye/Jessie）已整体重写为独立实现（世界位移 + 法线一致性拒绝，见该文件头注释），原公式与常量已全部删除。
 
 Photon 自定义许可协议中的再分发限制不适用于本包当前代码。历史移植与清理记录保留在 Git 历史中。
 
-## 2. 体积云多重散射的早期参考（历史；当前代码不含派生代码）
-
-本包体积云散射的早期实现曾参考 HanPi Volume Cloud（AshenOneArt，MIT 许可并附额外署名要求），其中的 phi_fwd 各向同性多重散射场位于 `shaders/lib/cloud/volumetric.glsl`。该场及其许可声明已于 2026-09 整体移除，当前体积云改用第 19 节记录的近似；本节不再附带该项目的许可条款，历史移植与清理记录保留在 Git 历史中。
-
-## 3. AgX（概念 + MIT 实现）
+## 2. AgX（概念 + MIT 实现）
 
 `shaders/lib/color/color.glsl` 的 `TonemapAGX` 基于 AgX-S2O3 解析曲线（linlin, MIT），概念来源为 Troy Sobotka 的 AgX：
 
@@ -50,21 +46,21 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-## 4. DRT 色调映射（作者直接授权；GPL-3.0）
+## 3. DRT 色调映射（作者直接授权；GPL-3.0）
 
 `TonemapOklabDRT`（Björn Ottosson "A display rendering transform", 2021）、`TonemapReinhardGamut`（`TONEMAP_MODE == 3`）与 `TonemapReinhardAgx`（`TONEMAP_MODE == 5`）移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）。虚拟原色色域、Reinhard 曲线、AgX 对数肩部与 HSV 色相修复均为该工具的设计；Oklab 概念与公式来自 Björn Ottosson 的公开文章。
 
 2026-08 移植 Oklab 与 Reinhard-Gamut 时该仓库尚未选择开源协议（publish=false），作者已直接授权 Vibroscat 使用（如需书面确认可向 linlin 索取）。该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包主许可证 GNU GPL v3 兼容。
 
-## 5. AMD FidelityFX CAS（MIT）
+## 4. AMD FidelityFX CAS（MIT）
 
 `shaders/lib/third_party/fidelityfx/cas.glsl` 是 AMD FidelityFX Contrast Adaptive Sharpening 的精简 GLSL 改编（Copyright (c) 2017-2019 Advanced Micro Devices, Inc.），MIT 许可全文保留在该文件头部。原始来源：https://github.com/GPUOpen-Effects/FidelityFX-CAS
 
-## 6. Intel Outdoor Light Scattering（Apache-2.0，概念与框架）
+## 5. Intel Outdoor Light Scattering（Apache-2.0，概念与框架）
 
 `shaders/lib/volume/epipolar_core.glsl` 的 epipolar 切片/扇形参数化跟随 Intel Outdoor Light Scattering Sample（Intel，Apache-2.0）。另参考 Yusov, Egor. "Practical Implementation of Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary Trees". GDC 2013。本包实现为独立表达，未逐行复制。Apache-2.0 全文见本文件附录 A。
 
-## 7. Unreal Engine Sky Atmosphere（MIT，算法引用）
+## 6. Unreal Engine Sky Atmosphere（MIT，算法引用）
 
 大气透射率 LUT 重建（cloud/render.glsl 的 GetTransmittance 方案）与云体积噪声布局（TileableVolumeNoise）参考 Sebastien Hillaire 的 UE4 SkyAtmosphere 实现（Epic Games, MIT）：
 
@@ -92,45 +88,45 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 
 另引用 Bruneton & Neyret, "Precomputed Atmospheric Scattering", CGF 27(4), 2008（概念）。
 
-## 8. NASA Deep Star Maps 2020（公有领域）
+## 7. NASA Deep Star Maps 2020（公有领域）
 
 `shaders/textures/starmap_2020_4k_logluv32.png` 由 NASA SVS #4851 "Deep Star Maps 2020" 线性 EXR 烘焙而来（Plate Carrée 投影，LogLuv32 编码）。
 
 > Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
 > 来源：https://svs.gsfc.nasa.gov/4851/ 。NASA 素材为美国政府作品，属于公有领域。
 
-## 9. 时空蓝噪声 STBN（算法引用）
+## 8. 时空蓝噪声 STBN（算法引用）
 
 `shaders/textures/stbn_scalar_128x128x64.dat` 按 void-and-cluster 算法独立生成，算法与默认参数来自：Wolfe, Morrical, Akenine-Möller, Ramamoorthi. "Scalar Spatiotemporal Blue Noise Masks". 2022. （前身为 Heitz, Belcour, Ostromoukhov. "Spatiotemporal Blue Noise Masks". ACM TOG 2019.）
 
-## 10. LogLuv32 编码（算法引用）
+## 9. LogLuv32 编码（算法引用）
 
 LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer. "Converting RGB to LogLuv in a fragment shader". 2007. 矩阵流与 Alpha Piscium v1.9.1（GPLv3）一致；GPLv3 与包主许可证兼容。
 
-## 11. Guerrilla Decima Engine（算法引用）
+## 10. Guerrilla Decima Engine（算法引用）
 
 `GetNdotHSquared` 的 GGX 球形区域光近似（含 Newton 迭代弯曲光方向）来自：Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa （PDF：https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf）
 
-## 12. Blender EEVEE（GPL-2.0-or-later，算法引用）
+## 11. Blender EEVEE（GPL-2.0-or-later，算法引用）
 
 `F0ToIOR` 的折射率恢复采用 Blender EEVEE 的近似（GPL-2.0-or-later，与 GPLv3 兼容）。
 
-## 13. SSR 血统与独立重写（chocapic13）
+## 12. SSR 血统与独立重写（chocapic13）
 
 `lib/raytrace/ssr.glsl` 原实现属 chocapic13 血统（早期来源标注有误，已更正）。当前文件已整体重写为独立实现：线性深度命中判据、覆盖屏幕边界或远平面的常数步长、区间折半细化，未沿用原结构、常量或写法。重写记录保留在 Git 历史中。
 
-## 14. 其它数学/惯例引用
+## 13. 其它数学/惯例引用
 
 - `FastSin`：Bhaskara I 正弦近似（约 12 世纪，公有领域数学）
 - TAA 抖动 R2 序列：Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences"（公开常数 1.3247179572 / 1.7548776662）
 - `material/core.glsl` 的 specular 通道约定：oldPBR/seusPBR 规格（数据格式约定，非代码）
 - `celestial.glsl` 程序化点星的 `StarHashUint`：Wellons, Chris. “Prospecting for Hash Functions” 的 lowbias32 常量（作者声明为公有领域）
 
-## 15. 大气模型出处说明
+## 14. 大气模型出处说明
 
-`lib/atmosphere/core.glsl` 的 4-波谱大气模型（410/480/560/630 nm）为包作者的离线拟合实现（HSPEAtmosCreator 工具，不入库），密度/相位函数参考 Hillaire 2020（见第 7 节）。此前注释中 "sky-tracer" 字样指向来源未记录的参考渲染器，已从代码注释移除；若作者确认具体来源与许可，追加到本节。
+`lib/atmosphere/core.glsl` 的 4-波谱大气模型（410/480/560/630 nm）为包作者的离线拟合实现（HSPEAtmosCreator 工具，不入库），密度/相位函数参考 Hillaire 2020（见第 6 节）。此前注释中 "sky-tracer" 字样指向来源未记录的参考渲染器，已从代码注释移除；若作者确认具体来源与许可，追加到本节。
 
-## 16. GT-VBGI / ReferenceGI（CC0 1.0）
+## 15. GT-VBGI / ReferenceGI（CC0 1.0）
 
 `shaders/program/deferred/recursive_gi.fragment` 的屏幕空间可见性位掩码 GI 移植自
 Mirko Salm 的单向 GT-VBGI 参考实现。该参考源码声明可在 CC0 1.0 Universal
@@ -152,7 +148,7 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 自此不在本包残留；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其
 设计层面采用 2×2 历史模式比较。
 
-## 17. Reflective Shadow Maps 与时域重建（算法引用）
+## 16. Reflective Shadow Maps 与时域重建（算法引用）
 
 `shaders/lib/lighting/rsm_data.glsl`、`reflective_shadow_map.glsl` 和
 `gi_history.glsl`、`gi_denoise.glsl` 中的 RSM 数据编码、采样与 GI 重建为 Vibroscat 独立实现。
@@ -168,7 +164,7 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 - iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）仅用于架构比较。其再分发许可
   未经确认。本次变更未复制该包的源码或资产。
 
-## 18. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
+## 17. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
 
 `shaders/lib/color/color.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 4`）移植自
 Polyphony Digital 随 SIGGRAPH 2025 课程材料发布的官方样例实现
@@ -216,7 +212,7 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 - 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、
   `TONEMAP_GT7_CHROMA_FADE_END`（默认值均为官方样例值）。
 
-## 19. 云内多重散射近似（算法出处）
+## 18. 云内多重散射近似（算法出处）
 
 本包的云内多重散射近似出自
 

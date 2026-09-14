@@ -10,7 +10,7 @@
 // Perceptual Fidelity in Gran Turismo 7" [PDI25], SIGGRAPH 2025 courses.
 // Ported from the official sample implementation shipped with the course
 // material (gt7_tone_mapping.cpp, MIT; licenses/THIRD_PARTY_NOTICES.md
-// section 18). A per-channel pass of the GT Tone Mapping Curve V2 (linear
+// section 17). A per-channel pass of the GT Tone Mapping Curve V2 (linear
 // midtones, contrast toe, converging shoulder) is blended with an ICtCp
 // path that keeps the original chroma but fades it toward white across the
 // highlight, so saturated highlights roll off without the per-channel hue

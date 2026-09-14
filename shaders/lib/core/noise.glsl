@@ -4,7 +4,7 @@
 // STBN volume: independently generated (void-and-cluster) from
 // Wolfe, Morrical, Akenine-Möller, Ramamoorthi, "Scalar Spatiotemporal Blue
 // Noise Masks", 2022; lineage Heitz et al., "Spatiotemporal Blue Noise
-// Masks", ACM TOG 2019. See licenses/THIRD_PARTY_NOTICES.md section 9.
+// Masks", ACM TOG 2019. See licenses/THIRD_PARTY_NOTICES.md section 8.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"

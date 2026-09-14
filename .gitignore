@@ -2,12 +2,11 @@
 /.vibris/
 /build/
 /iris-docs/
+/iris-src/
 /.codex/
-/.reasonix/
 /research/
 /gpu-trace-1/
 /logs/
-/shaders/.reasonix/
 /docs/
 /.agents/
 /tests/

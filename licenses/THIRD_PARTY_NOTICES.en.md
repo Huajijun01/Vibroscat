@@ -170,6 +170,17 @@ The RSM source encoding, sampling and reconstruction in
   for architecture comparison only. Its redistribution permission was not
   established. No source or assets from that pack are included in this change.
 
+### ReBLUR diffuse denoising (algorithmic reference)
+
+`gi_reblur*.glsl` and the corresponding compute stages are independently written
+GLSL implementations for Vibroscat. References are NVIDIA's
+[ReBLUR overview](https://developer.nvidia.com/rtx/ray-tracing/rt-denoisers) and the
+[NRD 4.17.3 documentation](https://cdn.jsdelivr.net/gh/NVIDIA-RTX/NRD@4.17.3/README.md):
+long/fast histories, history repair, adaptive blur, spatial feedback and temporal
+stabilization. This adaptation uses the pack's geometry and distance encoding.
+It includes no NRD SDK, HLSL source or runtime. Revelation (Apache-2.0) and Alpha
+Piscium (GPL-3.0) were architecture comparisons; no source or assets were copied.
+
 ## 17. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
 
 `TonemapGT7` in `shaders/lib/color/color.glsl` (`TONEMAP_MODE == 4`) is ported

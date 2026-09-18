@@ -23,7 +23,10 @@ const float centerDepthHalflife = 1.0;
 // Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
 #define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
 #define GI_DENOISE
+#define GI_DENOISER 0 // [0 1] 0=Lightweight 1=ReBLUR diffuse adaptation
 #define GI_HISTORY_FRAMES 24 // [4 8 16 24 31]
+#define GI_REBLUR_FAST_FRAMES 6 // [2 4 6 8] Unfiltered short history for lighting-change response.
+#define GI_REBLUR_RADIUS 16 // [4 8 12 16 24 32] Maximum adaptive blur radius in pixels.
 // Screen-space GI trace budget (GI_MODE 1), ported from the GT-VBGI
 // reference constants in recursive_gi.fragment.
 #define SSGI_STEPS 16 // [4 8 12 16 24 32 48 64] Geometric march steps per pixel; higher = smoother distant bounce light, linear cost.
@@ -36,6 +39,10 @@ const float centerDepthHalflife = 1.0;
 #define RSM_SKY_OCCLUSION // Darkens SH where the shadow map shows sky occlusion; off compiles the tracking path out.
 #define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define RSM_DEBUG 0 // [0 1 2 3 4] 0=Scene 1=Raw 2=Temporal 3=Filtered 4=HistoryAge
+
+#if GI_MODE != 0 && defined(GI_DENOISE) && GI_DENOISER == 1 && !(GI_MODE == 2 && RSM_DEBUG == 1)
+#define GI_REBLUR_ACTIVE
+#endif
 
 
 

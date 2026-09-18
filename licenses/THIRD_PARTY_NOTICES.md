@@ -164,6 +164,15 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 - iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）仅用于架构比较。其再分发许可
   未经确认。本次变更未复制该包的源码或资产。
 
+### ReBLUR 漫反射降噪（算法引用）
+
+`gi_reblur*.glsl` 与对应 compute 阶段为 Vibroscat 独立编写的 GLSL 适配。
+参考 NVIDIA 的 [ReBLUR 算法介绍](https://developer.nvidia.com/rtx/ray-tracing/rt-denoisers)
+与 [NRD 4.17.3 文档](https://cdn.jsdelivr.net/gh/NVIDIA-RTX/NRD@4.17.3/README.md) 中的长短历史、
+历史修复、自适应模糊、空间反馈与时间稳定架构。采用本包的几何数据和距离编码，
+未引入 NRD SDK、HLSL 源码或其运行时。Revelation（Apache-2.0）和 Alpha Piscium
+（GPL-3.0）仅用于架构比较，未复制其中的源码或资产。
+
 ## 17. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
 
 `shaders/lib/color/color.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 4`）移植自

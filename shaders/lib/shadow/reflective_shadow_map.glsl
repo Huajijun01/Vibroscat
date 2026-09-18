@@ -8,6 +8,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
+#include "/lib/lighting/gi_reblur.glsl"
 #include "/lib/shadow/rsm_data.glsl"
 
 vec3 RSMOccludedSky(vec3 sky_fallback, float shadow_occlusion) {
@@ -44,8 +45,9 @@ vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
 // (radial jitter in y, golden-angle rotation seed in x).
 // Output includes the uncovered sky fallback, before the receiver BRDF.
 vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
-        vec2 stbn_noise, vec3 sky_fallback, out float sample_sigma) {
+        vec2 stbn_noise, vec3 sky_fallback, out float sample_sigma, out float hit_distance) {
     sample_sigma = 0.0;
+    hit_distance = 1.0;
     float availability = 1.0 - smoothstep(max(shadowDistance - RSM_RADIUS, 0.0),
         shadowDistance, length(receiver_view));
     if (availability <= 0.0) return sky_fallback;
@@ -58,6 +60,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
+    float sum_hit_distance = 0.0;
     vec3 sum_transport_moments = vec3(0.0);
 #ifdef RSM_SKY_OCCLUSION
     float sum_shadow_occlusion = 0.0;
@@ -135,6 +138,11 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float sample_coverage = transport_weight / projected_cosine;
         sum_irradiance += sample_irradiance;
         sum_coverage += sample_coverage;
+#ifdef GI_REBLUR_ACTIVE
+        // VPL distance is a blur-scale approximation, not a visibility-tested
+        // first ray hit. Weight by geometry, including black emitters, not flux.
+        sum_hit_distance += GIReblurHitDistance(delta_length_m, -receiver_view.z) * sample_coverage;
+#endif
         float bounce_luminance = Luminance(sample_irradiance);
         sum_transport_moments += vec3(bounce_luminance * bounce_luminance,
             sample_coverage * sample_coverage, bounce_luminance * sample_coverage);
@@ -152,6 +160,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     // A first-surface RSM only approximates receiver visibility; overlapping
     // solid angles and stochastic overshoot cannot remove more than all SH.
     float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;
+    hit_distance = mix(1.0, sum_hit_distance / max(sum_coverage, 1.0e-6), coverage);
     // Evaluate the bounce/coverage covariance with the final sky factor. Add
     // the shadow estimator's standard error conservatively for shared samples.
     vec3 moments = sum_transport_moments / rsm_sample_count;

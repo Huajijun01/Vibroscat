@@ -6,6 +6,12 @@
 
 ### 一、新增功能
 
+- **ReBLUR GI 降噪模式**：在 GI 设置中新增轻量 / ReBLUR 选择，默认保留轻量模式。
+  ReBLUR 漫反射适配支持长短历史、历史重建、命中距离驱动的自适应模糊、
+  空间结果反馈和时间稳定，复用现有深度/法线元数据与重投影校验。
+  新增两个 RGBA16F 历史缓冲和两个临时图像，三个 compute 阶段在关闭时停用。
+  SSGI 使用已有扇区命中统计，RSM 使用 VPL 距离近似；未集成 NRD SDK。
+
 - **全局光照（GI）**：新增 `deferred3` 着色阶段（`program/deferred/recursive_gi.fragment`，三个维度各一对 `.fsh`/`.vsh` 包装），渲染目标为新的 `colortex9`（RGB16F，含未覆盖方向 SH 回退的 GI 辐照度）与 `colortex10`（R32UI 元数据：半精度视图深度 [0:15]、oct5 世界法线 [16:25]、年龄 [26:30]、来源位 [31]）。`GI_MODE` 三档：0 = 无（默认）、1 = SSGI、2 = 反射阴影贴图（RSM）。SSGI 移植 Mirko Salm 的单向 GT-VBGI 可见性位掩码屏幕空间 GI（CC0 1.0），预算 `SSGI_STEPS` 16、`SSGI_MARCH_PIXELS` 512 像素、`SSGI_THICKNESS` 0.5 m、`SSGI_RADIANCE_LIMIT` 128；RSM 按 Dachsbacher–Stamminger 2005 采样虚拟点光源，`RSM_SAMPLES` 16、`RSM_RADIUS` 8 m、`RSM_STRENGTH` 3.0。两种 GI 都以 SH 补齐未被覆盖的方向，并共享可选的时域累积与空间降噪（`GI_DENOISE` 默认开启，`GI_HISTORY_FRAMES` 24；历史失效时用 5×5 邻域借用已滤波值 `RepairGIDisocclusion`）。
 - **GI 调试视图**：`RSM_DEBUG` 0–4（正常 / 原始辐照度 / 时域辐照度 / 滤波辐照度 / 历史年龄），集中到“信息 → 调试视图”页。
 - **屏幕空间接触阴影**：`deferred4` 内联向当前方向光对深度缓冲做短程行进，结果作为阴影贴图结果的上界（取 `min`），补全 PCF 接触缝隙并在阴影贴图范围外保持方向光遮蔽。`CONTACT_SHADOW` 默认开启，`CONTACT_SHADOW_STEPS` 12、`CONTACT_SHADOW_MAX_DISTANCE` 24 m（行进距离视距的 7%，下限 0.12 m）、`CONTACT_SHADOW_THICKNESS` 0.02 m（按距离增长 0.0125 m/m）；主世界与末地可用（下界无方向光），附 `CONTACT_SHADOW_DEBUG` 原始遮罩 / 加暗视图。

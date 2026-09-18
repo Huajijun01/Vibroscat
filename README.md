@@ -32,9 +32,15 @@ Vibroscat profile.
   shafts, and moving caustics
 - Soft sun shadows, contact detail, ambient shading, and light passing through
   foliage
-- Selectable SSGI or reflective shadow map GI, with optional temporal and spatial denoising
+- Selectable SSGI or reflective shadow map GI, with lightweight or ReBLUR diffuse denoising
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
   sharpening, and filmic color
+
+In Lighting > GI, enable GI Denoising and select ReBLUR to use long/fast histories,
+history repair, adaptive spatial filtering and temporal stabilization. Lightweight
+remains the default. This is an Iris GLSL adaptation of ReBLUR's diffuse algorithm,
+not the NRD SDK. RSM uses an approximate VPL distance for its filter radius; moving
+entities retain the limitations of camera-only reprojection.
 
 ## GPU support
 

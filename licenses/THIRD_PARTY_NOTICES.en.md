@@ -176,8 +176,8 @@ The RSM source encoding, sampling and reconstruction in
 GLSL implementations for Vibroscat. References are NVIDIA's
 [ReBLUR overview](https://developer.nvidia.com/rtx/ray-tracing/rt-denoisers) and the
 [NRD 4.17.3 documentation](https://cdn.jsdelivr.net/gh/NVIDIA-RTX/NRD@4.17.3/README.md):
-long/fast histories, history repair, adaptive blur, spatial feedback and temporal
-stabilization. This adaptation uses the pack's geometry and distance encoding.
+long/fast histories, history repair, adaptive blur and spatial feedback. This
+reduced adaptation uses the pack's geometry and distance encoding.
 It includes no NRD SDK, HLSL source or runtime. Revelation (Apache-2.0) and Alpha
 Piscium (GPL-3.0) were architecture comparisons; no source or assets were copied.
 

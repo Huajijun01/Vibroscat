@@ -3,12 +3,11 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/gi_history.glsl"
 
-// Independent diffuse adaptation of the published ReBLUR architecture:
-// long/fast histories, history reconstruction, adaptive blur, spatial feedback,
-// and separate temporal stabilization. This is not an NRD SDK source port.
+// Reduced diffuse adaptation of the published ReBLUR architecture:
+// long/fast temporal histories, history reconstruction and one adaptive blur
+// with spatial feedback. This is not an NRD SDK source port.
 // https://developer.nvidia.com/rtx/ray-tracing/rt-denoisers
 // Distances describe the secondary transport segment, never camera depth.
 float GIReblurHitDistance(float hit_distance_m, float view_depth_m) {
@@ -54,43 +53,6 @@ float GIReblurGeometryWeight(ivec2 sample_texel, ivec2 size_texel,
         * clamp((normal_dot - 0.94) / 0.06, 0.0, 1.0);
 }
 
-vec4 StabilizeGIReblur(ivec2 texel, vec4 filtered) {
-    float age = GIHistoryAge(texelFetch(colortex10, texel, 0).r);
-    if (age < 1.0) return vec4(filtered.rgb, 0.0);
-    vec4 previous = texelFetch(colortex7, texel, 0);
-    if (previous.a < 1.0) return vec4(filtered.rgb, 1.0);
-
-    // The neighborhood bounds keep moving light/occlusion responsive. Main
-    // feedback remains the post-blur value, not this extra-stabilized output.
-    vec3 lower = filtered.rgb;
-    vec3 upper = filtered.rgb;
-    ivec2 size_texel = textureSize(colortex10, 0);
-    uint metadata = texelFetch(colortex10, texel, 0).r;
-    vec3 center_view = GIReblurViewPosition(texel, GIHistoryDepth(metadata));
-    vec3 normal_world = GIHistoryNormal(metadata);
-    vec3 normal_view = normalize(mat3(gbufferModelView) * normal_world);
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            ivec2 sample_texel = texel + ivec2(x, y);
-            if (GIReblurGeometryWeight(sample_texel, size_texel, center_view,
-                    normal_world, normal_view) <= 0.0) continue;
-            vec3 neighbor = texelFetch(usam_gi_reblur_a, sample_texel, 0).rgb;
-            lower = min(lower, neighbor);
-            upper = max(upper, neighbor);
-        }
-    }
-    float sigma = filtered.a;
-    vec3 extent = vec3(2.0 * sigma + 0.005) + 0.03 * filtered.rgb;
-    lower = max(lower, filtered.rgb - extent);
-    upper = min(upper, filtered.rgb + extent);
-    vec3 clipped = clamp(previous.rgb, lower, upper);
-    float stabilization_age = min(min(previous.a + 1.0, age), 8.0);
-    float previous_luminance = Luminance(previous.rgb);
-    float clamp_delta = abs(Luminance(clipped) - previous_luminance);
-    float response = clamp(clamp_delta / (sigma + 0.05 * previous_luminance + 0.01), 0.0, 1.0);
-    stabilization_age = mix(stabilization_age, 1.0, response);
-    return vec4(GIReblurFinite(mix(clipped, filtered.rgb, 1.0 / stabilization_age)), stabilization_age);
-}
 #endif
 
 #endif // LIB_LIGHTING_GI_REBLUR_GLSL

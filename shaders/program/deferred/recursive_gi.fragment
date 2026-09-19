@@ -1,6 +1,6 @@
 #include "/lib/contract/settings.glsl"
 #ifdef GI_REBLUR_ACTIVE
-/* RENDERTARGETS: 9,10,6,7 */
+/* RENDERTARGETS: 9,10,6 */
 #else
 /* RENDERTARGETS: 9,10 */
 #endif
@@ -35,7 +35,6 @@ layout(location = 0) out vec3 out_gi;
 layout(location = 1) out uint out_gi_metadata;
 #ifdef GI_REBLUR_ACTIVE
 layout(location = 2) out vec4 out_gi_fast;
-layout(location = 3) out vec4 out_gi_reprojected;
 #endif
 
 
@@ -262,7 +261,6 @@ void main() {
     ivec2 tx = ivec2(gl_FragCoord.xy);
 #ifdef GI_REBLUR_ACTIVE
     out_gi_fast = vec4(0.0);
-    out_gi_reprojected = vec4(0.0);
 #endif
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
     vec4 material_data = texelFetch(colortex1, tx, 0);
@@ -338,7 +336,7 @@ void main() {
     float history_age;
 #ifdef GI_REBLUR_ACTIVE
     out_gi = AccumulateGIReblur(raw_gi, hit_distance, receiver_world, fallback_normal,
-        history_age, out_gi_fast, out_gi_reprojected);
+        history_age, out_gi_fast);
 #else
     out_gi = AccumulateGI(raw_gi, sample_sigma, receiver_world, fallback_normal, history_age);
 #endif

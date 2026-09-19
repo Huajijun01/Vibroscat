@@ -56,9 +56,8 @@ uniform sampler2D colortex4;      // opaque geometric world normal (RG) + lightm
 uniform sampler2D colortex5;      // TAA / composite history
 #ifdef GI_REBLUR_ACTIVE
 uniform sampler2D colortex6;      // ReBLUR fast irradiance RGB + normalized hit distance
-uniform sampler2D colortex7;      // ReBLUR reprojected / stabilized irradiance RGB + age
-uniform sampler2D usam_gi_reblur_a; // history repair / post-blur RGB + luminance sigma
-uniform sampler2D usam_gi_reblur_b; // blur RGB + luminance sigma
+uniform sampler2D usam_gi_reblur_a; // history repair RGB + luminance sigma
+uniform sampler2D usam_gi_reblur_b; // final blur RGB, unused alpha
 #endif
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex9;      // selected GI irradiance including uncovered SH

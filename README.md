@@ -37,8 +37,8 @@ Vibroscat profile.
   sharpening, and filmic color
 
 In Lighting > GI, enable GI Denoising and select ReBLUR to use long/fast histories,
-history repair, adaptive spatial filtering and temporal stabilization. Lightweight
-remains the default. This is an Iris GLSL adaptation of ReBLUR's diffuse algorithm,
+history repair and a single adaptive blur with spatial feedback. Lightweight
+remains the default. This is a reduced Iris GLSL adaptation of ReBLUR's diffuse algorithm,
 not the NRD SDK. RSM uses an approximate VPL distance for its filter radius; moving
 entities retain the limitations of camera-only reprojection.
 

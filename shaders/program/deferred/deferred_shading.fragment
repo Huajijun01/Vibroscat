@@ -14,7 +14,7 @@
 
 #include "/lib/contract/settings.glsl"
 #ifdef GI_REBLUR_ACTIVE
-/* RENDERTARGETS: 0,2,5,9,7 */
+/* RENDERTARGETS: 0,2,5,9 */
 #else
 /* RENDERTARGETS: 0,2,5 */
 #endif
@@ -41,7 +41,6 @@
 #if GI_MODE != 0
 #include "/lib/lighting/gi_denoise.glsl"
 #include "/lib/lighting/gi_history.glsl"
-#include "/lib/lighting/gi_reblur.glsl"
 #endif
 #include "/lib/material/model.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
@@ -56,18 +55,15 @@ layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
 #ifdef GI_REBLUR_ACTIVE
 layout(location = 3) out vec3 out_gi_feedback;
-layout(location = 4) out vec4 out_gi_stabilized;
 #endif
 
 void main() {
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
 #ifdef GI_REBLUR_ACTIVE
-    // Initialize before every sky, material and debug early return. The main
-    // history receives spatial feedback; the stable output has its own history.
-    vec4 gi_post_blur = texelFetch(usam_gi_reblur_a, tx, 0);
-    out_gi_feedback = gi_post_blur.rgb;
-    out_gi_stabilized = StabilizeGIReblur(tx, gi_post_blur);
+    // Initialize before every sky, material and debug early return. Feed the
+    // final blur into next frame's main history and use it directly for lighting.
+    out_gi_feedback = texelFetch(usam_gi_reblur_b, tx, 0).rgb;
 #endif
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     // Last opaque-gbuffer consumer: colortex2 freed for translucent water data.
@@ -358,7 +354,7 @@ void main() {
     // same repaired value it always did.
     vec3 gi_filtered = gi_ambient;
 #ifdef GI_REBLUR_ACTIVE
-    gi_filtered = out_gi_stabilized.rgb;
+    gi_filtered = out_gi_feedback;
 #elif defined(GI_DENOISE)
     // Rejected history (metadata age 1) leaves the raw 1-spp estimate in
     // colortex9; borrow the temporally filtered neighborhood before lighting.

@@ -28,14 +28,13 @@ vec3 GIHistoryNormal(uint metadata) {
 }
 
 // Shared reprojection for both denoisers. Validate taps in their previous
-// view space before sampling any long, fast or stabilized history.
+// view space before sampling long or fast history.
 struct GIReprojectedHistory {
     vec3 irradiance;
     float age;
     float weight;
 #ifdef GI_REBLUR_ACTIVE
     vec4 fast;
-    vec4 stable;
 #endif
 };
 
@@ -46,7 +45,6 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     result.weight = 0.0;
 #ifdef GI_REBLUR_ACTIVE
     result.fast = vec4(0.0);
-    result.stable = vec4(0.0);
 #endif
     vec3 camera_delta = cameraPosition - previousCameraPosition;
 #if GI_MODE == 2
@@ -86,8 +84,6 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     float age_sum = 0.0;
 #ifdef GI_REBLUR_ACTIVE
     vec4 fast_sum = vec4(0.0);
-    vec4 stable_sum = vec4(0.0);
-    float stable_weight = 0.0;
 #endif
     for (int y = 0; y < 2; ++y) {
         for (int x = 0; x < 2; ++x) {
@@ -118,11 +114,6 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
             vec4 fast_sample = texelFetch(colortex6, sample_texel, 0);
             if (any(isnan(fast_sample)) || any(isinf(fast_sample))) continue;
             fast_sum += fast_sample * weight;
-            vec4 stable_sample = texelFetch(colortex7, sample_texel, 0);
-            if (stable_sample.a >= 1.0 && !any(isnan(stable_sample)) && !any(isinf(stable_sample))) {
-                stable_sum += stable_sample * weight;
-                stable_weight += weight;
-            }
 #endif
             history_sum += history * weight;
             age_sum += age * weight;
@@ -135,7 +126,6 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     result.weight = weight_sum;
 #ifdef GI_REBLUR_ACTIVE
     result.fast = fast_sum / weight_sum;
-    if (stable_weight >= 0.05) result.stable = stable_sum / stable_weight;
 #endif
     return result;
 }

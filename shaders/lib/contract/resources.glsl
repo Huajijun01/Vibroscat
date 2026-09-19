@@ -22,7 +22,6 @@
 //                                lightmap (BA) (solid -> deferred4)
 //   colortex5   R11F_G11F_B10F   TAA history
 //   colortex6   RGBA16F          ReBLUR fast history RGB + normalized hit distance
-//   colortex7   RGBA16F          ReBLUR stabilized history RGB + age
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (ao, age, 1-depth, A=NaN "not cloud")
@@ -64,10 +63,8 @@ const int shadowcolor0Format = RGBA8;
 #ifdef GI_REBLUR_ACTIVE
 /*
 const int colortex6Format = RGBA16F;
-const int colortex7Format = RGBA16F;
 */
 const bool colortex6Clear = false;
-const bool colortex7Clear = false;
 #endif
 
 // -- Clear flags --

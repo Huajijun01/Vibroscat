@@ -10,7 +10,7 @@ layout(rgba16f) uniform writeonly image2D uimg_gi_reblur_b;
 void main() {
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(texel, imageSize(uimg_gi_reblur_b)))) return;
-    imageStore(uimg_gi_reblur_b, texel, FilterGIReblur(texel, usam_gi_reblur_a, false));
+    imageStore(uimg_gi_reblur_b, texel, vec4(FilterGIReblur(texel), 0.0));
 }
 #else
 const ivec3 workGroups = ivec3(1, 1, 1);

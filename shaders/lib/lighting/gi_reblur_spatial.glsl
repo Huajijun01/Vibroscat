@@ -61,11 +61,11 @@ vec4 RepairGIReblurHistory(ivec2 texel) {
     return vec4(GIReblurFinite(repaired), min(sigma, 65000.0));
 }
 
-vec4 FilterGIReblur(ivec2 texel, sampler2D input_texture, bool post_blur) {
-    vec4 center = texelFetch(input_texture, texel, 0);
+vec3 FilterGIReblur(ivec2 texel) {
+    vec4 center = texelFetch(usam_gi_reblur_a, texel, 0);
     uint metadata = texelFetch(colortex10, texel, 0).r;
     float age = GIHistoryAge(metadata);
-    if (age < 1.0) return center;
+    if (age < 1.0) return center.rgb;
     ivec2 size_texel = textureSize(colortex10, 0);
     float depth_view = GIHistoryDepth(metadata);
     vec3 center_view = GIReblurViewPosition(texel, depth_view);
@@ -79,15 +79,13 @@ vec4 FilterGIReblur(ivec2 texel, sampler2D input_texture, bool post_blur) {
     float hit_distance_m = (3.0 + 0.1 * depth_view) * hit_distance / max(1.0 - hit_distance, 0.001);
     float pixel_size_m = 2.0 * depth_view / (abs(gbufferProjection[1].y) * float(size_texel.y));
     float radius = clamp(0.15 * hit_distance_m / max(pixel_size_m, 1.0e-5), 1.0, max_radius);
-    if (post_blur) radius = max(1.0, radius * 0.5);
     float center_luminance = Luminance(center.rgb);
     float luminance_scale = 3.0 * center.a + 0.1 * center_luminance + 0.01;
     vec3 irradiance_sum = center.rgb;
-    float sigma_squared_sum = center.a * center.a;
     float weight_sum = 1.0;
     // A rotated disk avoids axis-aligned banding without an a-trous stride
-    // ladder. Radius shrinks with convergence; both passes keep a center tap.
-    float rotation = 2.39996323 * float(frameCounter & 31) + (post_blur ? 1.1 : 0.0);
+    // ladder. Radius shrinks with convergence and the center tap is retained.
+    float rotation = 2.39996323 * float(frameCounter & 31);
     for (int i = 0; i < 16; ++i) {
         float disk_radius = sqrt((float(i) + 0.5) / 16.0);
         float angle = float(i) * 2.39996323 + rotation;
@@ -97,7 +95,7 @@ vec4 FilterGIReblur(ivec2 texel, sampler2D input_texture, bool post_blur) {
         float weight = GIReblurGeometryWeight(sample_texel, size_texel,
             center_view, normal_world, normal_view);
         if (weight <= 0.0) continue;
-        vec4 sample_value = texelFetch(input_texture, sample_texel, 0);
+        vec4 sample_value = texelFetch(usam_gi_reblur_a, sample_texel, 0);
         float sample_hit = texelFetch(colortex6, sample_texel, 0).a;
         float hit_weight = exp2(-abs(sample_hit - hit_distance) / (0.1 + 0.25 * hit_distance));
         float luminance_delta = abs(Luminance(sample_value.rgb) - center_luminance);
@@ -106,12 +104,9 @@ vec4 FilterGIReblur(ivec2 texel, sampler2D input_texture, bool post_blur) {
         weight *= exp2(-2.0 * disk_radius * disk_radius) * hit_weight
             * mix(1.0, luminance_weight, min(age / 8.0, 1.0));
         irradiance_sum += sample_value.rgb * weight;
-        sigma_squared_sum += sample_value.a * sample_value.a * weight * weight;
         weight_sum += weight;
     }
-    // Neighboring histories are correlated; retain a conservative sigma floor.
-    float sigma = max(sqrt(sigma_squared_sum) / weight_sum, center.a * 0.5);
-    return vec4(GIReblurFinite(irradiance_sum / weight_sum), min(sigma, 65000.0));
+    return GIReblurFinite(irradiance_sum / weight_sum);
 }
 #endif
 

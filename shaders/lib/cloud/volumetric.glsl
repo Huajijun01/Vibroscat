@@ -51,6 +51,12 @@ const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
 // The distribution atlas is sampled twice: a large-scale coverage read and a
 // detail read. The scale keeps the two reads decorrelated.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
+// Volume mean of the fine erosion texture, baked from
+// textures/cloud_fine_erosion_r8_32.dat (R8 byte mean 128.9806 / 255 over all
+// 32^3 texels). The light trace samples it with a wrapping wind shift, so the
+// torus mean is invariant in time and the constant stands in for the per-point
+// read there; see SampleCloudDensityLowQuality.
+const float CLOUD_FINE_EROSION_TEXTURE_MEAN = 0.50581;
 
 bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float march_end
 ) {
@@ -178,17 +184,25 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return radiance + isotropic_orders / (1.0 + light_optical_depth);
 }
 
-// Eroded density in [0, 1] at one point in the cloud layer.
-float SampleCloudDensity(vec3 atmosphere_position) {
+// Broad density stage shared by both quality levels: the distribution read,
+// the height profile, and the low-frequency erosion remap. Also hands back the
+// coordinates both detail stages need: the normalized layer height and the
+// (x, altitude, z) km volume position the erosion volumes are addressed by.
+// Returns false once the sample is erased before the detail stage;
+// broad_density, height_fraction and volume_position_km are then meaningless.
+bool SampleCloudBroadDensity(vec3 atmosphere_position, out float broad_density,
+    out float height_fraction, out vec3 volume_position_km
+) {
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
-    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
+    height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
 
     if (altitude_km <= CLOUD_BASE_ALTITUDE || altitude_km >= CLOUD_TOP_ALTITUDE) {
-        return 0.0;
+        return false;
     }
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
+    volume_position_km = vec3(world_km.x, altitude_km, world_km.y);
     vec2 distribution_uv = CloudDistributionUv(world_km);
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
@@ -203,29 +217,30 @@ float SampleCloudDensity(vec3 atmosphere_position) {
         * bottom_ramp
         * top_fade;
     if (macro_density <= 0.01) {
-        return 0.0;
+        return false;
     }
-    vec3 erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_EROSION_SCALE_KM;
+    vec3 erosion_uv = volume_position_km / CLOUD_EROSION_SCALE_KM;
     float low_freq_erosion = texture(utex_cloud_erosion_tex, erosion_uv).r;
     // R bakes the weighted darkness sum of the erosion stages (single
     // threshold). Stronger erosion higher in the layer, base floor.
     float height_exposure = smoothstep(0.0, 0.2, height_fraction) * 0.95 + 0.05;
-    float broad_density = macro_density;
+    broad_density = macro_density;
     float erosion_threshold = (1.0 - low_freq_erosion)
         * CLOUD_EROSION_STRENGTH
         * height_exposure;
     broad_density = RemapCloudErosion(broad_density, erosion_threshold);
     // RemapCloudErosion(0, threshold) saturates to exactly +0.0, so once the
-    // broad pass erased the sample the fine fetch is dead; the early return is
-    // already the bit-exact result.
-    if (broad_density <= 0.0) {
-        return 0.0;
-    }
-    vec3 fine_erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_FINE_EROSION_SCALE_KM + vec3(
-            frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
-    // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
-    // field (baked curved flow).
-    float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
+    // broad stage erased the sample the caller's detail stage is dead; the
+    // early return is already the bit-exact result.
+    return broad_density > 0.0;
+}
+
+// Fine erosion detail shared by both quality levels: threshold and remap on
+// top of the broad stage, with the caller supplying the per-point noise (the
+// sampled value, or the texture mean on the low-quality path).
+float CloudFineErodedDensity(float broad_density, float height_fraction,
+    float fine_erosion_noise
+) {
     // A small base weight keeps fine erosion from fully erasing the base.
     float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, height_fraction) * 0.9 + 0.1;
     float fine_threshold = (1.0 - fine_erosion_noise)
@@ -234,9 +249,45 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     return RemapCloudErosion(broad_density, fine_threshold);
 }
 
+// Full-quality density in [0, 1] for the view march: the broad stage plus the
+// per-point fine erosion read.
+float SampleCloudDensity(vec3 atmosphere_position) {
+    float broad_density;
+    float height_fraction;
+    vec3 volume_position_km;
+    if (!SampleCloudBroadDensity(atmosphere_position, broad_density, height_fraction,
+            volume_position_km)) {
+        return 0.0;
+    }
+    vec3 fine_erosion_uv = volume_position_km / CLOUD_FINE_EROSION_SCALE_KM + vec3(
+            frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
+    // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
+    // field (baked curved flow).
+    float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
+    return CloudFineErodedDensity(broad_density, height_fraction, fine_erosion_noise);
+}
+
+// Low-quality density for the light-transport trace. The light march reads
+// CLOUD_LIGHT_STEPS densities per accepted view sample, so the per-point fine
+// erosion read is replaced with the volume mean (see
+// CLOUD_FINE_EROSION_TEXTURE_MEAN); per-point detail averages out of the
+// interval integral it feeds. Saves one texture read per light step.
+float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
+    float broad_density;
+    float height_fraction;
+    vec3 volume_position_km;
+    if (!SampleCloudBroadDensity(atmosphere_position, broad_density, height_fraction,
+            volume_position_km)) {
+        return 0.0;
+    }
+    return CloudFineErodedDensity(broad_density, height_fraction,
+        CLOUD_FINE_EROSION_TEXTURE_MEAN);
+}
+
 // Optical depth from the receiver toward the light. CLOUD_LIGHT_STEPS quadratic
 // strata, densest at the receiver, each sampled at a jittered point inside its
-// interval and weighted by its exact interval length.
+// interval and weighted by its exact interval length. Densities take the
+// low-quality path; the trace is re-evaluated for every accepted view sample.
 float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
     float light_distance = min(
         CloudDistanceToShellExit(atmosphere_position, light_dir),
@@ -252,7 +303,7 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
         float segment_start = light_distance * x0 * x0;
         float segment_end = light_distance * x1 * x1;
         float sample_distance = mix(segment_start, segment_end, light_jitter);
-        float sample_density = SampleCloudDensity(
+        float sample_density = SampleCloudDensityLowQuality(
             atmosphere_position + light_dir * sample_distance);
         optical_depth += sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY

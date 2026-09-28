@@ -274,11 +274,15 @@ void main() {
     out_gi = vec3(0.0);
     out_gi_metadata = 0u;
     if (scene_depth >= 1.0 && material_id != 64) return;
-    vec3 fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
+    // The SH fallback is evaluated per branch below: the hand inlines its own
+    // call, and the RSM branch (GI_MODE == 2) replaces the geometry-normal
+    // version with the sky-normal one before any use, so mode 2 never pays
+    // for an evaluation it would discard.
+    vec3 fallback;
     // The hand has camera-relative motion; keep its stable SH fallback out
     // of world-space reprojection for both GI sources.
     if (material_id == 64) {
-        out_gi = fallback;
+        out_gi = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
         return;
     }
     vec2 reconstruction_uv = uv;
@@ -305,6 +309,7 @@ void main() {
     raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, rsm_stbn_noise,
         fallback, sample_sigma, hit_distance);
 #else
+    fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     float coverage;
     float second_moment;
     // Reference Rnd01x4 usage: x samples the slice direction, y jitters the

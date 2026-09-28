@@ -212,8 +212,6 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // sqrt(max(r^2 (mu^2 - 1) + R^2, 0))), and the moon then returns the
         // sun's transmittance — exactly zero at night.
         float sun_mu = dot(sample_position, sun_dir) / height;
-        vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-            SampleTransmittance(utex_tslut, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
         float moon_mu = -sun_mu;
 
         // A light below the local horizon is occluded by the planet.
@@ -226,17 +224,26 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         vec3 sun_phase = vec3(PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE));
         vec3 moon_phase = vec3(PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE));
 
-        // Up-sun self shadowing of the direct lights; the moon march offsets
-        // the jitter by half a period to decorrelate its taps from the sun's.
+        // Each light's LUT colour is only consumed behind its own visibility
+        // factor (CirrusPhaseScattering multiplies it in), so a light fully
+        // below the horizon skips the transmittance fetch and both colour
+        // matrices; the factor it would multiply into is exactly zero.
+        // The moon fetch MUST stay after the sun branch (driver bug above).
+        vec3 sun_color = vec3(0.0);
         if (sun_visible > 0.0) {
+            sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+                SampleTransmittance(utex_tslut, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
+            // Up-sun self shadowing of the direct lights; the moon march offsets
+            // the jitter by half a period to decorrelate its taps from the sun's.
             vec3 sun_half_vec = normalize(sun_dir - view_dir);
             sun_color *= CirrusTransmittance(CirrusLightOpticalDepth(
                 sample_position, shell_normal_world, sun_half_vec, sun_mu, light_jitter));
         }
 
-        vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-            SampleTransmittance(utex_tslut, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
+        vec3 moon_color = vec3(0.0);
         if (moon_visible > 0.0) {
+            moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+                SampleTransmittance(utex_tslut, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
             vec3 moon_half_vec = normalize(moon_dir - view_dir);
             moon_color *= CirrusTransmittance(CirrusLightOpticalDepth(
                 sample_position, shell_normal_world, moon_half_vec, moon_mu, light_jitter));

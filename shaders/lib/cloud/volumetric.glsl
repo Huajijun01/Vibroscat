@@ -48,15 +48,15 @@ const float CLOUD_TWILIGHT_FADE_START = 0.03;
 const float CLOUD_TWILIGHT_FADE_END = 0.08;
 
 const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
-// The distribution atlas is sampled twice: a large-scale coverage read and a
-// detail read. The scale keeps the two reads decorrelated.
+// The distribution atlas controls the cloud footprint independently of
+// the three-dimensional erosion volumes.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;
 // Volume mean of the fine erosion texture, baked from
-// textures/cloud_fine_erosion_r8_32.dat (R8 byte mean 128.9806 / 255 over all
+// textures/cloud_fine_erosion_r8_32.dat (R8 byte mean 145.06430 / 255 over all
 // 32^3 texels). The light trace samples it with a wrapping wind shift, so the
 // torus mean is invariant in time and the constant stands in for the per-point
 // read there; see SampleCloudDensityLowQuality.
-const float CLOUD_FINE_EROSION_TEXTURE_MEAN = 0.50581;
+const float CLOUD_FINE_EROSION_TEXTURE_MEAN = 0.568879610;
 
 bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float march_end
 ) {
@@ -200,25 +200,23 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     // Rain pushes coverage toward full overcast.
     float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
-    float bottom_ramp = smoothstep(0.0, 0.15, height_fraction);
-    // Push density away from the very bottom of the layer to keep the base soft.
-    float height_penalty = Saturate((height_fraction - 0.15) / 0.85) * 0.5;
-    // Fade the layer top; larger clouds get a thicker, softer cap.
-    float top_fade = 1.0 - smoothstep(0.5, 1.0, height_fraction);
-    float macro_density = Saturate(distribution_density - height_penalty)
-        * bottom_ramp
-        * top_fade;
+    // The weather map controls occupancy, not an extruded local cloud top.
+    // Let the 3D billow field form upper lobes above a continuous cloud base.
+    float bottom_ramp = smoothstep(0.0, 0.14, height_fraction);
+    float top_fade = 1.0 - smoothstep(0.4, 1.0, height_fraction);
+    float macro_density = Saturate(distribution_density * 1.35) * bottom_ramp * top_fade;
     if (macro_density <= 0.01) {
         return 0.0;
     }
     vec3 erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_EROSION_SCALE_KM;
     float low_freq_erosion = texture(utex_cloud_erosion_tex, erosion_uv).r;
-    // R bakes the weighted darkness sum of the erosion stages (single
-    // threshold). Stronger erosion higher in the layer, base floor.
-    float height_exposure = smoothstep(0.0, 0.2, height_fraction) * 0.95 + 0.05;
+    // Seven baked Perlin-Worley fBm octaves define the volume itself. The
+    // threshold must reach the coarse cells, not just scratch the exterior.
+    // Keep the condensation base continuous; expose the sides and tops.
+    float height_exposure = mix(0.05, 1.0, smoothstep(0.12, 0.40, height_fraction));
     float broad_density = macro_density;
     float erosion_threshold = (1.0 - low_freq_erosion)
-        * CLOUD_EROSION_STRENGTH
+        * (1.6 * CLOUD_EROSION_STRENGTH)
         * height_exposure;
     broad_density = RemapCloudErosion(broad_density, erosion_threshold);
     // RemapCloudErosion(0, threshold) saturates to exactly +0.0, so samples
@@ -229,15 +227,16 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     }
     vec3 fine_erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_FINE_EROSION_SCALE_KM + vec3(
             frameTimeCounter * CLOUD_WIND_SPEED * CLOUD_FINE_WIND_FACTOR / CLOUD_FINE_EROSION_SCALE_KM, 0.0, 0.0);
-    // Fine erosion texture: Perlin fBm pre-warped by a divergence-free curl
-    // field (baked curved flow).
+    // Six baked isotropic fBm bands add fine detail to the broad surface.
     float fine_erosion_noise = texture(utex_cloud_fine_erosion_tex, fine_erosion_uv).r;
-    // A small base weight keeps fine erosion from fully erasing the base.
-    float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, height_fraction) * 0.9 + 0.1;
+    // Restrict fine erosion to the surface so it cannot hollow out billows.
+    float fine_surface_weight = 1.0 - smoothstep(0.12, 0.55, broad_density);
+    float fine_height_weight = smoothstep(0.10, CLOUD_FINE_EROSION_HEIGHT, height_fraction);
     float fine_threshold = (1.0 - fine_erosion_noise)
         * CLOUD_FINE_EROSION_STRENGTH
-        * fine_height_weight;
-    return RemapCloudErosion(broad_density, fine_threshold);
+        * fine_height_weight
+        * fine_surface_weight;
+    return Saturate(1.35 * RemapCloudErosion(broad_density, fine_threshold));
 }
 
 // Low-quality density for the light-transport trace: the same field with the
@@ -260,36 +259,36 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
     // Rain pushes coverage toward full overcast.
     float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
-    float bottom_ramp = smoothstep(0.0, 0.15, height_fraction);
-    // Push density away from the very bottom of the layer to keep the base soft.
-    float height_penalty = Saturate((height_fraction - 0.15) / 0.85) * 0.5;
-    // Fade the layer top; larger clouds get a thicker, softer cap.
-    float top_fade = 1.0 - smoothstep(0.5, 1.0, height_fraction);
-    float macro_density = Saturate(distribution_density - height_penalty)
-        * bottom_ramp
-        * top_fade;
+    // The weather map controls occupancy, not an extruded local cloud top.
+    // Let the 3D billow field form upper lobes above a continuous cloud base.
+    float bottom_ramp = smoothstep(0.0, 0.14, height_fraction);
+    float top_fade = 1.0 - smoothstep(0.4, 1.0, height_fraction);
+    float macro_density = Saturate(distribution_density * 1.35) * bottom_ramp * top_fade;
     if (macro_density <= 0.01) {
         return 0.0;
     }
     vec3 erosion_uv = vec3(world_km.x, altitude_km, world_km.y) / CLOUD_EROSION_SCALE_KM;
     float low_freq_erosion = texture(utex_cloud_erosion_tex, erosion_uv).r;
-    // R bakes the weighted darkness sum of the erosion stages (single
-    // threshold). Stronger erosion higher in the layer, base floor.
-    float height_exposure = smoothstep(0.0, 0.2, height_fraction) * 0.95 + 0.05;
+    // Seven baked Perlin-Worley fBm octaves define the volume itself. The
+    // threshold must reach the coarse cells, not just scratch the exterior.
+    // Keep the condensation base continuous; expose the sides and tops.
+    float height_exposure = mix(0.05, 1.0, smoothstep(0.12, 0.40, height_fraction));
     float broad_density = macro_density;
     float erosion_threshold = (1.0 - low_freq_erosion)
-        * CLOUD_EROSION_STRENGTH
+        * (1.6 * CLOUD_EROSION_STRENGTH)
         * height_exposure;
     broad_density = RemapCloudErosion(broad_density, erosion_threshold);
     if (broad_density <= 0.001) {
         return 0.0;
     }
-    // A small base weight keeps fine erosion from fully erasing the base.
-    float fine_height_weight = smoothstep(0.0, CLOUD_FINE_EROSION_HEIGHT, height_fraction) * 0.9 + 0.1;
+    // Restrict fine erosion to the surface so it cannot hollow out billows.
+    float fine_surface_weight = 1.0 - smoothstep(0.12, 0.55, broad_density);
+    float fine_height_weight = smoothstep(0.10, CLOUD_FINE_EROSION_HEIGHT, height_fraction);
     float fine_threshold = (1.0 - CLOUD_FINE_EROSION_TEXTURE_MEAN)
         * CLOUD_FINE_EROSION_STRENGTH
-        * fine_height_weight;
-    return RemapCloudErosion(broad_density, fine_threshold);
+        * fine_height_weight
+        * fine_surface_weight;
+    return Saturate(1.35 * RemapCloudErosion(broad_density, fine_threshold));
 }
 
 // Optical depth from the receiver toward the light. CLOUD_LIGHT_STEPS quadratic

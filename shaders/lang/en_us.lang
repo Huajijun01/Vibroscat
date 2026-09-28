@@ -231,16 +231,16 @@ option.CLOUD_FINE_WIND_FACTOR = Fine Wind Factor
 option.CLOUD_FINE_WIND_FACTOR.comment = Makes the small details inside a cloud flow faster than the cloud as a whole, so clouds seem to boil and churn instead of just sliding by.
 option.CLOUD_EROSION_SCALE_KM = Erosion Scale
 suffix.CLOUD_EROSION_SCALE_KM = km
-option.CLOUD_EROSION_SCALE_KM.comment = The size of the big billows that break up the cloud outlines: higher = broad, smooth shapes; lower = more broken-up, wispy clouds.
+option.CLOUD_EROSION_SCALE_KM.comment = Size of the round billows and their nested surface lobes. Higher values make larger cloud masses; lower values make smaller billows.
 option.CLOUD_EROSION_STRENGTH = Erosion Strength
-option.CLOUD_EROSION_STRENGTH.comment = How strongly those billows eat into the cloud: higher = more ragged, torn shapes; lower = rounder, denser blobs.
+option.CLOUD_EROSION_STRENGTH.comment = Depth of the gaps between billows. Higher values separate lobes more strongly; lower values keep cloud masses more connected.
 option.CLOUD_FINE_EROSION_SCALE_KM = Fine Erosion Scale
 suffix.CLOUD_FINE_EROSION_SCALE_KM = km
-option.CLOUD_FINE_EROSION_SCALE_KM.comment = The size of the small wispy details on top of the big shapes: lower = finer, sharper little tendrils.
+option.CLOUD_FINE_EROSION_SCALE_KM.comment = Size of the evenly distributed detail on the cloud surface. Lower values make finer detail.
 option.CLOUD_FINE_EROSION_STRENGTH = Fine Erosion Strength
-option.CLOUD_FINE_EROSION_STRENGTH.comment = Strength of the small wispy details: higher = more fine detail and ragged edges.
+option.CLOUD_FINE_EROSION_STRENGTH.comment = Depth of the fine surface detail. Dense cloud interiors are protected from fine erosion.
 option.CLOUD_FINE_EROSION_HEIGHT = Fine Erosion Growth Height
-option.CLOUD_FINE_EROSION_HEIGHT.comment = Normalized height inside the layer (0 = base, 1 = top) over which the fine erosion grows from its base level to full strength. Lower = full strength is reached close to the base, so fine detail covers most of the cloud; higher = detail only becomes strong near the top.
+option.CLOUD_FINE_EROSION_HEIGHT.comment = Normalized height (0 = base, 1 = top) where fine erosion reaches full strength. The lowest tenth of the layer stays protected to preserve a smooth cloud base.
 option.CLOUD_LIGHT_MAX_DISTANCE_KM = Light Trace Distance
 suffix.CLOUD_LIGHT_MAX_DISTANCE_KM = km
 option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = How far sunlight is traced through a cloud when deciding its self-shadowing: higher = correct lighting deeper inside thick clouds, slower.

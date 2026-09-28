@@ -143,16 +143,16 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.
 #define CLOUD_LIGHT_STEPS 6 // [3 4 5 6 8] Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
 #define CLOUD_BASE_ALTITUDE 1.4 // [0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud base altitude above terrain (km).
-#define CLOUD_THICKNESS_KM 1.3 // [0.6 0.8 1.0 1.2 1.3 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
+#define CLOUD_THICKNESS_KM 1.4 // [0.6 0.8 1.0 1.2 1.3 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
-#define CLOUD_COVERAGE 0.5 // [0.35 0.4 0.45 0.5 0.55 0.58 0.62 0.66 0.7 0.75] Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
+#define CLOUD_COVERAGE 0.4 // [0.35 0.4 0.45 0.5 0.55 0.58 0.62 0.66 0.7 0.75] Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
 #define CLOUD_DISTRIBUTION_SCALE_KM 280.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0 240.0 280.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
 #define CLOUD_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
 #define CLOUD_FINE_WIND_FACTOR 2.0 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0] Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
-#define CLOUD_EROSION_SCALE_KM 1.5 // [1.5 2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Perlin-Worley erosion texture world-space scale for a full wrap (km).
-#define CLOUD_EROSION_STRENGTH 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] Pure Perlin-Worley low-frequency erosion strength.
-#define CLOUD_FINE_EROSION_SCALE_KM 0.4 // [0.4 0.5 0.65 0.8 1.0 1.25 1.5 2.0] Channel A independent detail noise scale for a full wrap (km).
-#define CLOUD_FINE_EROSION_STRENGTH 0.1 // [0.0 0.05 0.1 0.15 0.18 0.2 0.25 0.3 0.4] Channel A independent curl distortion detail erosion strength.
+#define CLOUD_EROSION_SCALE_KM 3.0 // [1.5 2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Perlin-Worley erosion texture world-space scale for a full wrap (km).
+#define CLOUD_EROSION_STRENGTH 0.4 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] Broad cellular fBm erosion strength.
+#define CLOUD_FINE_EROSION_SCALE_KM 0.25 // [0.2 0.25 0.3 0.4 0.5 0.65 0.8 1.0 1.25 1.5 2.0] Fine isotropic fBm scale for a full wrap (km).
+#define CLOUD_FINE_EROSION_STRENGTH 0.18 // [0.0 0.05 0.1 0.15 0.18 0.2 0.25 0.3 0.4] Surface isotropic fBm erosion strength.
 #define CLOUD_FINE_EROSION_HEIGHT 0.3 // [0.15 0.25 0.3 0.35 0.45 0.55 0.7 0.85 1.0] Normalized height for fine erosion to grow from base to full strength.
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] Forward HG eccentricity of the cloud phase.

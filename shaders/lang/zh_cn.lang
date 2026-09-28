@@ -231,16 +231,16 @@ option.CLOUD_FINE_WIND_FACTOR = 细节风流速倍率
 option.CLOUD_FINE_WIND_FACTOR.comment = 让云内的小细节比整团云流动得更快，云看起来在翻滚涌动，而不是整体平移。
 option.CLOUD_EROSION_SCALE_KM = 侵蚀尺度
 suffix.CLOUD_EROSION_SCALE_KM = 千米
-option.CLOUD_EROSION_SCALE_KM.comment = 打散云轮廓的大团起伏的尺寸：越高形状宽大平滑；越低云越破碎、越呈絮状。
+option.CLOUD_EROSION_SCALE_KM.comment = 圆润大团块及其多层表面凸起的尺寸。越大云团越宽厚，越小团块越细小。
 option.CLOUD_EROSION_STRENGTH = 侵蚀强度
-option.CLOUD_EROSION_STRENGTH.comment = 这些起伏侵蚀云体的强度：越高云形越破烂、撕裂；越低云越圆润厚实。
+option.CLOUD_EROSION_STRENGTH.comment = 云团之间凹陷的深度。越高团块分界越明显，越低云体连接越完整。
 option.CLOUD_FINE_EROSION_SCALE_KM = 细节侵蚀尺度
 suffix.CLOUD_FINE_EROSION_SCALE_KM = 千米
-option.CLOUD_FINE_EROSION_SCALE_KM.comment = 大形状之上细小絮状细节的尺寸：越低细节越细腻锐利。
+option.CLOUD_FINE_EROSION_SCALE_KM.comment = 云表面均匀分布的细节尺寸。越低细节越细密。
 option.CLOUD_FINE_EROSION_STRENGTH = 细节侵蚀强度
-option.CLOUD_FINE_EROSION_STRENGTH.comment = 细小絮状细节的强度：越高云边缘的细碎质感越丰富。
+option.CLOUD_FINE_EROSION_STRENGTH.comment = 表面细节的侵蚀深度。致密云体内部会受到保护，减少被细节侵蚀掏空。
 option.CLOUD_FINE_EROSION_HEIGHT = 细节侵蚀爬升高度比
-option.CLOUD_FINE_EROSION_HEIGHT.comment = 细节侵蚀从基准爬到满强度所跨过的归一化高度（0 = 云底，1 = 云顶）。越低越快满强度，细碎质感遍布云体；越高越靠近云顶才充分。
+option.CLOUD_FINE_EROSION_HEIGHT.comment = 细节侵蚀达到满强度的归一化高度（0 = 云底，1 = 云顶）。云层最底部的一成保持保护，使云底平整连续。
 option.CLOUD_LIGHT_MAX_DISTANCE_KM = 光照追踪距离
 suffix.CLOUD_LIGHT_MAX_DISTANCE_KM = 千米
 option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = 计算云自身阴影时追踪阳光穿云的距离：越高厚重云内部的明暗越正确，速度越慢。

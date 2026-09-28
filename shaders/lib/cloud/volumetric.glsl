@@ -39,15 +39,15 @@ const int CLOUD_MS_OCTAVES = 3;
 // sun to the antisolar point. The layer sits 1.4 to 2.7 km up, so its own
 // horizon dips 0.021 to 0.029 below the sea-level one; the handover starts just
 // past that, where the layer stops seeing the sun.
-const float CLOUD_MOON_FADE_LOW = -0.05;
-const float CLOUD_MOON_FADE_HIGH = -0.03;
+const float CLOUD_MOON_FADE_LOW = -0.07;
+const float CLOUD_MOON_FADE_HIGH = -0.02;
 // The sun's colour is held through the band below the sea-level horizon where
 // the layer still catches it over its dipped horizon, which is what makes the
 // fire clouds, and is only released once the antisolar side has taken over.
 const float CLOUD_TWILIGHT_FADE_START = 0.03;
 const float CLOUD_TWILIGHT_FADE_END = 0.08;
 
-const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 100.0;
+const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 50.0;
 // The distribution atlas controls the cloud footprint independently of
 // the three-dimensional erosion volumes.
 const float CLOUD_DISTRIBUTION_UV_SCALE = 2.35;

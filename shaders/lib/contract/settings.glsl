@@ -142,9 +142,9 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_VIEW_MAX_STEPS 40 // [40 64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.
 #define CLOUD_LIGHT_STEPS 6 // [3 4 5 6 8] Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
-#define CLOUD_LIGHT_START_OFFSET_KM 0.1 // [0.0 0.025 0.05 0.075 0.1 0.15 0.2 0.3 0.4 0.5] Distance skipped toward the light before cloud self-shadow integration (km).
+#define CLOUD_LIGHT_START_OFFSET_KM 0.2 // [0.0 0.025 0.05 0.075 0.1 0.15 0.2 0.3 0.4 0.5] Distance skipped toward the light before cloud self-shadow integration (km).
 #define CLOUD_BASE_ALTITUDE 1.4 // [0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud base altitude above terrain (km).
-#define CLOUD_THICKNESS_KM 1.4 // [0.6 0.8 1.0 1.2 1.3 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
+#define CLOUD_THICKNESS_KM 1.3 // [0.6 0.8 1.0 1.2 1.3 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
 #define CLOUD_COVERAGE 0.4 // [0.35 0.4 0.45 0.5 0.55 0.58 0.62 0.66 0.7 0.75] Overall cloud coverage; higher = wider coverage and more connected cloud shapes.
 #define CLOUD_DISTRIBUTION_SCALE_KM 280.0 // [48.0 64.0 80.0 96.0 128.0 160.0 192.0 240.0 280.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
@@ -153,16 +153,16 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_EROSION_SCALE_KM 3.0 // [1.5 2.0 3.0 4.0 5.0 6.0 8.0 10.0 12.0] 3D Perlin-Worley erosion texture world-space scale for a full wrap (km).
 #define CLOUD_EROSION_STRENGTH 0.4 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] Broad cellular fBm erosion strength.
 #define CLOUD_FINE_EROSION_SCALE_KM 0.25 // [0.2 0.25 0.3 0.4 0.5 0.65 0.8 1.0 1.25 1.5 2.0] Fine isotropic fBm scale for a full wrap (km).
-#define CLOUD_FINE_EROSION_STRENGTH 0.18 // [0.0 0.05 0.1 0.15 0.18 0.2 0.25 0.3 0.4] Surface isotropic fBm erosion strength.
+#define CLOUD_FINE_EROSION_STRENGTH 0.1 // [0.0 0.05 0.1 0.15 0.18 0.2 0.25 0.3 0.4] Surface isotropic fBm erosion strength.
 #define CLOUD_FINE_EROSION_HEIGHT 0.3 // [0.15 0.25 0.3 0.35 0.45 0.55 0.7 0.85 1.0] Normalized height for fine erosion to grow from base to full strength.
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] Forward HG eccentricity of the cloud phase.
 #define CLOUD_PHASE_BACKWARD_G 0.3 // [0.15 0.2 0.25 0.3 0.35 0.4] Backward HG eccentricity of the cloud phase.
-#define CLOUD_MS_ATTENUATION 0.5 // [0.25 0.35 0.5 0.65 0.75 0.85 1.0] Per-octave optical depth multiplier.
+#define CLOUD_MS_ATTENUATION 0.3 // [0.25 0.35 0.5 0.65 0.75 0.85 1.0] Per-octave optical depth multiplier.
 #define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] Per-octave energy multiplier.
 #define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] Per-octave phase eccentricity multiplier.
-#define CLOUD_MS_ALBEDO 0.9 // [0.9 0.95 0.97 0.98 0.99 0.995 0.999 1.0] Single-scattering albedo of the cloud medium; scales the scattered radiance linearly.
-#define CLOUD_MS_ISOTROPIC 0.3 // [0.0 0.1 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
+#define CLOUD_MS_ALBEDO 0.99 // [0.9 0.95 0.97 0.98 0.99 0.995 0.999 1.0] Single-scattering albedo of the cloud medium; scales the scattered radiance linearly.
+#define CLOUD_MS_ISOTROPIC 0.2 // [0.0 0.1 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
 

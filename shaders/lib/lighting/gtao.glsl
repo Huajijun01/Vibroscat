@@ -81,7 +81,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
             // not an occluder (else far blocky terrain reads grid-like steps).
             continue;
         }
-        vec3 sample_view = NDCToView(vec3(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0));
+        vec3 sample_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
         vec3 offset = sample_view - center_view;
         float offset_len = length(offset);
         if (offset_len < 1.0e-3) {
@@ -107,7 +107,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
     }
-    vec3 center_view = NDCToView(vec3(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0));
+    vec3 center_view = NDCToViewSparse(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0);
     vec3 view_axis = normalize(-center_view);  // toward camera
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
     // colortex4 carries the world-space geometric normal; the slices are built

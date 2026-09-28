@@ -29,6 +29,21 @@ vec3 NDCToView(vec3 ndc) {
     return view_h.xyz / view_h.w;
 }
 
+// NDCToView specialized to the symmetric perspective projection the game
+// builds: rows 0/1 of the inverse carry only their diagonal entries (clip
+// x/y never mix in eye z), and rows 2/3 only their z/w entries — the four
+// dropped products per component are exact zeros, so this is bit-identical
+// to the full form above. The same structure is already load-bearing in
+// LinearDepthFromScreenDepth and PreviousScreenToView. This pack's TAA
+// jitter reaches the matrix-free gl_Position offset, never the matrix.
+vec3 NDCToViewSparse(vec2 ndc_xy, float ndc_z) {
+    vec3 view_h = vec3(
+        gbufferProjectionInverse[0][0] * ndc_xy.x,
+        gbufferProjectionInverse[1][1] * ndc_xy.y,
+        gbufferProjectionInverse[2][2] * ndc_z + gbufferProjectionInverse[3][2]);
+    return view_h / (gbufferProjectionInverse[2][3] * ndc_z + gbufferProjectionInverse[3][3]);
+}
+
 // Camera-relative view space to NDC ([-1,1]^3).
 vec3 ViewToNDC(vec3 view_pos) {
     return (gbufferProjection * vec4(view_pos, 1.0)).xyz / -view_pos.z;

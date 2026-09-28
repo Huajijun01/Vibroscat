@@ -37,7 +37,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
     }
-    vec3 center_view = NDCToView(vec3(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0));
+    vec3 center_view = NDCToViewSparse(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0);
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
     // colortex4 carries the world-space geometric normal; the hemisphere
     // sampler below is built in view space.
@@ -78,7 +78,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         // normal hemisphere (offset along the normal, weighted by the
         // cosine). Flat planes fail (offset in-plane), walls/corners pass.
         // Faded by a smooth window over the radius.
-        vec3 surface_view = NDCToView(vec3(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0));
+        vec3 surface_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
         vec3 offset = surface_view - center_view;
         float offset_len = length(offset);
         if (offset_len < 1.0e-4) {

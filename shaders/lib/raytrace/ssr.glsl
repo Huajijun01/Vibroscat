@@ -39,8 +39,9 @@ SSRHit SSRMiss() {
 }
 
 bool SSRScreenInside(vec2 uv) {
-    return IsFinite(vec3(uv, 0.0))
-        && all(greaterThanEqual(uv, vec2(0.0)))
+    // The [0,1] comparisons already reject NaN (unordered) and +-Inf for
+    // every input, so an explicit IsFinite sweep is redundant.
+    return all(greaterThanEqual(uv, vec2(0.0)))
         && all(lessThanEqual(uv, vec2(1.0)));
 }
 

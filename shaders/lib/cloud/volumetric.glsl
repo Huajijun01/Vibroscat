@@ -305,10 +305,14 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
 
     float inverse_step_count = 1.0 / float(CLOUD_LIGHT_STEPS);
     float optical_depth = 0.0;
+    // The i = 0 start is exactly the base offset (trace_distance > 0 is
+    // guaranteed above, so trace_distance * 0.0 * 0.0 == +0.0), and each
+    // later start is the previous end bit-for-bit: float(i + 1) counts the
+    // same integer both ways, so the stratum boundary products are shared
+    // instead of recomputed per step.
+    float segment_start = CLOUD_LIGHT_START_OFFSET_KM;
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
-        float x0 = float(i) * inverse_step_count;
         float x1 = float(i + 1) * inverse_step_count;
-        float segment_start = CLOUD_LIGHT_START_OFFSET_KM + trace_distance * x0 * x0;
         float segment_end = CLOUD_LIGHT_START_OFFSET_KM + trace_distance * x1 * x1;
         float sample_distance = mix(segment_start, segment_end, light_jitter);
         float sample_density = SampleCloudDensityLowQuality(
@@ -316,6 +320,7 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
         optical_depth += sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
             * (segment_end - segment_start);
+        segment_start = segment_end;
     }
     return optical_depth;
 }

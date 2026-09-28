@@ -68,13 +68,16 @@ void main() {
         return;
     }
 
+    // One depthtex0 fetch feeds both the epipolar column key and the fog
+    // integration: EpipolarScreenTexel(uv) resolves back to tx for every
+    // fragment (u_view_pixel_size is exactly 1/viewWH, so the round trip is
+    // exact), and the two reads return the same texel.
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
     vec3 epipolar_light = vec3(1.0);
 #ifdef EPIPOLAR_VOLUMETRICS
-    float air_key = EpipolarAirColumnKey(uv);
+    float air_key = EpipolarAirColumnKey(scene_depth);
     epipolar_light = EpipolarSampleE(uv * 2.0 - 1.0, air_key);
 #endif
-
-    float scene_depth = texelFetch(depthtex0, tx, 0).r;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
     float view_len = length(view_pos);
     vec3 scene_pos = ViewToSceneSpace(view_pos);

@@ -16,10 +16,13 @@
 // (depthtex0), because air fog composites over the final water surface too.
 // Underwater the air fog is disabled, so the key is invalid (0). Linear
 // viewZ, same space as the water key (see EpipolarWaterColumnKey).
-float EpipolarAirColumnKey(vec2 uv01) {
-    ivec2 texel = EpipolarScreenTexel(uv01);
+// depth0 must be the caller's own depthtex0 fetch at ivec2(gl_FragCoord.xy):
+// EpipolarScreenTexel(uv) resolves back to that exact texel for every
+// fragment (u_view_pixel_size is exactly 1/viewWH), so sharing one fetch
+// keeps the key and the fog depth bit-identical.
+float EpipolarAirColumnKey(float depth0) {
     if (isEyeInWater == 1) return 0.0;
-    return LinearDepthFromScreenDepth(texelFetch(depthtex0, texel, 0).r);
+    return LinearDepthFromScreenDepth(depth0);
 }
 
 // Air shadow ratio: no light-direction OD, view-path transmittance only

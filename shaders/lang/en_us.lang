@@ -213,6 +213,9 @@ option.CLOUD_VIEW_TARGET_STEP_KM = Target Step Distance (km)
 option.CLOUD_VIEW_TARGET_STEP_KM.comment = How densely clouds are scanned along your line of sight, in kilometres; smaller = finer steps. Lower = more detail and smoother shapes, slower.
 option.CLOUD_LIGHT_STEPS = Light Steps
 option.CLOUD_LIGHT_STEPS.comment = How carefully sunlight is traced through each cloud to decide which parts are in shadow. Higher = better lit and shadowed detail inside clouds, slower.
+option.CLOUD_LIGHT_START_OFFSET_KM = Light Start Offset
+suffix.CLOUD_LIGHT_START_OFFSET_KM = km
+option.CLOUD_LIGHT_START_OFFSET_KM.comment = Distance skipped toward the light before tracing cloud self-shadow. Higher = a broader bright edge on backlit clouds, but less shadow detail near the surface. Zero restores the original trace.
 option.CLOUD_BASE_ALTITUDE = Base Altitude
 option.CLOUD_BASE_ALTITUDE.comment = How high above the terrain the cloud layer floats. Higher = clouds sit farther overhead.
 suffix.CLOUD_BASE_ALTITUDE = km

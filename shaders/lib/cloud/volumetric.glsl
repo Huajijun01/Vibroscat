@@ -291,24 +291,25 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
     return Saturate(1.35 * RemapCloudErosion(broad_density, fine_threshold));
 }
 
-// Optical depth from the receiver toward the light. CLOUD_LIGHT_STEPS quadratic
-// strata, densest at the receiver, each sampled at a jittered point inside its
-// interval and weighted by its exact interval length. Densities take the
-// low-quality path; the trace is re-evaluated for every accepted view sample.
+// Optical depth toward the light, starting past a configurable near segment.
+// CLOUD_LIGHT_STEPS quadratic strata are densest near that start; each is
+// sampled at a jittered point and weighted by its exact interval length.
+// Densities take the low-quality path; every accepted view sample retraces it.
 float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
     float light_distance = min(
         CloudDistanceToShellExit(atmosphere_position, light_dir),
         CLOUD_LIGHT_MAX_DISTANCE_KM
     );
-    if (light_distance <= 1.0e-5) return 0.0;
+    float trace_distance = light_distance - CLOUD_LIGHT_START_OFFSET_KM;
+    if (trace_distance <= 1.0e-5) return 0.0;
 
     float inverse_step_count = 1.0 / float(CLOUD_LIGHT_STEPS);
     float optical_depth = 0.0;
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
         float x0 = float(i) * inverse_step_count;
         float x1 = float(i + 1) * inverse_step_count;
-        float segment_start = light_distance * x0 * x0;
-        float segment_end = light_distance * x1 * x1;
+        float segment_start = CLOUD_LIGHT_START_OFFSET_KM + trace_distance * x0 * x0;
+        float segment_end = CLOUD_LIGHT_START_OFFSET_KM + trace_distance * x1 * x1;
         float sample_distance = mix(segment_start, segment_end, light_jitter);
         float sample_density = SampleCloudDensityLowQuality(
             atmosphere_position + light_dir * sample_distance);

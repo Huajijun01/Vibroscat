@@ -142,6 +142,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_VIEW_MAX_STEPS 40 // [40 64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
 #define CLOUD_VIEW_TARGET_STEP_KM 0.4 // [0.2 0.25 0.3 0.4 0.5 0.75 1.0] Adaptive step target distance (km); smaller = denser sampling.
 #define CLOUD_LIGHT_STEPS 6 // [3 4 5 6 8] Light-direction steps per cloud sample; affects self-shadow quality and primary lighting cost.
+#define CLOUD_LIGHT_START_OFFSET_KM 0.1 // [0.0 0.025 0.05 0.075 0.1 0.15 0.2 0.3 0.4 0.5] Distance skipped toward the light before cloud self-shadow integration (km).
 #define CLOUD_BASE_ALTITUDE 1.4 // [0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud base altitude above terrain (km).
 #define CLOUD_THICKNESS_KM 1.4 // [0.6 0.8 1.0 1.2 1.3 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.

@@ -36,11 +36,16 @@ vec3 GIReblurViewPosition(ivec2 texel, float depth_view) {
 
 // All spatial stages use the same current-frame receiver plane and source tag.
 // Bilateral plane rejection prevents filtering through silhouettes and steps.
+// The fetched history metadata is returned so a caller that needs the age
+// after the weight check reuses this texel instead of re-reading colortex10.
 float GIReblurGeometryWeight(ivec2 sample_texel, ivec2 size_texel,
-        vec3 center_view, vec3 normal_world, vec3 normal_view) {
+        vec3 center_view, vec3 normal_world, vec3 normal_view, out uint metadata) {
     if (any(lessThan(sample_texel, ivec2(0)))
-            || any(greaterThanEqual(sample_texel, size_texel))) return 0.0;
-    uint metadata = texelFetch(colortex10, sample_texel, 0).r;
+            || any(greaterThanEqual(sample_texel, size_texel))) {
+        metadata = 0u;
+        return 0.0;
+    }
+    metadata = texelFetch(colortex10, sample_texel, 0).r;
     float depth_view = GIHistoryDepth(metadata);
     if (GIHistoryAge(metadata) < 1.0 || depth_view <= 0.0
             || isnan(depth_view) || isinf(depth_view)) return 0.0;

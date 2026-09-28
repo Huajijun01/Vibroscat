@@ -30,8 +30,9 @@ vec4 RepairGIReblurHistory(ivec2 texel) {
         for (int x = -2; x <= 2; ++x) {
             if (x == 0 && y == 0) continue;
             ivec2 sample_texel = texel + ivec2(x, y) * stride_texel;
+            uint tap_metadata;
             float weight = GIReblurGeometryWeight(sample_texel, size_texel,
-                center_view, normal_world, normal_view);
+                center_view, normal_world, normal_view, tap_metadata);
             if (weight <= 0.0) continue;
             weight *= exp2(-0.25 * float(x * x + y * y));
             vec3 fast_sample = GIReblurFinite(texelFetch(colortex6, sample_texel, 0).rgb);
@@ -39,7 +40,8 @@ vec4 RepairGIReblurHistory(ivec2 texel) {
             fast_squared_sum += fast_sample * fast_sample * weight;
             fast_weight += weight;
             if (age < 4.0) {
-                float sample_age = GIHistoryAge(texelFetch(colortex10, sample_texel, 0).r);
+                // Same colortex10 texel the weight check just read.
+                float sample_age = GIHistoryAge(tap_metadata);
                 float reconstruction_weight = weight * min(sample_age, 8.0);
                 repair_sum += GIReblurFinite(texelFetch(colortex9, sample_texel, 0).rgb)
                     * reconstruction_weight;
@@ -92,8 +94,9 @@ vec3 FilterGIReblur(ivec2 texel) {
         ivec2 offset_texel = ivec2(round(vec2(cos(angle), sin(angle)) * (radius * disk_radius)));
         if (all(equal(offset_texel, ivec2(0)))) continue;
         ivec2 sample_texel = texel + offset_texel;
+        uint tap_metadata;
         float weight = GIReblurGeometryWeight(sample_texel, size_texel,
-            center_view, normal_world, normal_view);
+            center_view, normal_world, normal_view, tap_metadata);
         if (weight <= 0.0) continue;
         vec4 sample_value = texelFetch(usam_gi_reblur_a, sample_texel, 0);
         float sample_hit = texelFetch(colortex6, sample_texel, 0).a;

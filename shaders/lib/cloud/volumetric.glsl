@@ -187,12 +187,13 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
 // Eroded density in [0, 1] at one point in the cloud layer.
 float SampleCloudDensity(vec3 atmosphere_position) {
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
-    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
-        / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
-
+    // Cheap band rejection first: rejected samples never need the normalized
+    // height, and the light march crosses the shell boundary on most steps.
     if (altitude_km <= CLOUD_BASE_ALTITUDE || altitude_km >= CLOUD_TOP_ALTITUDE) {
         return 0.0;
     }
+    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
+        / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
     vec2 distribution_uv = CloudDistributionUv(world_km);
@@ -246,12 +247,12 @@ float SampleCloudDensity(vec3 atmosphere_position) {
 // Deliberately a direct copy of SampleCloudDensity; keep the two in sync.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
-    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
-        / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
-
+    // Same cheap-first ordering as SampleCloudDensity; keep in sync.
     if (altitude_km <= CLOUD_BASE_ALTITUDE || altitude_km >= CLOUD_TOP_ALTITUDE) {
         return 0.0;
     }
+    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
+        / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
     vec2 distribution_uv = CloudDistributionUv(world_km);

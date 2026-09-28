@@ -36,6 +36,12 @@ float WaterColumnLightPath(vec3 world_pos, float surface_world_y) {
     return max(surface_world_y - world_pos.y, 0.0) * WaterLightPathPerMetre();
 }
 
+// Shared-path overload: identical value, for callers that evaluate
+// WaterLightPathPerMetre() once per fragment for several columns.
+float WaterColumnLightPath(vec3 world_pos, float surface_world_y, float path_per_metre) {
+    return max(surface_world_y - world_pos.y, 0.0) * path_per_metre;
+}
+
 
 // Eccentricity of the normalized single-lobe scattering phase used by the
 // water fog (the Cornette-Shanks phase function, /lib/scattering/phase.glsl).

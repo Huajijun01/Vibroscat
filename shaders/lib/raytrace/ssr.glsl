@@ -117,10 +117,12 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
         if (!SSRScreenInside(ray_pos.xy)) break;
 
         float surface_depth = textureLod(depthtex1, ray_pos.xy, 0.0).x;
-        float ray_depth = LinearDepthFromScreenDepth(
-            clamp(ray_pos.z, 0.0, 1.0));
-        float surface_linear = LinearDepthFromScreenDepth(surface_depth);
-        if (surface_depth < 1.0 && surface_linear < ray_depth) {
+        // Linear depth is strictly monotonic in screen depth (the analytic
+        // inverse denominator z*Pinv[2][3] + Pinv[3][3] keeps one sign across
+        // [0,1]), so the crossing test can compare raw screen depths and skip
+        // two reciprocal evaluations per step. The metre-domain hit tolerance
+        // below keeps the linear forms.
+        if (surface_depth < 1.0 && surface_depth < clamp(ray_pos.z, 0.0, 1.0)) {
             // Bisection locates the first depth crossing; this trace
             // performs no thickness or normal rejection.
             float lo = previous_t;
@@ -130,11 +132,8 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
                 float mid_t = 0.5 * (lo + hi);
                 vec3 mid_pos = start_pos + dir * (mid_t * s_end);
-                float mid_surface = LinearDepthFromScreenDepth(
-                    textureLod(depthtex1, mid_pos.xy, 0.0).x);
-                float mid_ray = LinearDepthFromScreenDepth(
-                    clamp(mid_pos.z, 0.0, 1.0));
-                if (mid_surface < mid_ray) {
+                float mid_surface = textureLod(depthtex1, mid_pos.xy, 0.0).x;
+                if (mid_surface < clamp(mid_pos.z, 0.0, 1.0)) {
                     hi = mid_t;
                     hi_pos = mid_pos;
                 } else {

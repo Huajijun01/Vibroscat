@@ -36,13 +36,9 @@
 
 
 // Per-block STBN: x = slice rotation, y = horizon-step dither. Point-sampled
-// Slice-plane tangent at azimuth `angle` around the toward-camera axis.
-vec3 GTAOSliceTangent(vec3 view_axis, float angle) {
-    vec3 up = abs(view_axis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3 t = normalize(cross(up, view_axis));
-    vec3 b = cross(view_axis, t);
-    return t * cos(angle) + b * sin(angle);
-}
+// Slice-plane tangent at azimuth `angle` around the toward-camera axis:
+// built once per pixel in ComputeGTAO (the basis depends only on view_axis)
+// and rotated per slice below.
 
 // Screen-space unit direction along the projected tangent and the pixel
 // length of the full search radius (projection of GTAO_RADIUS).
@@ -119,13 +115,19 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     vec3 normal_view = normalize(mat3(gbufferModelView)
         * DecodeOctahedralNormal(geometry_data.xy));
 
+    // The slice basis depends only on the toward-camera axis, so its
+    // GTAOSliceTangent construction is hoisted here verbatim and each slice
+    // only rotates it (identical operations, evaluated once).
+    vec3 slice_up = abs(view_axis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 slice_t = normalize(cross(slice_up, view_axis));
+    vec3 slice_b = cross(view_axis, slice_t);
     float slice_angle_base = stbn_noise.x * PI;
     float ndotv = dot(normal_view, view_axis);
     float visibility = 0.0;
     for (int s = 0; s < GTAO_SLICES; ++s) {
         float slice_angle = slice_angle_base
             + PI * float(s) / float(GTAO_SLICES);
-        vec3 tangent = GTAOSliceTangent(view_axis, slice_angle);
+        vec3 tangent = slice_t * cos(slice_angle) + slice_b * sin(slice_angle);
         vec3 binormal = normalize(cross(view_axis, tangent));
         tangent = normalize(cross(binormal, view_axis));
 

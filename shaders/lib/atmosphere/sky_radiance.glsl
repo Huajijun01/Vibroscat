@@ -90,10 +90,16 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec4 ss_mid = sr_mid + sm_mid;
 
         float mu_mid = dot(p_mid, sun_dir) / r_mid;
-        vec4 trans_mid = SampleTransmittance(utex_tslut, r_lut, r2_lut, mu_mid);
+        // Both horizon UVs share one rho/discriminant sqrt; the two tslut
+        // fetches stay separated by the mslut fetch on purpose (see the
+        // mirrored-mu driver merge note in cirrus.glsl).
+        vec2 tslut_uv;
+        vec2 tslut_uv_moon;
+        GetTransmittanceLUTUVPair(r_lut, r2_lut, mu_mid, tslut_uv, tslut_uv_moon);
+        vec4 trans_mid = textureLod(utex_tslut, tslut_uv, 0.0);
         vec4 ms_mid = SampleMultiScatter(utex_mslut, r_lut, mu_mid);
         // moonlight: opposite direction, shared extinction
-        vec4 ts_moon_mid = SampleTransmittance(utex_tslut, r_lut, r2_lut, -mu_mid);
+        vec4 ts_moon_mid = textureLod(utex_tslut, tslut_uv_moon, 0.0);
 
         vec4 rs_mid      = trans_mid * sr_mid;
         vec4 ms_raw_mid  = trans_mid * sm_mid;

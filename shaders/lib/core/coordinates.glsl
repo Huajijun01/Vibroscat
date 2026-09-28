@@ -210,6 +210,27 @@ vec3 ProjectToShadowClip(vec3 world_pos) {
     return clip_pos;
 }
 
+// Both shadow projections for one world position in a single sweep. The view
+// transform and diagonal clip projection are shared verbatim and the bias path
+// keeps the WithBias evaluation order, so each output is bit-identical to the
+// matching single call above.
+void ProjectToShadowPair(vec3 world_pos, float ndotl, out vec3 shadow_proj, out vec3 shadow_clip) {
+    vec3 view_pos = mat3(shadowModelView) * world_pos + shadowModelView[3].xyz;
+
+    vec3 clip_pos;
+    clip_pos.x = shadowProjection[0].x * view_pos.x + shadowProjection[3].x;
+    clip_pos.y = shadowProjection[1].y * view_pos.y + shadowProjection[3].y;
+    clip_pos.z = shadowProjection[2].z * view_pos.z + shadowProjection[3].z;
+    shadow_clip = clip_pos;
+
+    float bias = AxialDistortShadowBias(ndotl, view_pos, 3.0);
+    vec2 distort_factor = GetDistortFactor(clip_pos.xy);
+    clip_pos.xy /= distort_factor;
+    // Bias applied in NDC space, then remapped into the protected range.
+    float ndc_z = clip_pos.z * 0.5 + 0.5 - bias;
+    shadow_proj = vec3(clip_pos.xy * 0.5 + 0.5, ProtectShadowDepth(ndc_z));
+}
+
 // Shadow clip space -> shadow map UV [0,1], re-applying the analytic distortion.
 vec2 DistortShadowClip(vec2 clip_pos) {
     return clip_pos / GetDistortFactor(clip_pos) * 0.5 + 0.5;

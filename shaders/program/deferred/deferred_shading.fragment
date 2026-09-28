@@ -247,10 +247,12 @@ void main() {
     // curve and plant SSS renders exactly where the filter still samples.
     float shadow_coverage = 1.0;
     if (shadow_needed) {
-        // Both consumers of the biased projection live behind this gate, so
-        // backfacing non-SSS pixels skip the work entirely.
-        vec3 shadow_proj = ProjectToShadowWithBias(world_pos, geo_ndotl);
-        vec3 shadow_clip = ProjectToShadowClip(world_pos);
+        // Both consumers of the biased projection live behind this gate, and
+        // one shared sweep replaces the two separate projections (bit-identical
+        // outputs, half the view/clip transform work).
+        vec3 shadow_proj;
+        vec3 shadow_clip;
+        ProjectToShadowPair(world_pos, geo_ndotl, shadow_proj, shadow_clip);
         float clip_edge = max(abs(shadow_clip.x), abs(shadow_clip.y));
         float xy_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, clip_edge);
         float z_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, abs(shadow_clip.z));

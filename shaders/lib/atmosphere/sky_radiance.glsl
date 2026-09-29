@@ -45,7 +45,6 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     float phase_mie   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
     float phase_mie_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even
 
-    float dt      = max_dist / ATM_NUM_STEPS;
     vec4  trans   = vec4(1.0);
 
     // accumulators: sun

@@ -30,18 +30,24 @@ vec2 ShadowRotateDisk(vec2 point, vec2 rot_x, vec2 rot_y) {
     return vec2(dot(rot_x, point), dot(rot_y, point));
 }
 
-// Step 1: blocker search. Averages the depths of shadow-map samples that
-// occlude the receiver (depth <= receiver depth). Returns false when no
-// blocker is found in the search disk, so the pixel can be treated as lit.
-bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 rot_x, vec2 rot_y, int blocker_steps, out float blocker_depth,
-    out float sss_thickness_world
-) {
-    // Texel -> undistorted clip. The distorted UV map is
+// Texel -> undistorted clip Jacobian scale. The blocker search and the PCF
+// pass need the identical expression for the same clip position, so both
+// evaluate it once here and share the value.
+vec2 ShadowFilterTexelScale(vec3 clip_pos) {
+    // The distorted UV map is
     //   uv = clip / (2*factor) + 0.5,  factor = (1-D) + D*|clip|,
     // whose local derivative is d(uv)/d(clip) = (1-D)/(2*factor^2), so the
     // inverse per-axis scale is 2*factor^2/(1-D) texels per clip unit.
     vec2 factor = GetDistortFactor(clip_pos.xy);
-    vec2 texel_scale = 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
+    return 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
+}
+
+// Step 1: blocker search. Averages the depths of shadow-map samples that
+// occlude the receiver (depth <= receiver depth). Returns false when no
+// blocker is found in the search disk, so the pixel can be treated as lit.
+bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec2 rot_y, int blocker_steps, out float blocker_depth,
+    out float sss_thickness_world
+) {
     // Convex corners project small false depth deltas; require a
     // world-space gap before counting a blocker (no corner darkening).
     float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_M);
@@ -96,7 +102,8 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, float stbn_dither, float s
         vec2 rot_x = vec2(cos(angle), -sin(angle));
         vec2 rot_y = vec2(sin(angle), cos(angle));
         float blocker_depth;
-        ShadowFindBlocker(sp, clip_pos, rot_x, rot_y, SHADOW_SSS_STEPS, blocker_depth, sss_thickness_world);
+        ShadowFindBlocker(sp, clip_pos, ShadowFilterTexelScale(clip_pos),
+            rot_x, rot_y, SHADOW_SSS_STEPS, blocker_depth, sss_thickness_world);
     }
     return texture(shadowtex1, sp);
 }
@@ -115,14 +122,16 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     sss_thickness_world = 0.0;
 
-    // One dither value + rotation basis serves both passes (coherent dither).
+    // One dither value + rotation basis serves both passes (coherent dither);
+    // one texel scale serves the blocker search and the PCF pass below.
     float angle = stbn_dither * TAU;
     vec2 rot_x = vec2(cos(angle), -sin(angle));
     vec2 rot_y = vec2(sin(angle), cos(angle));
+    vec2 texel_scale = ShadowFilterTexelScale(clip_pos);
 
     float blocker_depth;
     int blocker_steps = sss_amount > 1e-3 ? SHADOW_SSS_STEPS : SHADOW_BLOCKER_SAMPLES;
-    if (!ShadowFindBlocker(sp, clip_pos, rot_x, rot_y, blocker_steps, blocker_depth, sss_thickness_world
+    if (!ShadowFindBlocker(sp, clip_pos, texel_scale, rot_x, rot_y, blocker_steps, blocker_depth, sss_thickness_world
     )) {
         return 1.0;
     }
@@ -156,10 +165,8 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels),
         min(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES),
         max(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES));
-    vec2 factor = GetDistortFactor(clip_pos.xy);
-    vec2 filter_texel_scale = 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
     float filter_radius = max(penumbra_texels, 1.0);
-    vec2 filter_offset_scale = filter_radius * filter_texel_scale;
+    vec2 filter_offset_scale = filter_radius * texel_scale;
 
     float shadow = 0.0;
     int early_samples = min(4, step_count);

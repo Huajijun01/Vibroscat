@@ -41,11 +41,12 @@
 // and rotated per slice below.
 
 // Screen-space unit direction along the projected tangent and the pixel
-// length of the full search radius (projection of GTAO_RADIUS).
-vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, out float radius_px) {
+// length of the full search radius (projection of GTAO_RADIUS). center_ndc is
+// the caller's hoisted ViewToNDC(center_view).xy, loop-invariant across the
+// slices; the expression matches the inlined form exactly.
+vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float radius_px) {
     vec3 end_view = center_view + tangent_view * GTAO_RADIUS;
     vec2 end_ndc = ViewToNDC(end_view).xy;
-    vec2 center_ndc = ViewToNDC(center_view).xy;
     vec2 delta = (end_ndc - center_ndc) * 0.5 * vec2(viewWidth, viewHeight);
     radius_px = max(length(delta), 1.0e-5);
     return delta / radius_px;
@@ -123,6 +124,9 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     vec3 slice_b = cross(view_axis, slice_t);
     float slice_angle_base = stbn_noise.x * PI;
     float ndotv = dot(normal_view, view_axis);
+    // The center projection is identical for every slice; hoist the identical
+    // expression out of the slice loop.
+    vec2 center_ndc = ViewToNDC(center_view).xy;
     float visibility = 0.0;
     for (int s = 0; s < GTAO_SLICES; ++s) {
         float slice_angle = slice_angle_base
@@ -140,7 +144,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
 
         vec2 screen_dir;
         float radius_px;
-        screen_dir = GTAOScreenDir(tangent, center_view, radius_px);
+        screen_dir = GTAOScreenDir(tangent, center_view, center_ndc, radius_px);
 
         float h_pos = GTAOSearchHorizon(uv, center_view, screen_dir, radius_px,
             center_depth, view_axis, stbn_noise.y);

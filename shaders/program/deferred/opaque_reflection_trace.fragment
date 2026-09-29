@@ -62,14 +62,16 @@ void main() {
     SSRHit shared_hit = TraceScreenSpaceReflection(
         trace_origin, view_direction, trace_jitter,
         OPAQUE_SSR_MAX_DISTANCE, OPAQUE_SSR_STEPS, true);
-    vec3 reflection_radiance = SampleOpaqueEnvironment(
-        reflection_direction, geometry_data.w);
-    if (shared_hit.valid) {
-        vec3 history;
-        if (SampleOpaqueHistory(shared_hit, history)) {
-            float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
-            reflection_radiance = recursion_decay * history;
-        }
+    // History hits replace the sky-radiance environment sample entirely, so
+    // the environment fetch only runs when no history was accepted.
+    vec3 reflection_radiance;
+    vec3 history;
+    if (shared_hit.valid && SampleOpaqueHistory(shared_hit, history)) {
+        float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
+        reflection_radiance = recursion_decay * history;
+    } else {
+        reflection_radiance = SampleOpaqueEnvironment(
+            reflection_direction, geometry_data.w);
     }
 
 #if OPAQUE_SSR_DEBUG == 4

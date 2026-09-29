@@ -129,13 +129,17 @@ void main() {
         // leaves nothing of either term, so the star field and the discs are
         // skipped there rather than computed and multiplied by zero.
         if (!all(equal(cloud_transmittance, vec3(0.0)))) {
-            celestial = RenderStarMap(view_dir, view_transmittance);
-            celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance);
+            CelestialContext celestial_context = CelestialContextFor(view_dir);
+            celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
+            celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
+                celestial_context);
         }
         sky_color += celestial * cloud_transmittance;
 #else
-        celestial = RenderStarMap(view_dir, view_transmittance);
-        celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance);
+        CelestialContext celestial_context = CelestialContextFor(view_dir);
+        celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
+        celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
+            celestial_context);
         sky_color += celestial;
 #endif
         out_color = JitterR11G11B10F(sky_color, gl_FragCoord.xy, COLOR_JITTER_SEED);

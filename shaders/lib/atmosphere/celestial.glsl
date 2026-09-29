@@ -202,26 +202,43 @@ vec3 ProceduralStarField(vec3 rd) {
 }
 #endif
 
+// Per-ray celestial context shared by the star map and the disc renderer:
+// both consume the same sun direction, camera radius, and horizon clip, so a
+// caller that renders both evaluates them once. The individual expressions
+// match the previous per-renderer computations exactly.
+struct CelestialContext {
+    vec3 sun_dir;
+    vec3 camera_pos;
+    float camera_r2;
+    bool horizon_occluded;
+};
+
+CelestialContext CelestialContextFor(vec3 view_dir) {
+    CelestialContext context;
+    context.sun_dir = normalize(u_world_sun_dir);
+    context.camera_pos = AtmosphereCameraPosition();
+    float camera_r = length(context.camera_pos);
+    context.camera_r2 = camera_r * camera_r;
+    context.horizon_occluded = PlanetHorizonOccluded(context.camera_pos,
+        context.camera_r2, view_dir, ATM_PLANET_R2);
+    return context;
+}
+
 // Star map rigidly attached to the celestial sphere: rotation about world Y
 // recovered from sunDir (the vanilla sun/moon path is in a vertical plane,
 // so sunDir.x/y give the path angle without an atan2 branch cut). Gated by
 // view-ray transmittance; the cloud compositor multiplies the contribution
 // by real cloud transmittance.
-vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
-    vec3 sun_dir = normalize(u_world_sun_dir);
-
+vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext context) {
     // Day/night fade based on sun elevation (smoothstep transition).
-    float night_fade = 1.0 - smoothstep(STAR_FADE_SUNRISE, STAR_FADE_SUNSET, sun_dir.y);
+    float night_fade = 1.0 - smoothstep(STAR_FADE_SUNRISE, STAR_FADE_SUNSET, context.sun_dir.y);
     if (night_fade <= 0.0) return vec3(0.0);
 
-    vec3 camera_pos = AtmosphereCameraPosition();
-    float r = length(camera_pos);
-    float r2 = r * r;
-    if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) return vec3(0.0);
+    if (context.horizon_occluded) return vec3(0.0);
 
     // Rotation about world Y keeping the map fixed on the sphere.
-    float c = clamp(sun_dir.x, -1.0, 1.0);
-    float s = clamp(sun_dir.y, -1.0, 1.0);
+    float c = clamp(context.sun_dir.x, -1.0, 1.0);
+    float s = clamp(context.sun_dir.y, -1.0, 1.0);
     vec3 rd = vec3(c * view_dir.x - s * view_dir.z, view_dir.y, s * view_dir.x + c * view_dir.z);
 
 #ifdef STAR_MAP
@@ -240,19 +257,16 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance) {
     return star_color * transmittance * night_fade * STAR_MAP_INTENSITY;
 }
 
-vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance) {
-    vec3 camera_pos = AtmosphereCameraPosition();
-    float r = length(camera_pos);
-    float r2 = r * r;
-
+vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance,
+    CelestialContext context) {
     // Per-ray horizon clip: rays below the spherical horizon hit the planet
     // (ground LUT region) and must not receive the discs. The clip must stay
     // per-ray: the disc/glow is still partly above the horizon while the
     // disc center is below it, so a center-ray test would over-cull and
     // pop the disc out at the horizon.
-    if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) return sky_color;
+    if (context.horizon_occluded) return sky_color;
 
-    vec3 sun_dir = normalize(u_world_sun_dir);
+    vec3 sun_dir = context.sun_dir;
     vec3 moon_dir = -sun_dir;
 
     vec3 contribution = vec3(0.0);

@@ -273,19 +273,12 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     //     return sky_color;
     // }
 
-    vec3 total_in_scattering = vec3(0.0);
-    vec3 total_transmittance = vec3(1.0);
-    if (ci_height_diff < 0.0) {
-        // Camera above the layer: sky is behind the cirrus.
-        total_in_scattering = total_in_scattering * ci_transmittance + ci_in_scattering;
-    } else {
-        // Camera below the layer: cirrus is in front of the sky.
-        total_in_scattering = total_in_scattering + ci_in_scattering * total_transmittance;
-    }
-
-    total_transmittance *= ci_transmittance;
-
-    return sky_color * total_transmittance + total_in_scattering;
+    // Single-layer composite. The former multi-layer scaffolding multiplied
+    // the fresh terms by the initial zero/one transmittances; IEEE forbids
+    // folding 0 * x, so write the degenerate products out. ci_transmittance
+    // is exp(-od) and finite positive, so both removed products were
+    // bit-identical to their operands.
+    return sky_color * ci_transmittance + ci_in_scattering;
 }
 
 #endif // LIB_CLOUD_CIRRUS_GLSL

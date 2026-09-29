@@ -82,6 +82,11 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     vec3 history_sum = vec3(0.0);
     float weight_sum = 0.0;
     float age_sum = 0.0;
+    // Squared reject radius: comparing squared lengths against the squared
+    // bound skips one sqrt per tap (both sides are non-negative, so the
+    // comparison is equivalent in exact arithmetic).
+    float reject_distance_m = 0.25 + footprint_m;
+    float reject_distance_sq = reject_distance_m * reject_distance_m;
 #ifdef GI_REBLUR_ACTIVE
     vec4 fast_sum = vec4(0.0);
 #endif
@@ -103,7 +108,8 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
             vec3 sample_view = vec3(previous_ray, -1.0) * depth_view;
             vec3 delta_view = sample_view - previous_view;
             float plane_distance = abs(dot(delta_view, previous_normal));
-            if (plane_distance > plane_tolerance_m || length(delta_view) > 0.25 + footprint_m) continue;
+            if (plane_distance > plane_tolerance_m
+                    || dot(delta_view, delta_view) > reject_distance_sq) continue;
             vec2 bilinear = mix(vec2(1.0) - fraction, fraction, vec2(x, y));
             float weight = bilinear.x * bilinear.y * (1.0 - plane_distance / plane_tolerance_m);
             vec3 history = texelFetch(colortex9, sample_texel, 0).rgb;

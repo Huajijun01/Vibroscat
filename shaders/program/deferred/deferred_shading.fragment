@@ -226,10 +226,14 @@ void main() {
     float vdoth = Max0(dot(view_to_eye, half_direction));
     float ldoth = Max0(dot(light_direction, half_direction));
     float geo_ndotl = dot(geo_normal, light_direction);
+    // The diffuse component is exported so the plant-SSS branch below reuses
+    // this evaluation instead of recomputing Fresnel and Burley with the same
+    // arguments.
+    vec3 shared_diffuse_brdf;
     vec3 direct_brdf = EvaluateDirectBRDF(
         albedo, material.f0, material.diffuse_weight,
         material.perceptual_roughness,
-        ndotv, ndotl, ndoth, vdoth, ldoth);
+        ndotv, ndotl, ndoth, vdoth, ldoth, shared_diffuse_brdf);
     vec3 direct_lighting = direct_brdf * ndotl;
 
     // -- Shadow --
@@ -324,10 +328,10 @@ void main() {
         // throughout 0..1, including when the legacy SCALE exceeds one.
         float material_share = Saturate(sss_amount * SHADOW_SSS_SCALE);
         float sss_energy = material_share * Saturate(SHADOW_SSS_ENERGY);
-        vec3 direct_diffuse = albedo * (vec3(1.0) - FresnelSchlick(vdoth, material.f0))
-            * material.diffuse_weight
-            * DiffuseBurley(ndotv, ndotl, ldoth, material.perceptual_roughness)
-            * ndotl * shadow_occlusion;
+        // The shared diffuse component from the direct BRDF above; the
+        // multiplication order keeps this identical to the previous inline
+        // recompute (albedo * (1 - fresnel) * weight * Burley * ndotl * shadow).
+        vec3 direct_diffuse = shared_diffuse_brdf * ndotl * shadow_occlusion;
         // Thickness already attenuates incoming light. A second (1-shadow)
         // gate would remove transmission from unobstructed thin foliage.
         sss_lighting = diffuse_reflectance * sss_phase * transmission * sss_energy;

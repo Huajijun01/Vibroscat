@@ -226,15 +226,6 @@ void main() {
     float vdoth = Max0(dot(view_to_eye, half_direction));
     float ldoth = Max0(dot(light_direction, half_direction));
     float geo_ndotl = dot(geo_normal, light_direction);
-    // The diffuse component is exported so the plant-SSS branch below reuses
-    // this evaluation instead of recomputing Fresnel and Burley with the same
-    // arguments.
-    vec3 shared_diffuse_brdf;
-    vec3 direct_brdf = EvaluateDirectBRDF(
-        albedo, material.f0, material.diffuse_weight,
-        material.perceptual_roughness,
-        ndotv, ndotl, ndoth, vdoth, ldoth, shared_diffuse_brdf);
-    vec3 direct_lighting = direct_brdf * ndotl;
 
     // -- Shadow --
     float shadow_occlusion = 1.0;
@@ -297,6 +288,21 @@ void main() {
 #endif
     }
 #endif
+    // Direct BRDF. Two exact-zero gates skip the evaluation where the result
+    // is +0 anyway: a fully occluded receiver multiplies by
+    // shadow_occlusion == 0 (shadow map or contact shadow), and a back face
+    // multiplies by ndotl == 0. Every BRDF term is finite and non-negative,
+    // so both products are exactly zero. The plant-SSS branch can consume the
+    // exported diffuse component, so SSS receivers always evaluate.
+    vec3 shared_diffuse_brdf = vec3(0.0);
+    vec3 direct_lighting = vec3(0.0);
+    if (shadow_occlusion > 0.0 && (ndotl > 0.0 || sss_amount > 0.01)) {
+        vec3 direct_brdf = EvaluateDirectBRDF(
+            albedo, material.f0, material.diffuse_weight,
+            material.perceptual_roughness,
+            ndotv, ndotl, ndoth, vdoth, ldoth, shared_diffuse_brdf);
+        direct_lighting = direct_brdf * ndotl;
+    }
     // -- Composite --
     // All terms below are BRDF * incident visibility until the final light
     // color multiplication. SSS redistributes only the diffuse light budget.

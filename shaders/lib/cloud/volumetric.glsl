@@ -193,10 +193,6 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return radiance + isotropic_orders / (1.0 + light_optical_depth);
 }
 
-#define CLOUD_COVERAGE 0.6
-#define CLOUD_FINE_EROSION_SCALE 1.0
-#define CLOUD_FINE_EROSION_STRENGTH 0.5
-
 // Eroded density in [0, 1] at one point in the cloud layer.
 float SampleCloudDensity(vec3 atmosphere_position) {
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;

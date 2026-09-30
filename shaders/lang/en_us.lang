@@ -62,8 +62,6 @@ screen.CLOUDS = Clouds
 screen.CLOUDS.comment = True 3D volumetric clouds: their shape, motion and lighting.
 screen.CLOUD_SHAPE = Cloud Shape
 screen.CLOUD_SHAPE.comment = Where the cloud layer sits, how much of the sky it covers, how wide the weather pattern is, and how fast it drifts with the wind.
-screen.CLOUD_DETAIL = Cloud Detail
-screen.CLOUD_DETAIL.comment = The erosion that carves wispy edges and inner structure out of the base cloud shape.
 screen.CLOUD_LIGHTING = Cloud Lighting
 screen.CLOUD_LIGHTING.comment = How the cloud is lit: which light is traced, how far the light ray marches, and the forward and backward scattering that makes edges glow.
 screen.CLOUD_MULTISCATTER = Cloud Multiple Scattering
@@ -222,8 +220,6 @@ suffix.CLOUD_BASE_ALTITUDE = km
 option.CLOUD_THICKNESS_KM = Layer Thickness
 suffix.CLOUD_THICKNESS_KM = km
 option.CLOUD_THICKNESS_KM.comment = Vertical thickness of the cloud layer: higher = taller, towering clouds with deeper shadows inside.
-option.CLOUD_COVERAGE = Coverage
-option.CLOUD_COVERAGE.comment = How much of the sky is covered: higher = wide, connected cloud decks; lower = scattered clouds and more blue sky. Rain pushes the coverage to full overcast, so the slider has no effect while it rains.
 option.CLOUD_DISTRIBUTION_SCALE_KM = Distribution Scale
 suffix.CLOUD_DISTRIBUTION_SCALE_KM = km
 option.CLOUD_DISTRIBUTION_SCALE_KM.comment = The size of the overall cloud pattern across the world: higher = bigger, more sprawling cloud systems spaced farther apart; lower = more, smaller cloud clusters.
@@ -232,18 +228,6 @@ suffix.CLOUD_WIND_SPEED = km/s
 option.CLOUD_WIND_SPEED.comment = How fast clouds drift across the sky.
 option.CLOUD_FINE_WIND_FACTOR = Fine Wind Factor
 option.CLOUD_FINE_WIND_FACTOR.comment = Makes the small details inside a cloud flow faster than the cloud as a whole, so clouds seem to boil and churn instead of just sliding by.
-option.CLOUD_EROSION_SCALE_KM = Erosion Scale
-suffix.CLOUD_EROSION_SCALE_KM = km
-option.CLOUD_EROSION_SCALE_KM.comment = Size of the round billows and their nested surface lobes. Higher values make larger cloud masses; lower values make smaller billows.
-option.CLOUD_EROSION_STRENGTH = Erosion Strength
-option.CLOUD_EROSION_STRENGTH.comment = Depth of the gaps between billows. Higher values separate lobes more strongly; lower values keep cloud masses more connected.
-option.CLOUD_FINE_EROSION_SCALE_KM = Fine Erosion Scale
-suffix.CLOUD_FINE_EROSION_SCALE_KM = km
-option.CLOUD_FINE_EROSION_SCALE_KM.comment = Size of the evenly distributed detail on the cloud surface. Lower values make finer detail.
-option.CLOUD_FINE_EROSION_STRENGTH = Fine Erosion Strength
-option.CLOUD_FINE_EROSION_STRENGTH.comment = Depth of the fine surface detail. Dense cloud interiors are protected from fine erosion.
-option.CLOUD_FINE_EROSION_HEIGHT = Fine Erosion Growth Height
-option.CLOUD_FINE_EROSION_HEIGHT.comment = Normalized height (0 = base, 1 = top) where fine erosion reaches full strength. The lowest tenth of the layer stays protected to preserve a smooth cloud base.
 option.CLOUD_LIGHT_MAX_DISTANCE_KM = Light Trace Distance
 suffix.CLOUD_LIGHT_MAX_DISTANCE_KM = km
 option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = How far sunlight is traced through a cloud when deciding its self-shadowing: higher = correct lighting deeper inside thick clouds, slower.

@@ -82,6 +82,7 @@ uniform sampler2D utex_noise2d_tex;           // periodic 64x64 R8 value noise
 uniform sampler2D utex_cloud_distribution_tex; // cloud coverage atlas (R8, 1024x1024)
 uniform sampler3D utex_cloud_erosion_tex;     // cloud erosion volume (R8)
 uniform sampler3D utex_cloud_fine_erosion_tex; // fine erosion volume (R8)
+uniform sampler3D utex_cloud_voronoise_tex;   // experimental voronoise volume (R8, 32^3, periodic)
 uniform sampler3D utex_stbn_scalar;           // 128x128x64 STBN volume
 uniform sampler3D utex_caustics;              // baked water caustics volume
 

@@ -151,8 +151,8 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_DISTRIBUTION_UV_SCALE 4.5 // [2.0 2.5 3.0 3.5 4.0 4.5 5.0 6.0] Extra sampling frequency on the distribution atlas; higher = smaller, more frequent weather cells.
 #define CLOUD_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
 #define CLOUD_FINE_WIND_FACTOR 2.0 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0] Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
-#define CLOUD_FINE_EROSION_SCALE 1.5 // [2.0 3.0 4.0 5.0 6.0 8.0] Voronoise coordinate scale per kilometer; higher = smaller, denser erosion cells.
-#define CLOUD_FINE_EROSION_STRENGTH 0.7 // [0.25 0.5 0.75 1.0 1.5] Light-trace erosion strength; scales the voronoise mean the same way the view path scales its per-point read.
+#define CLOUD_FINE_EROSION_SCALE 1.5 // [1.0 1.5 2.0 3.0 4.0 5.0 6.0 8.0] Voronoise coordinate scale per kilometer; higher = smaller, denser erosion cells.
+#define CLOUD_FINE_EROSION_STRENGTH 0.7 // [0.25 0.5 0.7 1.0 1.5] Light-trace erosion strength; scales the voronoise mean the same way the view path scales its per-point read.
 #define CLOUD_ALPHA_EXTINCTION_SRGB_GRAY 50.0 // [25.0 35.0 50.0 65.0 80.0 100.0] Extinction of a fully dense sample (km^-1); higher = denser, more opaque clouds.
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] Forward HG eccentricity of the cloud phase.

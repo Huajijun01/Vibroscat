@@ -19,10 +19,11 @@
 // rotation (world frame): vel_j = freq_j * Rot(-rot_j) * v_band_j,
 // v_band = deep-water PHASE SPEED sqrt(g/kc) at the band centre.
 const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 2.0);
-const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.081375, 0.029656),
-                                     vec2(0.184289, -0.085914),
-                                     vec2(0.400383, -0.186702),
-                                     vec2(0.302191, -0.830262));
+const vec2 RIVER_TEX_FLOW = vec2(0.46985, 0.17101);  // river current (m/s)
+const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.158986, 0.057876),
+                                     vec2(0.392848, -0.183186),
+                                     vec2(0.503640, 1.079953),
+                                     vec2(1.328060, -3.649078));
 // per-layer sampling-frame rotation (cos, sin) of the world XZ vector
 const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),
@@ -30,13 +31,14 @@ const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.0, 1.0));
 // full-range height swing (m) at gain 1.0 (master-band-matched):
 // amp_j * WATER_RIVER_GAIN * (r - 0.5), r = texture R in [0, 1]
-const float RIVER_TEX_AMP[4] = float[](0.2394, 0.11624, 0.038951, 0.000458);
+const float RIVER_TEX_AMP[4] = float[](0.51026, 0.31351, 0.17070, 0.03161);
 
 // central-difference step (m), same value as the fitted value-noise ocean
 const float RIVER_TEX_DIFF_EPS = 0.1;
 
 // Height of layer j at world XZ: one bilinear fetch, hardware wrap.
 float RiverTextureLayerHeight(vec2 xz, float time, int j) {
+    xz -= RIVER_TEX_FLOW * time;   // river current advects every layer
     vec2 uv = vec2(dot(RIVER_TEX_ROT[j], xz), -RIVER_TEX_ROT[j].y * xz.x
                    + RIVER_TEX_ROT[j].x * xz.y);
     uv = uv * RIVER_TEX_FREQ[j] - RIVER_TEX_VEL[j] * time;

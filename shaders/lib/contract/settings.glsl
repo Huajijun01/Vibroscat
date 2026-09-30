@@ -267,6 +267,12 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // position) to save cost.
 #define WATER_POM
 
+// River texture water (river_texture.glsl): the wave field becomes a single
+// periodic R8 height texture (utex_mother_river, 32 m period) sampled by a
+// 4-layer rotated/scaled basis; POM chases only the two largest-energy
+// layers (2 fetches per height sample). Undefined = fitted value-noise ocean.
+#define WATER_RIVER_TEXTURE
+
 // Water parallax search budget: coarse fixed-step height-chase samples and
 // bisection refinement iterations (mode selected by POM_BISECTION_ENABLED in
 // ocean.glsl). LOW profile disables POM entirely, so these stay at defaults.

@@ -79,6 +79,7 @@ uniform sampler2D utex_starmap;               // NASA star map (LogLuv32 RGBA8)
 uniform sampler2D utex_tslut;                 // atmosphere transmittance LUT
 uniform sampler2D utex_mslut;                 // atmosphere multiscatter LUT
 uniform sampler2D utex_noise2d_tex;           // periodic 64x64 R8 value noise
+uniform sampler2D utex_mother_river;         // periodic 128x128 R8 river height (32 m)
 uniform sampler2D utex_cloud_distribution_tex; // cloud coverage atlas (R8, 1024x1024)
 uniform sampler3D utex_cloud_voronoise_tex;   // experimental voronoise volume (R8, 32^3, periodic)
 uniform sampler3D utex_stbn_scalar;           // 128x128x64 STBN volume

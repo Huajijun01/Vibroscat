@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/water/value_noise.glsl"
+#include "/lib/water/river_texture.glsl"
 
 // Parallax occlusion mapping for the water surface: the normal is
 // evaluated at the parallax-corrected position. The WATER_POM option lives
@@ -55,6 +56,26 @@ float OceanValueNoisePOMHeight(vec2 xz, float time) {
     return h;
 }
 
+// ---- wave-field dispatch ----
+// WATER_RIVER_TEXTURE swaps the fitted value-noise field for the single-
+// texture river basis (river_texture.glsl); POM additionally drops to the
+// two largest-energy layers there (2 fetches per height sample).
+float WaterPOMHeight(vec2 xz, float time) {
+#ifdef WATER_RIVER_TEXTURE
+    return RiverTexturePOMHeight(xz, time);
+#else
+    return OceanValueNoisePOMHeight(xz, time);
+#endif
+}
+
+void WaterSurfaceNormal(vec2 xz, float time, out vec3 normal) {
+#ifdef WATER_RIVER_TEXTURE
+    RiverTextureNormal(xz, time, normal);
+#else
+    OceanValueNoiseNormal(xz, time, normal);
+#endif
+}
+
 // Ray/surface intersection: for a camera above the water (view.y < 0) the
 // visible point satisfies h(xz0 + d*dir) = d (dir = view.xz/view.y toward
 // camera; bumps displace toward camera, troughs away). Scan from the camera
@@ -76,10 +97,10 @@ vec2 OceanPOMOffset(vec2 xz, vec3 view_world, float time) {
     }
     float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(OCEAN_POM_STEPS);
     float depth_prev = OCEAN_POM_MAX_DEPTH;
-    float height_prev = OceanValueNoisePOMHeight(xz + dir * depth_prev, time);
+    float height_prev = WaterPOMHeight(xz + dir * depth_prev, time);
     for (int i = 1; i <= OCEAN_POM_STEPS; ++i) {
         float pom_depth = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
-        float height = OceanValueNoisePOMHeight(xz + dir * pom_depth, time);
+        float height = WaterPOMHeight(xz + dir * pom_depth, time);
         // The ray enters the water when f = h - d crosses from <= 0 to > 0.
         if (height_prev <= depth_prev && height > pom_depth) {
             float height_diff_prev = height_prev - depth_prev;
@@ -111,15 +132,15 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 
     float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(WATER_POM_COARSE_STEPS);
     float depth_a = OCEAN_POM_MAX_DEPTH;
-    float height_a = OceanValueNoisePOMHeight(xz + dir * depth_a, time);
+    float height_a = WaterPOMHeight(xz + dir * depth_a, time);
     for (int i = 1; i <= WATER_POM_COARSE_STEPS; ++i) {
         float depth_b = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
-        float height_b = OceanValueNoisePOMHeight(xz + dir * depth_b, time);
+        float height_b = WaterPOMHeight(xz + dir * depth_b, time);
         if (height_a <= depth_a && height_b > depth_b) {
             // f(depthA) <= 0, f(depthB) > 0: bisection inside the bracket.
             for (int j = 0; j < WATER_POM_BISECT_STEPS; ++j) {
                 float depth_m = 0.5 * (depth_a + depth_b);
-                float height_m = OceanValueNoisePOMHeight(xz + dir * depth_m, time);
+                float height_m = WaterPOMHeight(xz + dir * depth_m, time);
                 if (height_m <= depth_m) {
                     depth_a = depth_m;
                     height_a = height_m;
@@ -142,7 +163,7 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 
 // World-space normal (y up) at the parallax-corrected position (central
 // sample omitted).
-void OceanValueNoisePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
+void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
 #ifdef WATER_POM
 #if POM_BISECTION_ENABLED
     vec2 xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
@@ -152,7 +173,7 @@ void OceanValueNoisePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
 #else
     vec2 xz_offset = xz;
 #endif
-    OceanValueNoiseNormal(xz_offset, time, normal);
+    WaterSurfaceNormal(xz_offset, time, normal);
 }
 
 #endif // LIB_WATER_OCEAN_GLSL

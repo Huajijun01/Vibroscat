@@ -1,6 +1,7 @@
 #ifndef LIB_WATER_RIVER_TEXTURE_GLSL
 #define LIB_WATER_RIVER_TEXTURE_GLSL
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
 // River water height field from ONE periodic R8 height texture
@@ -27,8 +28,9 @@ const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),
                                      vec2(0.70710678, -0.70710678),
                                      vec2(0.0, 1.0));
-// full-range height swing (m): amp_j * (r - 0.5), r = texture R in [0, 1]
-const float RIVER_TEX_AMP[4] = float[](0.88337, 0.42892, 0.14373, 0.00169);
+// full-range height swing (m) at gain 1.0 (master-band-matched):
+// amp_j * WATER_RIVER_GAIN * (r - 0.5), r = texture R in [0, 1]
+const float RIVER_TEX_AMP[4] = float[](0.2394, 0.11624, 0.038951, 0.000458);
 
 // central-difference step (m), same value as the fitted value-noise ocean
 const float RIVER_TEX_DIFF_EPS = 0.1;
@@ -38,7 +40,8 @@ float RiverTextureLayerHeight(vec2 xz, float time, int j) {
     vec2 uv = vec2(dot(RIVER_TEX_ROT[j], xz), -RIVER_TEX_ROT[j].y * xz.x
                    + RIVER_TEX_ROT[j].x * xz.y);
     uv = uv * RIVER_TEX_FREQ[j] - RIVER_TEX_VEL[j] * time;
-    return RIVER_TEX_AMP[j] * (texture(utex_mother_river, uv).r - 0.5);
+    return RIVER_TEX_AMP[j] * WATER_RIVER_GAIN
+         * (texture(utex_mother_river, uv).r - 0.5);
 }
 
 // Full water height: all four layers.

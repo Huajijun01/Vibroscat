@@ -228,6 +228,18 @@ suffix.CLOUD_WIND_SPEED = km/s
 option.CLOUD_WIND_SPEED.comment = How fast clouds drift across the sky.
 option.CLOUD_FINE_WIND_FACTOR = Fine Wind Factor
 option.CLOUD_FINE_WIND_FACTOR.comment = Makes the small details inside a cloud flow faster than the cloud as a whole, so clouds seem to boil and churn instead of just sliding by.
+option.CLOUD_COVERAGE = Coverage
+option.CLOUD_COVERAGE.comment = The weather-map coverage bar: higher = a wider, more connected cloud footprint; lower = scattered clouds and more blue sky. Rain still pushes coverage to full overcast.
+option.CLOUD_DISTRIBUTION_UV_SCALE = Distribution Frequency
+option.CLOUD_DISTRIBUTION_UV_SCALE.comment = Extra sampling frequency on the distribution atlas: higher = smaller, more frequent weather cells inside the same pattern.
+option.CLOUD_FINE_EROSION_SCALE = Voronoise Scale
+option.CLOUD_FINE_EROSION_SCALE.comment = Coordinate scale of the 32^3 voronoise erosion volume per kilometer: higher = smaller, denser detail cells.
+option.CLOUD_FINE_EROSION_STRENGTH = Voronoise Shadow Strength
+option.CLOUD_FINE_EROSION_STRENGTH.comment = Erosion strength used by the sun trace through clouds; scales the volume mean the same way the view path scales its per-point voronoise read.
+option.CLOUD_MS_SAT_ALBEDO = Scatter Saturation
+option.CLOUD_MS_SAT_ALBEDO.comment = Saturation albedo of the multiple-scattering series: higher = brighter, milkier cloud interiors. Values near 1.0 brighten dense interiors very steeply.
+option.CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = Cloud Density
+option.CLOUD_ALPHA_EXTINCTION_SRGB_GRAY.comment = Extinction of a fully dense cloud sample: higher = denser, more opaque clouds with deeper self-shadows.
 option.CLOUD_LIGHT_MAX_DISTANCE_KM = Light Trace Distance
 suffix.CLOUD_LIGHT_MAX_DISTANCE_KM = km
 option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = How far sunlight is traced through a cloud when deciding its self-shadowing: higher = correct lighting deeper inside thick clouds, slower.
@@ -241,8 +253,6 @@ option.CLOUD_MS_CONTRIBUTION = Multi-Scatter Contribution
 option.CLOUD_MS_CONTRIBUTION.comment = Energy multiplier for each extra order of the directional-light scattering series, so it sets how much the sunlit side gains from bounces inside the cloud. Higher = brighter, milkier clouds.
 option.CLOUD_MS_ECCENTRICITY = Multi-Scatter Eccentricity
 option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow concentrates toward the sun's direction: higher = a stronger halo of light spreading through the cloud around the sun.
-option.CLOUD_MS_ALBEDO = Multi-Scatter Albedo
-option.CLOUD_MS_ALBEDO.comment = How much light a cloud particle scatters instead of absorbing. Water clouds barely absorb, so this sits close to 1: lower = greyer, heavier clouds with darker interiors.
 option.CLOUD_MS_ISOTROPIC = Multi-Scatter Isotropic Strength
 option.CLOUD_MS_ISOTROPIC.comment = Strength of the fill light that does not follow the sun or the view direction; it is what keeps shadowed cloud interiors from going black. Higher = brighter, milkier cores.
 option.CLOUD_SKY_LIGHT_STRENGTH = Cloud Sky Light Strength

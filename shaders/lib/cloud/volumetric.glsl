@@ -25,13 +25,6 @@
 // its milky interior. It is this layer's own constant: a length calibrated for
 // 100 km^-1 lands nowhere useful on a medium three decades thinner.
 const float CLOUD_MS_REFERENCE_LENGTH_M = 300.0;
-// This layer's saturation albedo for the series, which the source writes as the
-// leading omega of fms. It is pinned here rather than driven by the
-// CLOUD_MS_ALBEDO control: the series converges to omega / (1 - omega), so a
-// slider reaching 1.0 would swing the isotropic term by orders of magnitude
-// across one march step. CLOUD_MS_ALBEDO still scales the marched radiance
-// linearly at the end of MarchVolumetricClouds.
-const float CLOUD_MS_SAT_ALBEDO = 0.99;
 // Directional octaves: each step widens the phase, weakens its contribution
 // and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
@@ -47,7 +40,7 @@ const float CLOUD_MOON_FADE_HIGH = -0.02;
 const float CLOUD_TWILIGHT_FADE_START = 0.03;
 const float CLOUD_TWILIGHT_FADE_END = 0.08;
 
-const float CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = 50.0;
+
 
 bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float march_end
 ) {
@@ -200,6 +193,9 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return radiance + isotropic_orders / (1.0 + light_optical_depth);
 }
 
+#define CLOUD_COVERAGE 0.6
+#define CLOUD_FINE_EROSION_SCALE 1.0
+#define CLOUD_FINE_EROSION_STRENGTH 0.5
 
 // Eroded density in [0, 1] at one point in the cloud layer.
 float SampleCloudDensity(vec3 atmosphere_position) {
@@ -215,8 +211,8 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
 
     vec2 distribution_uv = CloudDistributionUv(world_km);
-    float distribution = texture(utex_cloud_distribution_tex, distribution_uv * 4.5).r;
-    float coverage = (0.6) * (1.0 - rainStrength) + rainStrength;
+    float distribution = texture(utex_cloud_distribution_tex, distribution_uv).r;
+    float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
     if(distribution_density < 0.001) {
         return 0.0;
@@ -227,8 +223,9 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     if(lq_density < 0.001) {
         return 0.0;
     }
-    float detailed_noise = texture(utex_cloud_voronoise_tex, vec3(world_km, altitude_km)).r;
-    float hq_density = RemapCloudErosion(lq_density, detailed_noise * 0.5);
+    float detailed_noise = texture(utex_cloud_voronoise_tex, vec3(world_km, altitude_km) * CLOUD_FINE_EROSION_SCALE).r;
+    float fine_exposure = smoothstep(0.0, 0.5, height_fraction) * 0.6 + 0.4;
+    float hq_density = RemapCloudErosion(lq_density, detailed_noise * CLOUD_FINE_EROSION_SCALE * fine_exposure);
     return hq_density;
 }
 
@@ -248,8 +245,8 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
 
     vec2 distribution_uv = CloudDistributionUv(world_km);
-    float distribution = texture(utex_cloud_distribution_tex, distribution_uv * 4.5).r;
-    float coverage = (0.6) * (1.0 - rainStrength) + rainStrength;
+    float distribution = texture(utex_cloud_distribution_tex, distribution_uv).r;
+    float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
     float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
     if(distribution_density < 0.001) {
         return 0.0;
@@ -257,7 +254,11 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
     float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
     float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
     float lq_density = distribution_density * bottom_ramp * top_fade;
-    float hq_density = RemapCloudErosion(lq_density, 0.481373506 * 0.5);
+
+    const float fine_average = 0.481373506;
+    float fine_exposure = smoothstep(0.0, 0.5, height_fraction) * 0.6 + 0.4;
+
+    float hq_density = RemapCloudErosion(lq_density, fine_average * CLOUD_FINE_EROSION_STRENGTH * fine_exposure);
     return hq_density;
 }
 
@@ -419,17 +420,14 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 
     hit = surface_weight > 1.0e-5;
     surface_position = surface_position_accumulator / max(surface_weight, 1.0e-5);
-    // The accumulated scattering is scaled by the single-scattering albedo at
-    // the end of the march; the fms series already carries its own copy of it.
     // Packed output: x = in-scatter, y = second light channel, z = remaining
     // view transmittance.
-    float albedo = CLOUD_MS_ALBEDO;
 #ifdef CLOUD_SINGLE_LIGHT
     // The folded trace feeds the directional channel; the channel the separate
     // moon march used to fill stays clear.
-    return vec3(light_radiance * albedo, 0.0, view_transmittance);
+    return vec3(light_radiance, 0.0, view_transmittance);
 #else
-    return vec3(sun_radiance * albedo, moon_radiance * albedo, view_transmittance);
+    return vec3(sun_radiance, moon_radiance, view_transmittance);
 #endif
 }
 

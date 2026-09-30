@@ -6,34 +6,42 @@
 
 // River water height field from ONE periodic R8 height texture
 // (utex_mother_river, 128x128, 32 m period, 4-16 m Phillips anchor band
-// baked offline -- research/PhillipsOceanBasis).  Four layers sample the
-// SAME texels at frequency steps x4 in four rotated frames.
+// baked offline -- research/PhillipsOceanBasis).  Four fetches sample the
+// SAME texels in four rotated/scaled frames:
+//   layer 0  anchor band  4-16 m, drifts at 1 m/s along 20 deg
+//   layer 1  detail band  1-4 m,   1 m/s along 65 deg
+//   layer 2  detail band 0.25-1 m, 1 m/s along -25 deg
+//   layer 3  the anchor band's 60 deg crossing copy (same freq/speed as
+//            layer 0, half its amplitude): gives the large swell a
+//            crossing motion; the former finest layer (0.06-0.25 m,
+//            ~9 mm swing) was dropped as invisible.
+// Layer amplitudes follow the baked spectrum exactly; WATER_RIVER_GAIN
+// scales them all.
 //
-// Motion model: every layer translates at RIVER_TEX_SPEED (1 m/s) along its
-// own direction, so the surface drifts like a river while the crossing
-// directions keep the interference alive.  Layer amplitudes follow the
-// baked spectrum exactly (no reshaping); WATER_RIVER_GAIN scales them.
-//
-// POM chases only the two largest-energy layers (0, 1): 2 fetches per
-// height sample instead of 4; the shading normal uses all four layers.
+// POM chases the two largest-energy layers (0, 3): 2 fetches per height
+// sample instead of 4; the shading normal uses all four layers.
 
 const float RIVER_TEX_SPEED = 1.0;   // m/s, shared by every layer
 
-// freq_j = R^j / 32 m; world velocity = SPEED along dir_j, pre-folded with
-// freq and the layer rotation into tile-space advection constants.
-const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 2.0);
+// freq_j = R^j / 32 m (layer 3 reuses the anchor freq); world velocity =
+// SPEED along the layer direction, pre-folded with freq and rotation into
+// tile-space advection constants.
+const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 0.03125);
 const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.029365, 0.010688),
                                      vec2(0.117461, 0.042753),
                                      vec2(0.171010, 0.469846),
-                                     vec2(1.879382, 0.684040));
+                                     vec2(0.029365, 0.010688));
 // per-layer sampling-frame rotation (cos, sin) of the world XZ vector
 const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),
                                      vec2(0.70710678, -0.70710678),
-                                     vec2(0.0, 1.0));
+                                     vec2(0.5, 0.8660254));
 // full-range height swing (m): amp_j * WATER_RIVER_GAIN * (r - 0.5),
-// r = texture R in [0, 1].  Spectrum-exact falloff (no reshaping).
-const float RIVER_TEX_AMP[4] = float[](0.51026, 0.20714, 0.07451, 0.00912);
+// r = texture R in [0, 1].  Spectrum-exact falloff for the detail ladder.
+const float RIVER_TEX_AMP[4] = float[](0.51026, 0.20714, 0.07451, 0.38270);
+
+// POM chases these two layers (the largest-energy pair: anchor + crossing)
+const int RIVER_TEX_POM_LAYERS[2] = int[](0, 3);
 
 // central-difference step (m), same value as the fitted value-noise ocean
 const float RIVER_TEX_DIFF_EPS = 0.1;
@@ -60,7 +68,7 @@ float RiverTextureHeight(vec2 xz, float time) {
 float RiverTexturePOMHeight(vec2 xz, float time) {
     float h = 0.0;
     for (int j = 0; j < 2; ++j) {
-        h += RiverTextureLayerHeight(xz, time, j);
+        h += RiverTextureLayerHeight(xz, time, RIVER_TEX_POM_LAYERS[j]);
     }
     return h;
 }

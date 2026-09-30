@@ -209,6 +209,8 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return radiance + isotropic_orders / (1.0 + light_optical_depth);
 }
 
+#define TEST_MARC 1
+
 // Eroded density in [0, 1] at one point in the cloud layer.
 float SampleCloudDensity(vec3 atmosphere_position) {
     float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
@@ -221,6 +223,25 @@ float SampleCloudDensity(vec3 atmosphere_position) {
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
+
+#if TEST_MARC
+    vec2 distribution_uv = CloudDistributionUv(world_km);
+    float distribution = texture(utex_cloud_distribution_tex, distribution_uv * 4.5).r;
+    float coverage = (0.6) * (1.0 - rainStrength) + rainStrength;
+    float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
+    if(distribution_density < 0.001) {
+        return 0.0;
+    }
+    float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
+    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
+    float lq_density = distribution_density * bottom_ramp * top_fade;
+    if(lq_density < 0.001) {
+        return 0.0;
+    }
+    float detailed_noise = texture(utex_cloud_voronoise_tex, vec3(world_km, altitude_km)).r;
+    float hq_density = RemapCloudErosion(lq_density, detailed_noise * 0.5);
+    return hq_density;
+#else
     vec2 distribution_uv = CloudDistributionUv(world_km);
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
@@ -263,6 +284,7 @@ float SampleCloudDensity(vec3 atmosphere_position) {
         * fine_height_weight
         * fine_surface_weight;
     return Saturate(1.35 * RemapCloudErosion(broad_density, fine_threshold));
+#endif
 }
 
 // Low-quality density for the light-transport trace: the same field with the
@@ -280,6 +302,21 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
 
     vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
+
+#if TEST_MARC
+    vec2 distribution_uv = CloudDistributionUv(world_km);
+    float distribution = texture(utex_cloud_distribution_tex, distribution_uv * 4.5).r;
+    float coverage = (0.6) * (1.0 - rainStrength) + rainStrength;
+    float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
+    if(distribution_density < 0.001) {
+        return 0.0;
+    }
+    float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
+    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
+    float lq_density = distribution_density * bottom_ramp * top_fade;
+    float hq_density = RemapCloudErosion(lq_density, 0.481373506 * 0.5);
+    return hq_density;
+#else
     vec2 distribution_uv = CloudDistributionUv(world_km);
     float distribution = texture(utex_cloud_distribution_tex, distribution_uv * CLOUD_DISTRIBUTION_UV_SCALE).r;
     // Rain pushes coverage toward full overcast.
@@ -315,6 +352,7 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
         * fine_height_weight
         * fine_surface_weight;
     return Saturate(1.35 * RemapCloudErosion(broad_density, fine_threshold));
+#endif
 }
 
 // Optical depth toward the light, starting past a configurable near segment.

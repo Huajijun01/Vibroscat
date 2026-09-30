@@ -5,37 +5,35 @@
 #include "/lib/contract/uniforms.glsl"
 
 // River water height field from ONE periodic R8 height texture
-// (utex_mother_river, 128x128, 32 m period). The texels are an offline
-// Phillips-spectrum basis bake (research/PhillipsOceanBasis): four layers
-// sample the SAME texels at frequency steps x4, each with its own rotation
-// and deep-water advection velocity (world frame, precomputed into the
-// constants). Layer amplitudes use a flattened falloff (exponent 0.5) and a
-// river gain so the crossing trains stay visible; the 0-1 texture channel is
-// remapped to +/- half its metre range per layer.
-// POM chases only the two largest-energy layers (0, 1): 2 fetches per height
-// sample instead of 4; the shading normal still uses all four layers.
+// (utex_mother_river, 128x128, 32 m period, 4-16 m Phillips anchor band
+// baked offline -- research/PhillipsOceanBasis).  Four layers sample the
+// SAME texels at frequency steps x4 in four rotated frames.
+//
+// Motion model: every layer translates at RIVER_TEX_SPEED (1 m/s) along its
+// own direction, so the surface drifts like a river while the crossing
+// directions keep the interference alive.  Layer amplitudes follow the
+// baked spectrum exactly (no reshaping); WATER_RIVER_GAIN scales them.
+//
+// POM chases only the two largest-energy layers (0, 1): 2 fetches per
+// height sample instead of 4; the shading normal uses all four layers.
 
-// freq_j = R^j / 32 m; velocities already include freq and the layer
-// advection model (river): world velocity = flow (0.5 m/s @ 20 deg)
-// + RIVER_TEX_DISPERSION_BLEND * phase speed along each layer's own
-// direction. Full deep-water dispersion at 4-16 m wavelengths would
-// force 2.5-5 m/s translation; the blend trades that for the slow
-// river look (set 1.0 to restore strict dispersion).
-#define RIVER_TEX_DISPERSION_BLEND 0.25
+const float RIVER_TEX_SPEED = 1.0;   // m/s, shared by every layer
+
+// freq_j = R^j / 32 m; world velocity = SPEED along dir_j, pre-folded with
+// freq and the layer rotation into tile-space advection constants.
 const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 2.0);
-const vec2 RIVER_TEX_FLOW = vec2(0.46985, 0.17101);  // river current (m/s)
-const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.040598, 0.014776),
-                                     vec2(0.108621, -0.007496),
-                                     vec2(0.209021, 0.264199),
-                                     vec2(0.548753, -0.864448));
+const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.029365, 0.010688),
+                                     vec2(0.117461, 0.042753),
+                                     vec2(0.171010, 0.469846),
+                                     vec2(1.879382, 0.684040));
 // per-layer sampling-frame rotation (cos, sin) of the world XZ vector
 const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),
                                      vec2(0.70710678, -0.70710678),
                                      vec2(0.0, 1.0));
-// full-range height swing (m) at gain 1.0 (master-band-matched):
-// amp_j * WATER_RIVER_GAIN * (r - 0.5), r = texture R in [0, 1]
-const float RIVER_TEX_AMP[4] = float[](0.51026, 0.31351, 0.17070, 0.03161);
+// full-range height swing (m): amp_j * WATER_RIVER_GAIN * (r - 0.5),
+// r = texture R in [0, 1].  Spectrum-exact falloff (no reshaping).
+const float RIVER_TEX_AMP[4] = float[](0.51026, 0.20714, 0.07451, 0.00912);
 
 // central-difference step (m), same value as the fitted value-noise ocean
 const float RIVER_TEX_DIFF_EPS = 0.1;

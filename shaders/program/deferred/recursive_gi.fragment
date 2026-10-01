@@ -104,14 +104,16 @@ vec3 GIRotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
 // Slice-relative CDF of the cosine-weighted distribution for the active
 // slice: the isPhiLargerThanAngN = true arm of the reference's
 // SliceRelCDF_Cos. Endpoint inputs pass through unchanged, as in the
-// reference.
-float GISliceRelativeCDF(float x, float angle_normal, float cos_normal) {
+// reference. sin_normal and the reciprocal denominator are per-pixel
+// constants hoisted by the caller: this CDF runs twice per march step and
+// recomputing both here cost 64 redundant sin per pixel at 16 steps.
+float GISliceRelativeCDF(float x, float angle_normal, float cos_normal,
+        float sin_normal, float cdf_inv_denominator) {
     if (x <= 0.0 || x >= 1.0) return x;
     float phi = x * PI - PI * 0.5;
     float numerator = 3.0 * cos_normal - cos(angle_normal - 2.0 * phi)
-        + (4.0 * angle_normal - 2.0 * phi + PI) * sin(angle_normal);
-    float denominator = 4.0 * (cos_normal + angle_normal * sin(angle_normal));
-    return numerator / denominator;
+        + (4.0 * angle_normal - 2.0 * phi + PI) * sin_normal;
+    return numerator * cdf_inv_denominator;
 }
 
 // Quantize the remapped arc into 32 sectors and mask the covered span
@@ -175,14 +177,18 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     float cos_normal = clamp(dot(projected_normal, view_direction), 0.0, 1.0);
     float angle_normal = (dot(view_direction, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
     float sin_normal = sin(angle_normal);
+    // The slice CDF denominator is a per-pixel constant: hoist it and its
+    // reciprocal so the per-step CDF calls neither recompute sin(angle_normal)
+    // nor redivide.
+    float cdf_denominator = cos_normal + angle_normal * sin_normal;
     // Share of the cosine-weighted slice the march cannot use, and the
     // [w0, 1] remap of the slice-relative CDF (reference w0_remap_*).
-    float w0 = clamp((sin_normal / (cos_normal + angle_normal * sin_normal))
-        * (PI * 0.25) + 0.5, 0.0, 1.0);
+    float w0 = clamp((sin_normal / cdf_denominator) * (PI * 0.25) + 0.5, 0.0, 1.0);
     // A horizon-edge-on normal leaves the whole slice below the surface
     // horizon (w0 == 1): no usable cosine mass, so no hit can occlude SH and
     // the [w0, 1] remap would divide by zero.
     if (w0 >= 1.0) { coverage = 0.0; return vec3(0.0); }
+    float cdf_inv_denominator = 0.25 / cdf_denominator;
     float remap_mul = 1.0 / (1.0 - w0);
     float remap_add = -w0 * remap_mul;
 
@@ -210,15 +216,19 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         // i.e. SSGI_THICKNESS farther along the camera-to-sample ray (equal
         // to the reference's normalize(samplePosVS) * Thickness arm).
         vec3 delta_back = delta_front + normalize(sample_view) * SSGI_THICKNESS;
-        float front_cos = dot(delta_front, view_direction) * inversesqrt(max(dot(delta_front, delta_front), 1.0e-6));
+        float front_dd = max(dot(delta_front, delta_front), 1.0e-6);
+        float front_inv_len = inversesqrt(front_dd);
+        float front_cos = dot(delta_front, view_direction) * front_inv_len;
+        float front_len = front_dd * front_inv_len;
         float back_cos = dot(delta_back, view_direction) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
         // Reference hor01 pipeline: shift the horizon angles from V to N,
         // evaluate the slice-relative cosine CDF, keep only the [w0, 1]
         // share, then jitter both arc ends by one sector.
         vec2 horizontal01 = clamp((horizontal + angle_normal) / PI + 0.5, vec2(0.0), vec2(1.0));
-        horizontal01 = vec2(GISliceRelativeCDF(horizontal01.x, angle_normal, cos_normal),
-            GISliceRelativeCDF(horizontal01.y, angle_normal, cos_normal));
+        horizontal01 = vec2(
+            GISliceRelativeCDF(horizontal01.x, angle_normal, cos_normal, sin_normal, cdf_inv_denominator),
+            GISliceRelativeCDF(horizontal01.y, angle_normal, cos_normal, sin_normal, cdf_inv_denominator));
         horizontal01 = horizontal01 * remap_mul + vec2(remap_add);
         horizontal01 = clamp(horizontal01 + vec2(stbn_noise.z * (1.0 / 32.0)), vec2(0.0), vec2(1.0));
         uint sample_mask = GIVisibilityMaskFromRange(horizontal01);
@@ -232,7 +242,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
             hit_coverage += visible_weight;
 #ifdef GI_REBLUR_ACTIVE
             // Count geometric hits even when their radiance is black or off screen.
-            hit_distance_sum += GIReblurHitDistance(length(delta_front), -origin_view_position.z)
+            hit_distance_sum += GIReblurHitDistance(front_len, -origin_view_position.z)
                 * visible_weight;
 #endif
             vec2 previous_uv = ToPrevious(vec3(sample_uv, sample_depth)).xy;

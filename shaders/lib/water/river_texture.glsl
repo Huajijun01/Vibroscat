@@ -24,22 +24,24 @@
 // Advection: speeds follow the deep-water dispersion RATIO (sqrt of
 // wavelength - long outruns short, groups evolve) scaled into the
 // river-plausible band: 3.0 / 1.5 / 0.75 / 3.0 m/s per layer.
-const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 0.03125);
-const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.088096, 0.032063),
-                                     vec2(0.176175, 0.064075),
-                                     vec2(0.128243, 0.352723),
-                                     vec2(0.088096, 0.032066));
+// Frequency ratios are deliberately INCOMMENSURATE (not exact x4): exact
+// harmonic locking makes the layers' crests coincide at a fixed point grid
+// (a standing dot/honeycomb lattice).  World speeds keep the sqrt-lambda
+// dispersion ratio at 3.0 / 1.5 / 0.75 / 3.0 m/s along 20/65/-25/80 deg.
+const float RIVER_TEX_FREQ[3] = float[](0.03125, 0.12875, 0.5224);
+const vec2 RIVER_TEX_VEL[3] = vec2[](vec2(0.088097, 0.032066),
+                                     vec2(0.181468, 0.066053),
+                                     vec2(0.134023, 0.368530));
 // per-layer sampling-frame rotation (cos, sin) of the world XZ vector
-const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
+const vec2 RIVER_TEX_ROT[3] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),
-                                     vec2(0.70710678, -0.70710678),
-                                     vec2(0.5, 0.8660254));
+                                     vec2(0.70710678, -0.70710678));
 // full-range height swing (m): amp_j * WATER_RIVER_GAIN * (r - 0.5),
 // r = texture R in [0, 1].  Spectrum-exact falloff for the detail ladder.
-const float RIVER_TEX_AMP[4] = float[](0.58502, 0.14598, 0.03229, 0.43876);
+const float RIVER_TEX_AMP[3] = float[](0.58502, 0.14598, 0.03229);
 
-// POM chases these two layers (the largest-energy pair: anchor + crossing)
-const int RIVER_TEX_POM_LAYERS[2] = int[](0, 3);
+// POM chases these two layers (the largest-energy pair)
+const int RIVER_TEX_POM_LAYERS[2] = int[](0, 1);
 
 // central-difference step (m), same value as the fitted value-noise ocean
 const float RIVER_TEX_DIFF_EPS = 0.1;
@@ -56,7 +58,7 @@ float RiverTextureLayerHeight(vec2 xz, float time, int j) {
 // Full water height: all four layers.
 float RiverTextureHeight(vec2 xz, float time) {
     float h = 0.0;
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < 3; ++j) {
         h += RiverTextureLayerHeight(xz, time, j);
     }
     return h;

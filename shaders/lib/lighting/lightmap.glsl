@@ -1,6 +1,8 @@
 #ifndef LIB_LIGHTING_LIGHTMAP_GLSL
 #define LIB_LIGHTING_LIGHTMAP_GLSL
 
+#include "/lib/core/math_scalar.glsl"
+
 // Vanilla lightmap (blockLight, skyLight) in 0..1 -> lighting weights, shared
 // by deferred shading (colortex4.zw) and the forward translucent passes
 // (v_texcoord.zw).
@@ -19,7 +21,7 @@ float BlockLightFromLm(float lm_block) {
 
 // Sky light: quadratic falloff - outdoor areas ramp quickly with sky access.
 float SkyLightFromLm(float lm_sky) {
-    return lm_sky * lm_sky;
+    return FastAdjust(lm_sky, -0.95);
 }
 
 #endif // LIB_LIGHTING_LIGHTMAP_GLSL

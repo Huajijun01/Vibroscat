@@ -1,6 +1,1 @@
-{
-  "texture": {
-    "blur": true,
-    "clamp": false
-  }
-}
+{"animation": {"frametime": 2}}

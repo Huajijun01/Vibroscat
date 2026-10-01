@@ -221,7 +221,7 @@ float SampleCloudDensity(vec3 atmosphere_position) {
     }
     float detailed_noise = texture(utex_cloud_voronoise_tex, vec3(world_km, altitude_km) * CLOUD_FINE_EROSION_SCALE).r;
     float fine_exposure = smoothstep(0.0, 0.5, height_fraction) * 0.6 + 0.4;
-    float hq_density = RemapCloudErosion(lq_density, detailed_noise * CLOUD_FINE_EROSION_SCALE * fine_exposure);
+    float hq_density = RemapCloudErosion(lq_density, detailed_noise * CLOUD_FINE_EROSION_STRENGTH * fine_exposure);
     return hq_density;
 }
 

@@ -21,16 +21,14 @@
 // POM chases the two largest-energy layers (0, 3): 2 fetches per height
 // sample instead of 4; the shading normal uses all four layers.
 
-const float RIVER_TEX_SPEED = 1.0;   // m/s, shared by every layer
-
-// freq_j = R^j / 32 m (layer 3 reuses the anchor freq); world velocity =
-// SPEED along the layer direction, pre-folded with freq and rotation into
-// tile-space advection constants.
+// Advection: speeds follow the deep-water dispersion RATIO (sqrt of
+// wavelength - long outruns short, groups evolve) scaled into the
+// river-plausible band: 2.0 / 1.0 / 0.5 / 2.0 m/s per layer.
 const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 0.03125);
-const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.029365, 0.010688),
+const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.058731, 0.021375),
                                      vec2(0.117461, 0.042753),
-                                     vec2(0.171010, 0.469846),
-                                     vec2(0.029365, 0.010688));
+                                     vec2(0.085506, 0.235047),
+                                     vec2(0.058723, 0.021376));
 // per-layer sampling-frame rotation (cos, sin) of the world XZ vector
 const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),

@@ -97,7 +97,21 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
         float sample_cos = dot(view_axis, offset / offset_len) * (1.0 - fade) - fade;
         horizon_cos = max(horizon_cos, sample_cos);
     }
-    return acos(clamp(horizon_cos, -1.0, 1.0));
+    return FastAcos(horizon_cos);
+}
+
+// Rational arctangent for the per-slice normal angle: minimax cubic on the
+// [-1, 1] fold, pure ALU (max error ~5e-3 rad; the AO integral is
+// insensitive at that scale). The builtin atan is a library expansion on
+// every current GPU family.
+float GTAOAtan2(float y, float x) {
+    float ax = abs(x);
+    float ay = abs(y);
+    float z = ax >= ay ? ay / ax : ax / ay;
+    float t = (0.97239411 - 0.19194795 * z * z) * z;
+    if (ax < ay) t = PI * 0.5 - t;
+    if (x < 0.0) t = PI - t;
+    return y < 0.0 ? -t : t;
 }
 
 // Screen-space GTAO at one pixel (full-res UV and texel). stbn_noise is the
@@ -131,7 +145,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     for (int s = 0; s < GTAO_SLICES; ++s) {
         float slice_angle = slice_angle_base
             + PI * float(s) / float(GTAO_SLICES);
-        vec3 tangent = slice_t * cos(slice_angle) + slice_b * sin(slice_angle);
+        vec3 tangent = slice_t * FastCos(slice_angle) + slice_b * FastSin(slice_angle);
         vec3 binormal = normalize(cross(view_axis, tangent));
         tangent = normalize(cross(binormal, view_axis));
 
@@ -140,7 +154,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         if (abs(ndott) + abs(ndotv) < 1.0e-4) {
             continue;  // slice perpendicular to the normal_view: zero contribution
         }
-        float theta_n = atan(ndott, ndotv);
+        float theta_n = GTAOAtan2(ndott, ndotv);
 
         vec2 screen_dir;
         float radius_px;
@@ -156,7 +170,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         float theta_lo = max(h_neg, theta_n - PI * 0.5);
         float theta_hi = min(h_pos, theta_n + PI * 0.5);
         if (theta_hi > theta_lo) {
-            visibility += sin(theta_hi - theta_n) - sin(theta_lo - theta_n);
+            visibility += FastSin(theta_hi - theta_n) - FastSin(theta_lo - theta_n);
         }
     }
     return clamp(visibility / (2.0 * float(GTAO_SLICES)), 0.0, 1.0);

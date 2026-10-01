@@ -23,12 +23,12 @@
 
 // Advection: speeds follow the deep-water dispersion RATIO (sqrt of
 // wavelength - long outruns short, groups evolve) scaled into the
-// river-plausible band: 2.0 / 1.0 / 0.5 / 2.0 m/s per layer.
+// river-plausible band: 3.0 / 1.5 / 0.75 / 3.0 m/s per layer.
 const float RIVER_TEX_FREQ[4] = float[](0.03125, 0.125, 0.5, 0.03125);
-const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.058731, 0.021375),
-                                     vec2(0.117461, 0.042753),
-                                     vec2(0.085506, 0.235047),
-                                     vec2(0.058723, 0.021376));
+const vec2 RIVER_TEX_VEL[4] = vec2[](vec2(0.088096, 0.032063),
+                                     vec2(0.176175, 0.064075),
+                                     vec2(0.128243, 0.352723),
+                                     vec2(0.088096, 0.032066));
 // per-layer sampling-frame rotation (cos, sin) of the world XZ vector
 const vec2 RIVER_TEX_ROT[4] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, 0.70710678),

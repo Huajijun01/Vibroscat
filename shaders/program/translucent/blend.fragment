@@ -19,21 +19,25 @@ layout(location = 0) out vec3 main_color;
 
 // World-space caustics: light enters the actual surface plane along the
 // light dir (not assumed vertical); pattern sampled at the entry crossing
-// (z = animation time). 256x256x64 volume baked from the in-game value-noise
-// surface, 8 m tile / 2 s loop
-// (baked offline).
+// (z = animation time). 256x256x256 volume baked from the current river
+// height texture and its three runtime layers at WATER_RIVER_GAIN = 1.5.
+// Height and central-difference normals are evaluated on a 2048^2 source
+// grid per frame (super-resolution: the 512^2 bake's bilinear source error
+// measured above photon noise; see the convergence study), then traced with
+// 65536 photons/pixel. Spatial feather and a C2 time loop join source fields
+// before photon tracing. The 8 m tile / 2 s loop remains a periodic
+// approximation of the river layers.
 #define CAUSTIC_WORLD_SCALE 8.0
 #define CAUSTIC_TIME_SPEED 0.5
-#define CAUSTIC_REFERENCE vec4(0.14314292, 0.04990238, 0.04457350, 0.07125610) // per depth layer, from bake
-#define CAUSTIC_TONE_A vec4(6.722147, 18.361074, 20.769127, 13.544966) // per depth layer (1/4/9/16 m), from bake
+#define CAUSTIC_REFERENCE vec4(0.20840406, 0.02543099, 0.02728868, 0.04150889) // per depth layer, from bake
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
 // Fixed bake reference plane; underwater eyeBrightnessSmooth cannot
 // reconstruct the surface precisely enough for sampling.
 #define CAUSTIC_PLANE_Y 64.0
 
-// Cubic B-spline via 4 bilinear taps (2/axis), exact lerp split pairs;
-// z/time axis keeps hardware linear. RGBA8 = 1/4/9/16 m layers per channel.
+// Four spatial B-spline taps; hardware filtering blends adjacent time slices
+// before decoding sqrt intensity. RGBA = 1/4/9/16 m.
 vec4 CausticSampleBspline(vec2 uv, float time) {
     vec2 size = vec2(256.0);
     vec2 p = uv * size - 0.5;
@@ -55,19 +59,14 @@ vec4 CausticSampleBspline(vec2 uv, float time) {
 
     vec2 uv_a = a_pos * texel;
     vec2 uv_b = b_pos * texel;
-    return c_a.x * c_a.y * texture(utex_caustics, vec3(uv_a, time))
-         + c_b.x * c_a.y * texture(utex_caustics, vec3(uv_b.x, uv_a.y, time))
-         + c_a.x * c_b.y * texture(utex_caustics, vec3(uv_a.x, uv_b.y, time))
-         + c_b.x * c_b.y * texture(utex_caustics, vec3(uv_b, time));
-}
-
-// Decode each layer by its own inverse tone map (CAUSTIC_TONE_A), then blend
-// the bracketing layers by path (decode before mix: layers keep their
-// contrast).
-vec4 CausticUnmap(vec4 y) {
-    // Numerically stable inverse of y = (1-exp(-a*x))/(1-exp(-a)):
-    // x = -log(1 - y + y*exp(-a)) / a; per-channel a.
-    return -log(1.0 - y + y * exp(-CAUSTIC_TONE_A)) / CAUSTIC_TONE_A;
+    float frame_count = float(textureSize(utex_caustics, 0).z);
+    // Frame k was baked at k * dt; its texel center is (k + 0.5) / frame_count.
+    float time_z = time + 0.5 / frame_count;
+    vec4 encoded = c_a.x * c_a.y * texture(utex_caustics, vec3(uv_a, time_z))
+                 + c_b.x * c_a.y * texture(utex_caustics, vec3(uv_b.x, uv_a.y, time_z))
+                 + c_a.x * c_b.y * texture(utex_caustics, vec3(uv_a.x, uv_b.y, time_z))
+                 + c_b.x * c_b.y * texture(utex_caustics, vec3(uv_b, time_z));
+    return encoded * encoded;
 }
 
 float CausticDepthBlend(vec4 lin, float path) {
@@ -95,9 +94,9 @@ vec3 CausticLightContribution(vec3 caustic_world_pos, vec3 caustic_brdf, vec3 tr
     // Refraction bends the path toward vertical: path = vertical drop * path
     // per metre of drop.
     float caustic_path = max(caustic_surface_y - caustic_world_pos.y, 0.0) * path_per_metre;
-    // Unmap -> normalize by reference -> blend bracketing 1/4/9/16 m layers
+    // Decode -> normalize by reference -> blend bracketing 1/4/9/16 m layers
     // by path length.
-    vec4 caustic_rel = CausticUnmap(CausticSampleBspline(caustic_uv, caustic_time)) / CAUSTIC_REFERENCE;
+    vec4 caustic_rel = CausticSampleBspline(caustic_uv, caustic_time) / CAUSTIC_REFERENCE;
     float caustic_mixed = CausticDepthBlend(caustic_rel, caustic_path);
     float caustic_delta = (caustic_mixed - 1.0) * CAUSTIC_GAIN;
 

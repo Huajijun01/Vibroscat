@@ -20,7 +20,6 @@
 #include "/lib/shadow/filter.glsl"
 #include "/lib/water/fog.glsl"
 #include "/lib/water/ocean.glsl"
-#include "/lib/water/value_noise.glsl"
 
 flat in int v_id;
 flat in int v_glass;
@@ -85,8 +84,8 @@ void main() {
     if(v_id == 1) {
         geo_n_world = normalize(mat3(gbufferModelViewInverse) * v_normal);
 #if WATER_NORMAL_ENABLED
-        // Water surface field (ocean.glsl: river texture or fitted
-        // value noise); normal at the
+        // Water surface field (ocean.glsl: river texture basis);
+        // normal at the
         // parallax-corrected position, shared by lighting, reflections,
         // and refraction. Horizontal faces keep the POM path over world XZ;
         // vertical faces re-parameterize the same wave field on the face
@@ -99,7 +98,7 @@ void main() {
 #ifdef HAS_AT_TANGENT
             vec3 face_pos = v_world_pos + cameraPosition;
             vec3 ts_n;
-            WaterSurfaceNormal(vec2(dot(face_pos, v_world_tangent), dot(face_pos, v_world_bitangent)),
+            RiverTextureNormal(vec2(dot(face_pos, v_world_tangent), dot(face_pos, v_world_bitangent)),
                 frameTimeCounter, ts_n);
             world_n = normalize(mat3(v_world_tangent, geo_n_world, v_world_bitangent) * ts_n);
 #else

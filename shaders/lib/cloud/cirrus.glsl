@@ -2,7 +2,7 @@
 #define LIB_CLOUD_CIRRUS_GLSL
 
 // Cirrus layer.
-// Shape: periodic 64x64 R8 value noise (utex_noise2d_tex), domain-warped and
+// Shape: offline-baked 64x64 value noise (source texture removed from
 // scrolled; sampled once at the shell crossing.
 // Light: thin-shell single sample; scalar scattering/extinction, triple-lobe
 // (forward silver lining + backward) HG phase, the isotropic multiple
@@ -90,7 +90,6 @@ float CirrusCoverageDensity(vec3 ps) {
     // pos = mod(pos * vec2(1.0, 2.2) + vec2(0.08, 0.8) * wind, NOISE2D_SIZE);
 
     // for (int i = 1; i < 6; ++i) {
-    //     float add = texture(utex_noise2d_tex, fract((pos + noise * float(i) + 0.5) / NOISE2D_SIZE)).r * p;
     //     noise += add;
     //     p *= 0.5;
     //     pos = mod(pos * vec2(3.0, 2.0) + vec2(wind * float(i), 0.0) + vec2(0.0, add), NOISE2D_SIZE);

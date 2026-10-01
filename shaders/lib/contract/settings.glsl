@@ -267,11 +267,6 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // position) to save cost.
 #define WATER_POM
 
-// River texture water (river_texture.glsl): the wave field becomes a single
-// periodic R8 height texture (utex_mother_river, 32 m period) sampled by a
-// 4-layer rotated/scaled basis; POM chases only the two largest-energy
-// layers (2 fetches per height sample). Undefined = fitted value-noise ocean.
-#define WATER_RIVER_TEXTURE
 
 // River texture height gain: scales all four layer amplitudes.
 // 1.0 (default) matches the master band energies (sigma ~4.4 cm).

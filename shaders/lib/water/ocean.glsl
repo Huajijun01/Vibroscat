@@ -3,7 +3,6 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/water/value_noise.glsl"
 #include "/lib/water/river_texture.glsl"
 
 // Parallax occlusion mapping for the water surface: the normal is
@@ -35,46 +34,14 @@ vec3 SoftClampWaterNormal(vec3 normal, vec3 to_camera) {
 }
 
 // ---- parallax occlusion mapping ----
-// Bounded height chase on the 4 largest-amplitude waves (cheap bilinear
-// fetch); the final normal uses the full 8-layer field. Linear crossing by
-// default; POM_BISECTION_ENABLED refines with bisection.
-const int OCEAN_POM_LAYERS = 4;
-const int OCEAN_POM_WAVES[OCEAN_POM_LAYERS] = int[](1, 0, 3, 2);
+// Bounded height chase on the two largest-energy layers of the river
+// texture (2 fetches per height sample); the final normal uses the full
+// four-layer field. Linear crossing by default; POM_BISECTION_ENABLED
+// refines with bisection.
 const int OCEAN_POM_STEPS = 8;
-const float OCEAN_POM_MAX_DEPTH = 0.6;  // m, >= max fitted crest (0.433)
+const float OCEAN_POM_MAX_DEPTH = 0.6;  // m, >= max crest of the field
 const float OCEAN_POM_MAX_OFFSET = 2.0; // m, clamp grazing offsets
 const float OCEAN_POM_MIN_SHIFT = 0.05; // m, skip invisible shifts
-
-float OceanValueNoisePOMHeight(vec2 xz, float time) {
-    float h = 0.0;
-    for (int i = 0; i < OCEAN_POM_LAYERS; ++i) {
-        OceanWave w = OCEAN_WAVES[OCEAN_POM_WAVES[i]];
-        vec2 r = vec2(dot(w.uv.xy, xz), dot(w.uv.zw, xz));
-        r.x += w.omega * time;
-        h += w.amplitude * (OceanWaveNoiseFast(r) - 0.5);
-    }
-    return h;
-}
-
-// ---- wave-field dispatch ----
-// WATER_RIVER_TEXTURE swaps the fitted value-noise field for the single-
-// texture river basis (river_texture.glsl); POM additionally drops to the
-// two largest-energy layers there (2 fetches per height sample).
-float WaterPOMHeight(vec2 xz, float time) {
-#ifdef WATER_RIVER_TEXTURE
-    return RiverTexturePOMHeight(xz, time);
-#else
-    return OceanValueNoisePOMHeight(xz, time);
-#endif
-}
-
-void WaterSurfaceNormal(vec2 xz, float time, out vec3 normal) {
-#ifdef WATER_RIVER_TEXTURE
-    RiverTextureNormal(xz, time, normal);
-#else
-    OceanValueNoiseNormal(xz, time, normal);
-#endif
-}
 
 // Ray/surface intersection: for a camera above the water (view.y < 0) the
 // visible point satisfies h(xz0 + d*dir) = d (dir = view.xz/view.y toward
@@ -97,10 +64,10 @@ vec2 OceanPOMOffset(vec2 xz, vec3 view_world, float time) {
     }
     float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(OCEAN_POM_STEPS);
     float depth_prev = OCEAN_POM_MAX_DEPTH;
-    float height_prev = WaterPOMHeight(xz + dir * depth_prev, time);
+    float height_prev = RiverTexturePOMHeight(xz + dir * depth_prev, time);
     for (int i = 1; i <= OCEAN_POM_STEPS; ++i) {
         float pom_depth = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
-        float height = WaterPOMHeight(xz + dir * pom_depth, time);
+        float height = RiverTexturePOMHeight(xz + dir * pom_depth, time);
         // The ray enters the water when f = h - d crosses from <= 0 to > 0.
         if (height_prev <= depth_prev && height > pom_depth) {
             float height_diff_prev = height_prev - depth_prev;
@@ -132,15 +99,15 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 
     float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(WATER_POM_COARSE_STEPS);
     float depth_a = OCEAN_POM_MAX_DEPTH;
-    float height_a = WaterPOMHeight(xz + dir * depth_a, time);
+    float height_a = RiverTexturePOMHeight(xz + dir * depth_a, time);
     for (int i = 1; i <= WATER_POM_COARSE_STEPS; ++i) {
         float depth_b = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
-        float height_b = WaterPOMHeight(xz + dir * depth_b, time);
+        float height_b = RiverTexturePOMHeight(xz + dir * depth_b, time);
         if (height_a <= depth_a && height_b > depth_b) {
             // f(depthA) <= 0, f(depthB) > 0: bisection inside the bracket.
             for (int j = 0; j < WATER_POM_BISECT_STEPS; ++j) {
                 float depth_m = 0.5 * (depth_a + depth_b);
-                float height_m = WaterPOMHeight(xz + dir * depth_m, time);
+                float height_m = RiverTexturePOMHeight(xz + dir * depth_m, time);
                 if (height_m <= depth_m) {
                     depth_a = depth_m;
                     height_a = height_m;
@@ -173,7 +140,7 @@ void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
 #else
     vec2 xz_offset = xz;
 #endif
-    WaterSurfaceNormal(xz_offset, time, normal);
+    RiverTextureNormal(xz_offset, time, normal);
 }
 
 #endif // LIB_WATER_OCEAN_GLSL

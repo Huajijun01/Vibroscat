@@ -24,8 +24,8 @@ layout(location = 0) out vec3 main_color;
 // (baked offline).
 #define CAUSTIC_WORLD_SCALE 8.0
 #define CAUSTIC_TIME_SPEED 0.5
-#define CAUSTIC_REFERENCE vec4(0.14314292, 0.04990238, 0.04457350, 0.07125610) // per depth layer, from bake
-#define CAUSTIC_TONE_A vec4(6.722147, 18.361074, 20.769127, 13.544966) // per depth layer (1/4/9/16 m), from bake
+#define CAUSTIC_REFERENCE vec4(0.35860378, 0.55393207, 0.59532857, 0.59589005) // per depth layer, from bake
+#define CAUSTIC_TONE_A vec4(1.906040, 0.100000, 0.100000, 0.100000) // per depth layer (1/4/9/16 m), from bake
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
 // Fixed bake reference plane; underwater eyeBrightnessSmooth cannot

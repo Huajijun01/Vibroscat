@@ -20,6 +20,7 @@
 #include "/lib/shadow/filter.glsl"
 #include "/lib/water/fog.glsl"
 #include "/lib/water/ocean.glsl"
+#include "/lib/water/river_texture.glsl"
 
 flat in int v_id;
 flat in int v_glass;

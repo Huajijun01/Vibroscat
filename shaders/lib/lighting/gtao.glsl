@@ -71,13 +71,10 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
             break;
         }
         // Clamp the 1.0 edge (the integer texel would be out of bounds).
-        ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
-            * vec2(viewWidth, viewHeight));
-        float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
-        if (sample_depth >= 1.0) {
-            continue;  // sky: not an occluder
-        }
-        if (abs(sample_depth - center_depth) < 3.0e-7) {
+        // ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
+        //     * vec2(viewWidth, viewHeight));
+        float sample_depth = texture(depthtex2, sample_uv).r;
+        if (sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7) {
             // Same surface: the height field below the pixel is its horizon,
             // not an occluder (else far blocky terrain reads grid-like steps).
             continue;
@@ -156,7 +153,12 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         float theta_lo = max(h_neg, theta_n - PI * 0.5);
         float theta_hi = min(h_pos, theta_n + PI * 0.5);
         if (theta_hi > theta_lo) {
+            #if 1
             visibility += sin(theta_hi - theta_n) - sin(theta_lo - theta_n);
+            #else
+            // agressive approximation
+            visibility += cos((theta_hi + theta_lo) * 0.5 - theta_n) * (theta_hi - theta_lo);
+            #endif
         }
     }
     return clamp(visibility / (2.0 * float(GTAO_SLICES)), 0.0, 1.0);

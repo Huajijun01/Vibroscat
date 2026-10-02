@@ -373,6 +373,8 @@ option.WATER_POM_COARSE_STEPS = POM Coarse Steps
 option.WATER_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate wave relief, slower.
 option.WATER_POM_BISECT_STEPS = POM Bisection Steps
 option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
+option.WATER_RIVER_GAIN = River Wave Height
+option.WATER_RIVER_GAIN.comment = Overall amplitude of the river wave layers: higher = more pronounced waves.
 option.EPIPOLAR_VOLUMETRICS = Epipolar Light (Water and Air)
 option.EPIPOLAR_VOLUMETRICS.comment = Draws epipolar sunlight shafts through participating media (underwater god rays and air light shafts), correctly shadowed by terrain.
 option.EPIPOLAR_SLICES = Epipolar Slices

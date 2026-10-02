@@ -258,7 +258,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define WATER_SSR_ENABLED
 #endif
 
-//#define SSR_QUARTER_DEPTH // trace both SSR paths with width/4, height/4 R16F depth
+#define SSR_QUARTER_DEPTH // trace both SSR paths with width/4, height/4 R16F depth
 #ifdef SSR_QUARTER_DEPTH
 #if defined(WATER_SSR) || defined(OPAQUE_SSR)
 #define SSR_QUARTER_DEPTH_ACTIVE

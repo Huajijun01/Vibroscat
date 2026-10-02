@@ -54,44 +54,45 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     if (direction_length < 0.999) return miss;
     view_direction /= direction_length;
 
-    // Project the ray through a second point in front of the origin. This is
-    // the alpha v0.1.0 water path: one straight direction in screen UV/NDC-z
-    // space, then an endpoint at the first screen edge or depth-plane exit.
+    // Project the origin and the ray direction through clip space once.
+    // Moving a view-space distance t along the normalized ray adds
+    // PROJ.xyz * t to the clip position and -t * dir.z to the clip w, so
+    // the projected ray is rational in t and every screen-space crossing
+    // solves in closed form (reference stepper structure: one origin, one
+    // direction, one exit, one span).
     vec3 start_pos = ViewToNDC(view_origin) * 0.5 + 0.5;
-    // Keep the projected reference point in front of the origin along the
-    // actual ray. View space faces negative Z, so a ray toward the camera
-    // needs a nearer (less negative) target instead of the usual far target.
-    float target_view_z = view_direction.z < 0.0
-        ? -(max(1.0, -view_origin.z) + 1.0)
-        : min(-1.0e-3, view_origin.z + 1.0);
-    float projection_t = abs(view_direction.z) > 1e-6
-        ? clamp((target_view_z - view_origin.z) / view_direction.z,
-            -1.0e6, 1.0e6)
-        : 2.0;
-    vec3 projected_pos = ViewToNDC(
-        view_origin + view_direction * projection_t) * 0.5 + 0.5;
-    vec3 projected_direction = projected_pos - start_pos;
-    float projected_length = length(projected_direction);
-    vec3 dir = projected_direction / projected_length;
+    vec4 origin_clip = gbufferProjection * vec4(view_origin, 1.0);
+    vec4 direction_clip = gbufferProjection * vec4(view_direction, 0.0);
 
-    // Screen-edge extent in UV-parametrization units. The clip-form mapping
-    // (uv * 2 - 1, w = 1; dir_uv * 2, w = 0) leaves t unchanged, and the
-    // shared solver reduces to the same per-axis (edge - origin) / direction
-    // minimum for an in-rect origin.
-    float s_end = ClipRayScreenExitT(
-        vec4(start_pos.xy * 2.0 - 1.0, 0.0, 1.0),
-        vec4(dir.xy * 2.0, 0.0, 0.0),
-        1.0e20);
-    if (dir.z > 0.0) {
-        s_end = min(s_end, (1.0 - start_pos.z) / dir.z);
+    // Screen-edge extent: the smallest forward clip parameter reaching any
+    // NDC edge; crossings at or behind the origin fall back to a
+    // beyond-far sentinel so the minimum stays forward-facing.
+    vec2 edge_near_t = ClipRayScreenCoordT(origin_clip, direction_clip,
+        1.0, far + 32.0);
+    vec2 edge_far_t = ClipRayScreenCoordT(origin_clip, direction_clip,
+        -1.0, far + 32.0);
+    float trace_length = min(min(edge_near_t.x, edge_near_t.y),
+        min(edge_far_t.x, edge_far_t.y));
+
+    // Far-plane exit: the clip parameter where the projected NDC z
+    // reaches 1.
+    float far_plane_t = (origin_clip.w - origin_clip.z)
+        / (direction_clip.z - direction_clip.w);
+    if (far_plane_t > 0.0) {
+        trace_length = min(trace_length, far_plane_t);
     }
+
+    // View-distance cap; with the direction normalized the clip parameter
+    // is a meter count, so the cap is exact.
     if (max_distance > 0.0) {
-        vec3 max_pos = ViewToNDC(
-        view_origin + view_direction * max_distance) * 0.5 + 0.5;
-        float max_s = dot(max_pos - start_pos, dir);
-        if (max_s > 0.0) s_end = min(s_end, max_s);
+        trace_length = min(trace_length, max_distance);
     }
-    if (s_end <= 0.0) return miss;
+    if (trace_length <= 0.0) return miss;
+
+    // March span: one straight (uv, NDC z) chord from the origin to the
+    // projected exit point.
+    vec4 exit_clip = origin_clip + direction_clip * trace_length;
+    vec3 span = exit_clip.xyz / exit_clip.w * 0.5 + 0.5 - start_pos;
 
     int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
     float step_length = 1.0 / float(max(budget - 1, 1));
@@ -103,7 +104,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
         if (i >= budget) break;
         float t = sample_t;
-        vec3 ray_pos = start_pos + dir * (sample_t * s_end);
+        vec3 ray_pos = start_pos + span * sample_t;
         if (!SSRScreenInside(ray_pos.xy)) break;
 
         float surface_sample = ReadSSRDepthSample(ray_pos.xy);
@@ -118,7 +119,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             vec3 hi_pos = ray_pos;
             for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
                 float mid_t = 0.5 * (lo + hi);
-                vec3 mid_pos = start_pos + dir * (mid_t * s_end);
+                vec3 mid_pos = start_pos + span * mid_t;
                 float mid_surface = ReadSSRDepthSample(mid_pos.xy);
                 float mid_ray_depth = SSRRayDepthFromScreen(mid_pos.z);
                 if (SSRDepthSampleBeforeRay(mid_surface, mid_ray_depth)) {

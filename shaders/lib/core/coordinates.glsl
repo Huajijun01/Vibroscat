@@ -121,6 +121,20 @@ float ClipRayScreenExitT(vec4 origin_clip, vec4 direction_clip, float fallback_t
     return exit_t;
 }
 
+// Per-axis clip-ray parameter where the projected NDC coordinate crosses
+// target_coord, from (o.xy + d.xy * t) / (o.w + d.w * t) = target_coord.
+// Unlike ClipRayScreenExitT this keeps the ray's true clip w (the
+// perspective NDC z is rational in t), so the solve stays exact for a
+// projected ray instead of a flat w=1/w=0 chord. Non-positive crossings
+// return fallback_t, letting a componentwise minimum over the four screen
+// edges pick the forward-facing exit.
+vec2 ClipRayScreenCoordT(vec4 origin_clip, vec4 direction_clip,
+        float target_coord, float fallback_t) {
+    vec2 t = (target_coord * origin_clip.ww - origin_clip.xy)
+        / (direction_clip.xy - target_coord * direction_clip.ww);
+    return mix(t, vec2(fallback_t), step(t, vec2(0.0)));
+}
+
 // -- Shadow-space transforms (world -> shadow clip / NDC, distortion, bias) --
 
 // Analytic shadow distortion: compresses clip-space XY toward center.

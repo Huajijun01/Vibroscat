@@ -249,7 +249,6 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #elif OPAQUE_SSR_QUALITY == 3
 #define OPAQUE_SSR_STEPS 64
 #endif
-#define OPAQUE_SSR_MAX_DISTANCE 96.0
 #define OPAQUE_SSR_RECURSION_DECAY 0.92
 #define OPAQUE_PBR_EMISSION_SCALE 10.0
 

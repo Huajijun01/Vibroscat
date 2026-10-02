@@ -8,20 +8,11 @@
 #include "/lib/raytrace/ssr_depth.glsl"
 
 // Shared screen-space reflection marcher. Both water and opaque reflection
-// use the same depth-crossing rule; only their step
-// budget, distance limit, and treatment of a far-plane miss differ.
+// use the same depth-crossing rule; only their step budget and treatment
+// of a far-plane miss differ.
 #define SSR_REFINE_STEPS 6
 #define SSR_TOL_SLOPE 0.1
 #define SSR_TOL_BIAS 0.5
-
-// Keep one statically bounded loop while allowing the water and opaque passes
-// to select different runtime budgets. OPAQUE_SSR_STEPS is absent at quality
-// 0, so the water budget remains the bound in that configuration.
-#if defined(OPAQUE_SSR_STEPS) && OPAQUE_SSR_STEPS > WATER_SSR_STEPS
-#define SSR_TRACE_MAX_STEPS OPAQUE_SSR_STEPS
-#else
-#define SSR_TRACE_MAX_STEPS WATER_SSR_STEPS
-#endif
 
 struct SSRHit {
     vec3 screen;
@@ -45,17 +36,10 @@ bool SSRScreenInside(vec2 uv) {
 }
 
 SSRHit TraceScreenSpaceReflection(vec3 view_origin,
-        vec3 view_direction, float jitter, float max_distance,
-        int step_budget, bool allow_sky) {
+        vec3 view_direction, float jitter, int step_budget, bool allow_sky) {
     SSRHit miss = SSRMiss();
-    if (!IsFinite(view_origin) || !IsFinite(view_direction)) return miss;
-
-    float direction_length = length(view_direction);
-    if (direction_length < 0.999) return miss;
-    view_direction /= direction_length;
-
     // Project the origin and the ray direction through clip space once.
-    // Moving a view-space distance t along the normalized ray adds
+    // Moving a view-space distance t along the unit ray adds
     // PROJ.xyz * t to the clip position and -t * dir.z to the clip w, so
     // the projected ray is rational in t and every screen-space crossing
     // solves in closed form (reference stepper structure: one origin, one
@@ -78,31 +62,19 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     // reaches 1.
     float far_plane_t = (origin_clip.w - origin_clip.z)
         / (direction_clip.z - direction_clip.w);
-    if (far_plane_t > 0.0) {
-        trace_length = min(trace_length, far_plane_t);
-    }
-
-    // View-distance cap; with the direction normalized the clip parameter
-    // is a meter count, so the cap is exact.
-    if (max_distance > 0.0) {
-        trace_length = min(trace_length, max_distance);
-    }
-    if (trace_length <= 0.0) return miss;
-
+    trace_length = min(trace_length, far_plane_t);
     // March span: one straight (uv, NDC z) chord from the origin to the
     // projected exit point.
     vec4 exit_clip = origin_clip + direction_clip * trace_length;
     vec3 span = exit_clip.xyz / exit_clip.w * 0.5 + 0.5 - start_pos;
 
-    int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
-    float step_length = 1.0 / float(max(budget - 1, 1));
+    float step_length = 1.0 / float(step_budget - 1);
     float sample_t = step_length * (jitter);
     float ray_start_depth = -view_origin.z;
     float previous_t = 0.0;
     vec3 previous_pos = start_pos;
 
-    for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
-        if (i >= budget) break;
+    for (int i = 0; i < step_budget; ++i) {
         float t = sample_t;
         vec3 ray_pos = start_pos + span * sample_t;
         if (!SSRScreenInside(ray_pos.xy)) break;

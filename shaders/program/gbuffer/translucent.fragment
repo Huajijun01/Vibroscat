@@ -156,7 +156,7 @@ void main() {
 #endif
     {
     SSRHit water_hit = TraceScreenSpaceReflection(
-        v_view_pos, reflect_dir, dither, 0.0, WATER_SSR_STEPS, true);
+        v_view_pos, reflect_dir, dither, WATER_SSR_STEPS, true);
     rt_hit_flag = water_hit.valid;
     rt_hit_sky = water_hit.sky;
     if (water_hit.valid) rt_pos = water_hit.screen;

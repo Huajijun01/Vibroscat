@@ -433,6 +433,8 @@ value.OPAQUE_REFLECTION.1 = 开
 option.OPAQUE_SSR_QUALITY = 反射质量
 option.SSR_QUARTER_DEPTH = SSR 低分辨率深度
 option.SSR_QUARTER_DEPTH.comment = 水面、玻璃和实体反射使用宽高各 1/4 的深度图。可能提高速度，但细小轮廓的精度会降低。关闭时使用完整深度。
+option.SSR_BISECTION_REFINE = SSR 二分复查
+option.SSR_BISECTION_REFINE.comment = 用二分法细化屏幕空间反射的首次深度交叉。关闭时直接采用首个穿越样本：速度更快，但几何边缘处的反射精度更低。
 option.OPAQUE_SSR_QUALITY.comment = 实体方块真实反射的质量：仅环境 = 所有表面都用便宜的天空光泽；中/高/极高逐级提升真实反射的精度与距离。
 value.OPAQUE_SSR_QUALITY.0 = 仅环境
 value.OPAQUE_SSR_QUALITY.1 = 中

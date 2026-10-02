@@ -265,6 +265,10 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 #endif
 
+// Bisection refinement of the first SSR depth crossing. Off accepts the
+// first crossing sample directly; the hit tolerance test still applies.
+//#define SSR_BISECTION_REFINE
+
 // Screen-space reflections march budget: samples along the full reflection
 // path (McGuire & Mara 2014). Quality/perf knob for the water forward pass.
 #define WATER_SSR_STEPS 16 // [8 10 12 16 20 24 32] water SSR march samples

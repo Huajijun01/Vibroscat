@@ -118,6 +118,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
         float surface_sample = ReadSSRDepthSample(ray_pos.xy);
         float ray_depth = SSRRayDepthFromScreen(ray_pos.z);
         if (SSRDepthSampleBeforeRay(surface_sample, ray_depth)) {
+#ifdef SSR_BISECTION_REFINE
             // Bisection locates the first depth crossing; this trace
             // performs no thickness or normal rejection.
             float lo = previous_t;
@@ -139,6 +140,12 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             }
 
             vec3 hit_pos = 0.5 * (lo_pos + hi_pos);
+#else
+            // Accept the first sample behind the surface as the hit; the
+            // metre-domain tolerance below still rejects crossings that land
+            // far from geometry.
+            vec3 hit_pos = ray_pos;
+#endif
             float hit_surface_depth = ReadSSRDepthSample(hit_pos.xy);
 #ifndef SSR_QUARTER_DEPTH_ACTIVE
             hit_surface_depth = LinearDepthFromScreenDepth(hit_surface_depth);

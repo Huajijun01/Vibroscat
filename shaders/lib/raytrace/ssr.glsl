@@ -71,13 +71,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     vec3 projected_pos = ViewToNDC(
         view_origin + view_direction * projection_t) * 0.5 + 0.5;
     vec3 projected_direction = projected_pos - start_pos;
-    if (!IsFinite(start_pos) || !IsFinite(projected_pos)
-            || !IsFinite(projected_direction)
-            || !SSRScreenInside(start_pos.xy)) {
-        return miss;
-    }
     float projected_length = length(projected_direction);
-    if (projected_length < 1e-6) return miss;
     vec3 dir = projected_direction / projected_length;
 
     // Screen-edge extent in UV-parametrization units. The clip-form mapping
@@ -93,13 +87,11 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     }
     if (max_distance > 0.0) {
         vec3 max_pos = ViewToNDC(
-            view_origin + view_direction * max_distance) * 0.5 + 0.5;
-        if (IsFinite(max_pos)) {
-            float max_s = dot(max_pos - start_pos, dir);
-            if (max_s > 0.0) s_end = min(s_end, max_s);
-        }
+        view_origin + view_direction * max_distance) * 0.5 + 0.5;
+        float max_s = dot(max_pos - start_pos, dir);
+        if (max_s > 0.0) s_end = min(s_end, max_s);
     }
-    if (!(s_end > 0.0) || !IsFinite(vec3(s_end))) return miss;
+    if (s_end <= 0.0) return miss;
 
     int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
     float step_length = 1.0 / float(max(budget - 1, 1));
@@ -110,8 +102,8 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
 
     for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
         if (i >= budget) break;
-        float t = min(sample_t, 1.0);
-        vec3 ray_pos = start_pos + dir * (t * s_end);
+        float t = sample_t;
+        vec3 ray_pos = start_pos + dir * (sample_t * s_end);
         if (!SSRScreenInside(ray_pos.xy)) break;
 
         float surface_sample = ReadSSRDepthSample(ray_pos.xy);

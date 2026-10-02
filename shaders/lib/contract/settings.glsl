@@ -265,8 +265,8 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 #endif
 
-// Bisection refinement of the first SSR depth crossing. Off accepts the
-// first crossing sample directly; the hit tolerance test still applies.
+// Bisection refinement of the first SSR depth crossing. Off interpolates
+// the crossing within the march step from the two straddling samples.
 //#define SSR_BISECTION_REFINE
 
 // Screen-space reflections march budget: samples along the full reflection

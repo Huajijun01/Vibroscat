@@ -140,12 +140,6 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             }
 
             vec3 hit_pos = 0.5 * (lo_pos + hi_pos);
-#else
-            // Accept the first sample behind the surface as the hit; the
-            // metre-domain tolerance below still rejects crossings that land
-            // far from geometry.
-            vec3 hit_pos = ray_pos;
-#endif
             float hit_surface_depth = ReadSSRDepthSample(hit_pos.xy);
 #ifndef SSR_QUARTER_DEPTH_ACTIVE
             hit_surface_depth = LinearDepthFromScreenDepth(hit_surface_depth);
@@ -153,6 +147,8 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             float hit_ray_depth = LinearDepthFromScreenDepth(
                 clamp(hit_pos.z, 0.0, 1.0));
             float travelled = max(hit_ray_depth - ray_start_depth, 0.0);
+            // Metre-domain tolerance, calibrated for a refined hit that sits
+            // at the crossing itself; sub-step convergence is assumed.
             if (abs(hit_ray_depth - hit_surface_depth)
                     <= SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) {
                 SSRHit hit;
@@ -161,6 +157,38 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
                 hit.sky = false;
                 return hit;
             }
+#else
+            // Without bisection, interpolate the crossing inside the step:
+            // convert both straddling samples to linear view depth and take
+            // the fraction where the ray meets the surface. One extra depth
+            // fetch replaces the six bisection fetches, and the estimate
+            // tracks the crossing itself instead of the jittered sample
+            // grid, so hit positions stay temporally stable. A raw crossing
+            // can sit a full march step past the surface, which is metres
+            // in linear view depth, so the refined hit's metre tolerance
+            // cannot grade this estimate.
+            float surface_lo_depth = ReadSSRDepthSample(previous_pos.xy);
+#ifndef SSR_QUARTER_DEPTH_ACTIVE
+            surface_lo_depth = LinearDepthFromScreenDepth(surface_lo_depth);
+#endif
+            float surface_hi_depth = surface_sample;
+#ifndef SSR_QUARTER_DEPTH_ACTIVE
+            surface_hi_depth = LinearDepthFromScreenDepth(surface_hi_depth);
+#endif
+            float pen_lo = LinearDepthFromScreenDepth(
+                clamp(previous_pos.z, 0.0, 1.0)) - surface_lo_depth;
+            float pen_hi = LinearDepthFromScreenDepth(
+                clamp(ray_pos.z, 0.0, 1.0)) - surface_hi_depth;
+            float pen_span = pen_hi - pen_lo;
+            float hit_frac = pen_span > 1.0e-6
+                ? clamp(-pen_lo / pen_span, 0.0, 1.0)
+                : 0.5;
+            SSRHit hit;
+            hit.screen = mix(previous_pos, ray_pos, hit_frac);
+            hit.valid = true;
+            hit.sky = false;
+            return hit;
+#endif
         }
 
         if (ray_pos.z >= 1.0) {

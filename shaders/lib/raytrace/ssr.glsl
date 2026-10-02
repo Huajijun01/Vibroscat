@@ -103,17 +103,10 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
 
     int budget = clamp(step_budget, 2, SSR_TRACE_MAX_STEPS);
     float step_length = 1.0 / float(max(budget - 1, 1));
-    float sample_t = step_length * (1.0 + jitter);
+    float sample_t = step_length * (jitter);
     float ray_start_depth = -view_origin.z;
-    // Seed the previous-sample state one full step out and grade from
-    // there: the raw origin is the start pixel's own depth sample, so
-    // intervals near it compare the ray against the reflector's own
-    // surface at a constructive near-zero penetration -- self-intersection
-    // evidence, not occlusion. Near-grazing reflections and the inverted
-    // underwater normals live exactly in that regime and lost their
-    // reflections to it.
-    float previous_t = step_length;
-    vec3 previous_pos = start_pos + dir * (previous_t * s_end);
+    float previous_t = 0.0;
+    vec3 previous_pos = start_pos;
 
     for (int i = 0; i < SSR_TRACE_MAX_STEPS; ++i) {
         if (i >= budget) break;

@@ -89,6 +89,9 @@ uniform sampler2D usam_skylut;        // sky view LUT (128x128 RGBA16F)
 uniform sampler2D usam_sky_radiance;  // cloud skybox LUT (256x256 RGBA16F)
 uniform sampler2D usam_clouds_current; // low-res cloud current frame
 uniform sampler2D usam_ao;            // half-res AO (full evaluation every frame)
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+uniform sampler2D usam_ssr_depth;     // quarter-size squared linear depth, clip endpoint = sky
+#endif
 #ifdef EPIPOLAR_VOLUMETRICS
 uniform sampler2D usam_epipolar_endpoints; // epipolar slice endpoints
 uniform sampler2D usam_epipolar_term;      // epipolar E/column-key terms (shared: water in composite1, air in composite2)

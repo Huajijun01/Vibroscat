@@ -258,6 +258,13 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define WATER_SSR_ENABLED
 #endif
 
+//#define SSR_QUARTER_DEPTH // trace both SSR paths with width/4, height/4 R16F depth
+#ifdef SSR_QUARTER_DEPTH
+#if defined(WATER_SSR) || defined(OPAQUE_SSR)
+#define SSR_QUARTER_DEPTH_ACTIVE
+#endif
+#endif
+
 // Screen-space reflections march budget: samples along the full reflection
 // path (McGuire & Mara 2014). Quality/perf knob for the water forward pass.
 #define WATER_SSR_STEPS 16 // [8 10 12 16 20 24 32] water SSR march samples

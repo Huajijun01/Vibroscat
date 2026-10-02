@@ -5,6 +5,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/raytrace/ssr_depth.glsl"
 
 // Shared screen-space reflection marcher. Both water and opaque reflection
 // use the same depth-crossing rule; only their step
@@ -24,7 +25,6 @@
 
 struct SSRHit {
     vec3 screen;
-    float surface_depth;
     bool valid;
     bool sky;
 };
@@ -32,7 +32,6 @@ struct SSRHit {
 SSRHit SSRMiss() {
     SSRHit hit;
     hit.screen = vec3(0.0);
-    hit.surface_depth = 1.0;
     hit.valid = false;
     hit.sky = false;
     return hit;
@@ -106,7 +105,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     float step_length = 1.0 / float(max(budget - 1, 1));
     float sample_t = step_length
         * (0.5 + 0.5 * clamp(jitter, 0.0, 1.0));
-    float ray_start_depth = LinearDepthFromScreenDepth(start_pos.z);
+    float ray_start_depth = -view_origin.z;
     float previous_t = 0.0;
     vec3 previous_pos = start_pos;
 
@@ -116,13 +115,9 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
         vec3 ray_pos = start_pos + dir * (t * s_end);
         if (!SSRScreenInside(ray_pos.xy)) break;
 
-        float surface_depth = textureLod(depthtex1, ray_pos.xy, 0.0).x;
-        // Linear depth is strictly monotonic in screen depth (the analytic
-        // inverse denominator z*Pinv[2][3] + Pinv[3][3] keeps one sign across
-        // [0,1]), so the crossing test can compare raw screen depths and skip
-        // two reciprocal evaluations per step. The metre-domain hit tolerance
-        // below keeps the linear forms.
-        if (surface_depth < 1.0 && surface_depth < clamp(ray_pos.z, 0.0, 1.0)) {
+        float surface_sample = ReadSSRDepthSample(ray_pos.xy);
+        float ray_depth = SSRRayDepthFromScreen(ray_pos.z);
+        if (SSRDepthSampleBeforeRay(surface_sample, ray_depth)) {
             // Bisection locates the first depth crossing; this trace
             // performs no thickness or normal rejection.
             float lo = previous_t;
@@ -132,8 +127,9 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
                 float mid_t = 0.5 * (lo + hi);
                 vec3 mid_pos = start_pos + dir * (mid_t * s_end);
-                float mid_surface = textureLod(depthtex1, mid_pos.xy, 0.0).x;
-                if (mid_surface < clamp(mid_pos.z, 0.0, 1.0)) {
+                float mid_surface = ReadSSRDepthSample(mid_pos.xy);
+                float mid_ray_depth = SSRRayDepthFromScreen(mid_pos.z);
+                if (SSRDepthSampleBeforeRay(mid_surface, mid_ray_depth)) {
                     hi = mid_t;
                     hi_pos = mid_pos;
                 } else {
@@ -143,16 +139,17 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             }
 
             vec3 hit_pos = 0.5 * (lo_pos + hi_pos);
-            float hit_depth = textureLod(depthtex1, hit_pos.xy, 0.0).x;
+            float hit_surface_depth = ReadSSRDepthSample(hit_pos.xy);
+#ifndef SSR_QUARTER_DEPTH_ACTIVE
+            hit_surface_depth = LinearDepthFromScreenDepth(hit_surface_depth);
+#endif
             float hit_ray_depth = LinearDepthFromScreenDepth(
                 clamp(hit_pos.z, 0.0, 1.0));
-            float hit_surface_depth = LinearDepthFromScreenDepth(hit_depth);
             float travelled = max(hit_ray_depth - ray_start_depth, 0.0);
             if (abs(hit_ray_depth - hit_surface_depth)
                     <= SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) {
                 SSRHit hit;
                 hit.screen = hit_pos;
-                hit.surface_depth = hit_depth;
                 hit.valid = true;
                 hit.sky = false;
                 return hit;
@@ -160,10 +157,9 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
         }
 
         if (ray_pos.z >= 1.0) {
-            if (allow_sky && surface_depth >= 1.0) {
+            if (allow_sky && SSRDepthSampleIsSky(surface_sample)) {
                 SSRHit sky_hit;
                 sky_hit.screen = ray_pos;
-                sky_hit.surface_depth = 1.0;
                 sky_hit.valid = true;
                 sky_hit.sky = true;
                 return sky_hit;

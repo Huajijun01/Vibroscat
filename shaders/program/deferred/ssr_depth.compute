@@ -1,0 +1,27 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/raytrace/ssr_depth.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+const vec2 workGroupsRender = vec2(0.25, 0.25);
+
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+layout(r16f) uniform restrict writeonly image2D uimg_ssr_depth;
+#endif
+
+void main() {
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+    ivec2 depth_texel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 depth_size = ivec2(u_screen_res * 0.25);
+    if (any(greaterThanEqual(depth_texel, depth_size))) return;
+
+    // Iris truncates relative image dimensions, including odd viewports.
+    // Sample the cell center, using matching sizes so odd viewports cover the
+    // whole source. No min reduction: it would expand foreground silhouettes.
+    ivec2 source_size = ivec2(u_screen_res);
+    ivec2 source_texel = ivec2((vec2(depth_texel) + 0.5)
+        * vec2(source_size) / vec2(depth_size));
+    float screen_depth = texelFetch(depthtex1, source_texel, 0).r;
+    imageStore(uimg_ssr_depth, depth_texel, vec4(EncodeSSRDepth(screen_depth), 0.0, 0.0, 1.0));
+#endif
+}

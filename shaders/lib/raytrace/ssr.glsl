@@ -68,37 +68,30 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     vec4 exit_clip = origin_clip + direction_clip * trace_length;
     vec3 span = exit_clip.xyz / exit_clip.w * 0.5 + 0.5 - start_pos;
 
-    float step_length = 1.0 / float(step_budget - 1);
-    float sample_t = step_length * (jitter);
+    vec3 march_step = span / float(step_budget - 1);
+    vec3 sample_pos = start_pos + march_step * jitter;
     float ray_start_depth = -view_origin.z;
-    float previous_t = 0.0;
     vec3 previous_pos = start_pos;
 
     for (int i = 0; i < step_budget; ++i) {
-        float t = sample_t;
-        vec3 ray_pos = start_pos + span * sample_t;
-        if (!SSRScreenInside(ray_pos.xy)) break;
+        if (!SSRScreenInside(sample_pos.xy)) break;
 
-        float surface_sample = ReadSSRDepthSample(ray_pos.xy);
-        float ray_depth = SSRRayDepthFromScreen(ray_pos.z);
+        float surface_sample = ReadSSRDepthSample(sample_pos.xy);
+        float ray_depth = SSRRayDepthFromScreen(sample_pos.z);
         if (SSRDepthSampleBeforeRay(surface_sample, ray_depth)) {
 #ifdef SSR_BISECTION_REFINE
             // Bisection locates the first depth crossing; this trace
-            // performs no thickness or normal rejection.
-            float lo = previous_t;
-            float hi = t;
+            // performs no thickness or normal rejection. The bracket is
+            // carried as sample points; each midpoint is their average.
             vec3 lo_pos = previous_pos;
-            vec3 hi_pos = ray_pos;
+            vec3 hi_pos = sample_pos;
             for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
-                float mid_t = 0.5 * (lo + hi);
-                vec3 mid_pos = start_pos + span * mid_t;
+                vec3 mid_pos = 0.5 * (lo_pos + hi_pos);
                 float mid_surface = ReadSSRDepthSample(mid_pos.xy);
                 float mid_ray_depth = SSRRayDepthFromScreen(mid_pos.z);
                 if (SSRDepthSampleBeforeRay(mid_surface, mid_ray_depth)) {
-                    hi = mid_t;
                     hi_pos = mid_pos;
                 } else {
-                    lo = mid_t;
                     lo_pos = mid_pos;
                 }
             }
@@ -122,12 +115,12 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             float pen_lo = LinearDepthFromScreenDepth(
                 clamp(previous_pos.z, 0.0, 1.0)) - surface_lo_depth;
             float pen_hi = LinearDepthFromScreenDepth(
-                clamp(ray_pos.z, 0.0, 1.0)) - surface_hi_depth;
+                clamp(sample_pos.z, 0.0, 1.0)) - surface_hi_depth;
             float pen_span = pen_hi - pen_lo;
             float hit_frac = pen_span > 1.0e-6
                 ? clamp(-pen_lo / pen_span, 0.0, 1.0)
                 : 0.5;
-            vec3 hit_pos = mix(previous_pos, ray_pos, hit_frac);
+            vec3 hit_pos = mix(previous_pos, sample_pos, hit_frac);
 #endif
             // Depth slop at the hit. Both hit estimators place the hit where
             // the ray meets the surface it crossed, so a large residual here
@@ -153,10 +146,10 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             }
         }
 
-        if (ray_pos.z >= 1.0) {
+        if (sample_pos.z >= 1.0) {
             if (allow_sky && SSRDepthSampleIsSky(surface_sample)) {
                 SSRHit sky_hit;
-                sky_hit.screen = ray_pos;
+                sky_hit.screen = sample_pos;
                 sky_hit.valid = true;
                 sky_hit.sky = true;
                 return sky_hit;
@@ -164,9 +157,8 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             break;
         }
 
-        previous_t = t;
-        previous_pos = ray_pos;
-        sample_t += step_length;
+        previous_pos = sample_pos;
+        sample_pos += march_step;
     }
     return miss;
 }

@@ -214,6 +214,10 @@ float SampleCloudDensity(vec3 atmosphere_position) {
         return 0.0;
     }
     float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
+    // Reversed edge pair (edge0 > edge1): undefined by the GLSL spec, but the
+    // common clamp((x-e0)/(e1-e0)) implementation is deterministic and the
+    // rendered ramp below is the frozen baseline for the 2026-10 optimization
+    // series. Do not swap or rewrite this pair without a visual re-baseline.
     float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
     float lq_density = distribution_density * bottom_ramp * top_fade;
     if(lq_density < 0.001) {
@@ -248,6 +252,8 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
         return 0.0;
     }
     float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
+    // Same intentionally reversed smoothstep pair as SampleCloudDensity; keep
+    // the two implementations bit-identical on this ramp.
     float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
     float lq_density = distribution_density * bottom_ramp * top_fade;
 

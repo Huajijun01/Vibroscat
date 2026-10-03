@@ -17,10 +17,10 @@ ivec2 ClampTexel(ivec2 texel, ivec2 texture_size) {
     return clamp(texel, ivec2(0), texture_size - 1);
 }
 
-vec3 FetchDepthPosition(sampler2D depth, ivec2 texel) {
+vec3 FetchDepthPosition(sampler2D depth, ivec2 texel, vec2 inv_depth_size) {
     ivec2 depth_size = ivec2(u_screen_res);
     ivec2 sample_texel = ClampTexel(texel, depth_size);
-    vec2 sample_uv = (vec2(sample_texel) + 0.5) / vec2(depth_size);
+    vec2 sample_uv = (vec2(sample_texel) + 0.5) * inv_depth_size;
     return vec3(sample_uv, texelFetch(depth, sample_texel, 0).r);
 }
 
@@ -30,11 +30,13 @@ vec3 FetchColorClamped(sampler2D color, ivec2 texel) {
 }
 
 vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
-    vec3 center     = FetchDepthPosition(depth, tx);
-    vec3 down_left  = FetchDepthPosition(depth, tx + ivec2(-2, -2));
-    vec3 up_right   = FetchDepthPosition(depth, tx + ivec2( 2,  2));
-    vec3 up_left    = FetchDepthPosition(depth, tx + ivec2( 2, -2));
-    vec3 down_right = FetchDepthPosition(depth, tx + ivec2(-2,  2));
+    // One reciprocal feeds the five depth fetches below.
+    vec2 inv_depth_size = 1.0 / vec2(ivec2(u_screen_res));
+    vec3 center     = FetchDepthPosition(depth, tx, inv_depth_size);
+    vec3 down_left  = FetchDepthPosition(depth, tx + ivec2(-2, -2), inv_depth_size);
+    vec3 up_right   = FetchDepthPosition(depth, tx + ivec2( 2,  2), inv_depth_size);
+    vec3 up_left    = FetchDepthPosition(depth, tx + ivec2( 2, -2), inv_depth_size);
+    vec3 down_right = FetchDepthPosition(depth, tx + ivec2(-2,  2), inv_depth_size);
     if (down_left.z  < center.z) center = down_left;
     if (up_right.z   < center.z) center = up_right;
     if (up_left.z    < center.z) center = up_left;

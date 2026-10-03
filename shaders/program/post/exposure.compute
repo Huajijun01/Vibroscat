@@ -47,6 +47,9 @@ void main() {
     uint end = min(start + samples_per_group, sample_count);
 
     float log_sum = 0.0;
+    vec2 inv_size = 1.0 / size_f;
+    // -log2(0.18): the EV reference folded out of the per-sample log below.
+    const float AE_REF_LOG2_INV = 2.4739311883324123;
     float weight_sum = 0.0;
     if (tid < 64u) histogram_cache[tid] = 0u;
     barrier();
@@ -61,13 +64,13 @@ void main() {
         vec3 c = imageLoad(colorimg0, pos).rgb;
         float luminance = max(Luminance(max(c, vec3(0.0))), 1.0e-5);
         float log_luminance = log2(luminance);
-        vec2 uv = (vec2(pos) + 0.5) / size_f;
+        vec2 uv = (vec2(pos) + 0.5) * inv_size;
         float center_factor = 1.0 - smoothstep(0.12, 0.72, length(uv - 0.5) * 1.41421356);
         uint sample_weight = 1u + uint(center_factor * 3.0 + 0.5);
         log_sum += log_luminance * float(sample_weight);
         weight_sum += float(sample_weight);
 
-        float exposure_ev = clamp(log2(luminance / 0.18), -12.0, 8.0);
+        float exposure_ev = clamp(log_luminance + AE_REF_LOG2_INV, -12.0, 8.0);
         uint bin = uint(clamp((exposure_ev + 12.0) * (64.0 / 20.0), 0.0, 63.0));
         atomicAdd(histogram_cache[bin], sample_weight);
 

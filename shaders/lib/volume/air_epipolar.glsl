@@ -36,7 +36,9 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     float segment_length = length(diff);
     float seg_optical = segment_length;
     float t_end = exp(-extinction * seg_optical);
-    float tau = -log(max(t_end, 1e-6));
+    // -log(max(exp(-x), eps)) == min(x, -log(eps)): the round trip through
+    // exp and log collapses into a saturating min; t_end stays for sampling.
+    float tau = min(extinction * seg_optical, -log(1.0e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
     // The extinction argument is scalar, so every channel of the vec3
     // numerator/denominator pair carried the identical value: accumulate the

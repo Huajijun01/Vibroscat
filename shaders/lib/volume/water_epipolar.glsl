@@ -99,7 +99,9 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
         ? min(extinction.r, min(extinction.g, extinction.b))
         : max(extinction.r, max(extinction.g, extinction.b));
     float t_end = exp(-ext_extreme * seg_optical);
-    float tau = -log(max(t_end, 1e-6));
+    // -log(max(exp(-x), eps)) == min(x, -log(eps)) on the whole real line;
+    // t_end stays for the arithmetic transmittance decay below.
+    float tau = min(ext_extreme * seg_optical, -log(1.0e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
     vec3 numerator = vec3(0.0);
     float inv_steps = 1.0 / float(WATER_EPIPOLAR_SHADOW_STEPS);

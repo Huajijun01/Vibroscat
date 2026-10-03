@@ -59,8 +59,9 @@ void main() {
         float median_ev = HistogramPercentile(0.50, histogram_weight);
         float p90_ev = HistogramPercentile(0.90, histogram_weight);
         float key_ev = mix(log_average - log2(AE_REFERENCE_LUMINANCE), median_ev, 0.35);
-        float key_lum = exp2(key_ev) * AE_REFERENCE_LUMINANCE;
-        float scene_ev = log2(max(key_lum, 1.0e-4) / AE_REFERENCE_LUMINANCE);
+        // log2(max(exp2(key_ev) * L, floor) / L) == max(key_ev, log2(floor/L)):
+        // the exp2/log2 round trip collapses to the saturation max.
+        float scene_ev = max(key_ev, log2(1.0e-4 / AE_REFERENCE_LUMINANCE));
         float target_exposure = (AE_TARGET_LUMINANCE / AE_REFERENCE_LUMINANCE)
             * exp2(-AE_ADAPTATION_STRENGTH * scene_ev);
         float p90_lum = AE_REFERENCE_LUMINANCE * exp2(p90_ev);

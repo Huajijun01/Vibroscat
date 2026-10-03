@@ -196,12 +196,13 @@ void main() {
     vec3 surface_normal_view = current_normal;
     vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
 
-    vec3 half_direction = normalize(view_to_eye + light_direction);
-
     float ndotv = Saturate(dot(surface_normal_view, view_to_eye));
     float ndotl = Saturate(dot(surface_normal_view, light_direction));
     float ldotv = dot(light_direction, view_to_eye);
-    float ldoth = dot(light_direction, half_direction);
+    // For unit V and L, H = normalize(V+L) gives L·H == sqrt((1 + L·V)/2).
+    // The half vector has no other consumer on this path, so build the
+    // cosine directly instead of the vector and its dot.
+    float ldoth = sqrt(max(1.0 + ldotv, 0.0) * 0.5);
     vec3 sun_light = v_sun_light_col * s;
     vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
 
@@ -233,9 +234,10 @@ void main() {
         if(isEyeInWater == 0) {
             out_alpha = Pow5(1.0 - ndotv) * 0.98 + 0.02;
         } else {
-            float new_ndotv = ndotv;
-            new_ndotv = Saturate(sqrt(1.0 - new_ndotv * new_ndotv) * 1.33);
-            new_ndotv = sqrt(1.0 - new_ndotv * new_ndotv);
+            // (1.33*s)^2 == 1.33^2 * s: fold the refracted-angle squash into
+            // one scaled term and keep a single sqrt round trip.
+            float refracted_sq = min(1.7689 * (1.0 - ndotv * ndotv), 1.0);
+            float new_ndotv = sqrt(1.0 - refracted_sq);
             out_alpha = Pow5(1.0 - new_ndotv);
         }
     } else {

@@ -102,10 +102,13 @@ void WaterFogRender(inout vec3 col, float raylen, float light_path1, float light
     t = mix(t, vec3(Luminance(t)), wetness * 0.8);
     col *= t;
     vec3 sca = WaterScatteringIntegral(raylen, light_path1, light_path2);
-    col += sca * (ground_light.rgb * phase_sun * eyeBrightnessSmooth.y
-            * (1.0 / EYE_BRIGHTNESS_SCALE) * epipolar_light
+    // ground_light.rgb scaled by the eye brightness fraction is shared by the
+    // direct and multiple-scattering terms; fold it once.
+    vec3 ground_term = ground_light.rgb
+        * (eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE));
+    col += sca * (ground_term * (phase_sun * epipolar_light)
         + fog_multi_scatter * phase_sky * (isEyeInWater == 0 ? eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE) : 1.0));
-    col += WaterMultipleScattering(sca, epipolar_light) * ground_light.rgb * eyeBrightnessSmooth.y * (1.0 / EYE_BRIGHTNESS_SCALE);
+    col += WaterMultipleScattering(sca, epipolar_light) * ground_term;
 }
 
 #endif // LIB_WATER_FOG_GLSL

@@ -53,7 +53,10 @@ float SSRRayDepthFromScreen(float screen_depth) {
 
 bool SSRDepthSampleBeforeRay(float surface_depth, float ray_depth) {
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
-    return 1.0 / surface_depth > ray_depth;
+    // Encoded depths carry a strictly positive floor, so 1/d > r and
+    // r*d < 1 select identically in real numbers; the product form trades
+    // the per-step divide for a multiply (boundaries may flip within 1 ulp).
+    return ray_depth * surface_depth < 1.0;
 #else
     return surface_depth < ray_depth;
 #endif

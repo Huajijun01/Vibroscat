@@ -92,11 +92,17 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         // Faded by a smooth window over the radius.
         vec3 surface_view = NDCToViewSparse(sample_ndc, sample_depth * 2.0 - 1.0);
         vec3 offset = surface_view - center_view;
-        float offset_len = length(offset);
-        if (offset_len < 1.0e-4) {
+        float offset_len_sq = dot(offset, offset);
+        if (offset_len_sq < 1.0e-8) {  // offset_len < 1.0e-4
             continue;
         }
-        float cos_theta = clamp(dot(offset, normal_view) / offset_len, 0.0, 1.0);
+        float inv_offset_len = inversesqrt(offset_len_sq);
+        float offset_len = offset_len_sq * inv_offset_len;
+        // Cosine-weighted visibility (eq. 1): occludes only inside the
+        // normal hemisphere (offset along the normal, weighted by the
+        // cosine). Flat planes fail (offset in-plane), walls/corners pass.
+        // Faded by a smooth window over the radius.
+        float cos_theta = clamp(dot(offset, normal_view) * inv_offset_len, 0.0, 1.0);
         if (cos_theta <= 0.0) {
             continue;  // surface outside the normal_view hemisphere: no occlusion
         }

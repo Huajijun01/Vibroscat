@@ -61,6 +61,14 @@ vec3 DepthToWorldPos(vec2 texcoord, float depth) {
     return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 
+// Same reconstruction that also yields the intermediate view-space position,
+// so callers needing both frames skip a SceneToViewSpace round trip through
+// the world matrix.
+vec3 DepthToWorldPosView(vec2 texcoord, float depth, out vec3 view_pos) {
+    view_pos = NDCToView(vec3(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0));
+    return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
+}
+
 // Reprojects a closest-to-camera point (screen xy + screen depth z) into the
 // previous frame's UV space. Camera-relative world positions apply the camera
 // delta; view-model positions such as the first-person hand do not.

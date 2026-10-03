@@ -44,8 +44,10 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     // the projected ray is rational in t and every screen-space crossing
     // solves in closed form (reference stepper structure: one origin, one
     // direction, one exit, one span).
-    vec3 start_pos = ViewToNDC(view_origin) * 0.5 + 0.5;
     vec4 origin_clip = gbufferProjection * vec4(view_origin, 1.0);
+    // Same value chain as ViewToNDC(origin) * 0.5 + 0.5 (identical operation
+    // order), derived from the clip position the ray stepper already needs.
+    vec3 start_pos = origin_clip.xyz / -view_origin.z * 0.5 + 0.5;
     vec4 direction_clip = gbufferProjection * vec4(view_direction, 0.0);
 
     // Screen-edge extent: the smallest forward clip parameter reaching any

@@ -14,11 +14,12 @@ vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness
     vec2 f3 = f * f2;
 
     vec2 w0 = -sharpness * f3 + 2.0 * sharpness * f2 - sharpness * f;
-    vec2 w1 = (2.0 - sharpness) * f3 - (3.0 - sharpness) * f2 + 1.0;
     vec2 w2 = (-2.0 + sharpness) * f3 + (3.0 - 2.0 * sharpness) * f2 + sharpness * f;
     vec2 w3 = sharpness * f3 - sharpness * f2;
 
-    vec2 h0 = w1 + w2;
+    // w1 + w2 cancels its cubic term exactly into 1 + sharpness*f*(1 - f),
+    // and w1 feeds nothing else, so the cubic weight list loses one entry.
+    vec2 h0 = 1.0 + sharpness * f * (1.0 - f);
     vec2 p0 = (center + w2 / h0) * texel_size;
     vec2 p1 = (center - 1.0) * texel_size;
     vec2 p2 = (center + 2.0) * texel_size;

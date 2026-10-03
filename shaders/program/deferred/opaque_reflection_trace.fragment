@@ -32,9 +32,10 @@ void main() {
     // surface at close range.
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
     // colortex4 carries the world-space geometric normal; only the ray offset
-    // below needs it in view space.
-    vec3 geo_view_normal = normalize(mat3(gbufferModelView)
-        * DecodeOctahedralNormal(geometry_data.xy));
+    // below needs it in view space. The octahedral decode returns a unit
+    // vector and the camera rotation preserves its length.
+    vec3 geo_view_normal = mat3(gbufferModelView)
+        * DecodeOctahedralNormal(geometry_data.xy);
 
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
 #ifdef TAA

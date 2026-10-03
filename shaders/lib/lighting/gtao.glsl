@@ -109,9 +109,11 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     vec3 view_axis = normalize(-center_view);  // toward camera
     vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
     // colortex4 carries the world-space geometric normal; the slices are built
-    // around the view axis, so the transform is paid once per pixel here.
-    vec3 normal_view = normalize(mat3(gbufferModelView)
-        * DecodeOctahedralNormal(geometry_data.xy));
+    // around the view axis, so the transform is paid once per pixel here. The
+    // octahedral decode returns a unit vector and the camera rotation
+    // preserves its length.
+    vec3 normal_view = mat3(gbufferModelView)
+        * DecodeOctahedralNormal(geometry_data.xy);
 
     // The slice basis depends only on the toward-camera axis, so its
     // GTAOSliceTangent construction is hoisted here verbatim and each slice

@@ -201,7 +201,9 @@ void EvaluateBRDF(vec3 albedo, vec4 spec_tex, vec3 normal_view, vec3 view_direct
     float ndotl = Max0(dot(normal_view, light_direction));
     float ndoth = Max0(dot(normal_view, half_direction));
     float vdoth = Max0(dot(view_direction, half_direction));
-    float ldoth = Max0(dot(light_direction, half_direction));
+    // V and L are unit and H is their normalized sum, so V.H and L.H both
+    // equal (1 + V.L)/|V + L|; callers pass normalized directions.
+    float ldoth = vdoth;
 
     direct_lighting = EvaluateDirectBRDF(albedo, mat.roughness, mat.metalness, ndotv, ndotl, ndoth, vdoth, ldoth) * ndotl;
     lambert_brdf = EvaluateLambertBRDF(albedo, mat.metalness);

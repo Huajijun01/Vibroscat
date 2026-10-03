@@ -17,19 +17,18 @@ const float COLOR_JITTER_SEED = 83.0;
 
 layout(location = 0) out vec3 main_color;
 
-// World-space caustics: light enters the actual surface plane along the
-// light dir (not assumed vertical); pattern sampled at the entry crossing
-// (z = animation time). 256x256x256 volume baked from the current river
-// height texture and its three runtime layers at WATER_RIVER_GAIN = 1.5.
-// Height and central-difference normals are evaluated on a 2048^2 source
-// grid per frame (super-resolution: the 512^2 bake's bilinear source error
-// measured above photon noise; see the convergence study), then traced with
-// 65536 photons/pixel. Spatial feather and a C2 time loop join source fields
-// before photon tracing. The 8 m tile / 2 s loop remains a periodic
-// approximation of the river layers.
-#define CAUSTIC_WORLD_SCALE 8.0
-#define CAUSTIC_TIME_SPEED 0.5
-#define CAUSTIC_REFERENCE vec4(0.20840406, 0.02543099, 0.02728868, 0.04150889) // per depth layer, from bake
+// Dense Phillips wave spectrum with analytic normals, baked at 1/4/9/16 m.
+// The moving, skewed cell spans (v0 - v2) * 4 s and (v1 - v2) * 4 s:
+// all three river bands keep their exact world velocities while the volume
+// closes analytically after 4 s. The unresolved fine tail follows layer 2.
+// Spectrum realization differs from the R8 water; motion agrees per band.
+// 3883 modes, 4096^2 source, 16384 photons/output pixel, WATER_RIVER_GAIN=1.5.
+// Matrix is column-major; constants are generated with the texture bake.
+const mat2 CAUSTIC_WORLD_TO_UV = mat2(0.08549018063, -0.06079713429,
+                                    0.00297625931, 0.18249895080);
+const vec2 CAUSTIC_ADVECTION_MPS = vec2(0.86803042545, 0.40513266195);
+#define CAUSTIC_TIME_SPEED 0.25
+#define CAUSTIC_REFERENCE vec4(0.06737530, 0.05167234, 0.07432320, 0.13514517) // filtered mean light
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
 // Fixed bake reference plane; underwater eyeBrightnessSmooth cannot
@@ -89,7 +88,8 @@ vec3 CausticLightContribution(vec3 caustic_world_pos, vec3 caustic_brdf, vec3 tr
 ) {
     float caustic_reach = (caustic_sample_y - caustic_world_pos.y) / max(light_dir.y, 1.0e-3);
     vec3 caustic_entry = caustic_world_pos + light_dir * max(caustic_reach, 0.0);
-    vec2 caustic_uv = caustic_entry.xz / CAUSTIC_WORLD_SCALE;
+    vec2 caustic_uv = CAUSTIC_WORLD_TO_UV
+        * (caustic_entry.xz - CAUSTIC_ADVECTION_MPS * frameTimeCounter);
     float caustic_time = fract(frameTimeCounter * CAUSTIC_TIME_SPEED);
     // Refraction bends the path toward vertical: path = vertical drop * path
     // per metre of drop.

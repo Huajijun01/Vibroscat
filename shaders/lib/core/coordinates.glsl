@@ -23,12 +23,6 @@ vec3 SceneToViewSpace(vec3 sp) {
     return (gbufferModelView * vec4(sp, 1.0)).xyz;
 }
 
-// NDC ([-1,1]^3) to camera-relative view space.
-vec3 NDCToView(vec3 ndc) {
-    vec4 view_h = gbufferProjectionInverse * vec4(ndc, 1.0);
-    return view_h.xyz / view_h.w;
-}
-
 // NDCToView specialized to the symmetric perspective projection the game
 // builds: rows 0/1 of the inverse carry only their diagonal entries (clip
 // x/y never mix in eye z), and rows 2/3 only their z/w entries — the four
@@ -44,9 +38,21 @@ vec3 NDCToViewSparse(vec2 ndc_xy, float ndc_z) {
     return view_h / (gbufferProjectionInverse[2][3] * ndc_z + gbufferProjectionInverse[3][3]);
 }
 
-// Camera-relative view space to NDC ([-1,1]^3).
+// NDC ([-1,1]^3) to camera-relative view space.
+vec3 NDCToView(vec3 ndc) {
+    return NDCToViewSparse(ndc.xy, ndc.z);
+}
+
+// Camera-relative view space to NDC ([-1,1]^3). Sparse forward form of the
+// full mat4 product under the same symmetric-perspective structure documented
+// above: rows 0/1 of the projection carry only their diagonal entries and
+// row 2 only its z/w entries, so the dropped products are exact zeros.
 vec3 ViewToNDC(vec3 view_pos) {
-    return (gbufferProjection * vec4(view_pos, 1.0)).xyz / -view_pos.z;
+    vec3 clip = vec3(
+        gbufferProjection[0][0] * view_pos.x,
+        gbufferProjection[1][1] * view_pos.y,
+        gbufferProjection[2][2] * view_pos.z + gbufferProjection[3][2]);
+    return clip / -view_pos.z;
 }
 
 // Reconstructs a camera-relative player-space position from screen UV and depth.
@@ -59,10 +65,8 @@ vec3 DepthToWorldPos(vec2 texcoord, float depth) {
 // previous frame's UV space. Camera-relative world positions apply the camera
 // delta; view-model positions such as the first-person hand do not.
 vec3 ToPrevious(vec3 closest_to_camera, bool apply_camera_delta) {
-    vec4 pos = vec4(closest_to_camera * 2.0 - 1.0, 1.0);
-    pos = gbufferProjectionInverse * pos;
-    pos /= pos.w;
-    pos = gbufferModelViewInverse * pos;
+    vec3 view_pos = NDCToViewSparse(closest_to_camera.xy * 2.0 - 1.0, closest_to_camera.z * 2.0 - 1.0);
+    vec4 pos = vec4((gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz, 1.0);
     if (apply_camera_delta) {
         pos.xyz += cameraPosition - previousCameraPosition;
     }

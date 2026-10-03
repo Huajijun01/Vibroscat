@@ -144,13 +144,14 @@ vec3 FresnelDielectric(float cos_theta, float f0) {
 // over the source disc of angular radius light_radius (radians).
 float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius) {
     float cos_radius = cos(light_radius);
-    float tan_radius = tan(light_radius);
 
     // Early out when the reflection ray already falls within the disc.
     float rdotl = 2.0 * ndotl * ndotv - ldotv;
     if (rdotl >= cos_radius) return 1.0;
 
-    float scaled = cos_radius * tan_radius * inversesqrt(1.0 - rdotl * rdotl);
+    // cos(r) * tan(r) == sin(r) identically (|r| < pi/2), so the disc scale
+    // needs one sin instead of a cos + tan pair.
+    float scaled = sin(light_radius) * inversesqrt(1.0 - rdotl * rdotl);
     float ndott = scaled * (ndotv - rdotl * ndotl);
     float vdott = scaled * (2.0 * ndotv * ndotv - 1.0 - rdotl * ldotv);
 

@@ -46,12 +46,6 @@ AirFogMedium AirFogMediumAtCamera() {
     return AirFogMedium(extinction, ray, mie);
 }
 
-// Closed form of integral0^S sigmas*exp(-sigmat*t) dt; no light-direction OD
-// (groundLight approximates the active light reaching the scene).
-vec4 AirScatteringIntegral(float segment_length, vec4 sigma_s, vec4 sigma_t) {
-    return sigma_s * (vec4(1.0) - exp(-sigma_t * segment_length)) / sigma_t;
-}
-
 // View-ray length clamped to `far` (sphere approx of the loaded area;
 // shared by air_fog.fragment and epipolar_integrate_air.compute).
 float AirFogSegmentLength(float depth_dist, float radius) {
@@ -86,9 +80,12 @@ AirFogResult AirFogRender(vec3 world_dir, float depth_dist, float radius,
     vec4 trans_spectral = exp(-medium.extinction * segment_length);
 
     // Full analytic single scattering: Rayleigh and Mie integrated separately
-    // against the shared extinction, each with its own phase.
-    vec4 ray_int = AirScatteringIntegral(segment_length, medium.scattering_ray, medium.extinction);
-    vec4 mie_int = AirScatteringIntegral(segment_length, medium.scattering_mie, medium.extinction);
+    // against the shared extinction, each with its own phase. Both integrals
+    // share the (1 - T)/sigma_t quotient of the transmittance above (the same
+    // per-element sequence AirScatteringIntegral runs), so evaluate it once.
+    vec4 scattering_quotient = (vec4(1.0) - trans_spectral) / medium.extinction;
+    vec4 ray_int = medium.scattering_ray * scattering_quotient;
+    vec4 mie_int = medium.scattering_mie * scattering_quotient;
     vec3 ray_rgb = SpectralFractionToLinearSRGB(ray_int) * AIR_FOG_INTENSITY;
     vec3 mie_rgb = SpectralFractionToLinearSRGB(mie_int) * AIR_FOG_INTENSITY;
     vec3 sca_rgb = ray_rgb + mie_rgb;

@@ -67,9 +67,7 @@ uniform sampler2DShadow shadowtex1; // hardware PCF comparison
 uniform sampler2D shadowcolor0;    // RSM: RGB565 diffuse reflectance + oct8 shadow-view normal
 
 // -- Custom textures (customTexture bindings, shaders.properties) --
-#ifdef STAR_MAP
 uniform sampler2D utex_starmap;               // NASA star map (LogLuv32 RGBA8)
-#endif
 uniform sampler2D utex_tslut;                 // atmosphere transmittance LUT
 uniform sampler2D utex_mslut;                 // atmosphere multiscatter LUT
 uniform sampler2D utex_mother_river;         // periodic 128x128 R8 river height (32 m)

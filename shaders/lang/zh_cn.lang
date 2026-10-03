@@ -512,10 +512,8 @@ option.SKY_AMBIENT_STRENGTH = 天空环境光强度
 option.SKY_AMBIENT_STRENGTH.comment = 所有表面接收的天空环境光（SH 辐照度）亮度。调低只压低背光面的天光填充，直射阳光不变；GI 在屏幕追踪覆盖不到的方向回退的 SH 也按同一系数缩放。1.0 = 原始天空 SH 辐照度。
 option.TORCH_BRIGHTNESS = 方块光亮度
 option.TORCH_BRIGHTNESS.comment = 所有方块光源的亮度：火把、灯笼、萤石、岩浆、红石灯等。它们共用同一个暖色调，所以冷色光源也会被染暖，色调本身不随本滑条改变。
-option.STAR_MAP = 4K 星图
-option.STAR_MAP.comment = 用真实的 NASA 星图（4K 贴图）绘制夜空，替代程序化星点。关闭可省一些显存与绘制开销，LOW 与 MEDIUM 预设即使用该状态。
 option.STAR_MAP_INTENSITY = 星空亮度
-option.STAR_MAP_INTENSITY.comment = 夜空星空的亮度。0 = 无星夜空。关闭 4K 星图时，本项缩放的是程序化星空。
+option.STAR_MAP_INTENSITY.comment = 夜空星空的亮度，星空由 4K NASA 星图绘制。0 = 无星夜空。
 option.ATM_HORIZON_DIP = 地平线下沉
 option.ATM_HORIZON_DIP.comment = 通过把大气延伸到地面线以下来加浓地平线附近的雾带，让远处地形更自然地融进浓厚的地平线雾霾。
 value.ATM_HORIZON_DIP.0 = 关

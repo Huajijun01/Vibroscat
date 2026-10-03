@@ -512,10 +512,8 @@ option.SKY_AMBIENT_STRENGTH = Sky Ambient Strength
 option.SKY_AMBIENT_STRENGTH.comment = Brightness of the sky's ambient (SH) light on every surface. It dims the flat sky fill on shaded sides while direct sunlight stays untouched, and the SH fallback that GI uses for directions the screen trace cannot cover scales with it. 1.0 = the raw sky SH irradiance.
 option.TORCH_BRIGHTNESS = Block Light Brightness
 option.TORCH_BRIGHTNESS.comment = Brightness of every block light source: torches, lanterns, glowstone, lava, redstone lamps and the rest. They all share one warm tint, so cool-colored sources are tinted warm as well. The tint itself does not change with this slider.
-option.STAR_MAP = 4K Star Map
-option.STAR_MAP.comment = Draws the night sky from a real NASA star map (4K texture) instead of the procedural star field. Off saves a little memory and draw cost, and is what the LOW and MEDIUM presets use.
 option.STAR_MAP_INTENSITY = Star Brightness
-option.STAR_MAP_INTENSITY.comment = Brightness of the night sky's stars. 0 = starless sky. When the 4K Star Map is off, this scales the procedural star field instead.
+option.STAR_MAP_INTENSITY.comment = Brightness of the night sky's stars, drawn from the 4K NASA star map. 0 = starless sky.
 option.ATM_HORIZON_DIP = Horizon Dip
 option.ATM_HORIZON_DIP.comment = Thickens the haze band at the horizon by extending the atmosphere below the ground line, so distant terrain melts into a denser, more realistic horizon haze.
 value.ATM_HORIZON_DIP.0 = Off

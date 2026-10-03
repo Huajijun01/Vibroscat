@@ -19,7 +19,7 @@ vec2 GetTransmittanceLUTUV(float r, float r2, float mu) {
     float d_min = ATM_ATMO_R - r;
     float d_max = rho + ATM_H;
     float x_mu = (d - d_min) / max(d_max - d_min, 1.0e-5);
-    float x_r  = rho / max(ATM_H, 1.0e-5);
+    float x_r  = rho * ATM_RCP_H;
     x_mu = x_mu * x_mu;  // square remap -> more resolution near horizon
     return vec2(x_mu, x_r);
 }
@@ -35,14 +35,16 @@ void GetTransmittanceLUTUVPair(float r, float r2, float mu, out vec2 uv_pos, out
     float sq = sqrt(max(r2 * (mu2 - 1.0) + ATM_ATMO_R2, 0.0));
     float d_min = ATM_ATMO_R - r;
     float d_max = rho + ATM_H;
-    float x_r  = rho / max(ATM_H, 1.0e-5);
+    float x_r  = rho * ATM_RCP_H;
+    // One shared reciprocal keeps the mirrored outputs bit-identical.
+    float inv_range = 1.0 / max(d_max - d_min, 1.0e-5);
 
     float d_pos = max(0.0, -r * mu + sq);
-    float x_mu_pos = (d_pos - d_min) / max(d_max - d_min, 1.0e-5);
+    float x_mu_pos = (d_pos - d_min) * inv_range;
     uv_pos = vec2(x_mu_pos * x_mu_pos, x_r);
 
     float d_neg = max(0.0, r * mu + sq);
-    float x_mu_neg = (d_neg - d_min) / max(d_max - d_min, 1.0e-5);
+    float x_mu_neg = (d_neg - d_min) * inv_range;
     uv_neg = vec2(x_mu_neg * x_mu_neg, x_r);
 }
 

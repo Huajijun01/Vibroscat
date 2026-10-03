@@ -10,6 +10,7 @@ const float ATM_PLANET_R2 = ATM_PLANET_R * ATM_PLANET_R;
 const float ATM_ATMO_R2 = ATM_ATMO_R * ATM_ATMO_R;
 // Shell thickness and derived reciprocals used by the density and LUT's geometry.
 const float ATM_H = sqrt(ATM_ATMO_R2 - ATM_PLANET_R2);
+const float ATM_RCP_H = 1.0 / ATM_H;
 const float ATM_ATMO_MINUS_P = ATM_ATMO_R - ATM_PLANET_R;
 const float ATM_RCP_ATMO_MINUS_P = 1.0 / ATM_ATMO_MINUS_P;
 

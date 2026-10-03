@@ -26,7 +26,12 @@ float PhaseRayleigh(float cos_theta) {
 float PhaseHenyeyGreenstein(float cos_theta, float eccentricity) {
     float eccentricity2 = eccentricity * eccentricity;
     float denominator = max(1.0 + eccentricity2 - 2.0 * eccentricity * cos_theta, 1.0e-4);
-    return PHASE_ISOTROPIC * (1.0 - eccentricity2) / (denominator * sqrt(denominator));
+    // d^(-3/2) as one inversesqrt of the cube: the guard keeps the cube in
+    // range, and the SFU call replaces the sqrt-plus-divide pair. inversesqrt
+    // precision is implementation-defined (~1e-6 relative), far inside the
+    // scattering budget.
+    float denominator3 = denominator * denominator * denominator;
+    return PHASE_ISOTROPIC * (1.0 - eccentricity2) * inversesqrt(denominator3);
 }
 
 // Dual-lobe HG: an unweighted forward lobe plus a mirrored backward lobe, the

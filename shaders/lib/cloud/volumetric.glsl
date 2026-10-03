@@ -374,16 +374,19 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float isotropic_orders = CloudIsotropicOrders(
             reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
 
-        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
 #ifdef CLOUD_SINGLE_LIGHT
         float sample_light = 0.0;
+        // The jitter only feeds the light trace, so compute it after the
+        // horizon test has skipped erased samples.
         if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
+            float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, light_dir, light_jitter);
             sample_light = CloudDirectionalScattering(light_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
 #else
+        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
         float sample_sun = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = CloudLightOpticalDepth(

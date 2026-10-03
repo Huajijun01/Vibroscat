@@ -165,7 +165,10 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
             * CelestialAngularMask(cos_sun, SUN_DISC_RADIUS, SUN_GLOW_RADIUS);
     }
 
-    float cos_moon = dot(view_dir, moon_dir);
+    // moon_dir above is the exact IEEE negation of sun_dir, and negation
+    // distributes exactly through the dot product, so this is bit-identical
+    // to dot(view_dir, moon_dir).
+    float cos_moon = -cos_sun;
     if (cos_moon > cos(MOON_GLOW_RADIUS)) {
         vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_MOON_IRR);
         vec3 moon_radiance = SpectralToLinearRec2020(ATM_MOON_IRR)

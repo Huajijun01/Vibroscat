@@ -141,15 +141,18 @@ const vec4 ATM_MOON_IRR = vec4(0.1522710, 0.2695135, 0.1635034, 0.1553021) * 0.6
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)
 // ===============================================================
 
-float DensityRay(float r) {
-    float h = max(r - ATM_PLANET_R, 0.0);
-    return exp(-ATM_RAY_EXP_A * pow(h, ATM_RAY_EXP_B));
+// Density profiles in altitude above the planet surface. Callers hold the
+// altitude directly (the sky march carries h_mid), so the folds clamp h
+// instead of paying an (R+h)-R float round trip per sample; the below-surface
+// clamps keep the radius-domain semantics.
+float DensityRayH(float h) {
+    return exp(-ATM_RAY_EXP_A * pow(max(h, 0.0), ATM_RAY_EXP_B));
 }
 
-float DensityOzone(float r) {
-    float h = max(r - ATM_PLANET_R, 1.0e-5);
-    float t = log(h) - ATM_OZONE_CENTER_LOG;
-    return ATM_OZONE_DENS_SCALE * (1.0 / h) * exp(-t * t * ATM_OZONE_INV_VAR);
+float DensityOzoneH(float h) {
+    float h_clamped = max(h, 1.0e-5);
+    float t = log(h_clamped) - ATM_OZONE_CENTER_LOG;
+    return ATM_OZONE_DENS_SCALE * (1.0 / h_clamped) * exp(-t * t * ATM_OZONE_INV_VAR);
 }
 
 // ===============================================================
@@ -157,8 +160,7 @@ float DensityOzone(float r) {
 // ===============================================================
 
 vec4 GetSigmaSRay(float h) {
-    float d = DensityRay(ATM_PLANET_R + h);
-    return d * ATM_SIGMA_S_RAY;
+    return DensityRayH(h) * ATM_SIGMA_S_RAY;
 }
 
 // Aerosol vertical profile shared by the Mie folds: an exponential falloff
@@ -182,8 +184,7 @@ vec4 GetSigmaEMie(float h) {
 }
 
 vec4 GetSigmaAOzone(float h) {
-    float d = DensityOzone(ATM_PLANET_R + h);
-    return d * ATM_OZONE_SIGMA;
+    return DensityOzoneH(h) * ATM_OZONE_SIGMA;
 }
 
 // Total extinction: Rayleigh + aerosol (scattering and absorption in one

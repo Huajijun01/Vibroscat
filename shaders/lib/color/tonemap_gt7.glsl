@@ -96,9 +96,6 @@ const float GT7_SHOULDER_C = -0.719424460431655;
 const float GT7_TARGET_LUMA_UCS = 0.903838732486;
 // Input prescale re-anchoring 18% grey: 0.4*curve(scale*0.18) = 0.18.
 const float GT7_MID_GREY_SCALE = 2.508318700610;
-// k * M folds into the constant matrix; the per-pixel path pays no scalar
-// multiply for the anchor.
-const mat3 SRGB_TO_BT2020_SCALED = SRGB_TO_BT2020 * GT7_MID_GREY_SCALE;
 
 float GT7Curve(float x) {
     if (x <= 0.0) return 0.0;
@@ -112,7 +109,7 @@ float GT7Curve(float x) {
 }
 
 vec3 TonemapGT7(vec3 linear_rgb) {
-    vec3 rgb = SRGB_TO_BT2020_SCALED * max(linear_rgb, 0.0);
+    vec3 rgb = SRGB_TO_BT2020 * (GT7_MID_GREY_SCALE * max(linear_rgb, 0.0));
     vec3 ucs = RgbToICtCp(rgb);
 
     // Step 1: per-channel curve pass (color-accurate midtones, hue twist

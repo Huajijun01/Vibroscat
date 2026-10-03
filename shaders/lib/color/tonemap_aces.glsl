@@ -16,12 +16,10 @@ const mat3 ACESCG_TO_SRGB = mat3(
 // Pre-scale: f(k*0.18) = 0.18 (mid-grey anchor shared with the other
 // tonemap modes).
 const float ACES_MID_GREY_SCALE = 0.72317081;
-// k * M folds into the constant matrix so the per-pixel path pays no scalar
-// multiply for the anchor.
-const mat3 SRGB_TO_ACESCG_SCALED = SRGB_TO_ACESCG * ACES_MID_GREY_SCALE;
 
 vec3 TonemapACES(vec3 linear_rgb) {
-    vec3 fitted = SRGB_TO_ACESCG_SCALED * max(linear_rgb, 0.0);
+    vec3 acescg = SRGB_TO_ACESCG * max(linear_rgb, 0.0);
+    vec3 fitted = ACES_MID_GREY_SCALE * acescg;
     fitted = fitted * (2.51 * fitted + 0.03) / (fitted * (2.43 * fitted + 0.59) + 0.14);
     return ACESCG_TO_SRGB * fitted;
 }

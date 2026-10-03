@@ -91,12 +91,19 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
     // decays arithmetically (inverse-CDF of the exponential attenuation),
     // concentrating samples where the scattering weight is large.
     float seg_optical = segment_length + d_l; // per-channel optical shadow_depth = extinction * segOptical
-    vec3 t_end_vec = exp(-extinction * seg_optical);
-    float t_end = max(max(t_end_vec.r, t_end_vec.g), t_end_vec.b);
+    // exp is monotone, so the max over channels of exp(-ext*seg_optical) is
+    // the single exp at the extremal channel (min extinction for a positive
+    // optical depth, max for a negative one) — the selected exp is bit-equal
+    // to the old maximum and the two others disappear.
+    float ext_extreme = seg_optical >= 0.0
+        ? min(extinction.r, min(extinction.g, extinction.b))
+        : max(extinction.r, max(extinction.g, extinction.b));
+    float t_end = exp(-ext_extreme * seg_optical);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
     vec3 numerator = vec3(0.0);
     float inv_steps = 1.0 / float(WATER_EPIPOLAR_SHADOW_STEPS);
+    float inv_tau = 1.0 / tau;
     for (int k = 0; k < WATER_EPIPOLAR_SHADOW_STEPS; ++k) {
         float p = (float(k) + stbn_jitter) * inv_steps;
         float t_sample = 1.0 + p * (t_end - 1.0); // arithmetic transmittance decay
@@ -106,8 +113,8 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
             u = p;
             du = inv_steps;
         } else {
-            u = -log(max(t_sample, 1e-6)) / tau;
-            u = clamp(u, 0.0, 1.0);
+            float m = max(t_sample, 1e-6);
+            u = clamp(-log(m) * inv_tau, 0.0, 1.0);
             // Jacobian of the inverse CDF: du/dp = (1-t_end)/(tau*t_sample),
             // so the Riemann cell width in t is S*du. Measured against an exact
             // reference this leaves a smooth ~2-3% deficit in the channel that
@@ -117,11 +124,11 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
             // the CDF onto the mean or the fastest channel, measured worse: it
             // adds a layout-dependent +1..6% bias on shadowed columns, which is
             // the contrast this term exists to draw.
-            du = (1.0 - t_end) / (tau * max(t_sample, 1e-6)) * inv_steps;
+            du = (1.0 - t_end) * inv_tau / m * inv_steps;
         }
         float shadow = EpipolarShadowVisibility(s, e, u);
-        float light_path = light_path1 + d_l * u;
-        vec3 weight = exp(-extinction * (u * segment_length + light_path));
+        // u*S + (L1 + u*d_l) == L1 + u*(S + d_l): one scalar FMA fewer per step.
+        vec3 weight = exp(-extinction * (light_path1 + u * seg_optical));
         numerator += weight * shadow * (segment_length * du);
     }
 

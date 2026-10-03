@@ -75,7 +75,7 @@ void main() {
     vec3 history;
     bool valid = all(greaterThanEqual(history_uv, vec2(0.0))) && all(lessThanEqual(history_uv, vec2(1.0)));
     if (valid) {
-        history = FastCatmullRom5Tap(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
+        history = FastCatmullRom5Tap(colortex5, history_uv, vec2(u_screen_res), 0.75).rgb;
     } else {
         history = current_color;
     }

@@ -3,11 +3,11 @@
 
 // Fast 5-tap Catmull-Rom bicubic (sharpness=0.5 typical). Uses texture() and
 // explicit weight-sum normalization. UV clipping is caller responsibility.
-// texel_size is the reciprocal texture resolution; every caller derives it
-// from uniforms or constants, so the resolution itself is never queried.
-vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness) {
-    vec2 res = 1.0 / texel_size;
-    vec2 texel = uv * res;
+// resolution is the texture size; callers hold it directly (u_screen_res or
+// the history size), so the sample grid needs no reciprocal round trip.
+vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 resolution, float sharpness) {
+    vec2 texel_size = 1.0 / resolution;
+    vec2 texel = uv * resolution;
     vec2 center = floor(texel - 0.5) + 0.5;
     vec2 f = texel - center;
     vec2 f2 = f * f;

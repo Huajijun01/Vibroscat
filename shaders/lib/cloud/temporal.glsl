@@ -80,7 +80,7 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
         return invalid;
     }
 
-    vec4 col = FastCatmullRom5Tap(colortex8, clamped_uv, texel, 0.5);
+    vec4 col = FastCatmullRom5Tap(colortex8, clamped_uv, history_size, 0.5);
     CloudFrame frame;
     frame.radiance = col.rgb;
     frame.surface_distance = col.a;

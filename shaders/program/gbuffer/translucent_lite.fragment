@@ -32,8 +32,9 @@ void main() {
     vec3 surface_normal_view = v_normal;
 #ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
     // World up expressed in view space: a literal (0,1,0) here would be
-    // screen up and flip particle lighting with camera pitch.
-    surface_normal_view = normalize(mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0));
+    // screen up and flip particle lighting with camera pitch. mat3(M) times
+    // the y axis is exactly the second matrix column.
+    surface_normal_view = normalize(gbufferModelView[1].xyz);
 #endif
 
     vec3 view_to_eye = -normalize(v_view_pos);

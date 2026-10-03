@@ -144,7 +144,10 @@ void main() {
     vec2 screen_texcoord = gl_FragCoord.xy * u_view_pixel_size;
 
     vec2 rt_coord = screen_texcoord;
-    vec3 rt_pos = ViewToNDC(v_view_pos) * 0.5 + 0.5;
+    // rt_pos is written by every traced hit below and only read behind the
+    // rt_hit_flag guard, so it needs no initialization (an untraced or missed
+    // ray never reaches the read).
+    vec3 rt_pos;
     bool rt_hit_flag = false;
     bool rt_hit_sky = false;
     vec3 reflect_dir = reflect(view_dir, current_normal);

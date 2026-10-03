@@ -38,15 +38,19 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
     float t_end = exp(-extinction * seg_optical);
     float tau = -log(max(t_end, 1e-6));
     bool uniform_steps = abs(seg_optical) < 1e-3 || abs(tau) < 1e-3;
-    vec3 numerator = vec3(0.0);
-    vec3 denominator = vec3(0.0);
+    // The extinction argument is scalar, so every channel of the vec3
+    // numerator/denominator pair carried the identical value: accumulate the
+    // ratio as scalars and expand once at the return.
+    float numerator = 0.0;
+    float denominator = 0.0;
+    float inv_steps = 1.0 / float(AIR_EPIPOLAR_SHADOW_STEPS);
     for (int k = 0; k < AIR_EPIPOLAR_SHADOW_STEPS; ++k) {
-        float p = (float(k) + stbn_jitter) / float(AIR_EPIPOLAR_SHADOW_STEPS);
+        float p = (float(k) + stbn_jitter) * inv_steps;
         float u;
-        vec3 weight;
+        float weight;
         if (uniform_steps) {
             u = p;
-            weight = vec3(exp(-extinction * (u * segment_length)));
+            weight = exp(-extinction * (u * segment_length));
         } else {
             // t_sample decays arithmetically in p, so u = -log(t_sample)/tau is
             // the inverse CDF of the view-path transmittance: every step
@@ -59,13 +63,13 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, float extinction,
             // sea-level air, unreachable inside the fog slab).
             float t_sample = 1.0 + p * (t_end - 1.0);
             u = clamp(-log(max(t_sample, 1e-6)) / tau, 0.0, 1.0);
-            weight = vec3(1.0);
+            weight = 1.0;
         }
         float shadow = EpipolarShadowVisibility(s, e, u);
         numerator += weight * shadow;
         denominator += weight;
     }
-    return Saturate(numerator / max(denominator, vec3(1e-6)));
+    return vec3(Saturate(numerator / max(denominator, 1e-6)));
 }
 
 #endif // EPIPOLAR_VOLUMETRICS

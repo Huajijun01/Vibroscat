@@ -54,14 +54,8 @@ uniform sampler2D colortex2;      // opaque GBuffer, then translucent surface da
 uniform sampler2D colortex3;      // opaque reflection incident radiance transient
 uniform sampler2D colortex4;      // opaque geometric world normal (RG) + lightmap (BA)
 uniform sampler2D colortex5;      // TAA / composite history
-#ifdef GI_REBLUR_ACTIVE
-uniform sampler2D colortex6;      // ReBLUR fast irradiance RGB + normalized hit distance
-uniform sampler2D usam_gi_reblur_a; // history repair RGB + luminance sigma
-uniform sampler2D usam_gi_reblur_b; // final blur RGB, unused alpha
-#endif
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
-uniform sampler2D colortex9;      // selected GI irradiance including uncovered SH
-uniform usampler2D colortex10;    // shared depth/normal/age/source metadata in gi_history.glsl
+uniform sampler2D colortex9;      // deferred3 GI irradiance including uncovered SH (raw)
 uniform sampler2D colortex11;    // weather
 uniform sampler2D colortex12;     // sequential post workspace
 

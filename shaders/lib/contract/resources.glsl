@@ -21,13 +21,12 @@
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
 //                                lightmap (BA) (solid -> deferred4)
 //   colortex5   R11F_G11F_B10F   TAA history
-//   colortex6   RGBA16F          ReBLUR fast history RGB + normalized hit distance
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (ao, age, 1-depth, A=NaN "not cloud")
 //   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
-//   colortex9   RGB16F          GI irradiance including uncovered SH; optional temporal history
-//   colortex10  R32UI            shared GI half depth, oct5 normal, age, source tag
+//   colortex9   RGB16F           deferred3 GI irradiance including uncovered SH,
+//                                read directly by deferred4
 //   colortex11  RGBA8            Weather sheet: weather texture colour (RGB) and coverage
 //                                (A); written by gbuffers_weather, composited by air fog
 //   colortex12  RGBA16F          Translucent layer (premultiplied color + alpha):
@@ -53,19 +52,11 @@ const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
 const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, 1-depth, A=NaN)
-const int colortex9Format  = RGB16F; // recursive GI temporal irradiance history
-const int colortex10Format = R32UI;           // recursive GI age/depth metadata history
+const int colortex9Format  = RGB16F; // recursive GI irradiance (raw, written by deferred3)
 const int colortex11Format = RGBA8;           // weather texture
 const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
 */
-
-#ifdef GI_REBLUR_ACTIVE
-/*
-const int colortex6Format = RGBA16F;
-*/
-const bool colortex6Clear = false;
-#endif
 
 // -- Clear flags --
 // true = cleared each frame before shader writes. false = carry data across frames.
@@ -76,8 +67,7 @@ const bool colortex3Clear  = false;   // opaque reflection incident radiance tra
 const bool colortex4Clear  = false;   // opaque geometric world normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
-const bool colortex9Clear  = false;   // recursive GI temporal history
-const bool colortex10Clear = false;   // recursive GI age/depth metadata history
+const bool colortex9Clear  = false;   // recursive GI irradiance (fully rewritten by deferred3)
 const bool colortex11Clear = true;   // weather texture
 const bool colortex12Clear = true;   // sequential GBuffer, bloom, and tonemap workspace
 

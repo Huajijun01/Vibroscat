@@ -1,9 +1,5 @@
 #include "/lib/contract/settings.glsl"
-#ifdef GI_REBLUR_ACTIVE
-/* RENDERTARGETS: 9,10,6 */
-#else
-/* RENDERTARGETS: 9,10 */
-#endif
+/* RENDERTARGETS: 9 */
 
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
@@ -12,10 +8,6 @@
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/ambient_light.glsl"
-#include "/lib/lighting/gi_denoise.glsl"
-#include "/lib/lighting/gi_history.glsl"
-#include "/lib/lighting/gi_reblur.glsl"
-#include "/lib/lighting/gi_reblur_temporal.glsl"
 #if GI_MODE == 2
 #include "/lib/lighting/ambient_occlusion.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
@@ -27,15 +19,12 @@
 //   https://www.shadertoy.com/view/lfdBWn)
 // The slice sampler's fast arctangent is from
 //   https://www.shadertoy.com/view/lXBfWm
-// colortex5 is read-only scene radiance from the existing pipeline; this
-// pass owns the colortex9/10 GI temporal history pair.
+// colortex5 is read-only scene radiance from the existing pipeline; this pass
+// writes the raw one-estimate GI irradiance to colortex9, which deferred4
+// consumes directly. No temporal or spatial denoising runs here.
 // Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
 
 layout(location = 0) out vec3 out_gi;
-layout(location = 1) out uint out_gi_metadata;
-#ifdef GI_REBLUR_ACTIVE
-layout(location = 2) out vec4 out_gi_fast;
-#endif
 
 
 #if GI_MODE == 1
@@ -126,9 +115,7 @@ uint GIVisibilityMaskFromRange(vec2 range01) {
 }
 
 vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
-        out float coverage, out float second_moment, out float hit_distance) {
-    second_moment = 0.0;
-    hit_distance = 1.0;
+        out float coverage) {
     vec3 view_direction = -normalize(origin_view_position);
     vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
@@ -195,7 +182,6 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     uint occupied = 0u;
     vec3 gi = vec3(0.0);
     float hit_coverage = 0.0;
-    float hit_distance_sum = 0.0;
     for (int i = 0; i < SSGI_STEPS; ++i) {
         vec2 sample_uv = origin_coord + step_dir * step_size;
         step_size *= step_scale;
@@ -219,7 +205,6 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         float front_dd = max(dot(delta_front, delta_front), 1.0e-6);
         float front_inv_len = inversesqrt(front_dd);
         float front_cos = dot(delta_front, view_direction) * front_inv_len;
-        float front_len = front_dd * front_inv_len;
         float back_cos = dot(delta_back, view_direction) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
         // Reference hor01 pipeline: shift the horizon angles from V to N,
@@ -240,11 +225,6 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
             // reprojects off screen contributes no radiance but still occludes,
             // so no fallback energy is granted to a covered direction.
             hit_coverage += visible_weight;
-#ifdef GI_REBLUR_ACTIVE
-            // Count geometric hits even when their radiance is black or off screen.
-            hit_distance_sum += GIReblurHitDistance(front_len, -origin_view_position.z)
-                * visible_weight;
-#endif
             vec2 previous_uv = ToPrevious(vec3(sample_uv, sample_depth)).xy;
             if (all(greaterThanEqual(previous_uv, vec2(0.0)))
                     && all(lessThan(previous_uv, vec2(1.0)))) {
@@ -253,15 +233,12 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
                 // consumes it with the same unit as AmbientLight().
                 vec3 incident_irradiance = texture(colortex5, previous_uv).rgb * PI;
                 gi += incident_irradiance * visible_weight;
-                float sample_luminance = Luminance(incident_irradiance);
-                second_moment += sample_luminance * sample_luminance * visible_weight;
             }
         }
         occupied |= sample_mask;
         if (occupied == 0xFFFFFFFFu) break;
     }
     coverage = clamp(hit_coverage, 0.0, 1.0);
-    hit_distance = clamp(hit_distance_sum + 1.0 - coverage, 0.0, 1.0);
     return gi;
 }
 
@@ -269,20 +246,16 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 
 void main() {
     ivec2 tx = ivec2(gl_FragCoord.xy);
-#ifdef GI_REBLUR_ACTIVE
-    out_gi_fast = vec4(0.0);
-#endif
     vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
     vec4 material_data = texelFetch(colortex1, tx, 0);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
     // colortex4 carries the world-space geometric normal, which the SH
-    // fallback and the GI history metadata both consume directly.
+    // fallback consumes directly.
     vec3 fallback_normal = DecodeOctahedralNormal(geometry_data.xy);
 #if GI_MODE != 0
     int material_id = int(material_data.a * 255.0 + 0.5);
     float scene_depth = texelFetch(depthtex2, tx, 0).r;
     out_gi = vec3(0.0);
-    out_gi_metadata = 0u;
     if (scene_depth >= 1.0 && material_id != 64) return;
     // The SH fallback is evaluated per branch below: the hand inlines its own
     // call, and the RSM branch (GI_MODE == 2) replaces the geometry-normal
@@ -302,8 +275,6 @@ void main() {
     vec3 receiver_view = NDCToView(vec3(reconstruction_uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
     vec3 receiver_world = ViewToSceneSpace(receiver_view);
     vec3 raw_gi;
-    float sample_sigma;
-    float hit_distance;
 #if GI_MODE == 2
     vec4 surface_data = texelFetch(colortex2, tx, 0);
     vec2 nx_ao = Unpack2x8(surface_data.r);
@@ -312,55 +283,34 @@ void main() {
     float screen_ao;
     vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), nx_ao.y, false, screen_ao);
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
-    // The GI temporal denoiser consumes the animation, so the RSM noise keeps
-    // advancing with frameCounter (no STBNFrame() pinning here).
-    vec2 rsm_stbn_noise = vec2(SampleSTBN(tx, frameCounter),
-        SampleSTBN(tx, frameCounter + STBN_STREAM_2));
+    // GI has no temporal accumulator of its own, so both sources follow the
+    // shared STBN clock: the slice advances with frameCounter under TAA and
+    // pins to slice 0 without it (streams 2/3 for the radial/rotation pair).
+    vec2 rsm_stbn_noise = vec2(SampleSTBN(tx, STBNFrame()),
+        SampleSTBN(tx, STBNFrame() + STBN_STREAM_2));
     raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, rsm_stbn_noise,
-        fallback, sample_sigma, hit_distance);
+        fallback);
 #else
     fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     float coverage;
-    float second_moment;
     // Reference Rnd01x4 usage: x samples the slice direction, y jitters the
-    // first march step, z jitters the sector arcs (streams 0/3/1). The R2
-    // advance decorrelates the three streams across frames; the GI temporal
-    // denoiser consumes the animation (no STBNFrame() pinning here).
+    // first march step, z jitters the sector arcs (streams 0/3/1). GI has no
+    // temporal accumulator of its own, so the slices follow the shared STBN
+    // clock instead of advancing unconditionally with frameCounter.
     vec3 gi_stbn_noise = vec3(
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + STBN_STREAM_0),
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + STBN_STREAM_3),
-        SampleSTBN(ivec2(gl_FragCoord.xy), frameCounter + STBN_STREAM_1));
-    gi_stbn_noise = fract(gi_stbn_noise
-        + vec3(0.7548776662, 0.7548776662 * 0.7548776662, 0.7548776662)
-            * float(frameCounter & 63));
+        SampleSTBN(tx, STBNFrame() + STBN_STREAM_0),
+        SampleSTBN(tx, STBNFrame() + STBN_STREAM_3),
+        SampleSTBN(tx, STBNFrame() + STBN_STREAM_1));
     // The screen-space trace builds its slice basis in view space.
     vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
     raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, gi_stbn_noise,
-        coverage, second_moment, hit_distance);
+        coverage);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;
-    // A single random slice has correlated angular bins. Use their spread
-    // as a conservative clipping scale, not as independent sample counts.
-    float fallback_luminance = Luminance(fallback);
-    float mean_luminance = Luminance(raw_gi);
-    sample_sigma = sqrt(max(second_moment + fallback_luminance * fallback_luminance * miss_fraction
-        - mean_luminance * mean_luminance, 0.0));
     raw_gi = clamp(raw_gi, vec3(0.0), vec3(SSGI_RADIANCE_LIMIT));
 #endif
-#ifdef GI_DENOISE
-    float history_age;
-#ifdef GI_REBLUR_ACTIVE
-    out_gi = AccumulateGIReblur(raw_gi, hit_distance, receiver_world, fallback_normal,
-        history_age, out_gi_fast);
-#else
-    out_gi = AccumulateGI(raw_gi, sample_sigma, receiver_world, fallback_normal, history_age);
-#endif
-    out_gi_metadata = EncodeGIHistory(-receiver_view.z, fallback_normal, history_age);
-#else
     out_gi = raw_gi;
-#endif
 #else
     out_gi = vec3(0.0);
-    out_gi_metadata = 0u;
 #endif
 }

@@ -8,7 +8,6 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
-#include "/lib/lighting/gi_reblur.glsl"
 #include "/lib/shadow/rsm_data.glsl"
 
 vec3 RSMOccludedSky(vec3 sky_fallback, float shadow_occlusion) {
@@ -45,9 +44,7 @@ vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
 // (radial jitter in y, golden-angle rotation seed in x).
 // Output includes the uncovered sky fallback, before the receiver BRDF.
 vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
-        vec2 stbn_noise, vec3 sky_fallback, out float sample_sigma, out float hit_distance) {
-    sample_sigma = 0.0;
-    hit_distance = 1.0;
+        vec2 stbn_noise, vec3 sky_fallback) {
     float availability = 1.0 - smoothstep(max(shadowDistance - RSM_RADIUS, 0.0),
         shadowDistance, length(receiver_view));
     if (availability <= 0.0) return sky_fallback;
@@ -60,12 +57,9 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
-    float sum_hit_distance = 0.0;
-    vec3 sum_transport_moments = vec3(0.0);
 #ifdef RSM_SKY_OCCLUSION
     float sum_shadow_occlusion = 0.0;
     float sum_shadow_weight = 0.0;
-    float sum_squared_shadow_weight = 0.0;
 #endif
 
     for (int sample_index = 0; sample_index < RSM_SAMPLES; ++sample_index) {
@@ -75,7 +69,6 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 #ifdef RSM_SKY_OCCLUSION
         float shadow_weight = radial_distance / RSM_RADIUS;
         sum_shadow_weight += shadow_weight;
-        sum_squared_shadow_weight += shadow_weight * shadow_weight;
 #endif
         float angle = TAU * fract(stbn_noise.x + float(sample_index) * GOLDEN_RATIO);
         vec2 sample_shadow_xy = receiver_shadow.xy + radial_distance * vec2(cos(angle), sin(angle));
@@ -138,14 +131,6 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float sample_coverage = transport_weight / projected_cosine;
         sum_irradiance += sample_irradiance;
         sum_coverage += sample_coverage;
-#ifdef GI_REBLUR_ACTIVE
-        // VPL distance is a blur-scale approximation, not a visibility-tested
-        // first ray hit. Weight by geometry, including black emitters, not flux.
-        sum_hit_distance += GIReblurHitDistance(delta_length_m, -receiver_view.z) * sample_coverage;
-#endif
-        float bounce_luminance = Luminance(sample_irradiance);
-        sum_transport_moments += vec3(bounce_luminance * bounce_luminance,
-            sample_coverage * sample_coverage, bounce_luminance * sample_coverage);
     }
 
     vec3 irradiance = sum_irradiance / rsm_sample_count;
@@ -160,24 +145,6 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     // A first-surface RSM only approximates receiver visibility; overlapping
     // solid angles and stochastic overshoot cannot remove more than all SH.
     float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;
-    hit_distance = mix(1.0, sum_hit_distance / max(sum_coverage, 1.0e-6), coverage);
-    // Evaluate the bounce/coverage covariance with the final sky factor. Add
-    // the shadow estimator's standard error conservatively for shared samples.
-    vec3 moments = sum_transport_moments / rsm_sample_count;
-    float sky_luminance = Luminance(occluded_sky);
-    float mean_luminance = Luminance(irradiance) - sky_luminance * mean_coverage;
-    float transport_variance = max(moments.x + sky_luminance * sky_luminance * moments.y
-        - 2.0 * sky_luminance * moments.z - mean_luminance * mean_luminance, 0.0);
-#ifdef RSM_SKY_OCCLUSION
-    float shadow_variance = mean_shadow_occlusion * (1.0 - mean_shadow_occlusion)
-        * sum_squared_shadow_weight / (sum_shadow_weight * sum_shadow_weight);
-    float shadow_scale = (1.0 - RSM_SKY_OCCLUSION_FLOOR)
-        * Luminance(sky_fallback - vec3(AMBIENT_FLOOR)) * (1.0 - coverage);
-    sample_sigma = (sqrt(transport_variance / float(RSM_SAMPLES))
-        + shadow_scale * sqrt(shadow_variance)) * availability;
-#else
-    sample_sigma = sqrt(transport_variance / float(RSM_SAMPLES)) * availability;
-#endif
     return max(irradiance, vec3(0.0)) * availability + occluded_sky * (1.0 - coverage);
 }
 

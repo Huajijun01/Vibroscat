@@ -55,6 +55,10 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     vec2 shadow_size_f = vec2(shadow_size);
     float rsm_sample_count = float(RSM_SAMPLES);
     vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);
+    // The texel-extent denominator is loop-invariant; carry its reciprocal
+    // so each sample trades the division for a multiply.
+    vec2 texel_extent_inv_denom = 1.0
+        / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
 #ifdef RSM_SKY_OCCLUSION
@@ -93,7 +97,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         // is valid here.
 #ifdef RSM_SKY_OCCLUSION
         texel_extent_m = 2.0 * distort_factor * distort_factor
-            / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
+            * texel_extent_inv_denom;
         float texel_footprint = length(texel_extent_m);
         float delta_length_m = length(delta_shadow);
         float distance_squared = delta_length_m * delta_length_m;
@@ -108,7 +112,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 
 #ifndef RSM_SKY_OCCLUSION
         texel_extent_m = 2.0 * distort_factor * distort_factor
-            / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
+            * texel_extent_inv_denom;
         float distance_squared = dot(delta_shadow, delta_shadow);
         float delta_length_m = sqrt(distance_squared);
 #endif
@@ -125,10 +129,12 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float projected_cosine = max(abs(emitter_normal.z), 0.05);
         float emitter_area = texel_extent_m.x * texel_extent_m.y / projected_cosine;
         float softened_distance_squared = max(distance_squared, max(0.04, emitter_area / PI));
-        float inverse_pdf = TAU * RSM_RADIUS * radial_distance;
+        // TAU / PI is exactly 2 and folded here, so the transport weight
+        // below needs no division.
+        float inverse_pdf = 2.0 * RSM_RADIUS * radial_distance;
         float geometry_term = receiver_cosine_distance * emitter_cosine_distance
             / (distance_squared * softened_distance_squared);
-        float transport_weight = geometry_term * inverse_pdf / PI;
+        float transport_weight = geometry_term * inverse_pdf;
         vec3 sample_irradiance = reflectance * transport_weight * ground_light_payload * RSM_STRENGTH;
         // Convert projected area to surface area for cosine-weighted solid
         // angle coverage. Unlike flux, this has no incident-cosine factor.

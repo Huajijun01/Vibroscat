@@ -61,11 +61,14 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
     if (radius_px <= 2.0) {
         return PI;  // sub-2px radius: nothing resolvable
     }
+    // The per-step uv delta is screen_dir scaled by a loop-invariant pixel
+    // size; premultiply once and keep the loop on one vector multiply.
+    vec2 screen_dir_px = screen_dir * u_view_pixel_size;
     float horizon_cos = -1.0;
     for (int i = 0; i < GTAO_HORIZON_STEPS; ++i) {
         float u = (float(i) + step_noise) / float(GTAO_HORIZON_STEPS);
         float dist_px = 1.0 + u * u * (radius_px - 1.0);
-        vec2 sample_uv = center_uv + screen_dir * (dist_px * u_view_pixel_size);
+        vec2 sample_uv = center_uv + screen_dir_px * dist_px;
         if (any(lessThan(sample_uv, vec2(0.0)))
                 || any(greaterThan(sample_uv, vec2(1.0)))) {
             break;
@@ -81,17 +84,19 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
         }
         vec3 sample_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
         vec3 offset = sample_view - center_view;
-        float offset_len = length(offset);
-        if (offset_len < 1.0e-3) {
+        float offset_len_sq = dot(offset, offset);
+        if (offset_len_sq < 1.0e-6) {
             continue;
         }
+        float inv_offset_len = inversesqrt(offset_len_sq);
+        float offset_len = offset_len_sq * inv_offset_len;
         // Near-field fade (Jimenez section4.3): linear band [FALLOFF_START*R, R]
         // applied to the sample cosine (no hard cut at the radius).
         float fade = clamp(
             (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
                 / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4),
             0.0, 1.0);
-        float sample_cos = dot(view_axis, offset) / offset_len * (1.0 - fade) - fade;
+        float sample_cos = dot(view_axis, offset) * inv_offset_len * (1.0 - fade) - fade;
         horizon_cos = max(horizon_cos, sample_cos);
     }
     return acos(clamp(horizon_cos, -1.0, 1.0));

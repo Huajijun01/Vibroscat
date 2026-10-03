@@ -31,8 +31,8 @@ vec3 EvalSkyRadiance(vec3 direction, float perceptual_roughness) {
     float roughness_squared = max(perceptual_roughness * perceptual_roughness, 1e-3);
     float phong_exponent = max(2.0 / roughness_squared - 2.0, 0.0);
     float sh_l1_weight = (phong_exponent + 1.0) / (phong_exponent + 2.0);
-    float sh_l2_weight = 0.5 * (phong_exponent + 1.0)
-        * (3.0 / (phong_exponent + 3.0) - 1.0 / (phong_exponent + 1.0));
+    // 0.5*(p+1)*(3/(p+3) - 1/(p+1)) collapses algebraically to p/(p+3).
+    float sh_l2_weight = phong_exponent / (phong_exponent + 3.0);
     float x = unit_direction.x;
     float y = unit_direction.y;
     float z = unit_direction.z;

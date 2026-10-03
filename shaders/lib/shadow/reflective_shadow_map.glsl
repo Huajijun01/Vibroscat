@@ -61,6 +61,10 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     float sum_shadow_occlusion = 0.0;
     float sum_shadow_weight = 0.0;
 #endif
+    // Loop-invariant SSBO payload: the gather never writes sky_light_data,
+    // so hoist the ground light out of the sample loop. The strength stays at
+    // the use site to keep the original multiplication order bit-identical.
+    vec3 ground_light_payload = ground_light.rgb;
 
     for (int sample_index = 0; sample_index < RSM_SAMPLES; ++sample_index) {
         float radial_distance = RSM_RADIUS * (float(sample_index) + stbn_noise.y) / float(RSM_SAMPLES);
@@ -125,7 +129,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float geometry_term = receiver_cosine_distance * emitter_cosine_distance
             / (distance_squared * softened_distance_squared);
         float transport_weight = geometry_term * inverse_pdf / PI;
-        vec3 sample_irradiance = reflectance * transport_weight * ground_light.rgb * RSM_STRENGTH;
+        vec3 sample_irradiance = reflectance * transport_weight * ground_light_payload * RSM_STRENGTH;
         // Convert projected area to surface area for cosine-weighted solid
         // angle coverage. Unlike flux, this has no incident-cosine factor.
         float sample_coverage = transport_weight / projected_cosine;

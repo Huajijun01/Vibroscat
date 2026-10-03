@@ -37,14 +37,21 @@ vec3 DepthOfField(vec2 uv) {
 
     vec3 dof = vec3(0.0);
     float inv_n = 1.0 / float(DOF_SAMPLES);
-    float angle_offset = dither * TAU;
+    // The golden-spiral azimuth is one fixed rotation: TAU-periodic, so the
+    // unwrapped 1.618... step walks the same sequence as fract golden angles.
+    // A rotation recurrence replaces per-sample cos/sin pairs.
+    float azimuth_c = cos(dither * TAU);
+    float azimuth_s = sin(dither * TAU);
+    const vec2 azimuth_step = vec2(cos(TAU * golden_ratio), sin(TAU * golden_ratio));
     vec2 blur_pixel_scale = blur_radius * u_view_pixel_size;
     for (int i = 0; i < DOF_SAMPLES; i++) {
         float t = (float(i) + dither) * inv_n;
         float r = sqrt(t);
-        float theta = angle_offset + TAU * float(i) * golden_ratio;
-        vec2 offset = vec2(cos(theta), sin(theta)) * r * blur_pixel_scale;
+        vec2 offset = vec2(azimuth_c, azimuth_s) * (r * blur_pixel_scale);
         dof += texture(colortex0, uv + offset).rgb;
+        float next_c = azimuth_c * azimuth_step.x - azimuth_s * azimuth_step.y;
+        azimuth_s = azimuth_s * azimuth_step.x + azimuth_c * azimuth_step.y;
+        azimuth_c = next_c;
     }
     return dof * inv_n;
 }

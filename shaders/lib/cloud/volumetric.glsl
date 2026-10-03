@@ -358,6 +358,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float view_transmittance = 1.0;
     float inverse_step_count = 1.0 / float(step_count);
     float step_length = interval_length * inverse_step_count;
+    float extinction_per_step = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * step_length;
 
     for (int i = 0; i < CLOUD_VIEW_MAX_STEPS; ++i) {
         if (i >= step_count) break;
@@ -373,10 +374,11 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // keep it off the erased-sample path.
         float sample_r2 = dot(sample_position, sample_position);
 
-        // Per-sample scattering material, shared by both light channels.
-        float sigma_t_per_m = sample_density
-            * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M;
-        float reference_optical_depth = sigma_t_per_m * CLOUD_MS_REFERENCE_LENGTH_M;
+        // Per-sample scattering material, shared by both light channels. The
+        // three constants are folded into one per-sample multiply.
+        float reference_optical_depth = sample_density
+            * (CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M
+                * CLOUD_MS_REFERENCE_LENGTH_M);
         float isotropic_orders = CloudIsotropicOrders(
             reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
 
@@ -410,9 +412,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
 #endif
-        float optical_depth = sample_density
-            * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
-            * step_length;
+        float optical_depth = sample_density * extinction_per_step;
         float segment_transmittance = exp(-optical_depth);
         float step_transmittance = view_transmittance;
         float segment_absorption = 1.0 - segment_transmittance;

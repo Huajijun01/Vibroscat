@@ -21,6 +21,7 @@ out vec3 v_world_tangent;
 out vec3 v_world_bitangent;
 #endif
 flat out vec3 v_sun_light_col;
+flat out vec3 v_world_normal;
 out vec3 v_ambient_col;
 out vec3 v_shadow_proj_pos;
 out vec4 v_color;
@@ -65,6 +66,9 @@ void main() {
     v_normal = normalize(gl_NormalMatrix * gl_Normal);
 
     vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+    // v_normal is flat, so world_normal is a per-primitive constant: pass it
+    // instead of rebuilding the transform per fragment.
+    v_world_normal = world_normal;
 #ifdef HAS_AT_TANGENT
     // Same world TBN construction as solid.vertex (handed bitangent).
     vec3 world_tangent = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz));

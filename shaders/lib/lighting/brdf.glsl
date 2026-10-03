@@ -80,15 +80,6 @@ float SmithGGXLambda(float ndotx, float alpha) {
         * (1.0 - ndotx * ndotx) / max(ndotx * ndotx, 1e-6)));
 }
 
-float SmithGGXG1(float ndotv, float alpha) {
-    return 1.0 / (1.0 + SmithGGXLambda(ndotv, alpha));
-}
-
-float SmithGGXG2Correlated(float ndotv, float ndotl, float alpha) {
-    return 1.0 / (1.0 + SmithGGXLambda(ndotv, alpha)
-        + SmithGGXLambda(ndotl, alpha));
-}
-
 float SpecularOcclusion(float ndotv, float ao, float roughness) {
     float exponent = exp2(-16.0 * roughness - 1.0);
     return clamp(pow(ndotv + ao, exponent) - 1.0 + ao, 0.0, 1.0);
@@ -98,8 +89,11 @@ float VisibleGGXVisibility(float ndotv, float ndotl, float alpha) {
     if (ndotv <= 0.0 || ndotl <= 0.0) {
         return 0.0;
     }
-    return clamp(SmithGGXG2Correlated(ndotv, ndotl, alpha)
-        / max(SmithGGXG1(ndotv, alpha), 1e-5), 0.0, 1.0);
+    // G2/G1 cancels into (1 + lambda_v) / (1 + lambda_v + lambda_l);
+    // one quotient instead of the three the factored forms carry.
+    float lambda_v = SmithGGXLambda(ndotv, alpha);
+    float lambda_l = SmithGGXLambda(ndotl, alpha);
+    return clamp((1.0 + lambda_v) / (1.0 + lambda_v + lambda_l), 0.0, 1.0);
 }
 
 vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,

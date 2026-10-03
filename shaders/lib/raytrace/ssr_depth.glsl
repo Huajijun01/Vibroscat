@@ -11,6 +11,7 @@
 // participates in ordinary depth comparisons without a separate rejection.
 const float SSR_DEPTH_HALF_MAX = 65504.0;
 const float SSR_DEPTH_HALF_MIN = 5.960464477539063e-8;
+const float SSR_DEPTH_HALF_RCP_SQRT = 0.0039072041399776936;  // inversesqrt(65504)
 
 float EncodeSSRDepth(float screen_depth) {
     // Iris 'far' is render distance, not the clipping plane. Use the inverse
@@ -25,7 +26,9 @@ float ReadSSRDepthSample(vec2 uv) {
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
     float encoded_depth = texture(usam_ssr_depth, uv).r;
     float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
-    return sqrt(encoded_depth / SSR_DEPTH_HALF_MAX) / inverse_clip_depth;
+    // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX): the constant leaves the
+    // square root as one multiply, leaving a single division per sample.
+    return sqrt(encoded_depth) * (SSR_DEPTH_HALF_RCP_SQRT / inverse_clip_depth);
 #else
     return textureLod(depthtex1, uv, 0.0).r;
 #endif
@@ -34,7 +37,8 @@ float ReadSSRDepthSample(vec2 uv) {
 bool SSRDepthSampleIsSky(float depth_sample) {
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
     float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
-    return depth_sample >= 1.0 / inverse_clip_depth;
+    // Same positive-domain product form as SSRDepthSampleBeforeRay below.
+    return depth_sample * inverse_clip_depth >= 1.0;
 #else
     return depth_sample >= 1.0;
 #endif

@@ -140,8 +140,11 @@ float RemapCloudErosion(float density, float threshold) {
 }
 
 vec2 CloudDistributionUv(vec2 world_km) {
-    return world_km / CLOUD_DISTRIBUTION_SCALE_KM + vec2(
-            frameTimeCounter * CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM, 0.0);
+    // Both scale factors are setting literals, so write reciprocal multiplies:
+    // the wind offset becomes one uniform-scale FMA per sample instead of a
+    // divide per component in this per-density-sample hot path.
+    return world_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + vec2(
+            frameTimeCounter * (CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM), 0.0);
 }
 
 // 0 while the sun is up, 1 once it is past the fade window. Written in the

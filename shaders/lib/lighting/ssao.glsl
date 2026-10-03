@@ -50,17 +50,27 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     vec3 tangent = normalize(cross(up, normal_view));
     vec3 bitangent = cross(normal_view, tangent);
 
+    // The golden-angle azimuth sequence phi_k = TAU*fract(x0 + k*g) is the
+    // orbit of one fixed rotation (cos/sin have period TAU), so a single
+    // sin/cos pair seeds a rotation recurrence instead of two SFU calls per
+    // sample. Drift over SSAO_SAMPLES steps stays near 1e-6 rad.
+    float azimuth_c = cos(stbn_noise.x * TAU);
+    float azimuth_s = sin(stbn_noise.x * TAU);
+    const float azimuth_step_c = cos(TAU * GOLDEN_RATIO);
+    const float azimuth_step_s = sin(TAU * GOLDEN_RATIO);
+
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
         // Cosine-weighted hemisphere sample: uniform disk point
         // (r = sqrtu1) lifted onto the hemisphere; azimuth dithered per block
         // and stratified per sample (golden angle).
         float u1 = (float(k) + stbn_noise.y) / float(SSAO_SAMPLES);
-        float u2 = fract(stbn_noise.x + float(k) * GOLDEN_RATIO);
         float r = sqrt(u1);
-        float phi = u2 * TAU;
-        vec3 dir = tangent * (r * cos(phi)) + bitangent * (r * sin(phi))
+        vec3 dir = tangent * (r * azimuth_c) + bitangent * (r * azimuth_s)
             + normal_view * sqrt(max(1.0 - r * r, 0.0));
+        float next_c = azimuth_c * azimuth_step_c - azimuth_s * azimuth_step_s;
+        azimuth_s = azimuth_s * azimuth_step_c + azimuth_c * azimuth_step_s;
+        azimuth_c = next_c;
 
         vec3 sample_view = center_view + dir * SSAO_RADIUS;
         vec2 sample_ndc = ViewToNDC(sample_view).xy;

@@ -22,9 +22,13 @@ float AgXCurveComponent(float value) {
     bool toe = value <= AGX_INPUT_PIVOT;
     float power = toe ? TONEMAP_AGX_TOE_POWER : TONEMAP_AGX_SHOULDER_POWER;
     float coefficient = toe ? AGX_TOE_A : AGX_SHOULDER_A;
+    // Both exponents are setting literals, so select the negated reciprocal
+    // of each constant instead of dividing the runtime-selected power.
+    float inverse_power = toe ? -1.0 / TONEMAP_AGX_TOE_POWER
+                              : -1.0 / TONEMAP_AGX_SHOULDER_POWER;
     float pivot_offset = value - AGX_INPUT_PIVOT;
     return AGX_OUTPUT_PIVOT + AGX_PIVOT_SLOPE * pivot_offset
-        * pow(1.0 + coefficient * pow(abs(pivot_offset), power), -1.0 / power);
+        * pow(1.0 + coefficient * pow(abs(pivot_offset), power), inverse_power);
 }
 
 vec3 TonemapAGX(vec3 linear_rgb) {

@@ -70,8 +70,10 @@ void main() {
         log_sum += log_luminance * float(sample_weight);
         weight_sum += float(sample_weight);
 
-        float exposure_ev = clamp(log_luminance + AE_REF_LOG2_INV, -12.0, 8.0);
-        uint bin = uint(clamp((exposure_ev + 12.0) * (64.0 / 20.0), 0.0, 63.0));
+        // One clamp: the positive affine histogram map commutes with the EV
+        // clamp, and its endpoints land on the same bins (0 and 63).
+        uint bin = uint(clamp((log_luminance + (AE_REF_LOG2_INV + 12.0)) * (64.0 / 20.0),
+            0.0, 63.0));
         atomicAdd(histogram_cache[bin], sample_weight);
 
         col += 512u;

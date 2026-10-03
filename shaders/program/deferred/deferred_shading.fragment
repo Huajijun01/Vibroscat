@@ -66,12 +66,9 @@ void main() {
         vec3 sun_dir = normalize(u_world_sun_dir);
         vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
         vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
-        // Discs stay out of the LUT so clouds attenuate them by real transmittance.
-        vec3 camera_pos = AtmosphereCameraPosition();
-        float camera_r = length(camera_pos);
-        vec4 view_transmittance = SampleTransmittance(
-            utex_tslut, camera_r, camera_r * camera_r,
-            dot(camera_pos, view_dir) / camera_r);
+        // Discs stay out of the LUT so clouds attenuate them by real
+        // transmittance. view_transmittance is computed at its two consumers
+        // below: behind an opaque cloud column it is never read.
         vec3 celestial = vec3(0.0);
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         vec3 cloud_transmittance = vec3(1.0);
@@ -113,6 +110,11 @@ void main() {
         // leaves nothing of either term, so the star field and the discs are
         // skipped there rather than computed and multiplied by zero.
         if (!all(equal(cloud_transmittance, vec3(0.0)))) {
+            vec3 camera_pos = AtmosphereCameraPosition();
+            float camera_r = length(camera_pos);
+            vec4 view_transmittance = SampleTransmittance(
+                utex_tslut, camera_r, camera_r * camera_r,
+                dot(camera_pos, view_dir) / camera_r);
             CelestialContext celestial_context = CelestialContextFor(view_dir);
             celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
             celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
@@ -120,6 +122,11 @@ void main() {
         }
         sky_color += celestial * cloud_transmittance;
 #else
+        vec3 camera_pos = AtmosphereCameraPosition();
+        float camera_r = length(camera_pos);
+        vec4 view_transmittance = SampleTransmittance(
+            utex_tslut, camera_r, camera_r * camera_r,
+            dot(camera_pos, view_dir) / camera_r);
         CelestialContext celestial_context = CelestialContextFor(view_dir);
         celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
         celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
@@ -177,8 +184,7 @@ void main() {
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
 #if CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     // Contact shadows work in view space. The transform is compile-time
-    // gated, so it is paid only for them.
-    vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
+    // gated and computed inside the shadow_needed gate at its only consumer.
 #endif
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
@@ -259,6 +265,9 @@ void main() {
     }
 #if CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     if (shadow_needed) {
+        // Contact shadows work in view space; this is the transform's only
+        // consumer, so it stays behind the same gate.
+        vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
         // Screen-space contact shadows, evaluated inline on the receiver: an
         // upper bound on the shadow-map result. The march fills PCF seam
         // leaks along contact lines and keeps directional occlusion past the
@@ -298,8 +307,6 @@ void main() {
     out_direct_brdf = direct_visibility;
     // -- Light color sources (same colors as the gbuffer translucent passes) --
     vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
-    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor (AmbientLight).
-    vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
     vec3 sss_lighting = vec3(0.0);
     // Same-argument reflectance as the torch term below; evaluated once.
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
@@ -347,8 +354,9 @@ void main() {
     // Lambertian (no incident direction from SH/lightmap); metals have no
     // diffuse lobe. AO multiplies indirect terms only. Block light uses AO
     // cubed, blended toward 1 by falloff (occlusion visible in torchlit caves).
-    vec3 lambert_brdf = EvaluateLambertBRDF(
-        albedo, material.f0, material.diffuse_weight);
+    // Same-argument reflectance as the SSS term above: EvaluateLambertBRDF is
+    // exactly EvaluateDiffuseReflectance * (1/PI), so reuse the shared value.
+    vec3 lambert_brdf = diffuse_reflectance * (1.0 / PI);
 #if GI_MODE != 0
     // deferred3 stores the raw GI irradiance (SH already included for
     // uncovered directions); it is applied directly with no denoising.
@@ -365,6 +373,9 @@ void main() {
     color += lambert_brdf * gi_ambient;
 #endif
 #else
+    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor
+    // (AmbientLight). Only the no-GI branch consumes it.
+    vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif
     color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * screen_ao;

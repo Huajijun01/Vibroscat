@@ -33,15 +33,17 @@ float SampleSTBN(ivec2 pixel, int frame) {
 // the time slice by slice_offset and the spatial texel by spatial_shift.
 // Callers pass their registered registry offsets. Value order is stable:
 // .x is the unshifted stream, .y the shifted one.
+// Wrapping uses bit masks like SampleSTBN: the volume sizes are powers of
+// two, and x & (size - 1) equals the floor modulo for every int32 input,
+// including negatives (the plain % form is undefined for negative operands
+// in GLSL and would emit out-of-range texel coordinates).
 vec2 SampleSTBNPair(ivec2 texel, int frame, int slice_offset, ivec2 spatial_shift) {
-    ivec2 p0 = ivec2(
-        (texel.x % STBN_SCALAR_SIZE.x + STBN_SCALAR_SIZE.x) % STBN_SCALAR_SIZE.x,
-        (texel.y % STBN_SCALAR_SIZE.y + STBN_SCALAR_SIZE.y) % STBN_SCALAR_SIZE.y);
-    int z = (frame % STBN_SCALAR_SIZE.z + STBN_SCALAR_SIZE.z) % STBN_SCALAR_SIZE.z;
-    ivec2 p1 = (p0 + spatial_shift) % STBN_SCALAR_SIZE.xy;
+    ivec2 p0 = texel & (STBN_SCALAR_SIZE.xy - ivec2(1));
+    int z = frame & (STBN_SCALAR_SIZE.z - 1);
+    ivec2 p1 = (p0 + spatial_shift) & (STBN_SCALAR_SIZE.xy - ivec2(1));
     return vec2(
         texelFetch(utex_stbn_scalar, ivec3(p0, z), 0).r,
-        texelFetch(utex_stbn_scalar, ivec3(p1, (z + slice_offset) % STBN_SCALAR_SIZE.z), 0).r);
+        texelFetch(utex_stbn_scalar, ivec3(p1, (z + slice_offset) & (STBN_SCALAR_SIZE.z - 1)), 0).r);
 }
 
 // Shared STBN time slice for effects without their own temporal accumulation:

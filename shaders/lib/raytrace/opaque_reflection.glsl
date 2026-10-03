@@ -47,8 +47,11 @@ vec3 OpaqueReflectionDirection(vec3 normal_world, vec3 view_direction,
     mat3 frame = BuildOrthonormalBasis(normal_world);
     vec3 local_v = transpose(frame) * view_direction;
     vec3 local_h = SampleVisibleGGX(local_v, alpha, stbn_random);
-    half_direction = normalize(frame * local_h);
-    vec3 light_direction = normalize(reflect(-view_direction, half_direction));
+    // The orthonormal frame preserves the sampled unit vector, and reflect()
+    // keeps unit inputs unit; the trace-side normalize still guards the
+    // zero-vector sentinel below.
+    half_direction = frame * local_h;
+    vec3 light_direction = reflect(-view_direction, half_direction);
     return dot(normal_world, light_direction) > 1e-5 ? light_direction : vec3(0.0);
 }
 

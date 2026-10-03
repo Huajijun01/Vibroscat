@@ -33,8 +33,9 @@ float EpipolarWaterColumnKey(vec2 uv01) {
 // (same space as EpipolarWaterColumnKey), 0 = no column.
 bool EpipolarWaterSegment(vec2 uv01, out vec3 start_scene, out vec3 end_scene, out float column_key) {
     ivec2 texel = EpipolarScreenTexel(uv01);
-    float opaque_depth = texelFetch(depthtex1, texel, 0).r;
     if (isEyeInWater == 1) {
+        // Underwater columns end at the water surface (depthtex0) and never
+        // read the opaque depth.
         float surface_depth = texelFetch(depthtex0, texel, 0).r;
         start_scene = EyePositionSceneSpace(); // the eye, not the feet-space origin
         end_scene = EpipolarViewToScene(uv01, surface_depth);
@@ -45,6 +46,7 @@ bool EpipolarWaterSegment(vec2 uv01, out vec3 start_scene, out vec3 end_scene, o
         column_key = 0.0;
         return false;
     }
+    float opaque_depth = texelFetch(depthtex1, texel, 0).r;
     float surface_depth = texelFetch(depthtex0, texel, 0).r;
     start_scene = EpipolarViewToScene(uv01, surface_depth);
     end_scene = EpipolarViewToScene(uv01, opaque_depth);
@@ -67,7 +69,6 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
     // nonlinear - mixing warped UVs would curve the march); re-apply
     // distortion + protected depth per step.
     vec3 s = ProjectToShadowClip(start_scene);
-    vec3 e = ProjectToShadowClip(end_scene);
     vec3 diff = end_scene - start_scene;
     float full_segment_length = length(diff);
     if (full_segment_length < 1e-4) return vec3(1.0);
@@ -77,8 +78,12 @@ vec3 EpipolarWaterShadowRatio(vec3 start_scene, vec3 end_scene, float light_path
     // with it (light path is linear in t).
     float segment_length = min(full_segment_length, WATER_EPIPOLAR_MAX_DISTANCE);
     float scale = segment_length / full_segment_length;
+    // The uncapped end projection is dead when the cap re-projects below, so
+    // project it only on the uncapped path (the common long-column case).
+    vec3 e = (scale < 1.0)
+        ? ProjectToShadowClip(start_scene + diff * scale)
+        : ProjectToShadowClip(end_scene);
     if (scale < 1.0) {
-        e = ProjectToShadowClip(start_scene + diff * scale);
         light_path2 = light_path1 + (light_path2 - light_path1) * scale;
     }
     float d_l = light_path2 - light_path1;

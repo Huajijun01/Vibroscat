@@ -42,14 +42,21 @@ bool SSRDepthSampleIsSky(float depth_sample) {
 
 float SSRRayDepthFromScreen(float screen_depth) {
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
-    return LinearDepthFromScreenDepth(screen_depth);
+    // Reciprocal view depth stays affine even when the jittered final step
+    // extends beyond the far plane; linear depth would cross its pole.
+    return (screen_depth * 2.0 - 1.0) * gbufferProjectionInverse[2][3]
+        + gbufferProjectionInverse[3][3];
 #else
     return screen_depth;
 #endif
 }
 
 bool SSRDepthSampleBeforeRay(float surface_depth, float ray_depth) {
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+    return 1.0 / surface_depth > ray_depth;
+#else
     return surface_depth < ray_depth;
+#endif
 }
 
 #endif // LIB_RAYTRACE_SSR_DEPTH_GLSL

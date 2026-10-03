@@ -98,37 +98,30 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
 
             vec3 hit_pos = 0.5 * (lo_pos + hi_pos);
 #else
-            // Without bisection, interpolate the crossing inside the step:
-            // convert both straddling samples to linear view depth and take
-            // the fraction where the ray meets the surface. One extra depth
-            // fetch replaces the six bisection fetches, and the estimate
-            // tracks the crossing itself instead of the jittered sample
-            // grid, so hit positions stay temporally stable.
-            float surface_lo_depth = ReadSSRDepthSample(previous_pos.xy);
-#ifndef SSR_QUARTER_DEPTH_ACTIVE
-            surface_lo_depth = LinearDepthFromScreenDepth(surface_lo_depth);
+            // Intersect in the affine ray-depth domain, without clamping the
+            // jittered endpoint. Reuse the old previous-point fetch at the
+            // candidate instead, correcting for the local surface depth.
+            float ray_lo_depth = SSRRayDepthFromScreen(previous_pos.z);
+            float ray_depth_span = ray_depth - ray_lo_depth;
+            float inverse_span = ray_depth_span != 0.0 ? 1.0 / ray_depth_span : 0.0;
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+            float surface_depth = 1.0 / surface_sample;
+#else
+            float surface_depth = surface_sample;
 #endif
-            float surface_hi_depth = surface_sample;
-#ifndef SSR_QUARTER_DEPTH_ACTIVE
-            surface_hi_depth = LinearDepthFromScreenDepth(surface_hi_depth);
-#endif
-            float pen_lo = LinearDepthFromScreenDepth(
-                clamp(previous_pos.z, 0.0, 1.0)) - surface_lo_depth;
-            float pen_hi = LinearDepthFromScreenDepth(
-                clamp(sample_pos.z, 0.0, 1.0)) - surface_hi_depth;
-            float pen_span = pen_hi - pen_lo;
-            float hit_frac = pen_span > 1.0e-6
-                ? clamp(-pen_lo / pen_span, 0.0, 1.0)
+            float hit_frac = ray_depth_span != 0.0
+                ? clamp((surface_depth - ray_lo_depth) * inverse_span, 0.0, 1.0)
                 : 0.5;
             vec3 hit_pos = mix(previous_pos, sample_pos, hit_frac);
+            float candidate_surface_depth = ReadSSRDepthSample(hit_pos.xy);
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+            candidate_surface_depth = 1.0 / candidate_surface_depth;
 #endif
-            // Depth slop at the hit. Both hit estimators place the hit where
-            // the ray meets the surface it crossed, so a large residual here
-            // means the step slid across a silhouette: the crossing fired
-            // against geometry much nearer than the surface the ray was
-            // tracking, and accepting it would let foreground objects
-            // occlude reflections they never intersect. Reject and keep
-            // marching, exactly as the refined path does.
+            hit_frac = ray_depth_span != 0.0
+                ? clamp((candidate_surface_depth - ray_lo_depth) * inverse_span, 0.0, 1.0)
+                : 0.5;
+            hit_pos = mix(previous_pos, sample_pos, hit_frac);
+#endif
             float hit_surface_depth = ReadSSRDepthSample(hit_pos.xy);
 #ifndef SSR_QUARTER_DEPTH_ACTIVE
             hit_surface_depth = LinearDepthFromScreenDepth(hit_surface_depth);

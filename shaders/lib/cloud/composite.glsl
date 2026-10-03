@@ -27,10 +27,13 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
         float r = length(camera_pos);
         float r2 = r * r;
         float mu = dot(camera_pos, view_dir) / r;
-        float d = length(surface_pos - camera_pos);
-        float r_d = sqrt(d * d + 2.0 * r * mu * d + r * r);
+        // surface_pos = camera + view_dir * t on a unit view_dir, so the
+        // law-of-cosines chord sqrt(d^2 + 2 r mu d + r^2) is just
+        // |surface_pos|, and (r*mu + d) is dot(surface_pos, view_dir). Same
+        // real numbers, no camera-relative round trip, one sqrt fewer.
+        float r_d = length(surface_pos);
         float r_d2 = r_d * r_d;
-        float mu_d = (r * mu + d) / r_d;
+        float mu_d = dot(surface_pos, view_dir) / r_d;
 
         vec4 numerator;
         vec4 denominator;

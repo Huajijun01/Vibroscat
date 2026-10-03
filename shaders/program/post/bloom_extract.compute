@@ -43,41 +43,43 @@ void main() {
     float total_weight = 0.0;
     float tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_center.rgb));
-    result += s_center * 0.25 * tap_weight;
-    total_weight += 0.25 * tap_weight;
+    // The tap weight folds into the luminance weight so each tap costs one
+    // scalar divide and one vector multiply.
+    tap_weight = 0.25 / (1.0 + Luminance(s_center.rgb));
+    result += s_center * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_left.rgb));
-    result += s_left * 0.125 * tap_weight;
-    total_weight += 0.125 * tap_weight;
+    tap_weight = 0.125 / (1.0 + Luminance(s_left.rgb));
+    result += s_left * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_right.rgb));
-    result += s_right * 0.125 * tap_weight;
-    total_weight += 0.125 * tap_weight;
+    tap_weight = 0.125 / (1.0 + Luminance(s_right.rgb));
+    result += s_right * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_up.rgb));
-    result += s_up * 0.125 * tap_weight;
-    total_weight += 0.125 * tap_weight;
+    tap_weight = 0.125 / (1.0 + Luminance(s_up.rgb));
+    result += s_up * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_down.rgb));
-    result += s_down * 0.125 * tap_weight;
-    total_weight += 0.125 * tap_weight;
+    tap_weight = 0.125 / (1.0 + Luminance(s_down.rgb));
+    result += s_down * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_tl.rgb));
-    result += s_tl * 0.0625 * tap_weight;
-    total_weight += 0.0625 * tap_weight;
+    tap_weight = 0.0625 / (1.0 + Luminance(s_tl.rgb));
+    result += s_tl * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_tr.rgb));
-    result += s_tr * 0.0625 * tap_weight;
-    total_weight += 0.0625 * tap_weight;
+    tap_weight = 0.0625 / (1.0 + Luminance(s_tr.rgb));
+    result += s_tr * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_bl.rgb));
-    result += s_bl * 0.0625 * tap_weight;
-    total_weight += 0.0625 * tap_weight;
+    tap_weight = 0.0625 / (1.0 + Luminance(s_bl.rgb));
+    result += s_bl * tap_weight;
+    total_weight += tap_weight;
 
-    tap_weight = 1.0 / (1.0 + Luminance(s_br.rgb));
-    result += s_br * 0.0625 * tap_weight;
-    total_weight += 0.0625 * tap_weight;
+    tap_weight = 0.0625 / (1.0 + Luminance(s_br.rgb));
+    result += s_br * tap_weight;
+    total_weight += tap_weight;
 
     result /= max(total_weight, 1e-6);
 

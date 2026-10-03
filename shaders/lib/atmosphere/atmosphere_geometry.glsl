@@ -19,28 +19,36 @@ vec3 AtmosphereCameraPosition() {
     return vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
 }
 
+// Half-discriminant quadratic form: b = dot(o,d), disc = b*b - c, roots
+// -b ± sqrt(disc). Every eliminated factor is an exact power of two, and
+// scaling by powers of two commutes with IEEE rounding and sqrt exactly
+// (RN(4x) = 4*RN(x), sqrt(4x) = 2*sqrt(x)), so t0/t1 and the disc <= 0
+// predicate are bit-identical to the doubled form. Comparisons keep the
+// original unscaled thresholds: the half-form roots equal the old values.
 bool RayIntersectSphere(vec3 origin, vec3 dir, float radius, out float t0, out float t1) {
-    float b = 2.0 * dot(origin, dir);
+    float b = dot(origin, dir);
     float c = dot(origin, origin) - radius * radius;
-    float discriminant = b * b - 4.0 * c;
+    float discriminant = b * b - c;
     if (discriminant <= 0.0) return false;
 
     float root = sqrt(discriminant);
-    t0 = 0.5 * (-b - root);
-    t1 = 0.5 * (-b + root);
+    t0 = -b - root;
+    t1 = -b + root;
     return true;
 }
 
 // True when `dir` from `origin` (planet-centered, r2 = dot(origin, origin))
 // dips below the planet of radius squared `planet_r2`: light from that
-// direction is planet-occluded. Near root only (no far root).
+// direction is planet-occluded. Near root only (no far root). Same
+// half-discriminant form and bit-equivalence argument as RayIntersectSphere;
+// the 1.0e-5 threshold applies to the root itself and is unchanged.
 bool PlanetHorizonOccluded(vec3 origin, float origin_r2, vec3 dir, float planet_r2) {
-    float b = 2.0 * dot(origin, dir);
+    float b = dot(origin, dir);
     float c = origin_r2 - planet_r2;
-    float discriminant = b * b - 4.0 * c;
+    float discriminant = b * b - c;
     if (discriminant <= 0.0) return false;
 
-    float ground_near = 0.5 * (-b - sqrt(discriminant));
+    float ground_near = -b - sqrt(discriminant);
     return ground_near > 1.0e-5;
 }
 

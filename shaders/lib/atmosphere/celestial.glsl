@@ -77,8 +77,16 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
     vec4 sample_d = textureLod(utex_starmap, vec2(tc3.x, clamp(m0.y, 0.0, 1.0)), 0.0);
     vec4 sample_e = textureLod(utex_starmap, vec2(m0.x, clamp(tc3.y, 0.0, 1.0)), 0.0);
 
-    return (0.5 * (sample_a + sample_b) * w0.x + sample_a * s0.x + 0.5 * (sample_a + sample_b) * w3.x) * w0.y + (sample_b * w0.x + sample_c * s0.x + sample_d * w3.x) * s0.y
-         + (0.5 * (sample_b + sample_e) * w0.x + sample_e * s0.x + 0.5 * (sample_d + sample_e) * w3.x) * w3.y;
+    // Weight-sum factorization: the Catmull-Rom weights partition unity
+    // (w0 + w1 + w2 + w3 == 1, s0 == w1 + w2), so the outer-tap coefficients
+    // collapse to 0.5*(1 -+ s0) forms and the row mix needs roughly a third
+    // fewer multiplies than the expanded expression.
+    float half_outer = 0.5 * w0.x + 0.5 * w3.x;          // 0.5*(w0.x + w3.x)
+    vec4 row0 = (sample_a + sample_b) * half_outer + sample_a * s0.x;
+    vec4 row1 = sample_b * w0.x + sample_c * s0.x + sample_d * w3.x;
+    vec4 row2 = sample_b * (0.5 * w0.x) + sample_e * (0.5 * w0.x + s0.x)
+        + sample_d * (0.5 * w3.x);
+    return row0 * w0.y + row1 * s0.y + row2 * w3.y;
 }
 
 // Equirectangular star-map UV from a world direction. The NaN guard absorbs

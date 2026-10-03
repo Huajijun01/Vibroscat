@@ -63,7 +63,7 @@ void main() {
         vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
         vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
             * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
-        vec3 sun_dir = normalize(u_world_sun_dir);
+        vec3 sun_dir = u_world_sun_dir;
         vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
         vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
         // Discs stay out of the LUT so clouds attenuate them by real

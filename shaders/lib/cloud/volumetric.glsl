@@ -309,7 +309,7 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
 vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_jitter,
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
-    vec3 sun_dir = normalize(u_world_sun_dir);
+    vec3 sun_dir = u_world_sun_dir;
     // The phase terms depend only on the fixed cosines and the constant octave
     // factors, so they are evaluated once per light per ray.
 #ifdef CLOUD_SINGLE_LIGHT

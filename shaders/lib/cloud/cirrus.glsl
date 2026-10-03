@@ -202,7 +202,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
     vec3 ci_transmittance = vec3(1.0);
 
     if (sample_density > 1.0e-5) {
-        vec3 sun_dir = normalize(u_world_sun_dir);
+        vec3 sun_dir = u_world_sun_dir;
         vec3 moon_dir = -sun_dir;
 
         // Sun/moon sampled separately from the transmittance LUT (same

@@ -63,7 +63,7 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
 // and sky hues stay locked as transmittance changes through the day.
 // const float MOON_DARKEN = 0.4;
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
-    vec3 sun_dir = normalize(u_world_sun_dir);
+    vec3 sun_dir = u_world_sun_dir;
     vec3 moon_dir = -sun_dir;
     float surface_r = length(surface_position);
     float surface_r2 = surface_r * surface_r;

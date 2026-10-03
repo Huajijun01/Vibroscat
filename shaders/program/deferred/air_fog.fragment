@@ -34,7 +34,7 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float scene_de
             1.0);
         if (boundary_amount > 0.0) {
             // Cloud-free sky LUT sampled along the actual view direction.
-            vec3 sun_dir = normalize(u_world_sun_dir);
+            vec3 sun_dir = u_world_sun_dir;
             vec2 sky_uv = SkyLUTUV(world_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
             vec3 boundary_color = texture(usam_skylut, sky_uv).rgb;
             scene = mix(scene, boundary_color, boundary_amount);

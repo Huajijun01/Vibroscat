@@ -98,6 +98,9 @@ uniform vec4 entityColor;
 
 // -- Custom uniforms (declared in shaders.properties) --
 uniform vec3 u_world_light_dir;   // active light direction, world space
+// Host contract: shaders.properties builds u_world_sun_dir normalized
+// (1/sqrt(sum x^2) then an orthonormal model-view-inverse rotation), so
+// consumers may treat it as unit without re-normalizing per pixel.
 uniform vec3 u_world_sun_dir;     // sun direction only (LUT / SH reference frame)
 uniform vec2 u_taa_offset;        // NDC jitter applied by opaque GBuffer vertices
 uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for RSM history

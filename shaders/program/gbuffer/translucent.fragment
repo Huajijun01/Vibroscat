@@ -26,7 +26,6 @@ flat in int v_id;
 flat in int v_glass;
 flat in vec3 v_normal;
 flat in vec3 v_sun_light_col;
-flat in vec3 v_world_normal;
 #ifdef HAS_AT_TANGENT
 in vec3 v_world_tangent;
 in vec3 v_world_bitangent;
@@ -84,8 +83,7 @@ void main() {
     // geometry never pays the transform.
     vec3 geo_n_world = vec3(0.0);
     if(v_id == 1) {
-        // Flat per-primitive constant computed once at the vertex stage.
-        geo_n_world = v_world_normal;
+        geo_n_world = normalize(mat3(gbufferModelViewInverse) * v_normal);
 #if WATER_NORMAL_ENABLED
         // Water surface field (ocean.glsl: river texture basis);
         // normal at the

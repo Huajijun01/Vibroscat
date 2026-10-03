@@ -48,8 +48,13 @@ void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, in
     if (!(previous_view_depth > 1.0e-5)) return;
     vec3 previous_view_dir = normalize(previous_view_point);
     vec3 previous_scene = previous_view_dir * (history.a * 1000.0);
-    vec3 current_scene = (inverse(gbufferPreviousModelView)
-        * vec4(previous_scene, 1.0)).xyz - camera_delta;
+    // gbufferPreviousModelView is a rigid transform, so its inverse is the
+    // transposed rotation and the negated translated origin; no generic
+    // 4x4 inversion needed.
+    mat3 previous_view_inverse = transpose(mat3(gbufferPreviousModelView));
+    vec3 current_scene = previous_view_inverse * previous_scene
+        - previous_view_inverse * gbufferPreviousModelView[3].xyz
+        - camera_delta;
 
     // The density field advances with the large-scale wind; fine erosion
     // moves faster, its residual motion is left to the margin.

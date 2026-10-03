@@ -144,8 +144,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     // Reference march schedule: SSGI_STEPS geometric steps that grow to the
     // clamped march width, with the first step jittered by stbn_noise.y.
     float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
+    // (m^(1/n))^y == m^(y/n): one pow instead of a chained pair; the loop
+    // below keeps multiplying step_size by the same step_scale.
     float step_scale = pow(march_width, 1.0 / float(SSGI_STEPS));
-    float step_size = pow(step_scale, stbn_noise.y);
+    float step_size = pow(march_width, stbn_noise.y / float(SSGI_STEPS));
     vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
     vec2 inverse_projection_bias = gbufferProjectionInverse[3].xy;
     float inverse_projection_z = gbufferProjectionInverse[3].z;
@@ -154,9 +156,9 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 
     vec3 slice_normal = cross(view_direction, ray_direction);
     vec3 projected_normal = origin_normal_view - slice_normal * dot(origin_normal_view, slice_normal);
-    float projected_normal_len = length(projected_normal);
-    if (projected_normal_len < 1.0e-5) { coverage = 0.0; return vec3(0.0); }
-    projected_normal *= inversesqrt(dot(projected_normal, projected_normal));
+    float projected_normal_sq = dot(projected_normal, projected_normal);
+    if (projected_normal_sq < 1.0e-10) { coverage = 0.0; return vec3(0.0); }
+    projected_normal *= inversesqrt(projected_normal_sq);
     vec3 tangent = cross(slice_normal, projected_normal);
     // The slice CDF and w0 assume a front-facing projected normal. A
     // back-facing one (silhouette, thin surface) pushes the CDF denominator
@@ -168,14 +170,16 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     // reciprocal so the per-step CDF calls neither recompute sin(angle_normal)
     // nor redivide.
     float cdf_denominator = cos_normal + angle_normal * sin_normal;
+    // One reciprocal feeds both the w0 share and the [w0, 1] remap scale.
+    float cdf_rcp = 1.0 / cdf_denominator;
     // Share of the cosine-weighted slice the march cannot use, and the
     // [w0, 1] remap of the slice-relative CDF (reference w0_remap_*).
-    float w0 = clamp((sin_normal / cdf_denominator) * (PI * 0.25) + 0.5, 0.0, 1.0);
+    float w0 = clamp((sin_normal * cdf_rcp) * (PI * 0.25) + 0.5, 0.0, 1.0);
     // A horizon-edge-on normal leaves the whole slice below the surface
     // horizon (w0 == 1): no usable cosine mass, so no hit can occlude SH and
     // the [w0, 1] remap would divide by zero.
     if (w0 >= 1.0) { coverage = 0.0; return vec3(0.0); }
-    float cdf_inv_denominator = 0.25 / cdf_denominator;
+    float cdf_inv_denominator = 0.25 * cdf_rcp;
     float remap_mul = 1.0 / (1.0 - w0);
     float remap_add = -w0 * remap_mul;
 
@@ -231,8 +235,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred4
                 // consumes it with the same unit as AmbientLight().
-                vec3 incident_irradiance = texture(colortex5, previous_uv).rgb * PI;
-                gi += incident_irradiance * visible_weight;
+                gi += texture(colortex5, previous_uv).rgb * (PI * visible_weight);
             }
         }
         occupied |= sample_mask;

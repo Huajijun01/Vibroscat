@@ -64,7 +64,8 @@ void main() {
 
     v_normal = normalize(gl_NormalMatrix * gl_Normal);
 
-    vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+    // v_normal is unit and the camera rotation preserves its length.
+    vec3 world_normal = mat3(gbufferModelViewInverse) * v_normal;
 #ifdef HAS_AT_TANGENT
     // Same world TBN construction as solid.vertex (handed bitangent).
     vec3 world_tangent = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz));

@@ -50,7 +50,8 @@ void main() {
 #ifdef PROGRAM_GBUFFERS_PARTICLES
     vec3 world_normal = vec3(0.0, 1.0, 0.0);
 #else
-    vec3 world_normal = normalize(mat3(gbufferModelViewInverse) * v_normal);
+    // v_normal is unit and the camera rotation preserves its length.
+    vec3 world_normal = mat3(gbufferModelViewInverse) * v_normal;
 #endif
     v_sun_light_col = ground_light.rgb;
     v_ambient_col = AmbientLight(world_normal, vec3(1.0), v_texcoord.w);

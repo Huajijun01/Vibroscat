@@ -22,7 +22,7 @@ void main() {
     if (slice >= uint(EPIPOLAR_SLICES)) return;
     vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(int(slice), 0), 0);
     bool line_valid = !all(equal(line, vec4(0.0)));
-    float sample_denominator = float(EPIPOLAR_SAMPLES - 1);
+    float sample_rcp = 1.0 / float(EPIPOLAR_SAMPLES - 1);
     int slice_i = int(slice);
     uint sample_group_count = uint((EPIPOLAR_SAMPLES + 127) / 128);
     // Frame-constant medium inputs: identical for every sample, so evaluate
@@ -37,7 +37,7 @@ void main() {
         vec3 air_e = vec3(1.0);
         float air_key = 0.0;
         if (line_valid) {
-            float p = float(sample_index) / sample_denominator;
+            float p = float(sample_index) * sample_rcp;
             vec2 ndc = mix(line.xy, line.zw, p);
             vec2 uv01 = ndc * 0.5 + 0.5;
             ivec2 texel = EpipolarScreenTexel(uv01);

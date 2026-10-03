@@ -24,9 +24,11 @@
 vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
     if (any(notEqual(surface_pos, vec3(0.0)))) {
         vec3 camera_pos = AtmosphereCameraPosition();
-        float r = length(camera_pos);
+        // The atmosphere frame pins the camera to +y at R + altitude, so the
+        // spherical coordinates need no length or dot round trip.
+        float r = ATM_PLANET_R + u_cam_altitude;
         float r2 = r * r;
-        float mu = dot(camera_pos, view_dir) / r;
+        float mu = view_dir.y;
         // surface_pos = camera + view_dir * t on a unit view_dir, so the
         // law-of-cosines chord sqrt(d^2 + 2 r mu d + r^2) is just
         // |surface_pos|, and (r*mu + d) is dot(surface_pos, view_dir). Same
@@ -75,7 +77,7 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
         SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu));
     // Ambient evaluated once at the shared surface position, scaled by the
     // absorbed fraction (1 - T).
-    vec3 ambient_cloud_radiance = GetAmbientColor(surface_position, sun_dir)
+    vec3 ambient_cloud_radiance = GetAmbientColorAt(surface_r, sun_mu)
         * (1.0 - cloud_data.z)
         * CLOUD_SKY_LIGHT_STRENGTH;
 #ifdef CLOUD_SINGLE_LIGHT

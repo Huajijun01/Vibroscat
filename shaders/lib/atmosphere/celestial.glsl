@@ -114,7 +114,8 @@ CelestialContext CelestialContextFor(vec3 view_dir) {
     CelestialContext context;
     context.sun_dir = normalize(u_world_sun_dir);
     context.camera_pos = AtmosphereCameraPosition();
-    float camera_r = length(context.camera_pos);
+    // Same +y pin as AtmosphereCameraPosition: the radius is R + altitude.
+    float camera_r = ATM_PLANET_R + u_cam_altitude;
     context.camera_r2 = camera_r * camera_r;
     context.horizon_occluded = PlanetHorizonOccluded(context.camera_pos,
         context.camera_r2, view_dir, ATM_PLANET_R2);

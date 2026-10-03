@@ -52,8 +52,8 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     // low-altitude Mie/aerosol air and the horizon reads thicker/hazier.
     float max_dist = t1;
     float t_ground = -1.0;  // negative = no ground hit
+    float ground_radius = ATM_PLANET_R;
     {
-        float ground_radius = ATM_PLANET_R;
 #if ATM_HORIZON_DIP
         ground_radius = max(ATM_PLANET_R - ATM_HORIZON_DIP_SCALE, 1.0);
 #endif
@@ -159,7 +159,8 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec3 ground_pos = camera_pos + view_dir * t_ground;
         float r_g  = ATM_PLANET_R + 0.01;
         float r2_g = r_g * r_g;
-        float mu_sun_g = dot(ground_pos, sun_dir) / max(length(ground_pos), 1.0e-4);
+        // ground_pos lies on the ground_radius sphere from the dip block.
+        float mu_sun_g = dot(ground_pos, sun_dir) / ground_radius;
 
         // sunlight -> ground; the paired UV helper shares the rho and
         // discriminant sqrt between the sun and the mirrored moon direction
@@ -186,13 +187,16 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 // with the sky LUT it is derived from.
 // ===============================================================
 
+vec3 GetAmbientColorAt(float r, float mu) {
+    vec4 ss = GetScattering(r - ATM_PLANET_R);
+    vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
+    return SpectralSolarToSRGB(ss * ms);
+}
+
 vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
     float r = length(camera_pos);
     float mu = dot(camera_pos, sun_dir) / r;
-    float h = r - ATM_PLANET_R;
-    vec4 ss = GetScattering(h);
-    vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
-    return SpectralSolarToSRGB(ss * ms);
+    return GetAmbientColorAt(r, mu);
 }
 
 

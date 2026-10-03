@@ -41,6 +41,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 
     // -- phase (loop-invariant) --
     float cos_vs = dot(view_dir, sun_dir);
+    float cam_dot_sun = dot(camera_pos, sun_dir);
     float phase_rayleigh   = PhaseRayleigh(cos_vs);
     float phase_mie   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
     float phase_mie_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even
@@ -88,7 +89,9 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec4 sigma_t_mid = sr_mid + sm_mid + so_mid;
         vec4 ss_mid = sr_mid + sm_mid;
 
-        float mu_mid = dot(p_mid, sun_dir) / r_mid;
+        // dot(camera_pos + view_dir*t, sun) splits into two loop-invariant
+        // dots plus one scalar FMA; the real-number value is identical.
+        float mu_mid = (cam_dot_sun + t_mid * cos_vs) / r_mid;
         // Both horizon UVs share one rho/discriminant sqrt; the two tslut
         // fetches stay separated by the mslut fetch on purpose (see the
         // mirrored-mu driver merge note in cirrus.glsl).

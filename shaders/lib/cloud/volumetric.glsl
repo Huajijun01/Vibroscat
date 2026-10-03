@@ -63,13 +63,16 @@ bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float 
     march_start = max(outer_near, 0.0);
     march_end = outer_far;
 
-    float inner_c = origin_r2 - inner_radius * inner_radius;
+    float inner_r2 = inner_radius * inner_radius;
+    float inner_c = origin_r2 - inner_r2;
     float inner_discriminant = b * b - 4.0 * inner_c;
     if (inner_discriminant > 0.0) {
         float inner_root = sqrt(inner_discriminant);
         float inner_near = 0.5 * (-b - inner_root);
         float inner_far = 0.5 * (-b + inner_root);
-        if (length(origin) < inner_radius) {
+        // Non-negative radii: the squared form selects identically and the
+        // side comparison is not part of the root sequence above.
+        if (origin_r2 < inner_r2) {
             march_start = max(march_start, inner_far);
         } else if (inner_near > march_start) {
             march_end = min(march_end, inner_near);

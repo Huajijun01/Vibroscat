@@ -51,9 +51,12 @@ vec3 TransmittanceToLinearRec2020(vec4 t, vec4 light) {
 
 // Unitless spectral fraction -> linear sRGB, normalized so a neutral
 // spectrum maps to white (same convention as TransmittanceToLinearSRGB).
+// The white point of the coefficient matrix above is (128.655258, 101.358894,
+// 96.9928513) at float32, folded here as per-channel reciprocal multiplies
+// (relative deviation from the division form is ~1e-6).
 vec3 SpectralFractionToLinearSRGB(vec4 x) {
-    vec3 white = SpectralToLinearSRGB(vec4(1.0));
-    return SpectralToLinearSRGB(clamp(x, vec4(0.0), vec4(1.0))) / white;
+    return SpectralToLinearSRGB(clamp(x, vec4(0.0), vec4(1.0)))
+        * vec3(0.00777270971, 0.00986593217, 0.010310038);
 }
 
 #endif // LIB_ATMOSPHERE_SPECTRAL_GLSL

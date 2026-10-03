@@ -11,6 +11,32 @@
 #include "/lib/scattering/phase.glsl"
 
 // ===============================================================
+// Folded scene-boundary conversions
+// ===============================================================
+
+// The 4x3 CMF rows, the Rec.2020 -> sRGB rows, the illuminant and the scene
+// exposure collapse into three constant dot-product rows per illuminant.
+// Reassociation deviates from the two-step chain by ~1e-6 relative, the
+// tolerance already accepted by the folded white point in spectral.glsl.
+vec3 SpectralRadianceToSRGB(vec4 x) {
+    return vec3(dot(x, vec4(0.314434585, -1.34085262, 1.29382408, 5.82963821)),
+        dot(x, vec4(-0.445185892, 0.564079015, 5.00350196, -0.440160427)),
+        dot(x, vec4(1.99678435, 3.76497066, -0.207690757, -0.0623835771)));
+}
+
+vec3 SpectralSolarToSRGB(vec4 x) {
+    return vec3(dot(x, vec4(0.549537318, -2.75759762, 2.39810295, 9.64338729)),
+        dot(x, vec4(-0.778051375, 1.16008495, 9.27399093, -0.728113361)),
+        dot(x, vec4(3.48977997, 7.74303899, -0.384954821, -0.103194911)));
+}
+
+vec3 SpectralMoonIrradianceToSRGB(vec4 x) {
+    return vec3(dot(x, vec4(0.0287275612, -0.216826729, 0.126926782, 0.543213034)),
+        dot(x, vec4(-0.0406733406, 0.0912161458, 0.490853749, -0.0410147032)),
+        dot(x, vec4(0.18243141, 0.608826252, -0.020374887, -0.00581298032)));
+}
+
+// ===============================================================
 // Sky Integration  (midpoint + analytic, vec4 spectral)
 // ===============================================================
 
@@ -166,7 +192,7 @@ vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
     float h = r - ATM_PLANET_R;
     vec4 ss = GetScattering(h);
     vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
-    return Rec2020ToSRGB(SpectralToLinearRec2020(ss * ms * ATM_SOLAR)) * ATM_EXPOSURE;
+    return SpectralSolarToSRGB(ss * ms);
 }
 
 

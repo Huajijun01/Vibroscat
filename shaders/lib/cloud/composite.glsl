@@ -69,10 +69,10 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
     // moon_dir is the exact IEEE negation of sun_dir, so the second dot is
     // bit-identical to -sun_mu (negation distributes exactly through dot).
     float moon_mu = -sun_mu;
-    vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-        SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
-    vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-        SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
+    vec3 sun_color = SpectralSolarToSRGB(
+        SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu));
+    vec3 moon_color = SpectralMoonIrradianceToSRGB(
+        SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu));
     // Ambient evaluated once at the shared surface position, scaled by the
     // absorbed fraction (1 - T).
     vec3 ambient_cloud_radiance = GetAmbientColor(surface_position, sun_dir)

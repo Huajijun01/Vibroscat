@@ -132,13 +132,18 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float r2_g = r_g * r_g;
         float mu_sun_g = dot(ground_pos, sun_dir) / max(length(ground_pos), 1.0e-4);
 
-        // sunlight -> ground
-        vec4 trans_sun_g = SampleTransmittance(utex_tslut, r_g, r2_g, mu_sun_g);
+        // sunlight -> ground; the paired UV helper shares the rho and
+        // discriminant sqrt between the sun and the mirrored moon direction
+        // (each output bit-identical to GetTransmittanceLUTUV).
+        vec2 uv_sun_g;
+        vec2 uv_moon_g;
+        GetTransmittanceLUTUVPair(r_g, r2_g, mu_sun_g, uv_sun_g, uv_moon_g);
+        vec4 trans_sun_g = textureLod(utex_tslut, uv_sun_g, 0.0);
         vec4 ms_g = SampleMultiScatter(utex_mslut, r_g, mu_sun_g);
         ground_sun_radiance = (trans_sun_g * Saturate(mu_sun_g) * (1.0 / PI) + ms_g) * ATM_GROUND_ALBEDO * trans;
 
         // moonlight -> ground (no multiscat)
-        vec4 trans_moon_g = SampleTransmittance(utex_tslut, r_g, r2_g, -mu_sun_g);
+        vec4 trans_moon_g = textureLod(utex_tslut, uv_moon_g, 0.0);
         ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans * Saturate(-mu_sun_g);
     }
 

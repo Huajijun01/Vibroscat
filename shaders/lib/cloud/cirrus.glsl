@@ -164,7 +164,8 @@ vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, ve
         + moon_color * moon_visible * (moon_phase + isotropic_orders);
     in_scattering += ambient_irradiance;
     in_scattering *= sample_scattering;
-    return (in_scattering - in_scattering * sample_transmittance) / max(sample_extinction, 1.0e-5);
+    // a - a*T = a*(1 - T): the quotient collapses to one scalar division.
+    return in_scattering * ((1.0 - sample_transmittance) / max(sample_extinction, 1.0e-5));
 }
 
 // light_jitter is the STBN dither sampled by the pass main (its STBN slice

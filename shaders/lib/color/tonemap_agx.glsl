@@ -62,10 +62,11 @@ vec3 TonemapAGX(vec3 linear_rgb) {
 
     float working_luma = Luminance(working);
     working = mix(vec3(working_luma), working, look_saturation);
-    working = pow(max(working, 0.0), vec3(look_gamma));
-
-    // Linearize the 2.4-encoded AgX Base image, then outset back to sRGB.
-    working = pow(working, vec3(2.4));
+    // Display-referred look gamma and the 2.4 AgX Base linearization below
+    // are adjacent pow passes on the same value with nothing in between, so
+    // they merge into one pow whose exponent folds to a literal
+    // (look_gamma was already compile-time: both steps stay documented here).
+    working = pow(max(working, 0.0), vec3(look_gamma * 2.4));
     working = AgXOutset(working);
 
 #if TONEMAP_AGX_LOOK == 2

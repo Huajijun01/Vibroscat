@@ -67,9 +67,10 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThan(sample_uv, vec2(1.0)))) {
             continue;
         }
-        // Clamp the 1.0 edge (the integer texel would be out of bounds).
-        ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
-            * vec2(viewWidth, viewHeight));
+        // sample_uv is inside [0,1] by the guard above; min() handles the
+        // 1.0 edge, where the raw product would index out of bounds.
+        ivec2 sample_texel = min(ivec2(sample_uv * vec2(viewWidth, viewHeight)),
+            ivec2(vec2(viewWidth, viewHeight)) - ivec2(1));
         float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         if (sample_depth >= 1.0) {
             continue;  // sky: not an occluder
@@ -78,7 +79,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         // normal hemisphere (offset along the normal, weighted by the
         // cosine). Flat planes fail (offset in-plane), walls/corners pass.
         // Faded by a smooth window over the radius.
-        vec3 surface_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
+        vec3 surface_view = NDCToViewSparse(sample_ndc, sample_depth * 2.0 - 1.0);
         vec3 offset = surface_view - center_view;
         float offset_len = length(offset);
         if (offset_len < 1.0e-4) {

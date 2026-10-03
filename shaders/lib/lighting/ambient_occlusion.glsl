@@ -11,10 +11,12 @@ vec3 ResolveSurfaceAO(ivec2 texel, vec3 albedo, float vertex_ao, bool is_hand, o
     if (is_hand) return vec3(1.0);
 #if defined(GTAO) || defined(SSAO)
     screen_ao = clamp(texelFetch(colortex8, texel, 0).r, 0.0, 1.0);
+    // The strengths are setting literals: at the default 1.0 the pow is an
+    // SFU round trip on the identity, so gate it on the constant instead.
 #ifdef SSAO
-    screen_ao = pow(screen_ao, SSAO_STRENGTH);
+    if (SSAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, SSAO_STRENGTH);
 #else
-    screen_ao = pow(screen_ao, GTAO_STRENGTH);
+    if (GTAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, GTAO_STRENGTH);
 #endif
 #ifdef GTAO_MULTIBOUNCE
     // Jimenez et al. 2016, albedo-dependent multiple-bounce AO.

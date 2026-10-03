@@ -91,7 +91,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
             (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
                 / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4),
             0.0, 1.0);
-        float sample_cos = dot(view_axis, offset / offset_len) * (1.0 - fade) - fade;
+        float sample_cos = dot(view_axis, offset) / offset_len * (1.0 - fade) - fade;
         horizon_cos = max(horizon_cos, sample_cos);
     }
     return acos(clamp(horizon_cos, -1.0, 1.0));
@@ -128,9 +128,12 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     for (int s = 0; s < GTAO_SLICES; ++s) {
         float slice_angle = slice_angle_base
             + PI * float(s) / float(GTAO_SLICES);
+        // tangent = slice_t*cos + slice_b*sin is already a unit vector
+        // orthogonal to view_axis up to ~1e-7 (slice_t/slice_b are an exact
+        // orthonormal pair up to the same residual), and the slice plane only
+        // consumes its direction, so the old re-orthonormalization round trip
+        // is redundant.
         vec3 tangent = slice_t * cos(slice_angle) + slice_b * sin(slice_angle);
-        vec3 binormal = normalize(cross(view_axis, tangent));
-        tangent = normalize(cross(binormal, view_axis));
 
         // Projected-normal angle in the slice plane.
         float ndott = dot(normal_view, tangent);

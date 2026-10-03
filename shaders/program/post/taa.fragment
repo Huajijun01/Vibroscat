@@ -18,14 +18,14 @@ ivec2 ClampTexel(ivec2 texel, ivec2 texture_size) {
 }
 
 vec3 FetchDepthPosition(sampler2D depth, ivec2 texel) {
-    ivec2 depth_size = textureSize(depth, 0);
+    ivec2 depth_size = ivec2(u_screen_res);
     ivec2 sample_texel = ClampTexel(texel, depth_size);
     vec2 sample_uv = (vec2(sample_texel) + 0.5) / vec2(depth_size);
     return vec3(sample_uv, texelFetch(depth, sample_texel, 0).r);
 }
 
 vec3 FetchColorClamped(sampler2D color, ivec2 texel) {
-    ivec2 sample_texel = ClampTexel(texel, textureSize(color, 0));
+    ivec2 sample_texel = ClampTexel(texel, ivec2(u_screen_res));
     return texelFetch(color, sample_texel, 0).rgb;
 }
 

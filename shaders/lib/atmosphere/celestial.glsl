@@ -50,7 +50,8 @@ float CelestialAngularMask(float cos_view, float disc_radius, float glow_radius)
 // Wraps horizontally at RA 0/360; v clamped so the filter never bleeds
 // across the poles.
 vec4 SampleStarMapFastBicubic(vec2 uv) {
-    vec2 resolution = vec2(textureSize(utex_starmap, 0));
+    // Baked map is 4096x2048 (customTexture.utex_starmap).
+    const vec2 resolution = vec2(4096.0, 2048.0);
     vec2 rcp_resolution = 1.0 / resolution;
 
     vec2 texel = uv * resolution;

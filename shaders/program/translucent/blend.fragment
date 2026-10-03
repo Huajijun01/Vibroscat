@@ -34,11 +34,13 @@ const vec2 CAUSTIC_ADVECTION_MPS = vec2(0.86803042545, 0.40513266195);
 // Fixed bake reference plane; underwater eyeBrightnessSmooth cannot
 // reconstruct the surface precisely enough for sampling.
 #define CAUSTIC_PLANE_Y 64.0
+// Baked volume edge in all three axes (customTexture.utex_caustics).
+#define CAUSTICS_BAKE_SIZE 256
 
 // Four spatial B-spline taps; hardware filtering blends adjacent time slices
 // before decoding sqrt intensity. RGBA = 1/4/9/16 m.
 vec4 CausticSampleBspline(vec2 uv, float time) {
-    vec2 size = vec2(256.0);
+    vec2 size = vec2(float(CAUSTICS_BAKE_SIZE));
     vec2 p = uv * size - 0.5;
     vec2 f = fract(p);
     vec2 center = floor(p) + 0.5;
@@ -58,7 +60,7 @@ vec4 CausticSampleBspline(vec2 uv, float time) {
 
     vec2 uv_a = a_pos * texel;
     vec2 uv_b = b_pos * texel;
-    float frame_count = float(textureSize(utex_caustics, 0).z);
+    float frame_count = float(CAUSTICS_BAKE_SIZE);
     // Frame k was baked at k * dt; its texel center is (k + 0.5) / frame_count.
     float time_z = time + 0.5 / frame_count;
     vec4 encoded = c_a.x * c_a.y * texture(utex_caustics, vec3(uv_a, time_z))

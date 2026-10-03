@@ -14,12 +14,18 @@ struct CloudFrame {
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
 };
 
+// Reconstructed allocation size of the low-res cloud image: Iris sizes the
+// relative uimg_clouds_current as int(view * scale) per CLOUD_CURRENT_SCALE.
+ivec2 CloudCurrentImageSize() {
+    return ivec2(u_screen_res * CLOUD_CURRENT_SCALE);
+}
+
 // Return the full-resolution pixel's coordinate on the moving low-res lattice.
 // The low-res texel centers are at (id + r2_offset) * cell_size in full-res
 // pixel coordinates, so integer lattice coordinates are valid sample centers.
 vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
-    vec2 full_size = vec2(textureSize(depthtex0, 0));
-    vec2 low_size = vec2(textureSize(usam_clouds_current, 0));
+    vec2 full_size = u_screen_res;
+    vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 cell_size = full_size / low_size;
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
@@ -33,7 +39,7 @@ vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
 // Radiance uses the filtered current neighborhood; distance remains the
 // nearest sample location so reprojection does not invent a surface depth.
 CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
-    vec2 low_size = vec2(textureSize(usam_clouds_current, 0));
+    vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 low_texel_size = 1.0 / low_size;
     vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
     vec2 current_uv = (grid_position + 0.5) * low_texel_size;
@@ -62,7 +68,7 @@ bool CloudHistoryInvalid(CloudFrame history) {
 // blend in as a small positive distance), so the gate rejects exactly at the
 // reprojected position. Caller falls back to the fresh trace on a NaN frame.
 CloudFrame CloudHistorySample(vec2 previous_uv) {
-    vec2 history_size = vec2(textureSize(colortex8, 0));
+    vec2 history_size = u_screen_res;
     vec2 texel = 1.0 / history_size;
     vec2 clamped_uv = clamp(previous_uv, 2.0 * texel, 1.0 - 2.0 * texel);
 

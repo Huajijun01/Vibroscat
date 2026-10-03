@@ -19,10 +19,14 @@ const int STBN_STREAM_1 = 16;
 const int STBN_STREAM_2 = 23;
 const int STBN_STREAM_3 = 32;
 
+// Baked volume is 128x128x64 (customTexture.utex_stbn_scalar).
+const ivec3 STBN_SCALAR_SIZE = ivec3(128, 128, 64);
+
 // Spatiotemporal blue-noise scalar from the shared 128x128x64 STBN volume.
 // Point sampling preserves the spatial and temporal blue-noise distribution.
 float SampleSTBN(ivec2 pixel, int frame) {
-    return texelFetch(utex_stbn_scalar, ivec3(pixel & ivec2(127, 127), frame & 63), 0).r;
+    return texelFetch(utex_stbn_scalar, ivec3(pixel & (STBN_SCALAR_SIZE.xy - ivec2(1)),
+        frame & (STBN_SCALAR_SIZE.z - 1)), 0).r;
 }
 
 // Two decorrelated STBN scalars from one texel: the second stream advances
@@ -30,15 +34,14 @@ float SampleSTBN(ivec2 pixel, int frame) {
 // Callers pass their registered registry offsets. Value order is stable:
 // .x is the unshifted stream, .y the shifted one.
 vec2 SampleSTBNPair(ivec2 texel, int frame, int slice_offset, ivec2 spatial_shift) {
-    ivec3 size = textureSize(utex_stbn_scalar, 0);
     ivec2 p0 = ivec2(
-        (texel.x % size.x + size.x) % size.x,
-        (texel.y % size.y + size.y) % size.y);
-    int z = (frame % size.z + size.z) % size.z;
-    ivec2 p1 = (p0 + spatial_shift) % size.xy;
+        (texel.x % STBN_SCALAR_SIZE.x + STBN_SCALAR_SIZE.x) % STBN_SCALAR_SIZE.x,
+        (texel.y % STBN_SCALAR_SIZE.y + STBN_SCALAR_SIZE.y) % STBN_SCALAR_SIZE.y);
+    int z = (frame % STBN_SCALAR_SIZE.z + STBN_SCALAR_SIZE.z) % STBN_SCALAR_SIZE.z;
+    ivec2 p1 = (p0 + spatial_shift) % STBN_SCALAR_SIZE.xy;
     return vec2(
         texelFetch(utex_stbn_scalar, ivec3(p0, z), 0).r,
-        texelFetch(utex_stbn_scalar, ivec3(p1, (z + slice_offset) % size.z), 0).r);
+        texelFetch(utex_stbn_scalar, ivec3(p1, (z + slice_offset) % STBN_SCALAR_SIZE.z), 0).r);
 }
 
 // Shared STBN time slice for effects without their own temporal accumulation:

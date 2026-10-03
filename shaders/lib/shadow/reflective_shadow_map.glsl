@@ -51,7 +51,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 
     vec3 receiver_shadow = (shadowModelView * vec4(receiver_world + normal_world * 0.03, 1.0)).xyz;
     vec3 normal_shadow = normalize(mat3(shadowModelView) * normal_world);
-    ivec2 shadow_size = textureSize(shadowtex0, 0);
+    ivec2 shadow_size = ivec2(shadowMapResolution);
     vec2 shadow_size_f = vec2(shadow_size);
     float rsm_sample_count = float(RSM_SAMPLES);
     vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);

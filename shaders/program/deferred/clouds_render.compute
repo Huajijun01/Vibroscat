@@ -24,7 +24,7 @@ void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, in
     vec3 camera_delta = cameraPosition - previousCameraPosition;
     if (length(camera_delta) > 64.0) return;
 
-    vec2 history_size = vec2(textureSize(colortex8, 0));
+    vec2 history_size = u_screen_res;
     ivec2 history_max = ivec2(history_size) - ivec2(1);
     ivec2 current_texel = clamp(ivec2(current_uv * history_size), ivec2(0), history_max);
     vec4 seed = texelFetch(colortex8, current_texel, 0);
@@ -81,7 +81,7 @@ void main() {
     ivec2 render_size = imageSize(uimg_clouds_current);
     if (any(greaterThanEqual(id, render_size))) return;
 
-    vec2 full_resolution = vec2(textureSize(depthtex0, 0));
+    vec2 full_resolution = u_screen_res;
     vec2 cell_size = full_resolution / vec2(render_size);
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
@@ -108,7 +108,7 @@ void main() {
     ivec2 depth_texel = clamp(
         sample_pos_i,
         ivec2(0),
-        ivec2(textureSize(depthtex0, 0)) - 1
+        ivec2(u_screen_res) - 1
     );
     float sample_depth = texelFetch(depthtex0, depth_texel, 0).r;
     if (sample_depth < 1.0) {

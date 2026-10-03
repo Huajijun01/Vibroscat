@@ -10,7 +10,7 @@ const float COLOR_JITTER_SEED = 71.0;
 layout(location = 0) out vec3 out_color;
 
 bool IsOpaqueHand(ivec2 texel) {
-    ivec2 sample_texel = clamp(texel, ivec2(0), textureSize(colortex1, 0) - 1);
+    ivec2 sample_texel = clamp(texel, ivec2(0), ivec2(u_screen_res) - 1);
     float scene_depth = texelFetch(depthtex0, sample_texel, 0).r;
     int material_id = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
     return scene_depth < 1.0 && material_id == 64;

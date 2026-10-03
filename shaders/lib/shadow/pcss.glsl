@@ -75,7 +75,7 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec
     float depth_sum = 0.0;
     float weight_sum = 0.0;
     float depth_gap_sum = 0.0;
-    ivec2 shadow_size = textureSize(shadowtex0, 0);
+    ivec2 shadow_size = ivec2(shadowMapResolution);
     for (int i = 0; i < blocker_steps; ++i) {
         vec2 offset = blocker_offset_scale * ShadowRotateDisk(ShadowDiskPoint(i, blocker_steps),
             rot_x, rot_y);

@@ -157,6 +157,19 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
+// GLSL mirror of the image.uimg_clouds_current scale table in
+// shaders.properties; the literals must stay identical. Iris sizes relative
+// images as int(view * scale), so ivec2(u_screen_res * CLOUD_CURRENT_SCALE)
+// reconstructs the allocation exactly.
+#if CLOUD_TEMPORAL_UPSCALING == 1
+const vec2 CLOUD_CURRENT_SCALE = vec2(1.0);
+#elif CLOUD_TEMPORAL_UPSCALING == 2
+const vec2 CLOUD_CURRENT_SCALE = vec2(0.5);
+#elif CLOUD_TEMPORAL_UPSCALING == 3
+const vec2 CLOUD_CURRENT_SCALE = vec2(0.333333);
+#else
+const vec2 CLOUD_CURRENT_SCALE = vec2(0.25);
+#endif
 //#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.
 #define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.1 1.15 1.2 1.25] centroid-distance safety scale
 #define CLOUD_HISTORY_FRAMES 24 // [8 12 16 24 32 48] accepted-frame/history-weight cap

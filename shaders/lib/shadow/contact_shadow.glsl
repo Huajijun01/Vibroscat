@@ -81,10 +81,13 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float stride = 1.0;
     float travelled = 0.0;
     float total_travel = step_count + 0.15 * step_count * (step_count - 1.0);
+    // Loop-invariant sample scaling: the per-step distance is linear in the
+    // travelled parameter, so fold march_distance/total_travel once.
+    float step_scale = march_distance / total_travel;
 
     for (int i = 0; i < CONTACT_SHADOW_STEPS; ++i) {
         float sample_t = travelled + stbn_dither * stride;
-        vec3 sample_view = ray_origin + light_view * (march_distance * sample_t / total_travel);
+        vec3 sample_view = ray_origin + light_view * (step_scale * sample_t);
         travelled += stride;
         stride += 0.3;
         if (sample_view.z > -0.05) {

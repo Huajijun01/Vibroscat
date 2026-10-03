@@ -19,6 +19,8 @@ uniform mat4 gbufferProjectionInverse;
 
 // -- Camera / resolution (Iris built-ins + u_* from properties) --
 uniform vec3 cameraPosition;
+uniform ivec3 cameraPositionInt; // absolute integer camera position (rain texture anchoring)
+uniform vec3 cameraPositionFract; // absolute fractional camera position
 uniform float near;
 uniform float far;
 uniform float viewWidth;
@@ -75,6 +77,7 @@ uniform sampler2D utex_cloud_distribution_tex; // cloud coverage atlas (R8, 1024
 uniform sampler3D utex_cloud_voronoise_tex;   // experimental voronoise volume (R8, 32^3, periodic)
 uniform sampler3D utex_stbn_scalar;           // 128x128x64 STBN volume
 uniform sampler3D utex_caustics;              // baked water caustics volume
+uniform sampler3D utex_rain_ripples;          // periodic linear XZ slopes (RG8, 256x256x64)
 
 // -- Custom images (image bindings; sampler side only) --
 uniform sampler2D usam_skylut;        // sky view LUT (128x128 RGBA16F)
@@ -107,6 +110,7 @@ uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for RSM histo
 uniform vec2 u_screen_res;        // viewport resolution in pixels
 uniform float rainStrength;
 uniform float wetness;
+uniform int biome_precipitation; // 0=none, 1=rain, 2=snow (camera biome)
 uniform vec3 u_water_absorption;
 uniform vec3 u_water_scattering;
 

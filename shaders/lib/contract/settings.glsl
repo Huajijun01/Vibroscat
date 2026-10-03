@@ -236,6 +236,19 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // WATER - Water / epipolar
 // ==========================================================================
 
+// Rain uses the existing opaque material/normal payload and reflection path.
+#define RAIN_PUDDLES
+#define RAIN_RIPPLES
+#define RAIN_PUDDLE_COVERAGE 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8] puddle coverage threshold on the cloud distribution atlas
+#define RAIN_PUDDLE_SCALE_M 64 // [16 32 64 128 256] world-space wrap of the puddle pattern (m)
+#define RAIN_RIPPLE_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] slope strength on puddles and water
+
+#ifdef RAIN_PUDDLES
+#if defined(WORLD_OVERWORLD) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT) || defined(PROGRAM_GBUFFERS_BLOCK))
+#define RAIN_PUDDLES_ACTIVE
+#endif
+#endif
+
 // Opaque recursive screen-space indirect specular. This budget is separate
 // from the forward water/glass SSR path below.
 #define OPAQUE_REFLECTION 1 // [0 1] opaque screen-space reflection toggle; 0 = sky SH only

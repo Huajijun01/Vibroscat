@@ -8,6 +8,19 @@ profile.ULTRA = §4极高
 profile.comment = 一键性能预设。每档只改动影响帧数的画质选项（阴影分辨率、云采样、环境光遮蔽、反射质量等），不会碰你按个人喜好调过的任何设置。
 
 #Screens
+screen.RAIN = 雨天与湿润表面
+screen.RAIN.comment = 露天地面的反射水坑，以及水坑和水面的雨滴涟漪。
+option.RAIN_PUDDLES = 雨天水坑
+option.RAIN_PUDDLES.comment = 下雨时在朝上的露天地面累积反射水坑，雨停后逐渐干燥。
+option.RAIN_RIPPLES = 雨滴涟漪
+option.RAIN_RIPPLES.comment = 露天水坑和水面上的雨滴环纹。遮挡表面与远处小于像素的环纹不绘制。
+option.RAIN_PUDDLE_COVERAGE = 水坑覆盖率
+option.RAIN_PUDDLE_COVERAGE.comment = 完全湿润时水坑占据的面积，零关闭水坑。
+option.RAIN_PUDDLE_SCALE_M = 水坑图案尺寸
+option.RAIN_PUDDLE_SCALE_M.comment = 水坑图案在世界中的平铺尺寸，越大则水坑越大。
+suffix.RAIN_PUDDLE_SCALE_M = \ 米
+option.RAIN_RIPPLE_STRENGTH = 涟漪强度
+option.RAIN_RIPPLE_STRENGTH.comment = 水坑与水面共用的法线坡度强度，零跳过涟漪采样。
 screen.POSTPROC = 后期处理
 screen.POSTPROC.comment = 世界渲染完成后再叠加的画面处理：电影感调色、相机镜头特效与边缘平滑。
 screen.TONEMAP = 色调映射

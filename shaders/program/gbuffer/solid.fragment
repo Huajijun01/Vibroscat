@@ -32,15 +32,23 @@
 
 /* RENDERTARGETS: 1,2,4,12 */
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/material/model.glsl"
+#ifdef RAIN_PUDDLES_ACTIVE
+#include "/lib/material/rain_wetness.glsl"
+#include "/lib/water/rain_ripples.glsl"
+#endif
 
 in vec2 v_texcoord;
 in vec2 v_lmcoord;
 in vec4 v_color;
 flat in int v_material_id;
 in vec3 v_world_normal;
+#ifdef RAIN_PUDDLES_ACTIVE
+in vec3 v_rain_scene_pos;
+#endif
 
 #ifdef HAS_AT_TANGENT
 in vec3 v_world_tangent;
@@ -58,6 +66,12 @@ layout(early_fragment_tests) in;
 #endif
 
 void main() {
+#ifdef RAIN_PUDDLES_ACTIVE
+    float ripple_visibility = 0.0;
+#ifdef RAIN_RIPPLES
+    ripple_visibility = RainRippleVisibility(v_rain_scene_pos.xz);
+#endif
+#endif
     vec4 albedo_tex = texture(gtexture, v_texcoord);
     float alpha = albedo_tex.a;
 
@@ -124,6 +138,11 @@ void main() {
 #endif
 #ifdef PROGRAM_GBUFFERS_SPIDEREYES
     mat.emission = 1.0;
+#endif
+
+#ifdef RAIN_PUDDLES_ACTIVE
+    ApplyRainPuddle(v_rain_scene_pos.xz, geo_normal_world.y, v_lmcoord.y,
+        mat_id, ripple_visibility, mat, w_normal, albedo);
 #endif
 
     // -- Write GBuffer --

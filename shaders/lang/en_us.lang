@@ -8,6 +8,19 @@ profile.ULTRA = §4Ultra
 profile.comment = One-click performance presets. Each tier only changes settings that cost GPU time (shadow resolution, cloud sampling, ambient occlusion, reflection quality and similar), and leaves every setting you tuned for personal taste untouched.
 
 #Screens
+screen.RAIN = Rain & Wet Surfaces
+screen.RAIN.comment = Puddles on exposed ground and rain ripples on puddles and water.
+option.RAIN_PUDDLES = Rain Puddles
+option.RAIN_PUDDLES.comment = Accumulate reflective puddles on upward-facing terrain during rain; puddles dry gradually after rain stops.
+option.RAIN_RIPPLES = Rain Ripples
+option.RAIN_RIPPLES.comment = Raindrop rings on exposed puddles and water. Sheltered surfaces and distant subpixel rings are excluded.
+option.RAIN_PUDDLE_COVERAGE = Puddle Coverage
+option.RAIN_PUDDLE_COVERAGE.comment = Area occupied by puddles at full wetness. Zero disables puddles.
+option.RAIN_PUDDLE_SCALE_M = Puddle Pattern Size
+option.RAIN_PUDDLE_SCALE_M.comment = World-space wrap size of the puddle pattern. Larger values create larger puddles.
+suffix.RAIN_PUDDLE_SCALE_M = \ m
+option.RAIN_RIPPLE_STRENGTH = Ripple Strength
+option.RAIN_RIPPLE_STRENGTH.comment = Normal slope strength shared by puddles and water. Zero skips the ripple lookup.
 screen.POSTPROC = Post Processing
 screen.POSTPROC.comment = Everything layered on top of the finished world render: film-style color, camera-lens effects and edge smoothing.
 screen.TONEMAP = Tone Mapping

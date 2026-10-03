@@ -1,0 +1,50 @@
+#ifndef LIB_MATERIAL_RAIN_WETNESS_GLSL
+#define LIB_MATERIAL_RAIN_WETNESS_GLSL
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/material/model.glsl"
+#include "/lib/water/rain_ripples.glsl"
+
+void ApplyRainPuddle(vec2 scene_xz, float geo_normal_y, float sky_light,
+        int material_id, float ripple_visibility, inout OpaqueMaterial material,
+        inout vec3 normal_world, inout vec3 albedo_srgb) {
+    // Reject before either lookup. Plants, emissive blocks and translucent
+    // classes cannot hold a puddle; geometry, rather than the normal map,
+    // decides which faces are upward-facing.
+    if (wetness <= 0.001 || biome_precipitation != 1 || isEyeInWater != 0) return;
+    if (geo_normal_y <= 0.95 || sky_light <= 15.0 / 16.0) return;
+    if (material_id >= 112 || (material_id >= 80 && material_id < 96)) return;
+    if (RAIN_PUDDLE_COVERAGE <= 0.0) return;
+
+    float rain_exposure = smoothstep(15.0 / 16.0, 1.0, sky_light);
+    float wet_surface = wetness * rain_exposure * smoothstep(0.95, 1.0, geo_normal_y);
+    if (wet_surface <= 0.001) return;
+
+    vec2 camera_xz = vec2(cameraPositionInt.xz & ivec2(RAIN_PUDDLE_SCALE_M - 1))
+        + cameraPositionFract.xz;
+    vec2 uv = (scene_xz + camera_xz) / float(RAIN_PUDDLE_SCALE_M);
+    // Fixed LOD is valid after non-uniform early-outs. Puddle shapes stay
+    // stationary and independent of cloud wind, coverage and cloud toggles.
+    float distribution = textureLod(utex_cloud_distribution_tex, uv, 0.0).r;
+    float threshold = 1.0 - RAIN_PUDDLE_COVERAGE;
+    float puddle = smoothstep(threshold - 0.08, threshold + 0.08, distribution) * wet_surface;
+    if (puddle <= 0.001) return;
+
+    material.perceptual_roughness = mix(material.perceptual_roughness,
+        min(material.perceptual_roughness, 0.04), puddle);
+    albedo_srgb *= 1.0 - 0.15 * puddle;
+    // Keep selector/emission/AO and the separate geometric normal intact:
+    // deferred lighting and its existing SSR gate consume this single layer.
+    vec3 puddle_normal = vec3(0.0, 1.0, 0.0);
+#ifdef RAIN_RIPPLES
+    float ripple_weight = ripple_visibility * rain_exposure;
+    if (ripple_weight > 0.001) {
+        vec2 slope = SampleRainRippleSlope(scene_xz) * ripple_weight;
+        puddle_normal = vec3(slope.x, 1.0, slope.y);
+    }
+#endif
+    normal_world = normalize(mix(normal_world, puddle_normal, puddle));
+}
+
+#endif // LIB_MATERIAL_RAIN_WETNESS_GLSL

@@ -30,6 +30,8 @@ Vibroscat profile.
 - Daylight, sunsets, moonlight, stars, horizon haze, and distance fog
 - Clear water with waves, reflections, refraction, underwater fog, light
   shafts, and moving caustics
+- Reflective rain puddles on exposed ground, with raindrop ripples on puddles
+  and water and gradual drying after rain
 - Soft sun shadows, contact detail, ambient shading, and light passing through
   foliage
 - Selectable SSGI or reflective shadow map GI (raw bounce light; final TAA applies)

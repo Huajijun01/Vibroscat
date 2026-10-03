@@ -268,6 +268,18 @@ implementation choices this pack makes around them. The three-octave directional
 phase sum and the `1 / (1 + tau)` light transmittance that `volumetric.glsl`
 also documents are this pack's own choices and are not part of this entry.
 
+## 19. Rain ripples (independent implementation and generated asset)
+
+Rain ripples use an offline periodic slope texture. The design comparison
+studied Zavie / Ctrl-Alt-Test's [Rain drops](https://www.shadertoy.com/view/ldfyzl)
+and spatial/time-periodic field ideas as conceptual references only.
+The runtime code and `rain_ripples_rg8_256x256x64.dat` are independently created:
+seeded impact positions, Gaussian-windowed radial height packets, analytic
+height derivatives and linear slope encoding. Group velocity follows the
+standard capillary-gravity dispersion relation.
+No reference code, hashes, baker, decoder or texture was copied. The generated
+asset uses this pack's GPL-3.0 license.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

@@ -113,20 +113,20 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
             }
         }
 
-        if (sample_pos.z >= 1.0) {
-            if (allow_sky && SSRDepthSampleIsSky(surface_sample)) {
-                SSRHit sky_hit;
-                sky_hit.screen = sample_pos;
-                sky_hit.valid = true;
-                sky_hit.sky = true;
-                return sky_hit;
-            }
-            break;
-        }
-
         previous_pos = sample_pos;
         previous_ray_depth = ray_depth;
         sample_pos += march_step;
+    }
+    // The clipped chord reaches the far plane at the end of the march budget.
+    // Classify its last sampled depth once; known sky needs no refinement.
+    if (SSRDepthSampleIsSky(surface_sample)) {
+        vec3 sky_pos = hit_found ? sample_pos : previous_pos;
+        if (!allow_sky || sky_pos.z < 1.0) return miss;
+        SSRHit sky_hit;
+        sky_hit.screen = vec3(sky_pos.xy, 1.0);
+        sky_hit.valid = true;
+        sky_hit.sky = true;
+        return sky_hit;
     }
     if (!hit_found) return miss;
 
@@ -167,10 +167,12 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     hit_frac = clamp((candidate_surface_depth - previous_ray_depth) * inverse_span, 0.0, 1.0);
     hit_pos = mix(previous_pos, sample_pos, hit_frac);
 #endif
+    bool hit_sky = SSRDepthSampleIsSky(ReadSSRDepthSample(hit_pos.xy));
+    if (hit_sky && (!allow_sky || hit_pos.z < 1.0)) return miss;
     SSRHit hit;
-    hit.screen = hit_pos;
+    hit.screen = vec3(hit_pos.xy, hit_sky ? 1.0 : hit_pos.z);
     hit.valid = true;
-    hit.sky = false;
+    hit.sky = hit_sky;
     return hit;
 }
 

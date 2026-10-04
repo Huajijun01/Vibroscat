@@ -281,6 +281,9 @@ encoding. The fall-speed relation follows Atlas, Srivastava and Sekhon (1973),
 Phase and group velocities follow the standard capillary-gravity dispersion
 relation. Equivalent depth, wave-energy coupling and periodization are modeling
 approximations; this is not a complete fluid simulation.
+For readable circular ripples, the texture retains sparse large-drop impacts
+and omits the dense small-drop wave field. Individual impacts still evolve
+under the model above. Runtime rain ripples perturb normals without POM.
 No reference code, hashes, baker, decoder or texture was copied. The generated
 asset uses this pack's GPL-3.0 license.
 

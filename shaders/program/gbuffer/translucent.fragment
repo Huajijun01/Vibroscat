@@ -49,12 +49,6 @@ vec3 WaterFogCol() {
 }
 
 void main() {
-    float ripple_visibility = 0.0;
-#ifdef WORLD_OVERWORLD
-#ifdef RAIN_RIPPLES
-    ripple_visibility = RainRippleVisibility(v_world_pos.xz);
-#endif
-#endif
     vec4 diffuse = texture(gtexture, v_texcoord.xy);
 
     diffuse.rgb *= v_color.rgb;
@@ -113,18 +107,19 @@ void main() {
             world_n = geo_n_world; // no tangent attribute: flat side face
 #endif
         }
-#ifdef WORLD_OVERWORLD
-#ifdef RAIN_RIPPLES
+#if defined(WORLD_OVERWORLD) && defined(RAIN_WETNESS) && defined(RAIN_RIPPLES)
         // Add world-space slopes before the existing underwater inversion,
         // grazing clamp, SSR, glint and refraction all consume the normal.
-        float rain_sky_light = clamp(v_texcoord.w * 1.103449 - 0.0689656, 0.0, 1.0);
-        float ripple_weight = ripple_visibility
-            * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);
-        if (geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y && ripple_weight > 0.001) {
-            vec2 slope = SampleRainRippleSlope(v_world_pos.xz) * ripple_weight;
-            world_n = normalize(world_n + vec3(slope.x, 0.0, slope.y) * world_n.y);
+        if (rainStrength > 0.001 && biome_precipitation == 1 && RAIN_RIPPLE_STRENGTH > 0.0
+                && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
+            float rain_sky_light = clamp(v_texcoord.w * 1.103449 - 0.0689656, 0.0, 1.0);
+            float ripple_weight = rainStrength * RAIN_RIPPLE_STRENGTH
+                * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);
+            if (ripple_weight > 0.001) {
+                vec2 slope = SampleRainRippleSlope(v_world_pos.xz) * ripple_weight;
+                world_n = normalize(world_n + vec3(slope.x, 0.0, slope.y) * world_n.y);
+            }
         }
-#endif
 #endif
         surface_normal = vec3(world_n.x, world_n.z, world_n.y);
         current_normal = normalize(mat3(gbufferModelView) * world_n);

@@ -274,9 +274,13 @@ Rain ripples use an offline periodic slope texture. The design comparison
 studied Zavie / Ctrl-Alt-Test's [Rain drops](https://www.shadertoy.com/view/ldfyzl)
 and spatial/time-periodic field ideas as conceptual references only.
 The runtime code and `rain_ripples_rg8_256x256x64.dat` are independently created:
-seeded impact positions, Gaussian-windowed radial height packets, analytic
-height derivatives and linear slope encoding. Group velocity follows the
-standard capillary-gravity dispersion relation.
+drop-size distributions, terminal fall speeds and impact-energy cavity modeling,
+a finite-depth linear wave spectrum, Fourier height derivatives and linear slope
+encoding. The fall-speed relation follows Atlas, Srivastava and Sekhon (1973),
+[doi:10.1029/RG011i001p00001](https://doi.org/10.1029/RG011i001p00001).
+Phase and group velocities follow the standard capillary-gravity dispersion
+relation. Equivalent depth, wave-energy coupling and periodization are modeling
+approximations; this is not a complete fluid simulation.
 No reference code, hashes, baker, decoder or texture was copied. The generated
 asset uses this pack's GPL-3.0 license.
 

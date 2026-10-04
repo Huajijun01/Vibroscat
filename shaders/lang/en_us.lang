@@ -9,18 +9,20 @@ profile.comment = One-click performance presets. Each tier only changes settings
 
 #Screens
 screen.RAIN = Rain & Wet Surfaces
-screen.RAIN.comment = Puddles on exposed ground and rain ripples on puddles and water.
+screen.RAIN.comment = Wetness on exposed ground, optional puddle patterns and adjustable rain ripples on ground and water.
+option.RAIN_WETNESS = Rain Wetness
+option.RAIN_WETNESS.comment = Enable rain wetness on exposed ground and raindrop ripples on ground and water.
 option.RAIN_PUDDLES = Rain Puddles
-option.RAIN_PUDDLES.comment = Accumulate reflective puddles on upward-facing terrain during rain; puddles dry gradually after rain stops.
+option.RAIN_PUDDLES.comment = Restrict wet ground to puddle patterns. When disabled, all eligible exposed upward-facing ground becomes wet.
 option.RAIN_RIPPLES = Rain Ripples
-option.RAIN_RIPPLES.comment = Raindrop rings on exposed puddles and water. Sheltered surfaces and distant subpixel rings are excluded.
+option.RAIN_RIPPLES.comment = Raindrop rings on exposed wet ground and water. Sky light excludes sheltered surfaces.
 option.RAIN_PUDDLE_COVERAGE = Puddle Coverage
-option.RAIN_PUDDLE_COVERAGE.comment = Area occupied by puddles at full wetness. Zero disables puddles.
+option.RAIN_PUDDLE_COVERAGE.comment = Area occupied by puddles at full wetness. Zero disables wet ground only when Rain Puddles is enabled.
 option.RAIN_PUDDLE_SCALE_M = Puddle Pattern Size
 option.RAIN_PUDDLE_SCALE_M.comment = World-space wrap size of the puddle pattern. Larger values create larger puddles.
 suffix.RAIN_PUDDLE_SCALE_M = \ m
 option.RAIN_RIPPLE_STRENGTH = Ripple Strength
-option.RAIN_RIPPLE_STRENGTH.comment = Normal slope strength shared by puddles and water. Zero skips the ripple lookup.
+option.RAIN_RIPPLE_STRENGTH.comment = Normal slope strength shared by wet ground and water. Zero skips the ripple lookup.
 screen.POSTPROC = Post Processing
 screen.POSTPROC.comment = Everything layered on top of the finished world render: film-style color, camera-lens effects and edge smoothing.
 screen.TONEMAP = Tone Mapping

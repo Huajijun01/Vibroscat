@@ -9,18 +9,20 @@ profile.comment = 一键性能预设。每档只改动影响帧数的画质选�
 
 #Screens
 screen.RAIN = 雨天与湿润表面
-screen.RAIN.comment = 露天地面的反射水坑，以及水坑和水面的雨滴涟漪。
+screen.RAIN.comment = 露天地面打湿、可选水坑图案，以及可调地面和水面涟漪。
+option.RAIN_WETNESS = 雨天打湿
+option.RAIN_WETNESS.comment = 雨天打湿总开关，控制露天地面湿润以及地面和水面的雨滴涟漪。
 option.RAIN_PUDDLES = 雨天水坑
-option.RAIN_PUDDLES.comment = 下雨时在朝上的露天地面累积反射水坑，雨停后逐渐干燥。
+option.RAIN_PUDDLES.comment = 将地面湿润限制在水坑图案内。关闭后，所有符合条件的露天朝上地面都会打湿。
 option.RAIN_RIPPLES = 雨滴涟漪
-option.RAIN_RIPPLES.comment = 露天水坑和水面上的雨滴环纹。遮挡表面与远处小于像素的环纹不绘制。
+option.RAIN_RIPPLES.comment = 露天湿润地面和水面上的雨滴环纹，使用天空光剔除遮挡表面。
 option.RAIN_PUDDLE_COVERAGE = 水坑覆盖率
-option.RAIN_PUDDLE_COVERAGE.comment = 完全湿润时水坑占据的面积，零关闭水坑。
+option.RAIN_PUDDLE_COVERAGE.comment = 完全湿润时水坑占据的面积。零仅在开启雨天水坑时关闭地面湿润。
 option.RAIN_PUDDLE_SCALE_M = 水坑图案尺寸
 option.RAIN_PUDDLE_SCALE_M.comment = 水坑图案在世界中的平铺尺寸，越大则水坑越大。
 suffix.RAIN_PUDDLE_SCALE_M = \ 米
 option.RAIN_RIPPLE_STRENGTH = 涟漪强度
-option.RAIN_RIPPLE_STRENGTH.comment = 水坑与水面共用的法线坡度强度，零跳过涟漪采样。
+option.RAIN_RIPPLE_STRENGTH.comment = 湿润地面与水面共用的法线扰动强度，零跳过涟漪采样。
 screen.POSTPROC = 后期处理
 screen.POSTPROC.comment = 世界渲染完成后再叠加的画面处理：电影感调色、相机镜头特效与边缘平滑。
 screen.TONEMAP = 色调映射

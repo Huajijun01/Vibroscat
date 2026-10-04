@@ -413,15 +413,6 @@ const float ambientOcclusionLevel = 1.0;
 // instead of lingering (vanished objects' AO does not fade out slowly).
 const int AO_ACCUMULATION_BOX_SAMPLES = 4;   // box-average the first 4 phase samples (one checkerboard cycle)
 const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after the box phase
-// Darkening slowdown: while the fresh sample is darker than the history
-// (AO darkening in progress) the fresh weight is scaled by
-// AO_DARKEN_FADE_SCALE so black AO fades in slowly - the eye is sensitive to
-// darkening, and a sudden dark jump reads as noise. The condition is the
-// darkening state itself, not the per-frame rejection: the slow rate is
-// carried by the age (base alpha keeps dropping toward the steady state),
-// so the fade-in continues even after the rejection clears. The
-// brightening path (vanished objects) stays fast.
-#define AO_DARKEN_FADE_SCALE 0.35 // [0.1 0.2 0.35 0.5 0.75 1.0] darkening: fresh-weight scale (1.0 = immediate, lower = slower fade-in)
 // History rejection: the reprojected history is
 // trusted only when the world-space displacement from the previous-frame
 // depth stays under the distance limit and the normal at the reprojected

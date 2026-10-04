@@ -374,8 +374,6 @@ option.SSAO_RADIUS.comment = How far away an object can darken its surroundings,
 suffix.SSAO_RADIUS = m
 option.SSAO_STRENGTH = SSAO Contrast
 option.SSAO_STRENGTH.comment = How dark corners become: the occlusion value is raised to this power. SSAO reads lighter than GTAO, so its default is intentionally steeper. 1.0 is linear.
-option.AO_DARKEN_FADE_SCALE = AO Darkening Fade Speed
-option.AO_DARKEN_FADE_SCALE.comment = Fade-in speed of new darkening, so added shadows appear like a natural light change instead of a sudden noisy pop. 1.0 = immediate; lower = slower, gentler fade-in.
 
 #Water
 option.WATER_SSR = Water Reflections

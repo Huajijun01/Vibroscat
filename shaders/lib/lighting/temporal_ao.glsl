@@ -71,13 +71,6 @@ float AOAccumulate(float fresh_ao, float hist_ao, float hist_age,
         ? 1.0 / (samples + 1.0)
         : AO_ACCUMULATION_ALPHA;
     float alpha = 1.0 - (1.0 - base_alpha) * rejection;
-    // Darkening slowdown: fresh < hist scales the fresh weight by
-    // AO_DARKEN_FADE_SCALE. The condition is the darkening STATE (not the
-    // per-frame rejection): the slow rate is carried by the age, so the
-    // fade-in continues after rejection clears; brightening stays fast.
-    if (fresh_ao < hist_ao) {
-        alpha *= AO_DARKEN_FADE_SCALE;
-    }
     next_age = pixel_age + 1.0;
     return mix(hist_ao, fresh_ao, alpha);
 }

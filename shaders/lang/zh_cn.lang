@@ -374,8 +374,6 @@ option.SSAO_RADIUS.comment = 一个物体能在多大范围（米）内压暗周
 suffix.SSAO_RADIUS = 米
 option.SSAO_STRENGTH = SSAO 对比度
 option.SSAO_STRENGTH.comment = 边角被压暗的程度：遮蔽值按本项取幂。SSAO 观感比 GTAO 淡，所以默认值刻意更陡。1.0 为线性。
-option.AO_DARKEN_FADE_SCALE = AO 变暗淡入速度
-option.AO_DARKEN_FADE_SCALE.comment = 新增压暗的淡入速度，让阴影出现时像自然的光照变化，而不是突兀的噪点闪现。1.0 = 立即生效；越低淡入越慢、越柔。
 
 #Water
 option.WATER_SSR = 水面反射

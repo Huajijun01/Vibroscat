@@ -380,8 +380,10 @@ option.AO_DARKEN_FADE_SCALE.comment = 新增压暗的淡入速度，让阴影出
 #Water
 option.WATER_SSR = 水面反射
 option.WATER_SSR.comment = 让水面反射眼前真实的世界——山、建筑、树木——而不只是天空。
-option.WATER_SSR_STEPS = 水面反射质量
-option.WATER_SSR_STEPS.comment = 反射质量：越高反射延伸越远、破损或淡出的区域越少，速度越慢。
+option.WATER_SSR_STEPS = 水面反射步数
+option.WATER_SSR_STEPS.comment = 水面反射光线上的深度采样次数：越高反射延伸越远、破损或淡出的区域越少，速度越慢。
+option.WATER_SSR_BISECTION = 水面反射二分复查
+option.WATER_SSR_BISECTION.comment = 用二分法细化水面反射的首次深度交叉，把命中点稳定在命中面内，减少反射在面上漂移，开销极小。关闭时在步长内插值求交点，命中点会在面内游移。
 option.WATER_POM = 水面视差贴图
 option.WATER_POM.comment = 给波浪表面真实的 3D 起伏：经过时波浪会明显隆起、错动。关闭 = 平面水 + 贴图画出来的假波浪。
 option.WATER_POM_COARSE_STEPS = 视差粗搜索步数
@@ -445,16 +447,12 @@ option.OPAQUE_REFLECTION = 实体表面反射
 option.OPAQUE_REFLECTION.comment = 让有光泽的实体方块反射周围真实的场景。关闭后只剩一层基于天空的通用光泽。
 value.OPAQUE_REFLECTION.0 = 关
 value.OPAQUE_REFLECTION.1 = 开
-option.OPAQUE_SSR_QUALITY = 反射质量
+option.OPAQUE_SSR_STEPS = 实体反射步数
+option.OPAQUE_SSR_STEPS.comment = 实体反射光线上的深度采样次数。默认保持整条射线总共少于 16 次深度采样（8 次步进 + 4 次二分），调高主要让反射沿射线延伸更远，而非提高命中精度。
+option.OPAQUE_SSR_BISECTION = 实体反射二分复查
+option.OPAQUE_SSR_BISECTION.comment = 用二分法细化实体反射的首次深度交叉，把命中点稳定在命中面内，减少反射在面上漂移，开销极小。关闭时在步长内插值求交点，命中点会在面内游移。
 option.SSR_QUARTER_DEPTH = SSR 低分辨率深度
 option.SSR_QUARTER_DEPTH.comment = 水面、玻璃和实体反射使用宽高各 1/4 的深度图。可能提高速度，但细小轮廓的精度会降低。关闭时使用完整深度。
-option.SSR_BISECTION_REFINE = SSR 二分复查
-option.SSR_BISECTION_REFINE.comment = 用二分法细化屏幕空间反射的首次深度交叉。关闭时在步长内插值求交点：速度更快，但几何边缘处的反射精度更低。
-option.OPAQUE_SSR_QUALITY.comment = 实体方块真实反射的质量：仅环境 = 所有表面都用便宜的天空光泽；中/高/极高逐级提升真实反射的精度与距离。
-value.OPAQUE_SSR_QUALITY.0 = 仅环境
-value.OPAQUE_SSR_QUALITY.1 = 中
-value.OPAQUE_SSR_QUALITY.2 = 高
-value.OPAQUE_SSR_QUALITY.3 = 极高
 option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD = 表面粗糙度上限
 option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD.comment = 表面可以"哑光"到什么程度仍保留真实反射、超过就退回便宜的天空光泽：越高更多表面参与真实反射（更耗性能）；越低只有接近镜面的表面才反射。
 option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION = 表面粗糙度过渡宽度

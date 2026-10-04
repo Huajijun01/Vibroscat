@@ -1,7 +1,5 @@
 /* RENDERTARGETS: 3 */
 
-#define SSR_OPAQUE_TRACE
-
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
@@ -62,9 +60,7 @@ void main() {
         + geo_view_normal * 0.03
         + view_direction * 0.05;
     float trace_jitter = stbn_random.y;
-    SSRHit shared_hit = TraceScreenSpaceReflection(
-        trace_origin, view_direction, trace_jitter,
-        OPAQUE_SSR_STEPS, true);
+    SSRHit shared_hit = TraceOpaqueSSR(trace_origin, view_direction, trace_jitter);
     // History hits replace the sky-radiance environment sample entirely, so
     // the environment fetch only runs when no history was accepted.
     vec3 reflection_radiance;

@@ -168,14 +168,13 @@ void main() {
     bool rt_hit_sky = false;
     vec3 reflect_dir = reflect(view_dir, current_normal);
 
-#ifdef WATER_SSR_ENABLED
+#ifdef WATER_SSR
     bool ssr_allowed = (v_id == 1 || v_glass == 1);
 #if WATER_SSR_SKY_SKIP
     if (ssr_allowed && reflect_dir.z < 0.0)
 #endif
     {
-    SSRHit water_hit = TraceScreenSpaceReflection(
-        v_view_pos, reflect_dir, dither, WATER_SSR_STEPS, true);
+    SSRHit water_hit = TraceTranslucentSSR(v_view_pos, reflect_dir, dither);
     rt_hit_flag = water_hit.valid;
     rt_hit_sky = water_hit.sky;
     if (water_hit.valid) rt_pos = water_hit.screen;

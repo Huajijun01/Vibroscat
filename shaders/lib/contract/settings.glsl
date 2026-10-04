@@ -253,27 +253,26 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // Opaque recursive screen-space indirect specular. This budget is separate
 // from the forward water/glass SSR path below.
 #define OPAQUE_REFLECTION 1 // [0 1] opaque screen-space reflection toggle; 0 = sky SH only
-#define OPAQUE_SSR_QUALITY 2 // [0 1 2 3]
 #define OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD 0.5 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] roughness at which opaque reflections become SH-only and dielectric reflection fades out
 #define OPAQUE_REFLECTION_ROUGHNESS_TRANSITION 0.1 // [0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.4 0.5] roughness span used to blend SSR into SH
 #define OPAQUE_SSR_DEBUG 0 // hidden debug: opaque SSR stage select; no UI surface
-#if OPAQUE_REFLECTION && OPAQUE_SSR_QUALITY > 0
+#if OPAQUE_REFLECTION
 #define OPAQUE_SSR
 #endif
-#if OPAQUE_SSR_QUALITY == 1
-#define OPAQUE_SSR_STEPS 24
-#elif OPAQUE_SSR_QUALITY == 2
-#define OPAQUE_SSR_STEPS 40
-#elif OPAQUE_SSR_QUALITY == 3
-#define OPAQUE_SSR_STEPS 64
-#endif
+
+// Opaque SSR march budget: samples along the full reflection path
+// (McGuire & Mara 2014). The default keeps the whole trace under 16 depth
+// samples: 8 march steps plus 4 bisection reads. Raising the march count
+// extends how far reflections reach, not how accurately they hit.
+#define OPAQUE_SSR_STEPS 8 // [8 12 16 20 24 32 40 48 64] opaque SSR march samples
+#define OPAQUE_SSR_BISECTION // refine the first opaque SSR depth crossing with bisection, pinning the hit onto the face it lands on; off interpolates it within the march step
+// Bisection iterations: each halves the march-step bracket, so 4 steps keep
+// the hit within step/16 of the true crossing.
+#define OPAQUE_SSR_BISECT_STEPS 4
 #define OPAQUE_SSR_RECURSION_DECAY 0.92
 #define OPAQUE_PBR_EMISSION_SCALE 10.0
 
 #define WATER_SSR
-#ifdef WATER_SSR
-#define WATER_SSR_ENABLED
-#endif
 
 #define SSR_QUARTER_DEPTH // trace both SSR paths with width/4, height/4 R16F depth
 #ifdef SSR_QUARTER_DEPTH
@@ -282,13 +281,15 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 #endif
 
-// Bisection refinement of the first SSR depth crossing. Off interpolates
-// the crossing within the march step from the two straddling samples.
-//#define SSR_BISECTION_REFINE
-
-// Screen-space reflections march budget: samples along the full reflection
-// path (McGuire & Mara 2014). Quality/perf knob for the water forward pass.
-#define WATER_SSR_STEPS 16 // [8 10 12 16 20 24 32] water SSR march samples
+// Water SSR march budget: samples along the full reflection path
+// (McGuire & Mara 2014). The default keeps the whole trace under 16 depth
+// samples: 8 march steps plus 4 bisection reads. Raising the march count
+// extends how far reflections reach, not how accurately they hit.
+#define WATER_SSR_STEPS 8 // [8 10 12 16 20 24 32] water SSR march samples
+#define WATER_SSR_BISECTION // refine the first water SSR depth crossing with bisection, pinning the hit onto the face it lands on; off interpolates it within the march step
+// Bisection iterations: each halves the march-step bracket, so 4 steps keep
+// the hit within step/16 of the true crossing.
+#define WATER_SSR_BISECT_STEPS 4
 
 // Water parallax occlusion mapping (ocean.glsl): normal evaluated at the
 // parallax-corrected position. LOW profile disables it (normal at the plane

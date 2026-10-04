@@ -380,8 +380,10 @@ option.AO_DARKEN_FADE_SCALE.comment = Fade-in speed of new darkening, so added s
 #Water
 option.WATER_SSR = Water Reflections
 option.WATER_SSR.comment = Lets water reflect the actual world in front of it - mountains, buildings, trees - instead of only the sky.
-option.WATER_SSR_STEPS = Water Reflection Quality
-option.WATER_SSR_STEPS.comment = Reflection quality: higher = reflections reach farther with fewer broken or faded areas, slower.
+option.WATER_SSR_STEPS = Water Reflection Steps
+option.WATER_SSR_STEPS.comment = Depth samples along the water reflection ray: higher = reflections reach farther with fewer broken or faded areas, slower.
+option.WATER_SSR_BISECTION = Water Reflection Bisection
+option.WATER_SSR_BISECTION.comment = Refines the first depth crossing of water reflections with bisection, pinning the hit point onto the face it lands on so the reflection does not drift across that surface. Off interpolates the crossing inside the march step, letting the hit wander within the face.
 option.WATER_POM = Water Parallax
 option.WATER_POM.comment = Gives the wave surface real 3D depth: waves visibly rise and shift as you move past. Off = flat water with painted-on wave shading.
 option.WATER_POM_COARSE_STEPS = POM Coarse Steps
@@ -445,16 +447,12 @@ option.OPAQUE_REFLECTION = Solid Surface Reflections
 option.OPAQUE_REFLECTION.comment = Lets shiny solid blocks reflect the actual scene around them. Off = only a generic sky-based sheen remains.
 value.OPAQUE_REFLECTION.0 = Off
 value.OPAQUE_REFLECTION.1 = On
-option.OPAQUE_SSR_QUALITY = Reflection Quality
+option.OPAQUE_SSR_STEPS = Opaque Reflection Steps
+option.OPAQUE_SSR_STEPS.comment = Depth samples along the opaque reflection ray. The default keeps the whole trace under 16 depth samples (8 march steps + 4 bisection reads); higher counts mostly extend how far reflections reach, not how accurately they hit.
+option.OPAQUE_SSR_BISECTION = Opaque Reflection Bisection
+option.OPAQUE_SSR_BISECTION.comment = Refines the first depth crossing of opaque reflections with bisection, pinning the hit point onto the face it lands on so the reflection does not drift across that surface. Off interpolates the crossing inside the march step, letting the hit wander within the face.
 option.SSR_QUARTER_DEPTH = Quarter-Resolution SSR Depth
 option.SSR_QUARTER_DEPTH.comment = Uses reduced depth for water, glass and solid reflections. May improve speed, with less accurate small silhouettes. Off uses full depth.
-option.SSR_BISECTION_REFINE = SSR Bisection Refinement
-option.SSR_BISECTION_REFINE.comment = Refines the first depth crossing of screen-space reflections with bisection steps. Off interpolates the crossing inside the march step: faster, but reflections are less accurate near geometry edges.
-option.OPAQUE_SSR_QUALITY.comment = Quality of true scene reflections on solid blocks: Environment Only = cheap sky sheen for everything; Medium/High/Ultra raise the accuracy and reach of real reflections.
-value.OPAQUE_SSR_QUALITY.0 = Environment Only
-value.OPAQUE_SSR_QUALITY.1 = Medium
-value.OPAQUE_SSR_QUALITY.2 = High
-value.OPAQUE_SSR_QUALITY.3 = Ultra
 option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD = Surface Roughness Cutoff
 option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD.comment = How matte a surface may be before it stops mirroring the scene and falls back to the cheap sky sheen: higher = more surfaces get real reflections (more cost); lower = only near-mirror surfaces do.
 option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION = Surface Roughness Blend

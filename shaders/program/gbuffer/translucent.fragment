@@ -110,10 +110,11 @@ void main() {
 #if defined(WORLD_OVERWORLD) && defined(RAIN_WETNESS) && defined(RAIN_RIPPLES)
         // Add world-space slopes before the existing underwater inversion,
         // grazing clamp, SSR, glint and refraction all consume the normal.
-        if (rainStrength > 0.001 && biome_precipitation == 1 && RAIN_RIPPLE_STRENGTH > 0.0
+        float rain_weight = rainStrength * u_rain_biome;
+        if (rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
             float rain_sky_light = clamp(v_texcoord.w * 1.103449 - 0.0689656, 0.0, 1.0);
-            float ripple_weight = rainStrength * RAIN_RIPPLE_STRENGTH
+            float ripple_weight = rain_weight * RAIN_RIPPLE_STRENGTH
                 * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);
             if (ripple_weight > 0.001) {
                 vec2 slope = SampleRainRippleSlope(v_world_pos.xz) * ripple_weight;

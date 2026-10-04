@@ -111,7 +111,7 @@ uniform vec2 u_screen_res;        // viewport resolution in pixels
 uniform float rainStrength;
 uniform float wetness;
 uniform float u_fast_wetness;
-uniform int biome_precipitation; // 0=none, 1=rain, 2=snow (camera biome)
+uniform float u_rain_biome; // smoothed rain eligibility of the camera biome, [0, 1]
 uniform vec3 u_water_absorption;
 uniform vec3 u_water_scattering;
 

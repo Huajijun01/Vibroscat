@@ -1,5 +1,7 @@
 /* RENDERTARGETS: 3 */
 
+#define SSR_OPAQUE_TRACE
+
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"

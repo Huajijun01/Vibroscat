@@ -7,9 +7,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/raytrace/ssr_depth.glsl"
 
-// Shared screen-space reflection marcher. Both water and opaque reflection
-// use the same depth-crossing rule; only their step budget and treatment
-// of a far-plane miss differ.
+// SSR_OPAQUE_TRACE enables near-plane exits and toward-eye crossings.
 #define SSR_REFINE_STEPS 6
 #define SSR_TOL_SLOPE 0.1
 #define SSR_TOL_BIAS 0.5
@@ -60,11 +58,16 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     float trace_length = min(min(edge_near_t.x, edge_near_t.y),
         min(edge_far_t.x, edge_far_t.y));
 
-    // Far-plane exit: the clip parameter where the projected NDC z
-    // reaches 1.
-    float far_plane_t = (origin_clip.w - origin_clip.z)
-        / (direction_clip.z - direction_clip.w);
-    trace_length = min(trace_length, far_plane_t);
+#ifdef SSR_OPAQUE_TRACE
+    bool toward_eye = view_direction.z > 0.0;
+#else
+    const bool toward_eye = false;
+#endif
+    // Choose the forward NDC depth boundary; the far exit is behind toward-eye rays.
+    float depth_plane = toward_eye ? -1.0 : 1.0;
+    float depth_plane_t = (depth_plane * origin_clip.w - origin_clip.z)
+        / (direction_clip.z - depth_plane * direction_clip.w);
+    trace_length = min(trace_length, depth_plane_t);
     // March span: one straight (uv, NDC z) chord from the origin to the
     // projected exit point.
     vec4 exit_clip = origin_clip + direction_clip * trace_length;
@@ -74,54 +77,56 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
     vec3 sample_pos = start_pos + march_step * jitter;
     float ray_start_depth = -view_origin.z;
     vec3 previous_pos = start_pos;
+    float previous_ray_depth = SSRRayDepthFromScreen(start_pos.z);
 
     for (int i = 0; i < step_budget; ++i) {
         if (!SSRScreenInside(sample_pos.xy)) break;
 
         float surface_sample = ReadSSRDepthSample(sample_pos.xy);
         float ray_depth = SSRRayDepthFromScreen(sample_pos.z);
-        if (SSRDepthSampleBeforeRay(surface_sample, ray_depth)) {
+        // Toward-eye crossings require the previous point behind this surface.
+        bool behind_surface = SSRDepthSampleBeforeRay(surface_sample, ray_depth);
+        bool depth_crossing = toward_eye
+            ? !behind_surface && SSRDepthSampleBeforeRay(surface_sample, previous_ray_depth)
+            : behind_surface;
+        if (depth_crossing) {
 #ifdef SSR_BISECTION_REFINE
-            // Bisection locates the first depth crossing; this trace
-            // performs no thickness or normal rejection. The bracket is
-            // carried as sample points; each midpoint is their average.
-            vec3 lo_pos = previous_pos;
-            vec3 hi_pos = sample_pos;
+            // Use the actual bracket width, including the jittered first step.
+            vec3 hit_pos = 0.5 * (previous_pos + sample_pos);
+            vec3 refine_step = (sample_pos - previous_pos) * (0.25 - 0.5 * float(toward_eye));
             for (int j = 0; j < SSR_REFINE_STEPS; ++j) {
-                vec3 mid_pos = 0.5 * (lo_pos + hi_pos);
-                float mid_surface = ReadSSRDepthSample(mid_pos.xy);
-                float mid_ray_depth = SSRRayDepthFromScreen(mid_pos.z);
-                if (SSRDepthSampleBeforeRay(mid_surface, mid_ray_depth)) {
-                    hi_pos = mid_pos;
-                } else {
-                    lo_pos = mid_pos;
-                }
+                float mid_surface = ReadSSRDepthSample(hit_pos.xy);
+                float mid_ray_depth = SSRRayDepthFromScreen(hit_pos.z);
+#ifdef SSR_QUARTER_DEPTH_ACTIVE
+                float depth_delta = mid_ray_depth * mid_surface - 1.0;
+#else
+                float depth_delta = mid_surface - mid_ray_depth;
+#endif
+                float refine_sign = sign(depth_delta);
+                hit_pos += refine_sign * refine_step;
+                refine_step *= 0.5;
             }
-
-            vec3 hit_pos = 0.5 * (lo_pos + hi_pos);
 #else
             // Intersect in the affine ray-depth domain, without clamping the
             // jittered endpoint. Reuse the old previous-point fetch at the
             // candidate instead, correcting for the local surface depth.
-            float ray_lo_depth = SSRRayDepthFromScreen(previous_pos.z);
-            float ray_depth_span = ray_depth - ray_lo_depth;
-            float inverse_span = ray_depth_span != 0.0 ? 1.0 / ray_depth_span : 0.0;
+            float ray_depth_span = ray_depth - previous_ray_depth;
+            float span_sign = sign(ray_depth_span);
+            float inverse_span = span_sign / max(abs(ray_depth_span), 1e-20);
+            // A zero span keeps the midpoint; nonzero spans retain their sign.
+            float midpoint_bias = 0.5 * (1.0 - abs(span_sign));
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
             float surface_depth = 1.0 / surface_sample;
 #else
             float surface_depth = surface_sample;
 #endif
-            float hit_frac = ray_depth_span != 0.0
-                ? clamp((surface_depth - ray_lo_depth) * inverse_span, 0.0, 1.0)
-                : 0.5;
+            float hit_frac = clamp((surface_depth - previous_ray_depth) * inverse_span + midpoint_bias, 0.0, 1.0);
             vec3 hit_pos = mix(previous_pos, sample_pos, hit_frac);
             float candidate_surface_depth = ReadSSRDepthSample(hit_pos.xy);
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
             candidate_surface_depth = 1.0 / candidate_surface_depth;
 #endif
-            hit_frac = ray_depth_span != 0.0
-                ? clamp((candidate_surface_depth - ray_lo_depth) * inverse_span, 0.0, 1.0)
-                : 0.5;
+            hit_frac = clamp((candidate_surface_depth - previous_ray_depth) * inverse_span + midpoint_bias, 0.0, 1.0);
             hit_pos = mix(previous_pos, sample_pos, hit_frac);
 #endif
             float hit_surface_depth = ReadSSRDepthSample(hit_pos.xy);
@@ -153,6 +158,7 @@ SSRHit TraceScreenSpaceReflection(vec3 view_origin,
         }
 
         previous_pos = sample_pos;
+        previous_ray_depth = ray_depth;
         sample_pos += march_step;
     }
     return miss;

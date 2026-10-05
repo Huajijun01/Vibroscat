@@ -525,6 +525,10 @@ option.TORCH_BRIGHTNESS = 方块光亮度
 option.TORCH_BRIGHTNESS.comment = 所有方块光源的亮度：火把、灯笼、萤石、岩浆、红石灯等。它们共用同一个暖色调，所以冷色光源也会被染暖，色调本身不随本滑条改变。
 option.STAR_MAP_INTENSITY = 星空亮度
 option.STAR_MAP_INTENSITY.comment = 夜空星空的亮度，星空由 4K NASA 星图绘制。0 = 无星夜空。
+option.STAR_MAP_CONTRAST = 星星对比度
+option.STAR_MAP_CONTRAST.comment = 明亮与暗淡星星之间的对比度。低于 1.0 时银河和暗星更明显；高于 1.0 时暗星隐去，只留下亮星。
+option.STAR_MAP_BRIGHT_BOOST = 亮星增强
+option.STAR_MAP_BRIGHT_BOOST.comment = 按亮度为最亮的星星追加亮度，让突出的星星呈现更真实的星等差。
 option.ATM_HORIZON_DIP = 地平线下沉
 option.ATM_HORIZON_DIP.comment = 通过把大气延伸到地面线以下来加浓地平线附近的雾带，让远处地形更自然地融进浓厚的地平线雾霾。
 value.ATM_HORIZON_DIP.0 = 关

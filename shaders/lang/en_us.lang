@@ -525,6 +525,10 @@ option.TORCH_BRIGHTNESS = Block Light Brightness
 option.TORCH_BRIGHTNESS.comment = Brightness of every block light source: torches, lanterns, glowstone, lava, redstone lamps and the rest. They all share one warm tint, so cool-colored sources are tinted warm as well. The tint itself does not change with this slider.
 option.STAR_MAP_INTENSITY = Star Brightness
 option.STAR_MAP_INTENSITY.comment = Brightness of the night sky's stars, drawn from the 4K NASA star map. 0 = starless sky.
+option.STAR_MAP_CONTRAST = Star Contrast
+option.STAR_MAP_CONTRAST.comment = Contrast between faint and bright stars. Values below 1.0 lift the faint Milky Way structure; higher values hide faint stars and keep only the bright ones.
+option.STAR_MAP_BRIGHT_BOOST = Bright Star Boost
+option.STAR_MAP_BRIGHT_BOOST.comment = Extra brightness for the brightest stars, scaled by their luminance, so prominent stars stand out with a realistic magnitude spread.
 option.ATM_HORIZON_DIP = Horizon Dip
 option.ATM_HORIZON_DIP.comment = Thickens the haze band at the horizon by extending the atmosphere below the ground line, so distant terrain melts into a denser, more realistic horizon haze.
 value.ATM_HORIZON_DIP.0 = Off

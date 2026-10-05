@@ -1,6 +1,7 @@
 #ifndef LIB_ATMOSPHERE_CELESTIAL_GLSL
 #define LIB_ATMOSPHERE_CELESTIAL_GLSL
 
+#include "/lib/color/spaces.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -144,6 +145,16 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext cont
     // LogLuv32 HDR: bicubic in the encoded space, decode restores linear
     // radiance.
     vec3 star_color = LogLuv32ToLinear(SampleStarMapFastBicubic(StarMapEquirectUV(rd)));
+
+    // Artistic grade (technique after Alpha Piscium v1.9.1, GPL-3.0; our
+    // own expression): the contrast exponent lifts faint map structure so
+    // the Milky Way and dim stars read better, then a luminance-keyed
+    // exponential gain (unity at black) magnifies only the brightest stars
+    // for magnitude-like variation. The decoded map's luma stays below
+    // ~0.5, so the default gain caps near 4x. Runs before the physical
+    // transmittance and night fades so the grade describes the map itself.
+    star_color = pow(star_color, vec3(STAR_MAP_CONTRAST));
+    star_color *= exp2(Luminance(star_color) * STAR_MAP_BRIGHT_BOOST);
 
     // View-ray transmittance: dims and reddens stars toward the horizon.
     vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, vec4(1.0));

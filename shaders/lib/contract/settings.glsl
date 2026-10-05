@@ -446,6 +446,10 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Night star map gain: linear multiplier applied after the LogLuv32
 // decode (celestial.glsl).
 #define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness
+// Night star map artistic grade, applied to the decoded map color before the
+// transmittance and night fades (celestial.glsl).
+#define STAR_MAP_CONTRAST 1.5 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] star map contrast exponent
+#define STAR_MAP_BRIGHT_BOOST 4.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
 
 // Angular radii of the rendered sun/moon discs, in radians. Shared by the
 // sky disc renderer (celestial.glsl) and the water/translucent GGX area

@@ -231,8 +231,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         // The moon fetch MUST stay after the sun branch (driver bug above).
         vec3 sun_color = vec3(0.0);
         if (sun_visible > 0.0) {
-            sun_color = SpectralSolarToSRGB(
-                SampleTransmittance(utex_tslut, height, height * height, sun_mu));
+            sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+                SampleTransmittance(utex_tslut, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
             // Up-sun self shadowing of the direct lights; the moon march offsets
             // the jitter by half a period to decorrelate its taps from the sun's.
             vec3 sun_half_vec = normalize(sun_dir - view_dir);
@@ -242,8 +242,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
 
         vec3 moon_color = vec3(0.0);
         if (moon_visible > 0.0) {
-            moon_color = SpectralMoonIrradianceToSRGB(
-                SampleTransmittance(utex_tslut, height, height * height, moon_mu));
+            moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+                SampleTransmittance(utex_tslut, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
             vec3 moon_half_vec = normalize(moon_dir - view_dir);
             moon_color *= CirrusTransmittance(CirrusLightOpticalDepth(
                 sample_position, shell_normal_world, moon_half_vec, moon_mu, light_jitter));

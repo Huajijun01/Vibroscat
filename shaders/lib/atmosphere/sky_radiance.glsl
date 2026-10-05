@@ -11,34 +11,6 @@
 #include "/lib/scattering/phase.glsl"
 
 // ===============================================================
-// Folded scene-boundary conversions
-// ===============================================================
-
-// The 4x3 CMF rows, the Rec.2020 -> sRGB rows, the illuminant and the scene
-// exposure collapse into three constant dot-product rows per illuminant.
-// Reassociated from exposure * (Rec2020 -> sRGB) * Rec2020 rows for the
-// 450/510/580/650 nm quadrature; the chain was validated against the
-// previous 410/480/560/630 constants (research/sky-tracer/scripts/
-// pack_glsl_constants.py).
-vec3 SpectralRadianceToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.402169, -2.873552, 4.914647, 2.798219)),
-        dot(x, vec4(-0.825366, 3.350264, 1.941133, -0.266304)),
-        dot(x, vec4(4.477144, 0.473076, -0.141333, -0.029853)));
-}
-
-vec3 SpectralSolarToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.808789372, -5.53335094, 9.12550068, 4.38701487)),
-        dot(x, vec4(-1.65973449, 6.45146465, 3.60444045, -0.417529106)),
-        dot(x, vec4(9.00290489, 0.910952926, -0.262423307, -0.0468061119)));
-}
-
-vec3 SpectralMoonIrradianceToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.0319162197, -0.157458127, 0.324455798, 0.0350883938)),
-        dot(x, vec4(-0.0654959828, 0.183584154, 0.128155336, -0.00333949784)),
-        dot(x, vec4(0.355270118, 0.0259222556, -0.00933042075, -0.0003743665)));
-}
-
-// ===============================================================
 // Sky Integration  (midpoint + analytic, vec4 spectral)
 // ===============================================================
 
@@ -194,7 +166,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 vec3 GetAmbientColorAt(float r, float mu) {
     vec4 ss = GetScattering(r - ATM_PLANET_R);
     vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
-    return SpectralSolarToSRGB(ss * ms);
+    return Rec2020ToSRGB(SpectralToLinearRec2020(ss * ms * ATM_SOLAR)) * ATM_EXPOSURE;
 }
 
 vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {

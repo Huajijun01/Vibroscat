@@ -7,7 +7,6 @@
 #include "/lib/atmosphere/skybox_uv.glsl"
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
-#include "/lib/atmosphere/sky_radiance.glsl"
 
 // Row stripes. workGroups must stay a literal ivec3(1, 1, 1) because Iris
 // parses that token with Integer.parseInt, so the whole reduction lives in one
@@ -142,9 +141,9 @@ void main() {
         vec4 trans = SampleTransmittance(utex_tslut, ground_r, ground_r2, mu_abs);
         vec3 ground_color;
         if (mu_light > 0.0) {
-            ground_color = SpectralSolarToSRGB(trans);
+            ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_SOLAR)) * ATM_EXPOSURE;
         } else {
-            ground_color = SpectralMoonIrradianceToSRGB(trans);
+            ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_MOON_IRR)) * ATM_EXPOSURE;
         }
 
         ground_light.rgb = ground_color * (1.0 - rainStrength * 0.9);

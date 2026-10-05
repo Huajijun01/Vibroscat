@@ -6,9 +6,11 @@
 
 // ===============================================================
 // Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
-// Optimal wavelengths: 410, 480, 560, 630 nm
-// Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 6),
-// offline 4-wave spectral fit (HSPEAtmosCreator tool).
+// Wavelengths: 450 / 510 / 580 / 650 nm (sky-tracer realtime bands)
+// Medium: the sky-tracer OPAC/libRadtran tables (inso/waso/soot/suso,
+// US-standard air, ozone), evaluated as piecewise-linear profiles that
+// match the offline iterative-MS pack LUT bake exactly. vec4 channels
+// map to ascending wavelength order.
 // Provenance: licenses/THIRD_PARTY_NOTICES.md section 14.
 // ===============================================================
 
@@ -16,98 +18,50 @@
 // Baked Constants
 // ===============================================================
 
+// -- Solar irradiance (W/m2/nm at TOA; bands.csv width / 10 nm) --
+const vec4 ATM_SOLAR = vec4(2.01085377, 1.92558253, 1.85678685, 1.56775546);
 
-// -- Rayleigh density: exp(-A * h^B) --
-const float ATM_RAY_EXP_A = 0.07771971;
-const float ATM_RAY_EXP_B = 1.16364243;
+// -- Moonlight irradiance (W/m2/nm), refitted for the new bands to keep
+//    the previous Rec.2020 moon tint (~0.88, 0.95, 1.18) and the moon/sun
+//    luminance ratio of the 410-630 nm constants --
+const vec4 ATM_MOON_IRR = vec4(0.079351753, 0.0547947548, 0.0660177767, 0.0125392675);
 
-// -- Rayleigh scattering base (km-^1 at sea level, per wavelength) --
-const vec4 ATM_SIGMA_S_RAY = vec4(0.0478, 0.02545, 0.01374, 0.008576);
+// -- Rayleigh scattering: sigma = air_cm3 * ATM_RAY_COEF (km^-1) --
+const vec4 ATM_RAY_COEF = vec4(1.29428139e-21, 7.8450922e-22, 4.68993434e-22, 2.97320817e-22);
 
-// -- Ozone: lognormal centred at ~25.1 km --
-const float ATM_OZONE_CENTER_LOG = 3.22261;
-const float ATM_OZONE_INV_VAR = 5.55555555;
-const float ATM_OZONE_DENS_SCALE = 3.78547397e+20;
+// -- Ozone absorption: sigma = ozone_cm3 * ATM_O3_COEF (km^-1) --
+const vec4 ATM_O3_COEF = vec4(1.71000004e-17, 1.57999994e-16, 4.55e-16, 2.42000013e-16);
 
-// -- Ozone cross-section * Dobson  (pre-merged) --
-const vec4 ATM_OZONE_SIGMA = 381.0 * vec4(2.91000003e-27, 7.11000026e-26, 3.88000004e-25, 3.43e-25);
+// -- Aerosol mass extinction (km^-1 per g/m3) per species --
+const vec4 ATM_INSO_SCA = vec4(164.565384, 169.777802, 175.440735, 180.778854);
+const vec4 ATM_INSO_ABS = vec4(68.6669235, 65.8117371, 62.783947, 60.0372276);
+const vec4 ATM_WASO_SCA = vec4(4107.271, 3479.43579, 2884.22949, 2399.55371);
+const vec4 ATM_WASO_ABS = vec4(80.2539062, 71.6364517, 70.2021713, 70.4473343);
+const vec4 ATM_SOOT_SCA = vec4(3032.16089, 2313.80054, 1712.43762, 1287.43335);
+const vec4 ATM_SOOT_ABS = vec4(9308.44629, 8087.02734, 6899.54736, 6040.99561);
+const vec4 ATM_SUSO_SCA = vec4(4002.83301, 3708.14746, 3374.3313, 3054.79688);
+const vec4 ATM_SUSO_ABS = vec4(0.000100455356, 9.81555859e-05, 0.000304512127, 0.000523557945);
 
-// -- Aerosol --
+// -- Aerosol below-surface growth scale (horizon dip region) --
 const float ATM_AERO_SCALE = 8.0;
-const float ATM_AERO_SMOOTH_LO = 1.0;
-const float ATM_AERO_SMOOTH_HI = 2.0;
 
-// -- Aerosol base density (g/m3 at sea level, Rural) --
-const float ATM_WASO_BASE = 1.48999998e-05;
-const float ATM_WASO_BG   = 4.57099986e-07;
-const float ATM_INSO_BASE = 1.00999996e-05;
-const float ATM_INSO_BG   = 2.2910001e-06;
-const float ATM_SOOT_BASE = 5.31000012e-07;
-const float ATM_SOOT_BG   = 1.36200002e-08;
+const float ATM_AIR_H[50] = float[](0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 27.5, 30.0, 32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0);
+const float ATM_AIR_V[50] = float[](2.54581802e+19, 2.31093595e+19, 2.09233105e+19, 1.89010491e+19, 1.70326699e+19, 1.53100595e+19, 1.372429e+19, 1.22684497e+19, 1.09317899e+19, 9.71184107e+18, 8.59545689e+18, 7.5836522e+18, 6.48417411e+18, 5.54162876e+18, 4.73612105e+18, 4.04759505e+18, 3.45934011e+18, 2.957987e+18, 2.52849411e+18, 2.16150297e+18, 1.84799001e+18, 1.57406401e+18, 1.34089497e+18, 1.14349202e+18, 9.75787226e+17, 8.33128273e+17, 5.63587292e+17, 3.82769891e+17, 2.60501895e+17, 1.75973108e+17, 1.20239302e+17, 8.30444726e+16, 5.79881488e+16, 4.08748902e+16, 2.91749805e+16, 2.13460497e+16, 1.180302e+16, 6.42183188e+15, 3.38394702e+15, 1.72166999e+15, 8.34113922e+14, 3.82932204e+14, 1.71007294e+14, 7.13050638e+13, 2.92175993e+13, 1.18796698e+13, 5.02978419e+12, 2.14268799e+12, 9.68132788e+11, 5.11026004e+11);
 
-// -- Aerosol sigma_sca per species (km-^1 per g/m3) --
-const float ATM_WASO_SCA_0 = 4612.52978516;
-const float ATM_WASO_SCA_1 = 3786.26000977;
-const float ATM_WASO_SCA_2 = 3034.39990234;
-const float ATM_WASO_SCA_3 = 2533.01000977;
-const float ATM_INSO_SCA_0 = 160.83000183;
-const float ATM_INSO_SCA_1 = 167.19000244;
-const float ATM_INSO_SCA_2 = 173.88000488;
-const float ATM_INSO_SCA_3 = 179.25999451;
-const float ATM_SOOT_SCA_0 = 3680.42993164;
-const float ATM_SOOT_SCA_1 = 2652.76000977;
-const float ATM_SOOT_SCA_2 = 1860.20996094;
-const float ATM_SOOT_SCA_3 = 1397.32995605;
+const float ATM_OZONE_H[50] = float[](0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 27.5, 30.0, 32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0);
+const float ATM_OZONE_V[50] = float[](6.77768004e+11, 6.77940232e+11, 6.77827903e+11, 6.27433669e+11, 5.77144816e+11, 5.77257603e+11, 5.64577632e+11, 6.15105167e+11, 6.5268043e+11, 8.91037876e+11, 1.12944297e+12, 1.63087594e+12, 2.00834495e+12, 2.13299207e+12, 2.38371707e+12, 2.63452492e+12, 3.01228596e+12, 3.51351996e+12, 4.01510996e+12, 4.39088998e+12, 4.7685708e+12, 4.76909981e+12, 4.89427409e+12, 4.76819174e+12, 4.51826523e+12, 4.26687699e+12, 3.27289196e+12, 2.5097989e+12, 1.86094505e+12, 1.38009602e+12, 9.65640126e+11, 6.06629986e+11, 3.59785988e+11, 2.14725001e+11, 1.19720002e+11, 6.62160015e+10, 2.12580004e+10, 7.06859981e+09, 2.37020006e+09, 516900000.0, 208675008.0, 114960000.0, 85550000.0, 49952000.0, 20468000.0, 4756001.0, 1006600.0, 107200.0, 4844.0, 255.699997);
 
-// -- Mie combined (compile-time folded from per-species data) --
-// GetSigmaSMie(h) = exp(-h/AERO_SCALE) * (SM_A + smoothstep(lo,hi,h) * SM_B)
-const vec4 ATM_SM_A = vec4(
-    ATM_WASO_BASE * ATM_WASO_SCA_0 + ATM_INSO_BASE * ATM_INSO_SCA_0 + ATM_SOOT_BASE * ATM_SOOT_SCA_0,
-    ATM_WASO_BASE * ATM_WASO_SCA_1 + ATM_INSO_BASE * ATM_INSO_SCA_1 + ATM_SOOT_BASE * ATM_SOOT_SCA_1,
-    ATM_WASO_BASE * ATM_WASO_SCA_2 + ATM_INSO_BASE * ATM_INSO_SCA_2 + ATM_SOOT_BASE * ATM_SOOT_SCA_2,
-    ATM_WASO_BASE * ATM_WASO_SCA_3 + ATM_INSO_BASE * ATM_INSO_SCA_3 + ATM_SOOT_BASE * ATM_SOOT_SCA_3);
-const vec4 ATM_SM_B = vec4(
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_SCA_0 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_SCA_0 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_SCA_0,
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_SCA_1 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_SCA_1 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_SCA_1,
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_SCA_2 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_SCA_2 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_SCA_2,
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_SCA_3 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_SCA_3 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_SCA_3
-);
+const float ATM_MASS_INSO_H[14] = float[](0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 35.0);
+const float ATM_MASS_INSO_V[14] = float[](1.00899997e-05, 8.90699994e-06, 2.2910001e-06, 2.021e-06, 1.78400001e-06, 1.57399995e-06, 1.38899998e-06, 1.22599999e-06, 1.08200004e-06, 9.54899974e-07, 8.4269999e-07, 7.43600026e-07, 0.0, 0.0);
 
-// Aerosol absorption (km^-1 per g/m3), folded from OPAC species data. Same
-// fold as ATM_SM_A/ATM_SM_B above: base density plus the smoothstep-weighted
-// background step.
-const float ATM_WASO_ABS_0 = 87.64557617;
-const float ATM_WASO_ABS_1 = 74.40373230;
-const float ATM_WASO_ABS_2 = 71.74945068;
-const float ATM_WASO_ABS_3 = 67.95589447;
-const float ATM_INSO_ABS_0 = 70.23886871;
-const float ATM_INSO_ABS_1 = 67.22508240;
-const float ATM_INSO_ABS_2 = 63.19934082;
-const float ATM_INSO_ABS_3 = 59.32960892;
-const float ATM_SOOT_ABS_0 = 10068.87792969;
-const float ATM_SOOT_ABS_1 = 8693.68359375;
-const float ATM_SOOT_ABS_2 = 7045.56591797;
-const float ATM_SOOT_ABS_3 = 5828.49169922;
-const vec4 ATM_AA_A = vec4(
-    ATM_WASO_BASE * ATM_WASO_ABS_0 + ATM_INSO_BASE * ATM_INSO_ABS_0 + ATM_SOOT_BASE * ATM_SOOT_ABS_0,
-    ATM_WASO_BASE * ATM_WASO_ABS_1 + ATM_INSO_BASE * ATM_INSO_ABS_1 + ATM_SOOT_BASE * ATM_SOOT_ABS_1,
-    ATM_WASO_BASE * ATM_WASO_ABS_2 + ATM_INSO_BASE * ATM_INSO_ABS_2 + ATM_SOOT_BASE * ATM_SOOT_ABS_2,
-    ATM_WASO_BASE * ATM_WASO_ABS_3 + ATM_INSO_BASE * ATM_INSO_ABS_3 + ATM_SOOT_BASE * ATM_SOOT_ABS_3);
-const vec4 ATM_AA_B = vec4(
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_0 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_0 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_0,
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_1 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_1 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_1,
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_2 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_2 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_2,
-    (ATM_WASO_BG - ATM_WASO_BASE) * ATM_WASO_ABS_3 + (ATM_INSO_BG - ATM_INSO_BASE) * ATM_INSO_ABS_3 + (ATM_SOOT_BG - ATM_SOOT_BASE) * ATM_SOOT_ABS_3);
+const float ATM_MASS_WASO_H[14] = float[](0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 35.0);
+const float ATM_MASS_WASO_V[14] = float[](1.48700001e-05, 1.31300003e-05, 4.57099986e-07, 4.03400009e-07, 3.55999987e-07, 3.14200008e-07, 2.77200002e-07, 2.44700004e-07, 2.15900002e-07, 1.90500003e-07, 1.68200003e-07, 1.48400005e-07, 0.0, 0.0);
 
-// -- Mie extinction (compile-time fold of the scattering and absorption
-//    pairs above): scattering and absorption ride the same vertical profile,
-//    so summing the coefficients lets the aerosol extinction term cost one
-//    exp, one smoothstep, and one FMA chain per evaluation. --
-const vec4 ATM_EM_A = ATM_SM_A + ATM_AA_A;
-const vec4 ATM_EM_B = ATM_SM_B + ATM_AA_B;
+const float ATM_MASS_SOOT_H[14] = float[](0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 35.0);
+const float ATM_MASS_SOOT_V[14] = float[](5.31199987e-07, 4.6880001e-07, 1.36200002e-08, 1.20200001e-08, 1.06e-08, 9.35799971e-09, 8.25899971e-09, 7.28799998e-09, 6.43199982e-09, 5.67600011e-09, 5.00899988e-09, 4.41999992e-09, 0.0, 0.0);
 
-// -- Solar irradiance (W/m2/nm at TOA) --
-const vec4 ATM_SOLAR = vec4(1.74769998, 2.05660009, 1.85350001, 1.65419996);
+const float ATM_MASS_SUSO_H[14] = float[](0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 35.0);
+const float ATM_MASS_SUSO_V[14] = float[](0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.83999986e-08, 0.0);
 
 // -- Phase --
 // Triple-lobe Mie blend, same structure as the tuned cirrus phase
@@ -115,7 +69,9 @@ const vec4 ATM_SOLAR = vec4(1.74769998, 2.05660009, 1.85350001, 1.65419996);
 // silver lining, a broad low-g forward lobe adds smooth haze, and a
 // backward lobe (effective eccentricity -0.3) brightens the anti-solar sky.
 // Weights sum to 1, so the blend stays a normalized phase. Formulas live in
-// /lib/scattering/phase.glsl.
+// /lib/scattering/phase.glsl. The multi-scatter bake resolves the per-species
+// tabulated Mie phases instead; this blend stays the runtime's direct
+// single-scattering tuning.
 const HenyeyGreensteinTripleLobe ATM_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.8, 0.1,  // forward peak
     0.5, 0.7,  // forward mid
@@ -132,59 +88,83 @@ const vec4 ATM_EPS = vec4(1.0e-5);
 const float ATM_GROUND_ALBEDO_BAKE = 0.25;  // used when baking LUTs
 const float ATM_GROUND_ALBEDO      = 0.05;  // runtime, tweak independently
 
-// -- Moonlight irradiance (W/m2/nm) --
-// Re-tinted through the 4-wave CMF matrix: Rec.2020 reads ~= (0.88, 0.95, 1.18)
-// vs neutral - cooler moonlight.
-const vec4 ATM_MOON_IRR = vec4(0.1522710, 0.2695135, 0.1635034, 0.1553021) * 0.6;
-
 // ===============================================================
-// Density functions  (Hillaire / the pack's 4-wave spectral fit model)
+// Density functions (piecewise-linear sky-tracer tables)
 // ===============================================================
 
-// Density profiles in altitude above the planet surface. Callers hold the
-// altitude directly (the sky march carries h_mid), so the folds clamp h
-// instead of paying an (R+h)-R float round trip per sample; the below-surface
-// clamps keep the radius-domain semantics.
-float DensityRayH(float h) {
-    return exp(-ATM_RAY_EXP_A * pow(max(h, 0.0), ATM_RAY_EXP_B));
+// Ascending-key table lookup: returns (lo, hi, t) with lo/hi row indices.
+// GLSL requires sized array parameters, so each table width gets an entry
+// point; the search itself is a short binary scan inside the per-sample sky
+// march.
+vec3 TableBracket(const float keys[50], int n, float h) {
+    int lo = 0;
+    int hi = n - 1;
+    while (hi - lo > 1) {
+        int mid = (lo + hi) >> 1;
+        if (keys[mid] <= h) lo = mid; else hi = mid;
+    }
+    float t = clamp((h - keys[lo]) / max(keys[hi] - keys[lo], 1.0e-20), 0.0, 1.0);
+    return vec3(float(lo), float(hi), t);
 }
 
-float DensityOzoneH(float h) {
-    float h_clamped = max(h, 1.0e-5);
-    float t = log(h_clamped) - ATM_OZONE_CENTER_LOG;
-    return ATM_OZONE_DENS_SCALE * (1.0 / h_clamped) * exp(-t * t * ATM_OZONE_INV_VAR);
+vec3 TableBracket14(const float keys[14], int n, float h) {
+    int lo = 0;
+    int hi = n - 1;
+    while (hi - lo > 1) {
+        int mid = (lo + hi) >> 1;
+        if (keys[mid] <= h) lo = mid; else hi = mid;
+    }
+    float t = clamp((h - keys[lo]) / max(keys[hi] - keys[lo], 1.0e-20), 0.0, 1.0);
+    return vec3(float(lo), float(hi), t);
+}
+
+// Aerosol mass per species (g/m3). Below the surface the masses keep
+// growing with the 8 km scale height so the horizon dip region feeds the
+// same exponentially denser air the runtime sky march integrates; suso is
+// zero at the surface, so its clamp contributes nothing.
+vec4 AerosolMasses(float h) {
+    if (h < 0.0) {
+        float g = exp(-h / ATM_AERO_SCALE);
+        return vec4(ATM_MASS_INSO_V[0], ATM_MASS_WASO_V[0], ATM_MASS_SOOT_V[0], ATM_MASS_SUSO_V[0]) * g;
+    }
+    vec3 b = TableBracket14(ATM_MASS_INSO_H, 14, h);
+    int lo = int(b.x);
+    int hi = int(b.y);
+    float t = b.z;
+    return vec4(
+        mix(ATM_MASS_INSO_V[lo], ATM_MASS_INSO_V[hi], t),
+        mix(ATM_MASS_WASO_V[lo], ATM_MASS_WASO_V[hi], t),
+        mix(ATM_MASS_SOOT_V[lo], ATM_MASS_SOOT_V[hi], t),
+        mix(ATM_MASS_SUSO_V[lo], ATM_MASS_SUSO_V[hi], t));
 }
 
 // ===============================================================
-// Scattering & extinction per wavelength  (vec4 = [410,480,560,630])
+// Scattering & extinction per wavelength  (vec4 = [450,510,580,650])
 // ===============================================================
 
 vec4 GetSigmaSRay(float h) {
-    return DensityRayH(h) * ATM_SIGMA_S_RAY;
-}
-
-// Aerosol vertical profile shared by the Mie folds: an exponential falloff
-// (8 km scale height) whose sea-level base blends into the background term
-// across the low-atmosphere window. base/background pair with the ATM_*_A /
-// ATM_*_B constants above; the scattering and extinction folds differ only
-// in the coefficient pair they run through this one profile.
-vec4 AeroSigma(float h, vec4 base, vec4 background) {
-    float t = smoothstep(ATM_AERO_SMOOTH_LO, ATM_AERO_SMOOTH_HI, h);
-    return exp(-h / ATM_AERO_SCALE) * (base + t * background);
+    vec3 b = TableBracket(ATM_AIR_H, 50, max(h, 0.0));
+    float air = mix(ATM_AIR_V[int(b.x)], ATM_AIR_V[int(b.y)], b.z);
+    return air * ATM_RAY_COEF;
 }
 
 vec4 GetSigmaSMie(float h) {
-    return AeroSigma(h, ATM_SM_A, ATM_SM_B);
+    vec4 m = AerosolMasses(h);
+    return m.x * ATM_INSO_SCA + m.y * ATM_WASO_SCA
+         + m.z * ATM_SOOT_SCA + m.w * ATM_SUSO_SCA;
 }
 
-// Total aerosol extinction (scattering + absorption) over the folded
-// ATM_EM_A/B constants.
+// Total aerosol extinction (scattering + absorption).
 vec4 GetSigmaEMie(float h) {
-    return AeroSigma(h, ATM_EM_A, ATM_EM_B);
+    vec4 m = AerosolMasses(h);
+    return m.x * (ATM_INSO_SCA + ATM_INSO_ABS) + m.y * (ATM_WASO_SCA + ATM_WASO_ABS)
+         + m.z * (ATM_SOOT_SCA + ATM_SOOT_ABS) + m.w * (ATM_SUSO_SCA + ATM_SUSO_ABS);
 }
 
 vec4 GetSigmaAOzone(float h) {
-    return DensityOzoneH(h) * ATM_OZONE_SIGMA;
+    vec3 b = TableBracket(ATM_OZONE_H, 50, max(h, 0.0));
+    float o3 = mix(ATM_OZONE_V[int(b.x)], ATM_OZONE_V[int(b.y)], b.z);
+    return o3 * ATM_O3_COEF;
 }
 
 // Total extinction: Rayleigh + aerosol (scattering and absorption in one

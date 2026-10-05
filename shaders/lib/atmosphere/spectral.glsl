@@ -3,12 +3,16 @@
 
 // ===============================================================
 // Spectral -> linear sRGB  (4x3 manually expanded, FMA-friendly)
+// Quadrature nodes 450/510/580/650 nm (sky-tracer realtime bands,
+// weights refitted from sky-tracer's display fit); chain validated
+// against the previous 410/480/560/630 constants (see
+// research/sky-tracer/scripts/pack_glsl_constants.py).
 // ===============================================================
 
 vec3 SpectralToLinearSRGB(vec4 spectral_radiance) {
-    return vec3(dot(spectral_radiance, vec4(6.321843624, -26.517091751, 30.142539978, 118.707962036)),
-        dot(spectral_radiance, vec4(-5.534153461, 17.321765900, 98.470054626, -8.898775101)),
-        dot(spectral_radiance, vec4(39.173206329, 71.765632629, -12.650737762, -1.295249343)));
+    return vec3(dot(spectral_radiance, vec4(7.75104809, -60.9972992, 88.8918533, 53.3156281)),
+        dot(spectral_radiance, vec4(-9.50318718, 69.8496323, 40.5499535, -5.23501587)),
+        dot(spectral_radiance, vec4(98.9764709, 4.83470011, -6.79986143, -0.428102016)));
 }
 
 // ===============================================================
@@ -20,9 +24,9 @@ vec3 SpectralToLinearSRGB(vec4 spectral_radiance) {
 // ===============================================================
 
 vec3 SpectralToLinearRec2020(vec4 spectral_radiance) {
-    return vec3(dot(spectral_radiance, vec4(3.845798926, -7.86893214, 48.567284779, 70.210607852)),
-        dot(spectral_radiance, vec4(-4.264385887, 15.066919918, 93.470569559, -0.049300629)),
-        dot(spectral_radiance, vec4(35.719363513, 67.276565483, -2.226660272, 0.023773354)));
+    return vec3(dot(spectral_radiance, vec4(5.94900179, -13.560091, 74.1413651, 33.3429909)),
+        dot(spectral_radiance, vec4(-6.80702496, 58.4251175, 42.3308372, -1.03582621)),
+        dot(spectral_radiance, vec4(80.0665054, 8.67134762, -1.00728083, -0.000367216242)));
 }
 
 vec3 Rec2020ToSRGB(vec3 rgb) {
@@ -51,12 +55,12 @@ vec3 TransmittanceToLinearRec2020(vec4 t, vec4 light) {
 
 // Unitless spectral fraction -> linear sRGB, normalized so a neutral
 // spectrum maps to white (same convention as TransmittanceToLinearSRGB).
-// The white point of the coefficient matrix above is (128.655258, 101.358894,
-// 96.9928513) at float32, folded here as per-channel reciprocal multiplies
+// The white point of the coefficient matrix above is (88.961235, 95.661385,
+// 96.583206) at float32, folded here as per-channel reciprocal multiplies
 // (relative deviation from the division form is ~1e-6).
 vec3 SpectralFractionToLinearSRGB(vec4 x) {
     return SpectralToLinearSRGB(clamp(x, vec4(0.0), vec4(1.0)))
-        * vec3(0.00777270971, 0.00986593217, 0.010310038);
+        * vec3(0.0112408511, 0.010453539, 0.0103537673);
 }
 
 #endif // LIB_ATMOSPHERE_SPECTRAL_GLSL

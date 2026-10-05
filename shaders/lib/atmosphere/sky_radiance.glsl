@@ -16,24 +16,26 @@
 
 // The 4x3 CMF rows, the Rec.2020 -> sRGB rows, the illuminant and the scene
 // exposure collapse into three constant dot-product rows per illuminant.
-// Reassociation deviates from the two-step chain by ~1e-6 relative, the
-// tolerance already accepted by the folded white point in spectral.glsl.
+// Reassociated from exposure * (Rec2020 -> sRGB) * Rec2020 rows for the
+// 450/510/580/650 nm quadrature; the chain was validated against the
+// previous 410/480/560/630 constants (research/sky-tracer/scripts/
+// pack_glsl_constants.py).
 vec3 SpectralRadianceToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.314434585, -1.34085262, 1.29382408, 5.82963821)),
-        dot(x, vec4(-0.445185892, 0.564079015, 5.00350196, -0.440160427)),
-        dot(x, vec4(1.99678435, 3.76497066, -0.207690757, -0.0623835771)));
+    return vec3(dot(x, vec4(0.020110596, -0.143679932, 0.245733663, 0.139913872)),
+        dot(x, vec4(-0.0412693955, 0.167519823, 0.0970612317, -0.0133161424)),
+        dot(x, vec4(0.22385776, 0.0236539561, -0.00706659723, -0.00149277458)));
 }
 
 vec3 SpectralSolarToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.549537318, -2.75759762, 2.39810295, 9.64338729)),
-        dot(x, vec4(-0.778051375, 1.16008495, 9.27399093, -0.728113361)),
-        dot(x, vec4(3.48977997, 7.74303899, -0.384954821, -0.103194911)));
+    return vec3(dot(x, vec4(0.808789372, -5.53335094, 9.12550068, 4.38701487)),
+        dot(x, vec4(-1.65973449, 6.45146465, 3.60444045, -0.417529106)),
+        dot(x, vec4(9.00290489, 0.910952926, -0.262423307, -0.0468061119)));
 }
 
 vec3 SpectralMoonIrradianceToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.0287275612, -0.216826729, 0.126926782, 0.543213034)),
-        dot(x, vec4(-0.0406733406, 0.0912161458, 0.490853749, -0.0410147032)),
-        dot(x, vec4(0.18243141, 0.608826252, -0.020374887, -0.00581298032)));
+    return vec3(dot(x, vec4(0.0319162197, -0.157458127, 0.324455798, 0.0350883938)),
+        dot(x, vec4(-0.0654959828, 0.183584154, 0.128155336, -0.00333949784)),
+        dot(x, vec4(0.355270118, 0.0259222556, -0.00933042075, -0.0003743665)));
 }
 
 // ===============================================================

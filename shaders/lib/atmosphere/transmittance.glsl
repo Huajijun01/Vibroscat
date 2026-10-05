@@ -58,6 +58,9 @@ vec2 GetMultiScatterLUTUV(float r, float mu) {
 
 vec4 SampleTransmittance(sampler2D lut_tex, float r, float r2, float mu) {
     vec2 uv = GetTransmittanceLUTUV(r, r2, mu);
+    if(uv.x > 1.0) {
+        return vec4(0.0);
+    }
     return textureLod(lut_tex, uv, 0.0);
 }
 

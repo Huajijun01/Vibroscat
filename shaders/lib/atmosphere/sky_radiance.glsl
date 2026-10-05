@@ -21,9 +21,9 @@
 // previous 410/480/560/630 constants (research/sky-tracer/scripts/
 // pack_glsl_constants.py).
 vec3 SpectralRadianceToSRGB(vec4 x) {
-    return vec3(dot(x, vec4(0.020110596, -0.143679932, 0.245733663, 0.139913872)),
-        dot(x, vec4(-0.0412693955, 0.167519823, 0.0970612317, -0.0133161424)),
-        dot(x, vec4(0.22385776, 0.0236539561, -0.00706659723, -0.00149277458)));
+    return vec3(dot(x, vec4(0.402169, -2.873552, 4.914647, 2.798219)),
+        dot(x, vec4(-0.825366, 3.350264, 1.941133, -0.266304)),
+        dot(x, vec4(4.477144, 0.473076, -0.141333, -0.029853)));
 }
 
 vec3 SpectralSolarToSRGB(vec4 x) {

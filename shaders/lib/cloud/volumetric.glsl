@@ -263,7 +263,7 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
     float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
     float lq_density = distribution_density * bottom_ramp * top_fade;
 
-    const float fine_average = 0.481373506;
+    const float fine_average = 0.484805118;
     float fine_exposure = smoothstep(0.0, 0.5, height_fraction) * 0.6 + 0.4;
 
     float hq_density = RemapCloudErosion(lq_density, fine_average * CLOUD_FINE_EROSION_STRENGTH * fine_exposure);

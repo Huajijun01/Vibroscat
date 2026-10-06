@@ -157,28 +157,6 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
     return bracket;
 }
 
-// Bisection refinement of the accepted bracket, including the jittered first
-// step: each iteration samples the current position and halves the step after
-// moving toward the crossing. The initial step sign encodes the ray-depth
-// direction, which reverses for toward-eye rays.
-vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos, bool toward_eye,
-        int refine_steps) {
-    vec3 hit_pos = 0.5 * (previous_pos + sample_pos);
-    vec3 refine_step = (sample_pos - previous_pos) * (0.25 - 0.5 * float(toward_eye));
-    for (int j = 0; j < refine_steps; ++j) {
-        float mid_surface = ReadSSRDepthSample(hit_pos.xy);
-        float mid_ray_depth = SSRRayDepthFromScreen(hit_pos.z);
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
-        float depth_delta = mid_ray_depth * mid_surface - 1.0;
-#else
-        float depth_delta = mid_surface - mid_ray_depth;
-#endif
-        hit_pos += sign(depth_delta) * refine_step;
-        refine_step *= 0.5;
-    }
-    return hit_pos;
-}
-
 // Interpolate the crossing inside the march step in the affine ray-depth
 // domain, then correct once for the candidate's local surface depth without
 // clamping the jittered endpoint.
@@ -230,8 +208,8 @@ SSRHit SSRClassifyScreenHit(vec3 screen_pos) {
 
 // Opaque SSR (deferred2): reflected rays may point back toward the eye, so
 // the chord can leave through the near plane and both crossing directions
-// are accepted. The march budget and the first-crossing refinement are owned
-// by the OPAQUE_SSR_* settings.
+// are accepted. The march budget is owned by OPAQUE_SSR_STEPS; the shared
+// SSR_INTERPOLATION toggle owns first-crossing refinement.
 SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
     bool toward_eye = view_direction.z > 0.0;
     SSRChord chord = ComputeSSRChord(view_origin, view_direction, toward_eye);
@@ -251,21 +229,22 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
         if (!bracket.hit_found) return SSRMiss();
     }
 
-#ifdef OPAQUE_SSR_BISECTION
-    vec3 hit_pos = RefineSSRBisection(bracket.previous_pos, bracket.sample_pos,
-        toward_eye, OPAQUE_SSR_BISECT_STEPS);
-#else
+#ifdef SSR_INTERPOLATION
     vec3 hit_pos = RefineSSRInterpolation(bracket.previous_pos,
         bracket.sample_pos, bracket.previous_ray_depth, bracket.ray_depth,
         bracket.surface_sample);
+#else
+    // Raw trace: report the accepted march sample without refinement.
+    vec3 hit_pos = bracket.sample_pos;
 #endif
     return SSRClassifyScreenHit(hit_pos);
 }
 
 // Translucent SSR (water and glass gbuffers): reflections always travel away
 // from the eye, so the chord exits through the far plane and only surfaces in
-// front of the ray point count as crossings. The march budget and the
-// first-crossing refinement are owned by the WATER_SSR_* settings.
+// front of the ray point count as crossings. The march budget is owned by
+// WATER_SSR_STEPS; the shared SSR_INTERPOLATION toggle owns first-crossing
+// refinement.
 SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) {
     SSRChord chord = ComputeSSRChord(view_origin, view_direction, false);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
@@ -284,13 +263,13 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) 
         if (!bracket.hit_found) return SSRMiss();
     }
 
-#ifdef WATER_SSR_BISECTION
-    vec3 hit_pos = RefineSSRBisection(bracket.previous_pos, bracket.sample_pos,
-        false, WATER_SSR_BISECT_STEPS);
-#else
+#ifdef SSR_INTERPOLATION
     vec3 hit_pos = RefineSSRInterpolation(bracket.previous_pos,
         bracket.sample_pos, bracket.previous_ray_depth, bracket.ray_depth,
         bracket.surface_sample);
+#else
+    // Raw trace: report the accepted march sample without refinement.
+    vec3 hit_pos = bracket.sample_pos;
 #endif
     return SSRClassifyScreenHit(hit_pos);
 }

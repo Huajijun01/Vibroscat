@@ -283,14 +283,10 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 
 // Opaque SSR march budget: samples along the full reflection path
-// (McGuire & Mara 2014). The default keeps the whole trace under 16 depth
-// samples: 8 march steps plus 4 bisection reads. Raising the march count
+// (McGuire & Mara 2014). The default keeps the whole trace at 9 depth
+// samples: 8 march steps plus 1 interpolation read. Raising the march count
 // extends how far reflections reach, not how accurately they hit.
 #define OPAQUE_SSR_STEPS 8 // [8 12 16 20 24 32 40 48 64] opaque SSR march samples
-#define OPAQUE_SSR_BISECTION // refine the first opaque SSR depth crossing with bisection, pinning the hit onto the face it lands on; off interpolates it within the march step
-// Bisection iterations: each halves the march-step bracket, so 4 steps keep
-// the hit within step/16 of the true crossing.
-#define OPAQUE_SSR_BISECT_STEPS 4
 #define OPAQUE_SSR_RECURSION_DECAY 0.92
 #define OPAQUE_PBR_EMISSION_SCALE 10.0
 
@@ -303,15 +299,17 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 #endif
 
+// Shared SSR first-crossing refinement: interpolate the hit inside the
+// accepted march step in the affine ray-depth domain, then correct once
+// against the interpolated position's surface depth. Off reports the raw
+// march sample at the crossing.
+#define SSR_INTERPOLATION
+
 // Water SSR march budget: samples along the full reflection path
-// (McGuire & Mara 2014). The default keeps the whole trace under 16 depth
-// samples: 8 march steps plus 4 bisection reads. Raising the march count
+// (McGuire & Mara 2014). The default keeps the whole trace at 9 depth
+// samples: 8 march steps plus 1 interpolation read. Raising the march count
 // extends how far reflections reach, not how accurately they hit.
 #define WATER_SSR_STEPS 8 // [8 10 12 16 20 24 32] water SSR march samples
-#define WATER_SSR_BISECTION // refine the first water SSR depth crossing with bisection, pinning the hit onto the face it lands on; off interpolates it within the march step
-// Bisection iterations: each halves the march-step bracket, so 4 steps keep
-// the hit within step/16 of the true crossing.
-#define WATER_SSR_BISECT_STEPS 4
 
 // Water parallax occlusion mapping (ocean.glsl): normal evaluated at the
 // parallax-corrected position. LOW profile disables it (normal at the plane

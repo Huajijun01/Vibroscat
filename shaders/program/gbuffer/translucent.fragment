@@ -182,7 +182,11 @@ void main() {
     bool history_hit = false;
     if (frameCounter > 0 && rt_hit_flag && SSRScreenInside(rt_pos.xy)) {
         rt_coord = rt_pos.xy;
-        prev_coord = ToPrevious(vec3(rt_coord, texture(depthtex0, rt_coord).x));
+        // Sky hits reproject at their reported far-plane depth: the current
+        // frame can carry nearer translucent water over that pixel, which
+        // would turn the sky reflection into a water-surface history sample.
+        prev_coord = ToPrevious(vec3(rt_coord, rt_hit_sky ? rt_pos.z
+            : texture(depthtex0, rt_coord).x));
         history_hit = SSRScreenInside(prev_coord.xy);
     }
 

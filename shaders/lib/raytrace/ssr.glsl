@@ -23,6 +23,11 @@ struct SSRHit {
 struct SSRChord {
     vec3 start_pos;
     vec3 span;
+    // True when the clipped exit is the far-plane crossing rather than a
+    // screen-edge exit; only rays that do not travel toward the eye can
+    // reach it. Decided from the extent winner because the solved exit
+    // z/w straddles the plane within rounding.
+    bool exit_on_far_plane;
 };
 
 // The march bracket: the two samples straddling the first accepted crossing,
@@ -68,10 +73,15 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_direction, bool toward_eye)
     chord.start_pos = origin_clip.xyz / -view_origin.z * 0.5 + 0.5;
     vec4 direction_clip = gbufferProjection * vec4(view_direction, 0.0);
 
+    // Iris 'far' is the render distance, not the clipping plane, which is
+    // roughly far * 4.0 (ShaderDoc, uniform far). The no-crossing fallback
+    // must exceed the oblique distance to the true far plane, or chords stop
+    // short of it and their sky end never classifies.
+    float clip_far_distance = LinearDepthFromScreenDepth(1.0);
     vec2 edge_near_t = ClipRayScreenCoordT(origin_clip, direction_clip,
-        1.0, far + 32.0);
+        1.0, clip_far_distance * 4.0);
     vec2 edge_far_t = ClipRayScreenCoordT(origin_clip, direction_clip,
-        -1.0, far + 32.0);
+        -1.0, clip_far_distance * 4.0);
     float trace_length = min(min(edge_near_t.x, edge_near_t.y),
         min(edge_far_t.x, edge_far_t.y));
     // Choose the forward NDC depth boundary; the far exit is behind
@@ -83,6 +93,7 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_direction, bool toward_eye)
 
     vec4 exit_clip = origin_clip + direction_clip * trace_length;
     chord.span = exit_clip.xyz / exit_clip.w * 0.5 + 0.5 - chord.start_pos;
+    chord.exit_on_far_plane = !toward_eye && trace_length == depth_plane_t;
     return chord;
 }
 
@@ -194,12 +205,12 @@ vec3 RefineSSRInterpolation(vec3 previous_pos, vec3 sample_pos,
     return mix(previous_pos, sample_pos, hit_frac);
 }
 
-// Known sky at the march endpoint: accepted only when the chord actually
-// reached the far plane, reported with the clipped endpoint position.
-SSRHit SSRSkyEndpointHit(vec3 endpoint_pos) {
-    if (endpoint_pos.z < 1.0) return SSRMiss();
+// Known sky at the march end: reported at the chord's projected far-plane
+// exit rather than the jittered march endpoint, so the reflected sky sample
+// does not inherit the trace dither. The caller owns the far-plane decision.
+SSRHit SSRSkyEndpointHit(vec2 exit_uv) {
     SSRHit hit;
-    hit.screen = vec3(endpoint_pos.xy, 1.0);
+    hit.screen = vec3(exit_uv, 1.0);
     hit.valid = true;
     hit.sky = true;
     return hit;
@@ -226,13 +237,19 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
     SSRChord chord = ComputeSSRChord(view_origin, view_direction, toward_eye);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
         OPAQUE_SSR_STEPS, toward_eye);
-    // The clipped chord reaches the far plane at the end of the march budget.
-    // Classify its last sampled depth once; known sky needs no refinement.
-    if (SSRDepthSampleIsSky(bracket.surface_sample)) {
-        return SSRSkyEndpointHit(bracket.hit_found ? bracket.sample_pos
-            : bracket.previous_pos);
+    // The ray end is the chord's clipped exit unless a geometry crossing was
+    // accepted; a sky surface_sample at the final step is the ray passing the
+    // far plane, not geometry. The exit pixel owns the sky decision (the last
+    // march sample rides the trace jitter); edge exits are misses.
+    if (!bracket.hit_found || SSRDepthSampleIsSky(bracket.surface_sample)) {
+        if (chord.exit_on_far_plane) {
+            vec2 exit_uv = chord.start_pos.xy + chord.span.xy;
+            if (SSRDepthSampleIsSky(ReadSSRDepthSample(exit_uv))) {
+                return SSRSkyEndpointHit(exit_uv);
+            }
+        }
+        if (!bracket.hit_found) return SSRMiss();
     }
-    if (!bracket.hit_found) return SSRMiss();
 
 #ifdef OPAQUE_SSR_BISECTION
     vec3 hit_pos = RefineSSRBisection(bracket.previous_pos, bracket.sample_pos,
@@ -253,11 +270,19 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) 
     SSRChord chord = ComputeSSRChord(view_origin, view_direction, false);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
         WATER_SSR_STEPS, false);
-    if (SSRDepthSampleIsSky(bracket.surface_sample)) {
-        return SSRSkyEndpointHit(bracket.hit_found ? bracket.sample_pos
-            : bracket.previous_pos);
+    // The ray end is the chord's clipped exit unless a geometry crossing was
+    // accepted; a sky surface_sample at the final step is the ray passing the
+    // far plane, not geometry. The exit pixel owns the sky decision (the last
+    // march sample rides the trace jitter); edge exits are misses.
+    if (!bracket.hit_found || SSRDepthSampleIsSky(bracket.surface_sample)) {
+        if (chord.exit_on_far_plane) {
+            vec2 exit_uv = chord.start_pos.xy + chord.span.xy;
+            if (SSRDepthSampleIsSky(ReadSSRDepthSample(exit_uv))) {
+                return SSRSkyEndpointHit(exit_uv);
+            }
+        }
+        if (!bracket.hit_found) return SSRMiss();
     }
-    if (!bracket.hit_found) return SSRMiss();
 
 #ifdef WATER_SSR_BISECTION
     vec3 hit_pos = RefineSSRBisection(bracket.previous_pos, bracket.sample_pos,

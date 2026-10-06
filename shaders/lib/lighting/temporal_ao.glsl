@@ -59,17 +59,16 @@ float AOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_u
     return distance_weight * normal_weight;
 }
 
-// One accumulation per frame (age = sample count). Fresh weight: box
-// average 1/(samples+1) over the first AO_ACCUMULATION_BOX_SAMPLES, then
-// steady-state AO_ACCUMULATION_ALPHA; rejection lifts it toward 1 (untrusted
-// history replaced quickly). Full rejection -> fresh sample, age reset.
+// One accumulation per frame (age = sample count). Fresh weight is the
+// capped running average 1/(age+1): it decays with the accumulated age and
+// settles at 1/AO_HISTORY_FRAMES, so that setting owns the denoising depth
+// (same law as the cloud scheme, CloudAccumulate). Rejection lifts it
+// toward 1 (untrusted history replaced quickly). Full rejection -> fresh
+// sample, age reset.
 float AOAccumulate(float fresh_ao, float hist_ao, float hist_age,
                      float rejection, out float next_age) {
     float pixel_age = min(hist_age, AO_HISTORY_FRAMES) * rejection;
-    float samples = pixel_age;
-    float base_alpha = samples < float(AO_ACCUMULATION_BOX_SAMPLES)
-        ? 1.0 / (samples + 1.0)
-        : AO_ACCUMULATION_ALPHA;
+    float base_alpha = 1.0 / min(pixel_age + 1.0, float(AO_HISTORY_FRAMES));
     float alpha = 1.0 - (1.0 - base_alpha) * rejection;
     next_age = pixel_age + 1.0;
     return mix(hist_ao, fresh_ao, alpha);

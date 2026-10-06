@@ -16,7 +16,7 @@ defects, incomplete settings, and breaking changes between versions.
 
 ![Savanna landscape with volumetric clouds, clear water, and soft daylight](screenshots/scene1-sky.jpg)
 
-![Underwater fog, light shafts, and caustics](screenshots/scene3-water.jpg)
+![Underwater scene from an earlier development build](screenshots/scene3-water.jpg)
 
 ![Layered volumetric clouds and atmospheric sky](screenshots/scene4-clouds.jpg)
 
@@ -27,9 +27,9 @@ Vibroscat profile.
 
 - Layered volumetric clouds with changing density, soft edges, sunlight, and
   cloud shadows
-- Daylight, sunsets, moonlight, stars, horizon haze, and distance fog
-- Clear water with waves, reflections, refraction, underwater fog, light
-  shafts, and moving caustics
+- Daylight, sunsets, moonlight, stars, horizon haze, and boundary fog
+- Clear water with waves, reflections, refraction, always-on analytic
+  underwater fog, and moving caustics
 - Reflective rain wetness on exposed ground, with optional puddle patterns,
   adjustable raindrop ripples on ground and water, and drying after rain
 - Soft sun shadows, contact detail, ambient shading, and light passing through

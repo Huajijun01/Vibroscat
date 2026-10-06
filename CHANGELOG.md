@@ -4,11 +4,15 @@
 
 基线：`v0.2.0-alpha` 发布树。以下内容由 **两棵源码树的逐文件对比**（文件增删、逐行 diff、宏与设置项对照）得出，不含任何由提交历史推断的条目。
 
+最新变更：已删除全部极线体积光渲染、计算入口、专用图像及设置；雾效果仅保留边界雾与始终启用的快速水雾，快速水雾没有开关，也不再回退到旧水雾。下文极线优化条目记录的是移除前的开发过程。
+
 ### 一、新增功能
 
 - **雨天水坑与涟漪**：露天朝上的地形面复用云分布图生成水坑，在 G-buffer 内修改粗糙度和着色法线，直接复用现有不透明 PBR 与反射管线。地面随降雨积累和干燥，地面与水面共用一张周期 RG8 坡度贴图生成雨滴涟漪；按天空光、表面朝向、材质、生物群系和降雨提前剔除，不做距离或像素覆盖率淡出。贴图按 50 mm/h 暴雨的雨滴尺寸、终端落速与撞击能量，离线解算有限水深毛细-重力波并烘焙；采用 5 cm 等效水深、4% 波能传递与周期化近似，空间周期 4 m、时间周期 4 秒。为保证圆环可辨认，仅显示稀疏的大雨滴涟漪；精确零坡度编码减少平静区域杂纹。雨滴涟漪只扰动法线，不参与 POM。环境设置新增雨天打湿总开关；关闭水坑后改为全部合格地面打湿；涟漪法线强度默认 4.0，可调 0.0–4.0。无新增渲染阶段、缓冲或自定义图像。
 
 - **雨天群系过渡**：新增平滑群系降雨因子 `u_rain_biome`，地面打湿与水面雨滴涟漪按连续权重过渡，避免玩家穿过降雨、干燥或降雪群系边界时突然出现或消失。
+
+- **降雪群系因子**：新增平滑群系降雪因子 `u_snow_biome`（相机所在群系降雪资格的 [0,1] 连续权重，10 tick 半衰期升降平滑），供后续降雪类效果使用，当前不改变渲染表现。
 
 - **ReBLUR GI 降噪模式**：在 GI 设置中新增轻量 / ReBLUR 选择，默认保留轻量模式。
   精简为 temporal、history fix、blur 三步，保留长短历史、命中距离驱动的单次模糊
@@ -24,7 +28,7 @@
 - **Reinhard-AgX 色调映射**（`TONEMAP_MODE = 5`）：移植 DRT Bench 的线性暗部 + AgX 对数肩部混合曲线，虚拟原色色域与 HSV 色相修复沿用 Reinhard-Gamut 路径，提供色域扩张、输入缩放、压缩起点、高光到达（EV）、肩部幂与色相保持六项设置（默认 0.04 / 1.2195122 / 0.18 / 8 EV / 5.0 / 0.5，取自 DRT 工具）。
 - **普尔金涅效应**（`PURKINJE_EFFECT`，默认开启，强度 0.8）：杆状视觉蓝灰分级，杆体份额在包络键 0.004–0.04 之间对数渐变，锥体在亮度 0.35 以上重新接管，杆体色为 (0.45, 0.65, 1.0) 单位亮度蓝灰；只依赖自动曝光状态，AE 关闭时整条路径编译移除。
 - **自动曝光重写**：曝光统计 SSBO 由 268 字节扩为 16904 字节，第一阶段改为带中心加权的对数亮度统计 + 64 桶直方图（每桶 0.3125 EV，覆盖 −12…+8 EV），采样步长 2 且相位按四帧轮转（约四分之一像素）；第二阶段用几何均值、中位数与 P90 导出稳健曝光。新增 `AE_TARGET_LUMINANCE`（默认 0.18，替代原先硬编码的 0.15）与 `AE_ADAPTATION_STRENGTH`（0.70）；曝光限幅 [1/32, 32]，P90 高光余量 0.80，变亮 4/s、变暗 0.8/s 的非对称适应，`frameTime` 限幅 0.1 s 防卡顿跳变，载入后前两帧直接对齐。`AE` 由默认关闭改为**默认开启**。
-- **边界雾**（`BOUNDARY_FOG`，默认开启）：按距视距比例 `BOUNDARY_FOG_START`（0.7）把已加载区域边缘的几何淡入云天空盒，遮挡切断边缘；`BOUNDARY_FOG_STRENGTH` 1.0、`BOUNDARY_FOG_HEIGHT_FADE` 0.8（朝天空方向衰减）。仅主世界且开启空气雾时，在极线空气雾合成前应用。
+- **边界雾**（`BOUNDARY_FOG`，默认开启）：按距视距比例 `BOUNDARY_FOG_START`（0.7）把已加载区域边缘的几何淡入无云天空 LUT，遮挡切断边缘；`BOUNDARY_FOG_STRENGTH` 1.0、`BOUNDARY_FOG_HEIGHT_FADE` 0.8（朝天空方向衰减）。仅主世界生效，与水雾独立；关闭边界雾后雨雪合成仍然执行。
 - **大气地平线下沉**（`ATM_HORIZON_DIP`，默认开启，`ATM_HORIZON_DIP_SCALE` 8 km）：低于地平线的天空射线可下探至地表以下再终止，加厚地平线霾。
 - **降雨/降雪可见**：大气雾阶段新增天气面片合成——读取 `colortex11`（首次为其声明 RGBA8 格式与清除标志），按向上天空辐照度做各向同性散射并叠加 HG(0.5) 直射瓣，光学厚度常量 4.0，由天空光照贴图遮罩，洞穴与室内不受影响。
 - **NASA 4K 夜空星图**：夜空改用真实 NASA Deep Star Maps 2020 4K 贴图绘制（LogLuv32 RGBA8 编码、5 tap Catmull-Rom 双三次采样、赤经环绕），贴图对全部质量档无条件声明并始终采样，星空亮度仍由 `STAR_MAP_INTENSITY` 控制；v0.2.0 的两层程序化星场整体删除（见「五、被移除的设置与功能」）。
@@ -33,6 +37,8 @@
 - **信息界面**：主界面新增版本/作者栏（`ABOUT`）与“信息”子界面（开源许可证、性能预设说明、设置提示用法、调试视图入口），均为只读展示项。
 
 ### 二、重做与行为变化
+
+- **快速水雾**：始终使用解析水雾，水上、水下、焦散吸收和水下反射回退共用近海介质；不提供开关。独立 `const` 光学参数采用 CoASTS–BiOMaP 北亚得里亚海实测样本 `V770201`，补入 Pope–Fry 纯水吸收与 Zhang–Hu–He 海水分子散射，呈现蓝绿色并缩短可视距离；单独降低解析入射光权重以控制亮度，不缩放实测系数。旧空气雾、旧水雾、极线体积光及其全部设置和专用资源已移除。
 
 - **体积云多重散射换模型**：改用 <https://zhuanlan.zhihu.com/p/457997155> 的近似——饱和因子 `fms = ω0·(1 − exp2(−参考光学厚度))` 与代表首次以后各阶散射的各向同性几何级数 `fms/(1−fms)`，替换原先的各向同性扩散场（kappa、底部/边界置信度、phi 强度与软压缩整族参数）。参考光学厚度按层持有（体积云 300 m、卷云 1.2 km），饱和反照率同样按层固定（水云 0.99、冰云 0.999）而非由滑条驱动；`CLOUD_MS_ALBEDO`（0.9）改为线性缩放行进辐亮度，新增 `CLOUD_MS_ISOTROPIC`（0.3）与 `CIRRUS_MS_ISOTROPIC`（1.0）分别作为两层几何级数的强度。
 - **体积云其它重做**：分布贴图 128² → 1024²（R8），3D 侵蚀贴图换成 Perlin-Worley 版本，分布世界尺度 64 → 280 km；移除大尺度云量调制与高度渐变曲线，云量直接与降雨耦合；低频侵蚀改为 `(1 − erosion)` 阈值形式并在宽相位为零时提前退出；密度采样器简化回单返回值；时域升采样由棋盘格刷新换成 R2 序列抖动的移动低分辨率点阵；历史年龄上限由 240 帧改为 `CLOUD_HISTORY_FRAMES`（默认 24，取值 8–48）；新增 `CLOUD_SINGLE_LIGHT`（默认开启）按 elevation 把日月折叠成单一追踪方向，并用 `CloudTwilightWeight` 把太阳颜色保留到地平线以下的火烧云带；天空光线不再被 180 km 的 `CLOUD_MAX_DISTANCE_KM` 截断（改用 `CLOUD_NO_CLOUD_DISTANCE` 哨兵值）；天空 LUT 的云步数反序守卫改为先取 `min`/`max`；云的太阳/月亮光色改用与天空相同的 Rec.2020 → sRGB 白平衡换算，移除 `MOON_DARKEN 0.4`（月光云亮度约为原来的 2.5 倍）。
@@ -45,7 +51,7 @@
 - **SSR 射线与回退**：朝向相机的反射方向此前被直接跳过，现在改为构建正确的前向目标并正常追踪；追踪未命中或落在屏幕外时回退到天空/SH 环境（此前直接返回黑色，屏幕边缘会出现黑块）。行进深度统一钳制到 [0,1]；深度穿越判定移到远平面/天空判定之前，此前在远平面附近找到的命中会被当作“射线出屏”直接丢弃。SSR 的随机数由两次 STBN 读取合并为一次配对读取。
 - **SSR 追踪拆分**：不透明反射（deferred2）与半透明反射（水面/玻璃）拆为两套独立追踪入口（`TraceOpaqueSSR`/`TraceTranslucentSSR`），投影弦、行进、二分/插值细化与天空分类下沉为共享底层模块；删除按编译单元切换行为的 `SSR_OPAQUE_TRACE` 宏与 `WATER_SSR_ENABLED` 别名，行进步数直接由设置宏（`OPAQUE_SSR_STEPS`/`WATER_SSR_STEPS`）驱动。不透明 SSR 的“反射质量”枚举（仅环境/中/高/极高）拆为独立参数；二分复查拆为 `OPAQUE_SSR_BISECTION` 与 `WATER_SSR_BISECTION` 两个独立开关（把命中点稳定在命中面内、减少反射在面上漂移），并均改为默认开启。
 - **GBuffer 几何法线改为世界空间**：`colortex4` 的 RG 由视图空间改为世界空间八面体法线，消除视角转动时的 8 位重量化阶梯；所有消费者（AO、AO 历史、接触阴影、阴影 bias、GI、SSR）同步更新，需要视图空间时显式做一次 `mat3(gbufferModelView)` 变换。
-- **环境光遮蔽**：深度来源由 `depthtex1` 改为 `depthtex2`（不含半透明与手部），手持物不再遮挡 AO；GTAO 地平线步进补上纹素索引钳制（`uv == 1.0` 时不再越界读取）；AO 的应用数学集中到 `lib/lighting/ambient_occlusion.glsl`，手部像素直接返回无遮蔽；GTAO 多重反弹由 true/false 值选项改为独立编译开关并**默认关闭**；时域重投影改为输出上一帧视图空间接收点，历史权重在上一帧视图空间比较（不再每像素求逆矩阵两次），历史参数改名并修正取值列表（`AO_HISTORY_FRAMES` 补入默认值 48、`AO_HISTORY_DISTANCE_LIMIT` 补入 0.2、`AO_HISTORY_NORMAL_DOT_FLOOR` 反序列表改为升序）。
+- **环境光遮蔽**：深度来源由 `depthtex1` 改为 `depthtex2`（不含半透明与手部），手持物不再遮挡 AO；GTAO 地平线步进补上纹素索引钳制（`uv == 1.0` 时不再越界读取）；AO 的应用数学集中到 `lib/lighting/ambient_occlusion.glsl`，手部像素直接返回无遮蔽；GTAO 多重反弹由 true/false 值选项改为独立编译开关并**默认关闭**；时域重投影改为输出上一帧视图空间接收点，历史权重在上一帧视图空间比较（不再每像素求逆矩阵两次），历史参数改名并修正取值列表（`AO_HISTORY_FRAMES` 补入默认值 48、`AO_HISTORY_DISTANCE_LIMIT` 补入 0.2、`AO_HISTORY_NORMAL_DOT_FLOOR` 反序列表改为升序）；时域累积改为由 `AO_HISTORY_FRAMES` 封顶的累计平均（前 N−1 帧等权、随后保持 1/N，与云累积同律），移除与该设置脱钩的 4 帧定长 box 启动相位和 0.2 固定 EMA 稳态——稳态降噪深度由 `AO_HISTORY_FRAMES` 直接控制。
 - **粒子渲染路径重做**：`gbuffers_particles` 改用新的轻量 `solid_simple` 程序（`RENDERTARGETS: 12,2`），在 G-buffer 阶段直接光照并经 SRC_ALPHA 混合写入半透明工作区 `colortex12`，渲染顺序改为半透明之后；粒子按世界朝上表面着色（此前把视图法线硬设为 `(0,1,0)`，等于屏幕朝上，光照随镜头俯仰翻转），且不再读取镜面贴图；所有不透明 G-buffer 程序直写 `colortex12`（关闭混合）以清空半透明工作区，避免残留。
 - **水体表面**：垂直水面（池壁、瀑布侧面）此前被无条件赋予水平面波浪法线，现在按面朝向分流——水平面保留 POM 波浪路径，垂直面用几何 TBN 把同一波场重参数化到面平面；`colortex2` 半透明段改存相对平面的波扰动（xzy 交错、0.25 缩放），折射偏移以面自身法线为基准，平整侧面不再产生虚假位移。水波拟合层数 8 → 7（去掉最细的一档），POM 与 SSR 的步数设置改名为 `WATER_POM_COARSE_STEPS`/`WATER_POM_BISECT_STEPS`/`WATER_SSR_STEPS`。
 - **极线体积光**：水体与空气的遮挡步数由共用的 `EPIPOLAR_SHADOW_STEPS`（默认 64，档位 16–256）拆成两项独立设置：`WATER_EPIPOLAR_SHADOW_STEPS`（默认 24，档位 8–64）与 `AIR_EPIPOLAR_SHADOW_STEPS`（默认 12，档位 8–64），四档预设依次为水体 16/24/24/32、空气 8/12/12/16；空气列估计器每步权重由 `t_sample` 改为 1（采样点本就按透过率分布，再乘一遍等于把采样密度平方，比值偏向列的远端，且加步数不收敛）；两种介质的水柱/空气柱键值统一改为线性视图深度，抖动改用按屏幕纹素索引的 STBN（TAA 可以平均掉），每调用不变量提到采样循环外；`EPIPOLAR_WATER` 更名为 `EPIPOLAR_VOLUMETRICS`，`EPIPOLAR_EDGE_SHARPEN` 更名为 `EPIPOLAR_SHARPEN_THRESHOLD`。
@@ -132,7 +138,7 @@
 ### 五、被移除的设置与功能
 
 - 移除的设置：`AIR_FOG_DENSITY`、`AMBIENT_BASE`、`AO_DARKEN_SLOWDOWN`、`CLOUD_DENSITY_MULTIPLIER`、`CLOUD_MS_DEPTH_POWER`、`CLOUD_MS_DEPTH_BIAS`、`CLOUD_MS_BOTTOM_SOFT`、`CLOUD_MS_BOUNDARY_CONFIDENCE`、`CLOUD_PHI_INTENSITY`、`CLOUD_PHI_COMPRESSION`、`EPIPOLAR_EDGE_SHARPEN`（改名）、`EPIPOLAR_SHADOW_STEPS`（拆分）、`EPIPOLAR_WATER`（改名）、`GTAO_AGE_LIMIT`、`GTAO_HISTORY_DISTANCE_LIMIT`、`GTAO_HISTORY_NORMAL_DOT_MIN`、`GTAO_TEMPORAL`、`GTAO_MULTIBOUNCE`（值选项）、`OPAQUE_SSR_QUALITY`（拆分）、`SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS`（改名）、`SHADOW_CONTACT_SHARPEN_TEXELS`、`SHADOW_DISTANCE_BOOST`、`SHADOW_SUN_HEIGHT_BOOST`（改名）、`SSR_BISECTION_REFINE`（拆分）、`SSR_STEPS`（改名）、`STAR_MAP`（开关）、`VALUE_NOISE_POM_COARSE_STEPS`/`_BISECT_STEPS`（改名）、`WATER_FOG_CAUSTICS`/`WATER_FOG_CAUSTIC_STRENGTH`、无效键 `profile.DEFAULT`。
-- 移除或失效的渲染行为：水雾焦散调制、半影距离柔化、AO 变暗淡入减速（时域累积恢复为纯净 EMA）、GTAO 多重反弹的能量回收（默认关闭）、棋盘格时域升采样、180 km 云层行进截断、`MOON_DARKEN` 月光压暗、两层程序化星场（夜空恒用 NASA 4K 星图）、自定义 `u_rain_strength`/`u_wetness`（改用内置 `rainStrength`/`wetness`）与 `u_time_*`/`u_eye_*` 派生 uniform，以及两条从未被任何着色器读取的设置宏 `CLOUD_DENSITY_MULTIPLIER` 与 `SHADOW_CONTACT_SHARPEN_TEXELS`。
+- 移除或失效的渲染行为：水雾焦散调制、半影距离柔化、AO 变暗淡入减速、GTAO 多重反弹的能量回收（默认关闭）、棋盘格时域升采样、180 km 云层行进截断、`MOON_DARKEN` 月光压暗、两层程序化星场（夜空恒用 NASA 4K 星图）、自定义 `u_rain_strength`/`u_wetness`（改用内置 `rainStrength`/`wetness`）与 `u_time_*`/`u_eye_*` 派生 uniform，以及两条从未被任何着色器读取的设置宏 `CLOUD_DENSITY_MULTIPLIER` 与 `SHADOW_CONTACT_SHARPEN_TEXELS`。
 - 改名映射：`SHADOW_SUN_HEIGHT_BOOST` → `SHADOW_PENUMBRA_CAP_BOOST`；`EPIPOLAR_EDGE_SHARPEN` → `EPIPOLAR_SHARPEN_THRESHOLD`；`AMBIENT_BASE` → `AMBIENT_FLOOR`；`STARMAP`（旧宏名）→ `STAR_MAP`（随后随程序化星场一并移除，夜空恒用 NASA 4K 星图）；`AO_HISTORY_NORMAL_DOT_MIN` → `AO_HISTORY_NORMAL_DOT_FLOOR`；`SHADOW_BLOCKER_DEPTH_TOLERANCE_METERS` → `SHADOW_BLOCKER_DEPTH_TOLERANCE_M`；`SSR_STEPS` → `WATER_SSR_STEPS`；`OPAQUE_SSR_QUALITY` → `OPAQUE_SSR_STEPS`；`SSR_BISECTION_REFINE` → `OPAQUE_SSR_BISECTION`/`WATER_SSR_BISECTION`；`VALUE_NOISE_POM_*` → `WATER_POM_*`；`EPIPOLAR_WATER` → `EPIPOLAR_VOLUMETRICS`；`uimg_skylut_cloud` → `uimg_sky_radiance`；`CLOUD_HISTORY_NO_DATA` → `HISTORY_NO_CLOUD_DATA`；`CLOUD_SKYBOX_SIZE` → `SKY_RADIANCE_LUT_SIZE`；`skySH_*` → `sky_sh_*`。旧名称的存档值随之失效，首次进入需要重新选择。
 
 ### 六、资源与文件

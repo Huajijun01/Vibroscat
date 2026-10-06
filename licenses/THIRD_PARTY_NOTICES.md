@@ -258,6 +258,48 @@ Zavie / Ctrl-Alt-Test 的 [Rain drops](https://www.shadertoy.com/view/ldfyzl)
 单个落点仍按上述模型传播。运行时只扰动法线，不执行雨滴涟漪 POM。
 未复制上述参考的代码、哈希、烘焙程序、解码器或贴图；自生成资产适用本包 GPL-3.0 许可。
 
+## 20. 解析水雾（近海实测光学数据与独立实现）
+
+`shaders/lib/water/fog.glsl` 始终使用均匀介质的
+Beer–Lambert 透射与闭式单次散射积分，由本包独立实现。
+观感与流程比较参考 iterationT 3.2.0 的 `shaders/composite1.fsh`
+（蓝绿色、低亮度的距离雾）以及 Photon v1.3b 的
+`shaders/include/fog/simple_fog.glsl`（解析积分）。
+iterationT 的再分发许可未经确认，Photon 为自定义许可；两者仅用于观察与
+概念比较，未复制源码、独特表达、常量或资产，不包含参考包的多重散射增强项。
+
+光学常量改编自 Giuseppe Zibordi 与 Jean-François Berthon (2024) 的
+[CoASTS–BiOMaP 数据集](https://doi.org/10.1594/PANGAEA.971945)
+（[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)，
+[方法论文](https://doi.org/10.5194/essd-16-5477-2024)）。
+选用北亚得里亚海 Acqua Alta Oceanographic Tower 近海站点样本 `V770201`：
+2007-06-14 08:40:52，45.31390°N、12.50830°E，光学测量深度约 1 m，
+水温 23.207 °C、盐度 36.831。AC9 的 `a_t-w` 与 `c_t-w` 均不含纯海水；
+非水散射按 `b_p = c_t-w - a_t-w` 求得。650 nm 直接取样，550 nm 在
+510/555 nm 间、450 nm 在 440/488 nm 间线性插值，作为本包的有效 RGB 波长。
+
+纯水吸收使用 Pope 与 Fry (1997) 的积分腔实测值
+（[doi:10.1364/AO.36.008710](https://doi.org/10.1364/AO.36.008710)，
+[OMLC 数值表](https://omlc.org/spectra/water/data/pope97.dat)），
+将表中 cm⁻¹ 乘以 100 换成 m⁻¹：RGB 为 `(0.34000, 0.05650, 0.00922)`。
+海水分子散射按 Zhang、Hu 与 He (2009) 的温盐模型在该样本条件下计算
+（[doi:10.1364/OE.17.005698](https://doi.org/10.1364/OE.17.005698)，
+[作者计算方法](https://www.oceanopticsbook.info/packages/iws_l2h/conversion/files/betasw_ZHH2009.m)，
+Ocean Optics Web Book，[CC BY 2.0](https://creativecommons.org/licenses/by/2.0/)），
+RGB 为 `(0.00085607, 0.00171818, 0.00400705) m⁻¹`。
+最终吸收为 `(0.341030, 0.065223, 0.054923) m⁻¹`，总散射为
+`(0.130766, 0.140677, 0.147750) m⁻¹`，未人为缩放这些光学系数。
+没有将后向散射 `bb` 或漫射衰减 `Kd` 当作总散射或消光。
+
+三波长 RGB、均匀介质、Cornette–Shanks 参数 0.15、方向光权重 0.25、
+中性入射光权重 0.10，以及天空亮度和雨天权重均为本包的解析渲染近似，
+不是该样本实测的完整相位函数或水下光场。入射光权重控制没有遮挡追踪的
+解析雾亮度，不改变实测消光或单次散射反照率。入射直射光用实测消光作
+Beer–Lambert 衰减，漫射天空光以吸收衰减近似角度再分配；代表水深采用
+与焦散相同的天空亮度代理 `(1 - skylight) * 15 m`，最小 1 m。
+该深度和均匀光源不是逐像素水柱测量，未实现遮挡积分、多重散射或完整
+光谱输运；不宣称重现全部实测水色。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

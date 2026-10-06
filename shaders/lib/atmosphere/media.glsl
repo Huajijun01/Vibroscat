@@ -149,9 +149,7 @@ const float ATM_GROUND_ALBEDO_BAKE = 0.25;  // used when baking LUTs
 const float ATM_GROUND_ALBEDO      = 0.05;  // runtime, tweak independently
 
 // -- Moonlight irradiance (W/m2/nm) --
-// Re-tinted through the 4-wave CMF matrix: Rec.2020 reads ~= (0.88, 0.95, 1.18)
-// vs neutral - cooler moonlight.
-const vec4 ATM_MOON_IRR = vec4(0.079351753, 0.0547947548, 0.0660177767, 0.0125392675);
+const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 
 // ===============================================================
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)

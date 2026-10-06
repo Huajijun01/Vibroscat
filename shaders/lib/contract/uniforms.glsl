@@ -87,10 +87,6 @@ uniform sampler2D usam_ao;            // half-res AO (full evaluation every fram
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
 uniform sampler2D usam_ssr_depth;     // quarter-size squared linear depth, clip endpoint = sky
 #endif
-#ifdef EPIPOLAR_VOLUMETRICS
-uniform sampler2D usam_epipolar_endpoints; // epipolar slice endpoints
-uniform sampler2D usam_epipolar_term;      // epipolar E/column-key terms (shared: water in composite1, air in composite2)
-#endif
 
 // -- Status (Iris built-in) --
 uniform int isEyeInWater;
@@ -112,7 +108,6 @@ uniform float rainStrength;
 uniform float wetness;
 uniform float u_fast_wetness;
 uniform float u_rain_biome; // smoothed rain eligibility of the camera biome, [0, 1]
-uniform vec3 u_water_absorption;
-uniform vec3 u_water_scattering;
+uniform float u_snow_biome; // smoothed snow eligibility of the camera biome, [0, 1]
 
 #endif // LIB_CONTRACT_UNIFORMS_GLSL

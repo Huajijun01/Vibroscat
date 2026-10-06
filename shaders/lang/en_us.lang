@@ -87,10 +87,8 @@ screen.WATER = Water
 screen.WATER.comment = Water reflections, wave detail and underwater light.
 screen.WATER_SURFACE = Water Surface
 screen.WATER_SURFACE.comment = Sample budgets for the two surface effects: the reflection ray march and the wave parallax search.
-screen.EPIPOLAR = Volume Light Grid (Epipolar)
-screen.EPIPOLAR.comment = Budget, reach and edge handling of the epipolar volume light grid that shadows the water column and the air.
 screen.FOG = Fog
-screen.FOG.comment = Distance haze and the mask that hides the edge of the loaded world. Air fog and boundary fog apply in the Overworld only.
+screen.FOG.comment = Hides the edge of the loaded world with boundary fog. Overworld only.
 screen.INFORMATION = Information
 screen.INFORMATION.comment = Pack info: the open-source license, what the performance presets change, how to read setting help, and where the diagnostic views live.
 screen.DEBUG = Debug Views
@@ -390,47 +388,8 @@ option.WATER_POM_BISECT_STEPS = POM Bisection Steps
 option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
 option.WATER_RIVER_GAIN = River Wave Height
 option.WATER_RIVER_GAIN.comment = Overall amplitude of the river wave layers: higher = more pronounced waves.
-option.EPIPOLAR_VOLUMETRICS = Epipolar Light (Water and Air)
-option.EPIPOLAR_VOLUMETRICS.comment = Draws epipolar sunlight shafts through participating media (underwater god rays and air light shafts), correctly shadowed by terrain.
-option.EPIPOLAR_SLICES = Epipolar Slices
-option.EPIPOLAR_SLICES.comment = Resolution of the light-shaft grid across the screen: higher = crisper, more stable rays, slower.
-value.EPIPOLAR_SLICES.256 = 256
-value.EPIPOLAR_SLICES.512 = 512
-value.EPIPOLAR_SLICES.1024 = 1024
-value.EPIPOLAR_SLICES.2048 = 2048
-option.EPIPOLAR_SAMPLES = Epipolar Samples
-option.EPIPOLAR_SAMPLES.comment = Detail along each light ray: higher = smoother shafts, slower.
-value.EPIPOLAR_SAMPLES.128 = 128
-value.EPIPOLAR_SAMPLES.256 = 256
-value.EPIPOLAR_SAMPLES.512 = 512
-value.EPIPOLAR_SAMPLES.1024 = 1024
-option.WATER_EPIPOLAR_SHADOW_STEPS = Water Shadow Steps
-option.WATER_EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of a water ray checks whether sunlight is blocked: higher = more shadow detail in the underwater rays, slower.
-option.WATER_EPIPOLAR_MAX_DISTANCE = Water Epipolar March Distance
-option.WATER_EPIPOLAR_MAX_DISTANCE.comment = How far underwater the shadow calculation runs precisely; beyond this distance the water is simply treated as sunlit. Lower = less noise, but far water loses shadow detail.
-suffix.WATER_EPIPOLAR_MAX_DISTANCE = m
-option.AIR_EPIPOLAR_SHADOW_STEPS = Air Shadow Steps
-option.AIR_EPIPOLAR_SHADOW_STEPS.comment = How carefully each point of an air light shaft checks whether sunlight is blocked: higher = crisper shadow edges in the shafts, slower.
-option.EPIPOLAR_DEPTH_TOLERANCE = Epipolar Depth Tolerance (%)
-option.EPIPOLAR_DEPTH_TOLERANCE.comment = How leniently neighbouring pixels may share each other's results: higher = fewer artifacts but slightly blurrier rays.
-option.EPIPOLAR_SHARPEN_THRESHOLD = Epipolar Sharpen Threshold
-option.EPIPOLAR_SHARPEN_THRESHOLD.comment = A candidate difference larger than this threshold makes the sample blend snap toward the sharp value. Lower = stronger edge sharpening and harder ray edges; higher = closer to plain blending.
-option.EPIPOLAR_EDGE_EXTEND = Gap Fill Search Range
-option.EPIPOLAR_EDGE_EXTEND.comment = How far the effect searches for a valid neighbouring sample when a pixel has none: higher = fewer holes or gaps in the rays.
 
 #Fog
-option.AIR_FOG = Air Fog
-option.AIR_FOG.comment = Distance haze: faraway terrain gently fades toward the horizon, like real atmospheric perspective.
-option.AIR_FOG_INTENSITY = Fog Intensity
-option.AIR_FOG_INTENSITY.comment = Overall strength of the haze.
-option.AIR_FOG_DENSITY_DAY = Day Fog Density
-option.AIR_FOG_DENSITY_DAY.comment = Haze thickness while the sun is high and through the night. 10.0 is light mist, 30.0 is three times as thick.
-option.AIR_FOG_DENSITY_DUSK = Dusk Fog Density
-option.AIR_FOG_DENSITY_DUSK.comment = Haze thickness around sunrise and sunset, where the sun sits on the horizon. It fades back into the day value within roughly 15 degrees of sun elevation.
-option.AIR_FOG_SKY_STRENGTH = Sky Scatter Strength
-option.AIR_FOG_SKY_STRENGTH.comment = Total strength of the sky-light scattering term inside the haze. Higher = brighter fog that takes on more of the sky's color; at 0 the haze keeps only the scattering of the sun and the ground.
-option.AIR_FOG_SHADOWS = Fog Shadows
-option.AIR_FOG_SHADOWS.comment = Lets shadows appear inside the haze: cloud shadows darken the mist and sunlit gaps glow, giving the air itself a sense of depth.
 option.BOUNDARY_FOG = Boundary Fog
 option.BOUNDARY_FOG.comment = Hides the edge of the rendered world by fading distant terrain into the sky, so the loaded-chunk boundary is not a hard wall.
 option.BOUNDARY_FOG_START = Boundary Fog Start

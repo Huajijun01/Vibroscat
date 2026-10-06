@@ -8,9 +8,6 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/color/dither.glsl"
-#include "/lib/scattering/phase.glsl"
-#include "/lib/volume/epipolar_core.glsl"
-#include "/lib/volume/water_epipolar.glsl"
 #include "/lib/water/fog.glsl"
 
 const float COLOR_JITTER_SEED = 83.0;
@@ -128,25 +125,15 @@ void main() {
     bool is_water = refraction_data.a > 0.99;
 
     // The water-fog input group is consumed only by the water-surface and
-    // underwater branches; land and sky pixels skip the epipolar fetch, the
-    // view rebuilds, both phases, and the SH evaluation entirely.
+    // underwater branches; land and sky pixels skip the view rebuilds and
+    // fog lighting entirely.
     bool water_shading = isEyeInWater == 1 || (is_water && !is_sky);
-    vec3 epipolar_light = vec3(1.0);
     vec3 view_pos0 = vec3(0.0);
     float view_len0 = 0.0;
-    float water_sun_phase = 0.0;
-    float water_sky_phase = 0.0;
-    vec3 fog_multi_scatter = vec3(0.0);
-    float fog_surface_world_y = 0.0;
+    vec3 fast_fog_radiance = vec3(0.0);
     vec3 water_light_dir = vec3(0.0);
     float water_path_per_metre = 0.0;
     if (water_shading) {
-#ifdef EPIPOLAR_VOLUMETRICS
-        if (isEyeInWater == 1) {
-            epipolar_light = EpipolarSampleE(texcoord * 2.0 - 1.0,
-                                            EpipolarWaterColumnKey(texcoord));
-        }
-#endif
         view_pos0 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth * 2.0 - 1.0));
         view_len0 = length(view_pos0);
         // ViewToSceneSpace() is camera-relative; absolute positions add cameraPosition.
@@ -158,15 +145,8 @@ void main() {
         // consumer below (phases, caustics, water columns) shares them.
         water_light_dir = normalize(u_world_light_dir);
         water_path_per_metre = WaterLightPathPerMetre();
-        water_sun_phase = PhaseCornetteShanks(dot(world_dir, water_light_dir), WATER_PHASE_G);
-        water_sky_phase = PhaseCornetteShanks(world_dir.y, WATER_PHASE_G);
-        fog_multi_scatter = EvalSkyLight(world_dir);
-    }
-    if (isEyeInWater == 1) {
-        // Underwater water-fog surface estimate: vertical distance to the water
-        // surface is approximated by (1 - eyeBrightnessSmooth.y / EYE_BRIGHTNESS_SCALE) * 15.
-        float fog_vertical_depth = (1.0 - float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE) * 15.0;
-        fog_surface_world_y = cameraPosition.y + fog_vertical_depth;
+        fast_fog_radiance = FastWaterFogRadiance(ground_light.rgb, EvalSkyLightAverage(),
+            dot(world_dir, water_light_dir));
     }
     vec3 color;
 
@@ -222,16 +202,7 @@ void main() {
         if (is_water && isEyeInWater == 0) {
             // Column fog on the refracted background, then composite the
             // premultiplied layer once.
-            vec3 surface_world = ViewToSceneSpace(view_pos0) + cameraPosition;
-            vec3 receiver_world = ViewToSceneSpace(view_pos1) + cameraPosition;
-#ifdef EPIPOLAR_VOLUMETRICS
-            // The column follows the refracted ray: sample the epipolar term
-            // at the refracted receiver, not the screen texel.
-            epipolar_light = EpipolarSampleE(refract_coord * 2.0 - 1.0,
-                                            EpipolarWaterColumnKey(refract_coord));
-#endif
-            WaterFogRender(comp_color, max(length(view_pos1) - view_len0, 0.0), 0.0,
-                WaterColumnLightPath(receiver_world, surface_world.y, water_path_per_metre), water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light);
+            FastWaterFogRender(comp_color, max(length(view_pos1) - view_len0, 0.0), fast_fog_radiance);
             comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
         } else if (isEyeInWater == 1) {
             if (!is_water) {
@@ -246,9 +217,7 @@ void main() {
                     caustic_fade_surface_y, CAUSTIC_PLANE_Y, water_light_dir, water_path_per_metre);
             }
             comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
-            vec3 receiver_world = ViewToSceneSpace(view_pos0) + cameraPosition;
-            WaterFogRender(comp_color, view_len0, WaterColumnLightPath(cameraPosition, fog_surface_world_y, water_path_per_metre),
-                WaterColumnLightPath(receiver_world, fog_surface_world_y, water_path_per_metre), water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light);
+            FastWaterFogRender(comp_color, view_len0, fast_fog_radiance);
         } else {
             comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
         }
@@ -257,8 +226,7 @@ void main() {
     } else {
         color = scene_color;
         if (isEyeInWater == 1) {
-            WaterFogRender(color, far * 11.4514, WaterColumnLightPath(cameraPosition, fog_surface_world_y, water_path_per_metre), 0.0,
-                water_sun_phase, water_sky_phase, fog_multi_scatter, epipolar_light);
+            FastWaterFogRender(color, far * 11.4514, fast_fog_radiance);
         }
         color = color * (1.0 - trans_color.a) + trans_color.rgb;
     }

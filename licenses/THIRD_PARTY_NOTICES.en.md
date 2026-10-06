@@ -287,6 +287,60 @@ under the model above. Runtime rain ripples perturb normals without POM.
 No reference code, hashes, baker, decoder or texture was copied. The generated
 asset uses this pack's GPL-3.0 license.
 
+## 20. Analytic water fog (measured coastal optics and independent implementation)
+
+`shaders/lib/water/fog.glsl` always independently implements
+Beer-Lambert transmission and closed-form single scattering in a homogeneous
+medium. Visual and pipeline comparisons studied iterationT 3.2.0
+`shaders/composite1.fsh` (restrained blue-green distance fog) and Photon v1.3b
+`shaders/include/fog/simple_fog.glsl` (analytic integration).
+iterationT's redistribution permission is unconfirmed and Photon uses a custom
+license. Both were used for observational and conceptual comparison only;
+no source, distinctive expressions, constants or assets were transferred.
+The references' multiple-scattering boosts are not used.
+
+Optical constants are adapted from Giuseppe Zibordi and Jean-François Berthon
+(2024), [CoASTS-BiOMaP](https://doi.org/10.1594/PANGAEA.971945), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+([methods paper](https://doi.org/10.5194/essd-16-5477-2024)).
+The selected sample is `V770201`, Acqua Alta Oceanographic Tower, northern
+Adriatic coastal waters: 2007-06-14 08:40:52, 45.31390 N / 12.50830 E,
+optical measurements at approximately 1 m depth, temperature 23.207 C and
+salinity 36.831. Both AC9 `a_t-w` and `c_t-w` exclude pure seawater;
+particulate scattering is derived as `b_p = c_t-w - a_t-w`.
+The pack uses effective RGB wavelengths of 650/550/450 nm: 650 is measured
+directly; 550 is linearly interpolated between 510/555, and 450 between 440/488.
+
+Pure-water absorption uses the integrating-cavity measurements of Pope and
+Fry (1997), [doi:10.1364/AO.36.008710](https://doi.org/10.1364/AO.36.008710)
+([OMLC numerical table](https://omlc.org/spectra/water/data/pope97.dat)).
+Multiplying its cm^-1 values by 100 gives RGB `(0.34000, 0.05650, 0.00922) m^-1`.
+Molecular seawater scattering is evaluated at the sample's temperature and
+salinity using Zhang, Hu and He (2009),
+[doi:10.1364/OE.17.005698](https://doi.org/10.1364/OE.17.005698),
+and the [author's calculation method](https://www.oceanopticsbook.info/packages/iws_l2h/conversion/files/betasw_ZHH2009.m)
+published by Ocean Optics Web Book under
+[CC BY 2.0](https://creativecommons.org/licenses/by/2.0/).
+Its RGB contribution is `(0.00085607, 0.00171818, 0.00400705) m^-1`.
+Final absorption is `(0.341030, 0.065223, 0.054923) m^-1`, and total scattering
+is `(0.130766, 0.140677, 0.147750) m^-1`. These optical coefficients are not
+artificially scaled. Backscattering `bb` and diffuse attenuation `Kd` are not
+substituted for total scattering or extinction.
+
+Three effective RGB wavelengths, a homogeneous medium, Cornette-Shanks
+parameter 0.15, directional weight 0.25, neutral source weight 0.10,
+sky-brightness and wet-weather weights are analytic rendering approximations,
+not measurements of the sample's full phase function or underwater light field.
+The source weight restrains unshadowed fog lighting without changing measured
+extinction or single-scattering albedo. Incident direct light uses measured
+extinction for Beer-Lambert attenuation; diffuse sky light uses absorption
+as an approximation for angular redistribution. Representative column depth
+uses the same sky-brightness proxy as caustics, `(1 - skylight) * 15 m`, with
+a 1 m minimum. This depth and uniform source are not per-pixel column
+measurements. Occlusion integration, multiple scattering and full spectral
+transport are not implemented; this does not claim to reproduce every aspect
+of the measured water color.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

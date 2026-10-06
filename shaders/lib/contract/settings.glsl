@@ -61,7 +61,7 @@ const float centerDepthHalflife = 1.0;
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
 
-#define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
+// #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
 #define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
 // Rod-vision (scotopic) model, gated by the exposure state alone. The
 // adaptation key is reconstructed from the persistent exposure EV and ramps
@@ -233,7 +233,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion guard (m)
 
 // ==========================================================================
-// WATER - Water / epipolar
+// WATER - Water surface
 // ==========================================================================
 
 // Rain uses the existing opaque material/normal payload and reflection path.
@@ -307,56 +307,15 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define WATER_POM_COARSE_STEPS 4 // [2 3 4 5 6 8] coarse POM height-chase steps
 #define WATER_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
 
-// Epipolar water volume light: E(x) = active-light shadow visibility along
-// the water column, multiplied onto the analytic water fog direct term.
-// March-distance cap for the water epipolar shadow ratio (metres): beyond
-// this the column transmittance is optically negligible, and truncating
-// rescales the light path so the ratio stays consistent. LOW tier uses 8 m
-// to cut noise.
-#define WATER_EPIPOLAR_MAX_DISTANCE 32.0 // [6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
-#define EPIPOLAR_VOLUMETRICS
-#define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
-#define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
-// Shadow march steps per column, one budget per medium. Water and air share
-// the grid (slices x samples) but not the march: the water column is short and
-// high-contrast, while the air column is a long low-contrast haze, so a single
-// step count forced one of them to pay for the other's needs.
-#define WATER_EPIPOLAR_SHADOW_STEPS 24 // [8 12 16 24 32 48 64] water column shadow march steps
-#define AIR_EPIPOLAR_SHADOW_STEPS 12 // [8 12 16 24 32 48 64] air column shadow march steps
-#define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08] Relative viewZ column-match tolerance (3%).
-#define EPIPOLAR_SHARPEN_THRESHOLD 0.25 // [0.1 0.2 0.25 0.3 0.4] Sample-difference threshold above which the epipolar blend is pushed toward the sharp value; lower = stronger sharpening.
-#define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
-
 // ==========================================================================
-// FOG - Air fog
+// FOG - Boundary fog
 // ==========================================================================
 const float eyeBrightnessHalflife = 3.0;
 // Minecraft lightmap units: eyeBrightnessSmooth components range 0..240.
 const float EYE_BRIGHTNESS_SCALE = 240.0;
 
-// Analytic air fog (composite2, after blend).
-#define AIR_FOG
-#define AIR_FOG_INTENSITY 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.2 1.5 2.0 3.0 4.0]
-// Haze density, absolute. Both values are blended by the sun's elevation in
-// AirFogDensity (lib/atmosphere/air_fog.glsl): 10.0 is thin haze, 30.0 is
-// three times as thick.
-#define AIR_FOG_DENSITY_DAY 10.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0 5.0 6.0 8.0 10.0 12.0 15.0 20.0 25.0 30.0]
-#define AIR_FOG_DENSITY_DUSK 30.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0 5.0 6.0 8.0 10.0 12.0 15.0 20.0 25.0 30.0]
-#define AIR_FOG_SKY_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
-#define AIR_FOG_SHADOWS
-
-// Twilight band, in the sun's elevation magnitude |sun.y| (the sine of its
-// angle above the horizon). The dusk density holds while the sun sits on the
-// horizon and has handed over to the day density by AIR_FOG_DUSK_FADE_END
-// (0.25 ~ 14.5 deg). Folding the elevation with abs() makes the band fire at
-// sunrise and sunset alike.
-const float AIR_FOG_DUSK_FADE_START = 0.0;
-const float AIR_FOG_DUSK_FADE_END = 0.25;
-
-// Boundary fog: fade near-boundary geometry into the clouded skybox so the
-// loaded-area edge is masked instead of cutting off. Applied in the air fog
-// composite (composite2) before the epipolar air fog; Overworld only, with air
-// fog.
+// Fade near-boundary geometry into the cloud-free sky in composite2.
+// Overworld only; independent of the always-on analytic water fog.
 #define BOUNDARY_FOG
 #define BOUNDARY_FOG_START 0.7 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
 #define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
@@ -396,8 +355,8 @@ const float ambientOcclusionLevel = 1.0;
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
 
 // Temporal accumulation (deferred1 fragment): full-resolution history in the
-// merged colortex8 buffer with reprojection, soft depth rejection and an
-// age-capped exponential blend.
+// merged colortex8 buffer with reprojection, soft depth rejection and a
+// capped running average (the cloud scheme, CloudAccumulate).
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
 #ifdef AO_TEMPORAL
 #define AO_TEMPORAL_ENABLED
@@ -405,14 +364,10 @@ const float ambientOcclusionLevel = 1.0;
 // AO generation is plain half resolution: every half-res texel is evaluated
 // every frame at its full-res block origin and upsampled bilinearly - one
 // sample per pixel per frame at full convergence speed.
-#define AO_HISTORY_FRAMES 48 // [2 4 6 8 10 16 24 32 48] history age cap (frames) before full trust
-// AO accumulation matches the cloud temporal scheme: box-average the first
-// AO_ACCUMULATION_BOX_SAMPLES phase samples (one 2x2 checkerboard cycle),
-// then a steady-state EMA with AO_ACCUMULATION_ALPHA. Rejection lifts the
-// fresh-sample weight toward 1, so an untrusted history is replaced quickly
-// instead of lingering (vanished objects' AO does not fade out slowly).
-const int AO_ACCUMULATION_BOX_SAMPLES = 4;   // box-average the first 4 phase samples (one checkerboard cycle)
-const float AO_ACCUMULATION_ALPHA = 0.2;     // steady-state EMA weight after the box phase
+#define AO_HISTORY_FRAMES 48 // [2 4 6 8 10 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
+// Rejection lifts the fresh-sample weight toward 1, so an untrusted history
+// is replaced quickly instead of lingering (vanished objects' AO does not
+// fade out slowly).
 // History rejection: the reprojected history is
 // trusted only when the world-space displacement from the previous-frame
 // depth stays under the distance limit and the normal at the reprojected
@@ -442,14 +397,14 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Minimum ambient light floor added to every surface's sky ambient, so caves
 // and deep shadows never render fully black (see AmbientLight in
 // lib/lighting/ambient_light.glsl).
-#define AMBIENT_FLOOR 0.03 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
+#define AMBIENT_FLOOR 0.005 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
 // Night star map gain: linear multiplier applied after the LogLuv32
 // decode (celestial.glsl).
 #define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness
 // Night star map artistic grade, applied to the decoded map color before the
 // transmittance and night fades (celestial.glsl).
-#define STAR_MAP_CONTRAST 1.5 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] star map contrast exponent
-#define STAR_MAP_BRIGHT_BOOST 4.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
+#define STAR_MAP_CONTRAST 2.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] star map contrast exponent
+#define STAR_MAP_BRIGHT_BOOST 12.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
 
 // Angular radii of the rendered sun/moon discs, in radians. Shared by the
 // sky disc renderer (celestial.glsl) and the water/translucent GGX area

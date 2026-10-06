@@ -155,6 +155,8 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_ISOTROPIC 0.2 // [0.0 0.1 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
+#define CLOUD_MILKYWAY_TRANSMISSION 0.1 // [0.0 0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the volumetric layer scatters into a glow; 1.0 is the isotropic single-scatter total.
+#define CIRRUS_MILKYWAY_TRANSMISSION 0.6 // [0.0 0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the cirrus shell scatters into a glow; 1.0 is the isotropic single-scatter total.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 // GLSL mirror of the image.uimg_clouds_current scale table in
@@ -404,7 +406,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Night star map artistic grade, applied to the decoded map color before the
 // transmittance and night fades (celestial.glsl).
 #define STAR_MAP_CONTRAST 2.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] star map contrast exponent
-#define STAR_MAP_BRIGHT_BOOST 12.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
+#define STAR_MAP_BRIGHT_BOOST 4.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
 
 // Angular radii of the rendered sun/moon discs, in radians. Shared by the
 // sky disc renderer (celestial.glsl) and the water/translucent GGX area

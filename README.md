@@ -27,7 +27,8 @@ Vibroscat profile.
 
 - Layered volumetric clouds with changing density, soft edges, sunlight, and
   cloud shadows
-- Daylight, sunsets, moonlight, stars, horizon haze, and boundary fog
+- Daylight, sunsets, moonlight, stars, Milky Way glow through clouds and in
+  reflections, horizon haze, and boundary fog
 - Clear water with waves, reflections, refraction, always-on analytic
   underwater fog, and moving caustics
 - Reflective rain wetness on exposed ground, with optional puddle patterns,

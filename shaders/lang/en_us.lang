@@ -272,6 +272,10 @@ option.CLOUD_SKY_LIGHT_STRENGTH = Cloud Sky Light Strength
 option.CLOUD_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the clouds receive: higher = brighter shadowed sides and undersides, so clouds look softer and whiter.
 option.CIRRUS_MS_ISOTROPIC = Cirrus Multi-Scatter Isotropic
 option.CIRRUS_MS_ISOTROPIC.comment = Strength of the light the cirrus bounces around inside itself, added to the sun and moon. It scales with how dense that part of the sheet is, so thin edges stay thin: higher = fuller, brighter cirrus bodies and less contrast in the sheet.
+option.CLOUD_MILKYWAY_TRANSMISSION = Milky Way Cloud Transmission
+option.CLOUD_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the volumetric clouds scatters into a glow inside the layer. 1.0 is the physical isotropic total; lower keeps the band subtle, 0 turns the glow off.
+option.CIRRUS_MILKYWAY_TRANSMISSION = Milky Way Cirrus Transmission
+option.CIRRUS_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the cirrus shell scatters into a glow inside the sheet. 1.0 is the physical isotropic total; lower keeps the band subtle, 0 turns the glow off.
 option.CLOUD_HISTORY_GUIDED_MARCH_END = Guided March End (experimental)
 option.CLOUD_HISTORY_GUIDED_MARCH_END.comment = Stops the cloud view ray where the previous frame's cloud history says the layer ends, saving samples under partly cloudy skies. Experimental and off by default; Off = every ray marches its full length.
 option.CLOUD_HISTORY_GUIDED_END_SCALE = Guided End Safety Margin

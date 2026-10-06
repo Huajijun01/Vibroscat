@@ -91,6 +91,7 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 ## 7. NASA Deep Star Maps 2020（公有领域）
 
 `shaders/textures/starmap_2020_4k_logluv32.png` 由 NASA SVS #4851 "Deep Star Maps 2020" 线性 EXR 烘焙而来（Plate Carrée 投影，LogLuv32 编码）。
+`shaders/textures/starmap_2020_256x128_logluv32.png` 是同一素材的 16x16 盒式降采样衍生（线性空间块均值后按运行时解码器的精确逆重新编码 LogLuv32），供大面积光源消费端使用。
 
 > Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
 > 来源：https://svs.gsfc.nasa.gov/4851/ 。NASA 素材为美国政府作品，属于公有领域。

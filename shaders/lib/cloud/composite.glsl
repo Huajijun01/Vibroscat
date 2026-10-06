@@ -8,6 +8,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/celestial.glsl"
 #include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_radiance.glsl"
 #include "/lib/atmosphere/spectral.glsl"
@@ -112,6 +113,14 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     if (volumetric_radiance.z < 0.99999) {
         volumetric_scattering = RelightClouds(volumetric_radiance, volumetric_surface_pos);
         volumetric_transmittance = volumetric_radiance.z;
+        // Transmitted Milky Way glow: the box-filtered map is the background
+        // behind the layer, and isotropic single scattering of a constant
+        // background integrates to source * (1 - T) over the marched column.
+        // vec4(1.0) transmittance: the fades below carry camera-to-cloud
+        // propagation for this term as for the rest of the composite.
+        volumetric_scattering += RenderMilkyWayGlow(view_dir, vec4(1.0),
+            CelestialContextFor(view_dir))
+            * ((1.0 - volumetric_transmittance) * CLOUD_MILKYWAY_TRANSMISSION);
     }
     vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
 
@@ -124,6 +133,15 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
 #ifdef CIRRUS
     cirrus_composite = RenderCirrusClouds(view_dir, sky_color, cirrus_light_jitter,
         cirrus_surface_pos, cirrus_transmittance);
+    // Transmitted Milky Way glow: the same closed form as the volumetric
+    // layer. The deck's scattering albedo is 1, so it scatters exactly
+    // source * (1 - T) of the background behind it, keeping the layer total
+    // (direct through + scattered) at one source.
+    if (any(lessThan(cirrus_transmittance, vec3(0.99999)))) {
+        cirrus_composite += RenderMilkyWayGlow(view_dir, vec4(1.0),
+            CelestialContextFor(view_dir))
+            * ((1.0 - cirrus_transmittance) * CIRRUS_MILKYWAY_TRANSMISSION);
+    }
 #endif
 
     // Atmospheric fades blend each composite toward the sky but must NOT

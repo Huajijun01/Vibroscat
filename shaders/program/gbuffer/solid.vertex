@@ -1,5 +1,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/render_scale.glsl"
 
 // GBuffer vertex interface and the shared setup for this pass. Stage plumbing
 // is not a reusable library (docs/shader-style-guide.md placement table), and
@@ -33,6 +34,7 @@ void SetupGbufferVertex() {
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif
+    gl_Position = ScaleSceneClipPosition(gl_Position);
 
     vec3 normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
     v_world_normal = normal_world;

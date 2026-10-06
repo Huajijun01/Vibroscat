@@ -6,6 +6,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 #if GI_MODE == 2
@@ -138,9 +139,9 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     vec2 origin_coord = origin_proj.xy * (0.5 / origin_proj.w) + 0.5;
     vec4 target_proj = origin_proj + projected_direction * trace_length;
     vec2 target_coord = target_proj.xy / target_proj.w * 0.5 + 0.5;
-    vec2 sample_range = (target_coord - origin_coord) * u_screen_res;
+    vec2 sample_range = (target_coord - origin_coord) * u_render_res;
     float inv_range = inversesqrt(dot(sample_range, sample_range));
-    vec2 step_dir = sample_range * inv_range * u_view_pixel_size;
+    vec2 step_dir = sample_range * inv_range * u_render_pixel_size;
     // Reference march schedule: SSGI_STEPS geometric steps that grow to the
     // clamped march width, with the first step jittered by stbn_noise.y.
     float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
@@ -190,7 +191,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         vec2 sample_uv = origin_coord + step_dir * step_size;
         step_size *= step_scale;
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThanEqual(sample_uv, vec2(1.0)))) break;
-        float sample_depth = texture(depthtex2, sample_uv).r;
+        float sample_depth = texture(depthtex2, SceneTextureUV(sample_uv)).r;
         if (sample_depth >= 1.0) continue;
         vec3 sample_view = vec3(sample_uv * 2.0 - 1.0, 1.0);
 #ifdef TAA
@@ -248,8 +249,9 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 #endif
 
 void main() {
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     ivec2 tx = ivec2(gl_FragCoord.xy);
-    vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+    vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
     vec4 material_data = texelFetch(colortex1, tx, 0);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
     // colortex4 carries the world-space geometric normal, which the SH

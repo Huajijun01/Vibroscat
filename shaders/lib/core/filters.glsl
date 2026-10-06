@@ -2,10 +2,12 @@
 #define LIB_CORE_FILTERS_GLSL
 
 // Fast 5-tap Catmull-Rom bicubic (sharpness=0.5 typical). Uses texture() and
-// explicit weight-sum normalization. UV clipping is caller responsibility.
+// explicit weight-sum normalization. Optional bounds clamp each tap to an
+// active texture rectangle, allowing cropped scene inputs to reuse this filter.
 // texel_size is the reciprocal texture resolution; every caller derives it
 // from uniforms or constants, so the resolution itself is never queried.
-vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness) {
+vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness,
+        vec2 uv_min, vec2 uv_max) {
     vec2 res = 1.0 / texel_size;
     vec2 texel = uv * res;
     vec2 center = floor(texel - 0.5) + 0.5;
@@ -28,20 +30,25 @@ vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness
     float weight;
     weight = h0.x * w0.y;
     float weight_sum = weight;
-    col += texture(tex, vec2(p0.x, p1.y)) * weight;
+    col += texture(tex, clamp(vec2(p0.x, p1.y), uv_min, uv_max)) * weight;
     weight = w0.x * h0.y;
     weight_sum += weight;
-    col += texture(tex, vec2(p1.x, p0.y)) * weight;
+    col += texture(tex, clamp(vec2(p1.x, p0.y), uv_min, uv_max)) * weight;
     weight = h0.x * h0.y;
     weight_sum += weight;
-    col += texture(tex, p0) * weight;
+    col += texture(tex, clamp(p0, uv_min, uv_max)) * weight;
     weight = w3.x * h0.y;
     weight_sum += weight;
-    col += texture(tex, vec2(p2.x, p0.y)) * weight;
+    col += texture(tex, clamp(vec2(p2.x, p0.y), uv_min, uv_max)) * weight;
     weight = h0.x * w3.y;
     weight_sum += weight;
-    col += texture(tex, vec2(p0.x, p2.y)) * weight;
+    col += texture(tex, clamp(vec2(p0.x, p2.y), uv_min, uv_max)) * weight;
     return col / weight_sum;
+}
+
+// Existing callers retain their original sampler wrap/clamp behavior.
+vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness) {
+    return FastCatmullRom5Tap(tex, uv, texel_size, sharpness, vec2(-1.0e30), vec2(1.0e30));
 }
 
 // Cubic B-spline basis weights for a fractional texel offset in [0, 1].

@@ -35,6 +35,8 @@
 //                                3. bloom pyramid workspace
 //                                4. tonemapped LDR scene consumed by final/CAS
 //
+// TAAU uses a cropped lower-left scene rectangle through composite3, then
+// composite4 restores display-sized colortex0/5. Allocations/formats stay the same.
 // This ledger documents existing ownership only. Allocation, clear, flip, and
 // pass scheduling remain defined by Iris declarations and shaders.properties.
 

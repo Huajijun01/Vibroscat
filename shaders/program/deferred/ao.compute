@@ -27,14 +27,14 @@ layout(r8) uniform restrict writeonly image2D uimg_ao;  // AO (half-res)
 
 void main() {
     ivec2 half_texel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 half_size = imageSize(uimg_ao);
+    ivec2 half_size = max(ivec2(u_render_res * 0.5), ivec2(1));
     if (any(greaterThanEqual(half_texel, half_size))) {
         return;
     }
     // Full-res block origin: depth and normals are sampled at full
     // resolution, the evaluation point is the block center.
     ivec2 block_origin = half_texel * 2;
-    vec2 uv = (vec2(block_origin) + vec2(1.0)) * u_view_pixel_size;
+    vec2 uv = (vec2(block_origin) + vec2(1.0)) * u_render_pixel_size;
     // The AO temporal accumulator runs with or without TAA, so the STBN pair
     // keeps advancing with frameCounter (no STBNFrame() pinning here). The
     // evaluation point is half-res: shift nothing spatially, offset the

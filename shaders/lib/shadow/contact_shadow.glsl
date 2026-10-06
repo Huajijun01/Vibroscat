@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/render_scale.glsl"
 
 // ============================================================================
 // Screen-space short-range contact shadows.
@@ -58,7 +59,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     // Push the ray start off the receiver's surface plane. The offset is one
     // screen pixel of world size at this depth, amplified for grazing light.
     float pixel_world_size = receiver_distance
-        / max(gbufferProjection[1][1] * viewHeight, 1.0);
+        / max(gbufferProjection[1][1] * u_render_res.y, 1.0);
     vec3 ray_origin = receiver_view + normal_view
         * (CONTACT_SHADOW_NORMAL_BIAS_SCALE * pixel_world_size / max(ndotl, 0.1));
 
@@ -107,7 +108,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
                 || any(greaterThan(sample_uv, vec2(1.0)))) {
             break;  // left the screen
         }
-        float sample_z = texture(depthtex1, sample_uv).r;
+        float sample_z = texture(depthtex1, SceneTextureUV(sample_uv)).r;
         // Occluder distance in view-space meters via the sparse inverse
         // projection (the same |view z| metric NDCToView reconstructs, and
         // the SSR helpers' canonical linearization). Sky falls out on its

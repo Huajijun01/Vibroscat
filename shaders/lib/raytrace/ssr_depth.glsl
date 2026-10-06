@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/render_scale.glsl"
 
 // Squaring normalized view depth halves FP16 relative distance error. Scale
 // to the largest finite half (65504), keeping near surfaces out of subnormals
@@ -24,13 +25,13 @@ float EncodeSSRDepth(float screen_depth) {
 
 float ReadSSRDepthSample(vec2 uv) {
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
-    float encoded_depth = texture(usam_ssr_depth, uv).r;
+    float encoded_depth = texture(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25)).r;
     float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
     // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX): the constant leaves the
     // square root as one multiply, leaving a single division per sample.
     return sqrt(encoded_depth) * (SSR_DEPTH_HALF_RCP_SQRT / inverse_clip_depth);
 #else
-    return textureLod(depthtex1, uv, 0.0).r;
+    return textureLod(depthtex1, SceneTextureUV(uv), 0.0).r;
 #endif
 }
 

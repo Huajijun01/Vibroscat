@@ -26,6 +26,9 @@ uniform float far;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform vec2 u_view_pixel_size;    // 1 / (viewWidth, viewHeight)
+uniform vec2 u_render_res;         // active pre-TAA scene rectangle, integer pixels
+uniform vec2 u_render_pixel_size;  // 1 / u_render_res (projection UVs)
+uniform vec2 u_render_scale;       // u_render_res / display allocation size
 uniform float u_cam_altitude;      // camera altitude in km (cloud shell / sky LUT)
 uniform float centerDepthSmooth;   // DOF focus distance
 uniform ivec2 eyeBrightnessSmooth; // eye adaptation (block/sky brightness, /240)
@@ -103,7 +106,7 @@ uniform vec3 u_world_light_dir;   // active light direction, world space
 // consumers may treat it as unit without re-normalizing per pixel.
 uniform vec3 u_world_sun_dir;     // sun direction only (LUT / SH reference frame)
 uniform vec2 u_taa_offset;        // NDC jitter applied by opaque GBuffer vertices
-uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for RSM history
+uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for scene-grid history
 uniform vec2 u_screen_res;        // viewport resolution in pixels
 uniform float rainStrength;
 uniform float wetness;

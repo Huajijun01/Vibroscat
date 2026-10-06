@@ -80,8 +80,8 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         }
         // sample_uv is inside [0,1] by the guard above; min() handles the
         // 1.0 edge, where the raw product would index out of bounds.
-        ivec2 sample_texel = min(ivec2(sample_uv * vec2(viewWidth, viewHeight)),
-            ivec2(vec2(viewWidth, viewHeight)) - ivec2(1));
+        ivec2 sample_texel = min(ivec2(sample_uv * u_render_res),
+            ivec2(u_render_res) - ivec2(1));
         float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         if (sample_depth >= 1.0) {
             continue;  // sky: not an occluder

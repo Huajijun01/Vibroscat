@@ -15,7 +15,7 @@
 // Rejection trusts the history only within the distance limit and the normal
 // dot floor (AOHistoryWeight); both ramp smoothly to zero.
 
-// Reproject a camera-relative world position into the previous frame's UV.
+// Reproject a camera-relative world position into the previous jittered scene UV.
 // Also outputs the receiver in the previous frame's view space for
 // AOHistoryWeight (the forward push the reprojection already computed).
 // Returns false when the point is behind the previous camera or off-screen.
@@ -26,6 +26,9 @@ bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiv
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
     vec3 previous_ndc = previous_clip.xyz / previous_clip.w;
     previous_uv = previous_ndc.xy * 0.5 + 0.5;
+#ifdef TAA
+    previous_uv += u_taa_offset_previous * 0.5;
+#endif
     return previous_clip.w > 0.0 && all(greaterThanEqual(previous_uv, vec2(0.0)))
         && all(lessThanEqual(previous_uv, vec2(1.0)));
 }
@@ -43,15 +46,23 @@ float AOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_u
     // pushed forward by AOReprojectToPrevious. The view transform is rigid,
     // so this equals the world-space displacement the limit is expressed in,
     // without inverting the previous modelview per pixel.
-    vec3 previous_view = PreviousScreenToView(vec3(history_uv, 1.0 - history.b));
+    vec2 projection_uv = history_uv;
+#ifdef TAA
+    projection_uv -= u_taa_offset_previous * 0.5;
+#endif
+    vec3 previous_view = PreviousScreenToView(vec3(projection_uv, 1.0 - history.b));
     float displacement = length(previous_view - receiver_prev_view);
     float distance_weight = 1.0 - smoothstep(0.0, AO_HISTORY_DISTANCE_LIMIT, displacement);
 
     // Normal consistency (current-frame normal at the reprojected position).
+    vec2 normal_uv = projection_uv;
+#ifdef TAA
+    normal_uv += u_taa_offset * 0.5;
+#endif
     ivec2 history_texel = clamp(
-        ivec2(history_uv * vec2(viewWidth, viewHeight)),
+        ivec2(normal_uv * u_render_res),
         ivec2(0),
-        ivec2(viewWidth, viewHeight) - 1);
+        ivec2(u_render_res) - 1);
     vec3 history_normal = DecodeOctahedralNormal(texelFetch(colortex4, history_texel, 0).xy);
     float normal_weight = smoothstep(
         AO_HISTORY_NORMAL_DOT_FLOOR, 1.0, dot(history_normal, normal_world));

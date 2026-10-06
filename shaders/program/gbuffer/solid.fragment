@@ -35,6 +35,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/material/model.glsl"
 #ifdef RAIN_WETNESS_ACTIVE
 #include "/lib/material/rain_wetness.glsl"
@@ -65,6 +66,7 @@ layout(early_fragment_tests) in;
 #endif
 
 void main() {
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     vec4 albedo_tex = texture(gtexture, v_texcoord);
     float alpha = albedo_tex.a;
 

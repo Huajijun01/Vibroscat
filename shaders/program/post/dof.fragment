@@ -1,9 +1,11 @@
 /* RENDERTARGETS: 0 */
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/color/dither.glsl"
 
 const int DOF_SAMPLES = 12;
@@ -19,6 +21,10 @@ vec3 DepthOfField(vec2 uv) {
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
 
     float center_depth = centerDepthSmooth;
+#ifdef TAAU_ACTIVE
+    // Iris samples the display center, outside the cropped scene at low scales.
+    center_depth = texelFetch(depthtex0, ivec2(u_render_res * 0.5), 0).r;
+#endif
     // The focus point sits on the view axis, so the reconstruction only needs
     // the inverse projection's z/w entries; the dropped products are exact
     // zeros in this pack's projection (see NDCToViewSparse).
@@ -43,12 +49,12 @@ vec3 DepthOfField(vec2 uv) {
     float azimuth_c = cos(dither * TAU);
     float azimuth_s = sin(dither * TAU);
     const vec2 azimuth_step = vec2(cos(TAU * golden_ratio), sin(TAU * golden_ratio));
-    vec2 blur_pixel_scale = blur_radius * u_view_pixel_size;
+    vec2 blur_pixel_scale = blur_radius * u_render_pixel_size;
     for (int i = 0; i < DOF_SAMPLES; i++) {
         float t = (float(i) + dither) * inv_n;
         float r = sqrt(t);
         vec2 offset = vec2(azimuth_c, azimuth_s) * (r * blur_pixel_scale);
-        dof += texture(colortex0, uv + offset).rgb;
+        dof += texture(colortex0, SceneTextureUV(uv + offset)).rgb;
         float next_c = azimuth_c * azimuth_step.x - azimuth_s * azimuth_step.y;
         azimuth_s = azimuth_s * azimuth_step.x + azimuth_c * azimuth_step.y;
         azimuth_c = next_c;
@@ -57,11 +63,12 @@ vec3 DepthOfField(vec2 uv) {
 }
 
 void main() {
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     vec3 scene_color;
 #ifndef DOF
     scene_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
 #else
-    vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
+    vec2 uv = gl_FragCoord.xy * u_render_pixel_size;
     scene_color = DepthOfField(uv);
 #endif
     out_color = JitterR11G11B10F(scene_color, gl_FragCoord.xy, COLOR_JITTER_SEED);

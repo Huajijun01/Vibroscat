@@ -5,6 +5,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/core/render_scale.glsl"
 
 // ============================================================================
 // GTAO - horizon-based ambient occlusion (Jimenez et al. 2016)
@@ -47,7 +48,7 @@
 vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float radius_px) {
     vec3 end_view = center_view + tangent_view * GTAO_RADIUS;
     vec2 end_ndc = ViewToNDC(end_view).xy;
-    vec2 delta = (end_ndc - center_ndc) * 0.5 * vec2(viewWidth, viewHeight);
+    vec2 delta = (end_ndc - center_ndc) * 0.5 * u_render_res;
     radius_px = max(length(delta), 1.0e-5);
     return delta / radius_px;
 }
@@ -63,7 +64,7 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
     }
     // The per-step uv delta is screen_dir scaled by a loop-invariant pixel
     // size; premultiply once and keep the loop on one vector multiply.
-    vec2 screen_dir_px = screen_dir * u_view_pixel_size;
+    vec2 screen_dir_px = screen_dir * u_render_pixel_size;
     float horizon_cos = -1.0;
     for (int i = 0; i < GTAO_HORIZON_STEPS; ++i) {
         float u = (float(i) + step_noise) / float(GTAO_HORIZON_STEPS);
@@ -75,8 +76,8 @@ float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
         }
         // Clamp the 1.0 edge (the integer texel would be out of bounds).
         // ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
-        //     * vec2(viewWidth, viewHeight));
-        float sample_depth = texture(depthtex2, sample_uv).r;
+        //     * u_render_res);
+        float sample_depth = texture(depthtex2, SceneTextureUV(sample_uv)).r;
         if (sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7) {
             // Same surface: the height field below the pixel is its horizon,
             // not an occluder (else far blocky terrain reads grid-like steps).

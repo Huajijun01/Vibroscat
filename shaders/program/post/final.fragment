@@ -14,7 +14,15 @@ layout(location = 0) out vec4 out_color;
 void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
 
+#ifdef TAAU_ACTIVE
+    float sharpness = TAAU_SHARPNESS;
 #ifdef CAS
+    sharpness = max(sharpness, CAS_SHARPNESS);
+#endif
+    vec3 ldr = sharpness > 0.0
+        ? CASSharpen(colortex12, uv, u_view_pixel_size, sharpness)
+        : texture(colortex12, uv).rgb;
+#elif defined(CAS)
     vec3 ldr = CASSharpen(colortex12, uv, u_view_pixel_size, CAS_SHARPNESS);
 #else
     vec3 ldr = texture(colortex12, uv).rgb;

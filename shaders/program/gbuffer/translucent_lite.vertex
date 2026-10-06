@@ -3,6 +3,7 @@
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 
 flat out vec3 v_normal;
@@ -27,6 +28,7 @@ void main() {
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif
+    gl_Position = ScaleSceneClipPosition(gl_Position);
 
     v_color = gl_Color;
     v_texcoord.xy = gl_MultiTexCoord0.xy;

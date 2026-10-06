@@ -10,7 +10,8 @@ const float COLOR_JITTER_SEED = 71.0;
 layout(location = 0) out vec3 out_color;
 
 bool IsOpaqueHand(ivec2 texel) {
-    ivec2 sample_texel = clamp(texel, ivec2(0), ivec2(u_screen_res) - 1);
+    ivec2 sample_texel = clamp(ivec2((vec2(texel) + 0.5) * u_render_scale),
+        ivec2(0), ivec2(u_render_res) - 1);
     float scene_depth = texelFetch(depthtex0, sample_texel, 0).r;
     int material_id = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
     return scene_depth < 1.0 && material_id == 64;
@@ -26,6 +27,10 @@ void main() {
     vec2 texcoord = (vec2(tx) + 0.5) * u_view_pixel_size;
 
     vec2 velocity = texelFetch(colortex0, tx, 0).rg;
+#ifdef TAAU_ACTIVE
+    int motion_sign = int(texelFetch(colortex0, tx, 0).b + 0.5);
+    velocity *= vec2((motion_sign & 1) != 0 ? -1.0 : 1.0, (motion_sign & 2) != 0 ? -1.0 : 1.0);
+#endif
     vec3 scene = texelFetch(colortex5, tx, 0).rgb;
 
     bool is_opaque_hand = IsOpaqueHand(tx);

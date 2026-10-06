@@ -11,6 +11,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/atmosphere/skybox_uv.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
@@ -47,6 +48,7 @@ vec3 WaterFogCol() {
 }
 
 void main() {
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     vec4 diffuse = texture(gtexture, v_texcoord.xy);
 
     diffuse.rgb *= v_color.rgb;
@@ -155,7 +157,7 @@ void main() {
     // time slice pins to 0 without TAA (no temporal accumulation).
     float dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
 
-    vec2 screen_texcoord = gl_FragCoord.xy * u_view_pixel_size;
+    vec2 screen_texcoord = gl_FragCoord.xy * u_render_pixel_size;
 
     vec2 rt_coord = screen_texcoord;
     // rt_pos is written by every traced hit below and only read behind the
@@ -186,7 +188,7 @@ void main() {
         // frame can carry nearer translucent water over that pixel, which
         // would turn the sky reflection into a water-surface history sample.
         prev_coord = ToPrevious(vec3(rt_coord, rt_hit_sky ? rt_pos.z
-            : texture(depthtex0, rt_coord).x));
+            : texture(depthtex0, SceneTextureUV(rt_coord)).x));
         history_hit = SSRScreenInside(prev_coord.xy);
     }
 

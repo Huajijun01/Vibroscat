@@ -5,6 +5,7 @@
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
@@ -52,7 +53,8 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float scene_de
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
-    vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+    vec2 uv = gl_FragCoord.xy * u_render_pixel_size;
     ivec2 tx = ivec2(gl_FragCoord.xy);
     vec3 scene = texelFetch(colortex0, tx, 0).rgb;
 

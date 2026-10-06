@@ -1,5 +1,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/render_scale.glsl"
 
 out vec2 v_texcoord;
 out vec4 v_color;
@@ -10,6 +11,7 @@ void main() {
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif
+    gl_Position = ScaleSceneClipPosition(gl_Position);
     v_texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
     v_color = gl_Color;
 }

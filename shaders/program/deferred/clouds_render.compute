@@ -24,7 +24,7 @@ void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, in
     vec3 camera_delta = cameraPosition - previousCameraPosition;
     if (length(camera_delta) > 64.0) return;
 
-    vec2 history_size = u_screen_res;
+    vec2 history_size = u_render_res;
     ivec2 history_max = ivec2(history_size) - ivec2(1);
     ivec2 current_texel = clamp(ivec2(current_uv * history_size), ivec2(0), history_max);
     vec4 seed = texelFetch(colortex8, current_texel, 0);
@@ -85,10 +85,10 @@ void main() {
     return;
 #endif
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 render_size = imageSize(uimg_clouds_current);
+    ivec2 render_size = max(ivec2(u_render_res * CLOUD_CURRENT_SCALE), ivec2(1));
     if (any(greaterThanEqual(id, render_size))) return;
 
-    vec2 full_resolution = u_screen_res;
+    vec2 full_resolution = u_render_res;
     vec2 cell_size = full_resolution / vec2(render_size);
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
@@ -103,7 +103,7 @@ void main() {
         ivec2(0),
         ivec2(full_resolution) - ivec2(1)
     );
-    vec2 uv = sample_pos * u_view_pixel_size;
+    vec2 uv = sample_pos * u_render_pixel_size;
     vec3 view_dir = normalize(
         mat3(gbufferModelViewInverse) * NDCToView(vec3(uv * 2.0 - 1.0, 1.0))
     );
@@ -112,7 +112,7 @@ void main() {
     // terrain). A sky pixel has no opaque surface, so the cloud shell is the
     // only bound and the no-cloud sentinel stands in for the far plane.
     // sample_pos_i is already clamped to ivec2(full_resolution) - 1 above and
-    // full_resolution == u_screen_res, so it is a valid fetch coordinate as-is.
+    // full_resolution == u_render_res, so it is a valid fetch coordinate as-is.
     float terrain_end_km = CLOUD_NO_CLOUD_DISTANCE;
     float sample_depth = texelFetch(depthtex0, sample_pos_i, 0).r;
     if (sample_depth < 1.0) {

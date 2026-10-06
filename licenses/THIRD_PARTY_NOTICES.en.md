@@ -341,6 +341,25 @@ measurements. Occlusion integration, multiple scattering and full spectral
 transport are not implemented; this does not claim to reproduce every aspect
 of the measured water color.
 
+## 21. TAAU (extension of the existing TAA)
+
+TAAU extends `shaders/program/post/taa.fragment` and reuses its closest-depth
+sampling, reprojection, neighborhood AABB clipping, blend weighting, and HDR
+compression. Cubic reconstruction reuses `FastCatmullRom5Tap`, with bounds for
+the cropped scene. `shaders/lib/core/render_scale.glsl` owns the render rectangle.
+Design study covered Photon v1.3b's
+`shaders/program/c3_taau_prep.fsh`, `c4_taa_exposure.fsh`, and cropped-scene/full-size
+history layout, plus Revelation-dev's `shaders/program/post/TemporalAA.frag`.
+Photon's custom license permits examination and learning; Revelation is Apache-2.0.
+Only data flow and general algorithms were studied. No reference source was copied
+or closely translated. Upstreams: https://github.com/sixthsurge/photon and
+https://github.com/HaringPro/Revelation .
+
+Temporal reconstruction references Yang, Liu, and Salvi,
+"A Survey of Temporal Antialiasing Techniques" (2020). The extension retains
+the pack's existing RGB bounds and HDRCompress/HDRDecompress round-trip.
+Final sharpening reuses the pack's existing AMD FidelityFX CAS (section 4).
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

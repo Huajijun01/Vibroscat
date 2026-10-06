@@ -8,23 +8,23 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/filters.glsl"
 #include "/lib/core/noise.glsl"
+#include "/lib/core/render_scale.glsl"
 
 struct CloudFrame {
     vec3 radiance;   // x = sun, y = moon, z = transmittance
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
 };
 
-// Reconstructed allocation size of the low-res cloud image: Iris sizes the
-// relative uimg_clouds_current as int(view * scale) per CLOUD_CURRENT_SCALE.
+// Active part of the display-allocated cloud image, matching clouds_render.
 ivec2 CloudCurrentImageSize() {
-    return ivec2(u_screen_res * CLOUD_CURRENT_SCALE);
+    return max(ivec2(u_render_res * CLOUD_CURRENT_SCALE), ivec2(1));
 }
 
 // Return the full-resolution pixel's coordinate on the moving low-res lattice.
 // The low-res texel centers are at (id + r2_offset) * cell_size in full-res
 // pixel coordinates, so integer lattice coordinates are valid sample centers.
 vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
-    vec2 full_size = u_screen_res;
+    vec2 full_size = u_render_res;
     vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 cell_size = full_size / low_size;
 #if CLOUD_TEMPORAL_UPSCALING == 1
@@ -44,6 +44,7 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
     vec2 current_uv = (grid_position + 0.5) * low_texel_size;
     current_uv = clamp(current_uv, 0.5 * low_texel_size, vec2(1.0) - 0.5 * low_texel_size);
+    current_uv *= low_size / vec2(textureSize(usam_clouds_current, 0));
     vec4 value = texture(usam_clouds_current, current_uv);
 
     ivec2 nearest_texel = clamp(
@@ -68,7 +69,7 @@ bool CloudHistoryInvalid(CloudFrame history) {
 // blend in as a small positive distance), so the gate rejects exactly at the
 // reprojected position. Caller falls back to the fresh trace on a NaN frame.
 CloudFrame CloudHistorySample(vec2 previous_uv) {
-    vec2 history_size = u_screen_res;
+    vec2 history_size = u_render_res;
     vec2 texel = 1.0 / history_size;
     vec2 clamped_uv = clamp(previous_uv, 2.0 * texel, 1.0 - 2.0 * texel);
 
@@ -80,7 +81,7 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
         return invalid;
     }
 
-    vec4 col = FastCatmullRom5Tap(colortex8, clamped_uv, texel, 0.5);
+    vec4 col = FastCatmullRom5Tap(colortex8, SceneTextureUV(clamped_uv), u_view_pixel_size, 0.5);
     CloudFrame frame;
     frame.radiance = col.rgb;
     frame.surface_distance = col.a;

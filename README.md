@@ -38,6 +38,8 @@ Vibroscat profile.
 - Selectable SSGI or reflective shadow map GI (raw bounce light; final TAA applies)
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
   sharpening, and filmic color
+- Optional temporal upscaling (TAAU), with 50-85% render scale and adjustable
+  reconstruction, history, motion response, color clipping, and sharpening
 
 ## GPU support
 

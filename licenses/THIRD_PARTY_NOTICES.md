@@ -301,6 +301,22 @@ Beer–Lambert 衰减，漫射天空光以吸收衰减近似角度再分配；�
 该深度和均匀光源不是逐像素水柱测量，未实现遮挡积分、多重散射或完整
 光谱输运；不宣称重现全部实测水色。
 
+## 21. TAAU（现有 TAA 的扩展）
+
+TAAU 扩展 `shaders/program/post/taa.fragment`，复用其中的最近深度采样、
+重投影、邻域 AABB 裁剪、混合权重与 HDR 压缩。三次重建复用现有
+`FastCatmullRom5Tap`，补充场景边界限制；`shaders/lib/core/render_scale.glsl`
+负责渲染矩形的坐标映射。
+设计研究了 Photon v1.3b 的 `shaders/program/c3_taau_prep.fsh`、
+`c4_taa_exposure.fsh` 及其低分辨率场景/全分辨率历史布局，以及 Revelation-dev 的
+`shaders/program/post/TemporalAA.frag`。Photon 自定义许可允许学习与检视，
+Revelation 采用 Apache-2.0；本次仅研究数据流与通用算法，没有复制或近似翻译其源码。
+上游：https://github.com/sixthsurge/photon 与 https://github.com/HaringPro/Revelation 。
+
+时域重建参考 Yang、Liu、Salvi 的 "A Survey of Temporal Antialiasing
+Techniques"（2020）。扩展沿用本包现有的 RGB 边界与 HDRCompress/HDRDecompress。
+最终锐化复用本包现有 AMD FidelityFX CAS（第 4 节）。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

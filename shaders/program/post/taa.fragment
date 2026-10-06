@@ -4,6 +4,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/color/tonemap.glsl"
 #include "/lib/color/dither.glsl"
@@ -18,20 +19,20 @@ ivec2 ClampTexel(ivec2 texel, ivec2 texture_size) {
 }
 
 vec3 FetchDepthPosition(sampler2D depth, ivec2 texel, vec2 inv_depth_size) {
-    ivec2 depth_size = ivec2(u_screen_res);
+    ivec2 depth_size = ivec2(u_render_res);
     ivec2 sample_texel = ClampTexel(texel, depth_size);
     vec2 sample_uv = (vec2(sample_texel) + 0.5) * inv_depth_size;
     return vec3(sample_uv, texelFetch(depth, sample_texel, 0).r);
 }
 
 vec3 FetchColorClamped(sampler2D color, ivec2 texel) {
-    ivec2 sample_texel = ClampTexel(texel, ivec2(u_screen_res));
+    ivec2 sample_texel = ClampTexel(texel, ivec2(u_render_res));
     return texelFetch(color, sample_texel, 0).rgb;
 }
 
 vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
     // One reciprocal feeds the five depth fetches below.
-    vec2 inv_depth_size = 1.0 / vec2(ivec2(u_screen_res));
+    vec2 inv_depth_size = 1.0 / vec2(ivec2(u_render_res));
     vec3 center     = FetchDepthPosition(depth, tx, inv_depth_size);
     vec3 down_left  = FetchDepthPosition(depth, tx + ivec2(-2, -2), inv_depth_size);
     vec3 up_right   = FetchDepthPosition(depth, tx + ivec2( 2,  2), inv_depth_size);
@@ -45,9 +46,23 @@ vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
 }
 
 float GetBlendWeight(vec3 previous_color, vec3 current_color, vec3 clipped_color, vec2 velocity) {
-	float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / Luminance(previous_color))
-                     * clamp(length(velocity * u_screen_res), 0.0, 1.0);
+#ifdef TAAU_ACTIVE
+    float history_luminance = max(Luminance(previous_color), 1.0e-5);
+    const float basic_blend_weight = 1.0 - TAAU_HISTORY_WEIGHT;
+#else
+    float history_luminance = Luminance(previous_color);
     const float basic_blend_weight = 0.1;
+#endif
+    float movement = (0.1 + 0.5 * abs(Luminance(previous_color - clipped_color)) / history_luminance)
+        * clamp(length(velocity * u_render_res), 0.0, 1.0);
+#ifdef TAAU_ACTIVE
+    movement *= 2.0 * TAAU_MOTION_REJECTION;
+    // A jittered current sample can differ from valid subpixel history.
+    // React only to history outside TAA's current color neighborhood.
+    float reactive = abs(Luminance(previous_color - clipped_color))
+        / max(max(history_luminance, Luminance(current_color)), 0.05);
+    movement += TAAU_REACTIVE_STRENGTH * clamp(reactive, 0.0, 1.0);
+#endif
     return clamp(movement + basic_blend_weight, 0.0, 1.0);
 }
 
@@ -61,21 +76,65 @@ void main() {
 #else
     vec2 pixel_size = u_view_pixel_size;
     vec2 texcoord = gl_FragCoord.xy * pixel_size;
+    vec2 unjitter_uv = texcoord + u_taa_offset * 0.5;
+#ifdef TAAU_ACTIVE
+    ivec2 tx = ClampTexel(ivec2(unjitter_uv * u_render_res), ivec2(u_render_res));
+#else
     ivec2 tx = ivec2(gl_FragCoord.xy);
+#endif
 
     vec3 closest_to_camera = GetClosestToCamera(depthtex0, tx);
+#ifdef TAAU_ACTIVE
+    // The current scene is cropped and jittered; history UVs cover the display.
+    ivec2 closest_texel = ClampTexel(ivec2(closest_to_camera.xy * u_render_res), ivec2(u_render_res));
+    bool hand = int(texelFetch(colortex1, closest_texel, 0).a * 255.0 + 0.5) == 64
+        && closest_to_camera.z < 1.0;
+    closest_to_camera.xy -= 0.5 * u_taa_offset;
+    vec3 position = ToPrevious(closest_to_camera, !hand && closest_to_camera.z < 1.0);
+#else
     vec3 position = ToPrevious(closest_to_camera);
+#endif
 
     vec2 velocity = position.xy - closest_to_camera.xy;
+#ifdef TAAU_ACTIVE
+    if (hand) velocity = vec2(0.0);
+#endif
     vec2 history_uv = texcoord + velocity;
 
-    vec2 unjitter_uv = texcoord + u_taa_offset * 0.5;
+#ifdef TAAU_ACTIVE
+    vec2 scene_uv = SceneTextureUV(unjitter_uv);
+#if TAAU_RECONSTRUCTION == 1
+    vec3 current_color = max(FastCatmullRom5Tap(colortex0, scene_uv, u_view_pixel_size, 0.5,
+        0.5 * u_view_pixel_size, (u_render_res - 0.5) * u_view_pixel_size).rgb, 0.0);
+#else
+    vec3 current_color = max(texture(colortex0, scene_uv).rgb, 0.0);
+#endif
+#else
     vec3 current_color = texture(colortex0, unjitter_uv).rgb;
+#endif
 
     vec3 history;
     bool valid = all(greaterThanEqual(history_uv, vec2(0.0))) && all(lessThanEqual(history_uv, vec2(1.0)));
+#ifdef TAAU_ACTIVE
+    vec3 camera_forward = gbufferModelViewInverse[2].xyz;
+    vec3 previous_forward = vec3(gbufferPreviousModelView[0].z,
+        gbufferPreviousModelView[1].z, gbufferPreviousModelView[2].z);
+    valid = valid && frameCounter > 1 && (hand || (position.z >= 0.0 && position.z <= 1.0))
+        && length(cameraPosition - previousCameraPosition) < 64.0
+        && dot(camera_forward, previous_forward) > 0.5
+        && abs(gbufferProjection[0].x - gbufferPreviousProjection[0].x) < 0.1
+        && abs(gbufferProjection[1].y - gbufferPreviousProjection[1].y) < 0.1;
+    history_uv = clamp(history_uv, 2.0 * u_view_pixel_size, 1.0 - 2.0 * u_view_pixel_size);
+#endif
     if (valid) {
         history = FastCatmullRom5Tap(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
+#ifdef TAAU_ACTIVE
+        if (any(isnan(history)) || any(isinf(history)) || all(equal(history, vec3(0.0)))) {
+            valid = false;
+            history = current_color;
+        }
+        history = max(history, 0.0);
+#endif
     } else {
         history = current_color;
     }
@@ -94,16 +153,38 @@ void main() {
         vec3 i = FetchColorClamped(colortex0, tx + ivec2( 1, -1));
         clip_min = min(a, min(b, min(c, min(d, min(e, min(f, min(g, min(h, i))))))));
         clip_max = max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h, i))))))));
+#ifdef TAAU_ACTIVE
+        // Reuse TAA's AABB; the setting only changes its width.
+        if (TAAU_CLIP_GAMMA != 1.0) {
+            vec3 clip_center = 0.5 * (clip_min + clip_max);
+            vec3 clip_extent = 0.5 * (clip_max - clip_min) * TAAU_CLIP_GAMMA;
+            clip_min = min(current_color, clip_center - clip_extent);
+            clip_max = max(current_color, clip_center + clip_extent);
+        }
+#endif
     }
     vec3 clamped = clamp(history, clip_min, clip_max);
     float blend_weight = GetBlendWeight(history, current_color, clamped, velocity);
+#ifdef TAAU_ACTIVE
+    if (!valid) blend_weight = 1.0;
+#endif
 
     vec3 result = HDRDecompress(mix(HDRCompress(clamped), HDRCompress(current_color), blend_weight));
     vec3 jittered_result = JitterR11G11B10F(result, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#if defined(TAAU_ACTIVE) && TAAU_DEBUG == 1
+    out_color = current_color;
+#elif defined(TAAU_ACTIVE) && TAAU_DEBUG == 2
+    out_color = vec3(blend_weight, 1.0 - blend_weight, 0.0);
+#elif defined(TAAU_ACTIVE) && defined(MOTION_BLUR)
+    // Unsigned R11G11B10F: RG keep small magnitudes, B holds two sign bits.
+    int motion_sign = (velocity.x < 0.0 ? 1 : 0) + (velocity.y < 0.0 ? 2 : 0);
+    out_color = vec3(abs(velocity), float(motion_sign));
+#else
 #ifdef MOTION_BLUR
     out_color = vec3(velocity * step(0.56, closest_to_camera.z), 0.0);
 #else
     out_color = jittered_result;
+#endif
 #endif
 
     out_scene = jittered_result;

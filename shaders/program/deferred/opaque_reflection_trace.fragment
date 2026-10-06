@@ -4,12 +4,14 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/core/render_scale.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 
 layout(location = 0) out vec3 out_reflection_radiance;
 
 void main() {
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     out_reflection_radiance = vec3(0.0);
 
     ivec2 tx = ivec2(gl_FragCoord.xy);
@@ -37,7 +39,7 @@ void main() {
     vec3 geo_view_normal = mat3(gbufferModelView)
         * DecodeOctahedralNormal(geometry_data.xy);
 
-    vec2 uv = (vec2(tx) + 0.5) * u_view_pixel_size;
+    vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
 #ifdef TAA
     vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, scene_depth);
 #else

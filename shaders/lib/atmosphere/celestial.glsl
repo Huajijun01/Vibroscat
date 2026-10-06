@@ -153,8 +153,11 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext cont
     // for magnitude-like variation. The decoded map's luma stays below
     // ~0.5, so the default gain caps near 4x. Runs before the physical
     // transmittance and night fades so the grade describes the map itself.
-    star_color = pow(star_color, vec3(STAR_MAP_CONTRAST));
+    star_color = 3.0 * pow(star_color, vec3(STAR_MAP_CONTRAST));
     star_color *= exp2(Luminance(star_color) * STAR_MAP_BRIGHT_BOOST);
+
+    float lum = Luminance(star_color);
+    star_color *= min(lum, 6.0) / max(lum, 0.001);
 
     // View-ray transmittance: dims and reddens stars toward the horizon.
     vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, vec4(1.0));

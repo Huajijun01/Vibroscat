@@ -277,4 +277,61 @@ vec2 DistortShadowClip(vec2 clip_pos) {
     return clip_pos / GetDistortFactor(clip_pos) * 0.5 + 0.5;
 }
 
+// -- Custom-light shadow MVP (prepared for a custom End light; not wired) --
+// Matrix producers mirroring the host's shadow map construction
+// (third_party/iris common/src/main/java/net/irisshaders/iris/shadows/
+// ShadowMatrices.java), so a shadow map rendered for an arbitrary light
+// direction keeps Iris's XY extent, depth slab, and texel grid, and the
+// distortion/bias helpers above stay applicable. Both matrices are drop-in
+// replacements for shadowModelView/shadowProjection: they consume the same
+// const directives the host parses, positions go in camera-relative player
+// space, and the light direction points toward the light in world axes.
+// Not applied yet: GetDistortFactor / ProtectShadowDepth remain caller-side,
+// and AxialDistortShadowBias / ShadowDepthGap* still read the Iris uniforms,
+// so the swap must happen on both the shadow-pass and sampling sides at once.
+
+// Symmetric orthographic shadow projection: the diagonal-only GLSL form of
+// ShadowMatrices.createOrthoMatrix (JOML setOrthoSymmetric with width = height
+// = 2 * shadowDistance, near shadowNearPlane, far shadowFarPlane). The float
+// expressions mirror JOML's setOrtho so the entries match the host matrix.
+mat4 CustomShadowProjection() {
+    float plane_size = 2.0 * shadowDistance;
+    float inv_half_plane = 2.0 / plane_size;
+    float depth_range = shadowFarPlane - shadowNearPlane;
+
+    return mat4(
+        vec4(inv_half_plane, 0.0, 0.0, 0.0),
+        vec4(0.0, inv_half_plane, 0.0, 0.0),
+        vec4(0.0, 0.0, -2.0 / depth_range, 0.0),
+        vec4(0.0, 0.0, -(shadowFarPlane + shadowNearPlane) / depth_range, 1.0));
+}
+
+// World -> shadow-view matrix for an arbitrary light direction, generalizing
+// the generic (celestial) branch of ShadowMatrices.createBaselineModelViewMatrix:
+// view +Z points toward the light (the ortho camera looks along -light), and
+// view +Y derives from world -Z, which is exact for celestial lights since
+// their path lies in the world XY plane; world +X covers the degenerate
+// light-along-Z case. The camera grid snap of snapModelViewToGrid is folded
+// into the translation column, so the result carries the same
+// shadowModelView[3] semantics the sampling code relies on.
+mat4 CustomShadowModelView(vec3 light_dir_world) {
+    vec3 light_axis = normalize(light_dir_world);
+    vec3 up_ref = abs(light_axis.z) < 0.999 ? vec3(0.0, 0.0, -1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 up_axis = normalize(up_ref - light_axis * dot(up_ref, light_axis));
+    vec3 right_axis = cross(up_axis, light_axis);
+
+    // Sign-preserving fmod matching Java's % in snapModelViewToGrid; GLSL
+    // mod() would fold negative camera coordinates into [0, interval) and
+    // shift the map by whole grid cells relative to the host.
+    vec3 snap_offset = cameraPosition
+        - shadowIntervalSize * trunc(cameraPosition / shadowIntervalSize);
+    snap_offset -= 0.5 * shadowIntervalSize;
+
+    return mat4(
+        vec4(right_axis.x, up_axis.x, light_axis.x, 0.0),
+        vec4(right_axis.y, up_axis.y, light_axis.y, 0.0),
+        vec4(right_axis.z, up_axis.z, light_axis.z, 0.0),
+        vec4(dot(right_axis, snap_offset), dot(up_axis, snap_offset), dot(light_axis, snap_offset), 1.0));
+}
+
 #endif // LIB_CORE_COORDINATES_GLSL

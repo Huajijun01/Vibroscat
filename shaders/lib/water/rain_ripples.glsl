@@ -4,14 +4,14 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// Sparse large-drop wave bake: 4 m spatial wrap, 4 s time loop.
-// RG stores world-XZ normal slopes in [-0.15, 0.15], with byte 128 exactly
+// Dense large-drop wave bake: 4 m spatial wrap, 4 s time loop.
+// RG stores world-XZ normal slopes in [-0.2, 0.2], with byte 128 exactly
 // flat. Affine decoding commutes with filtering. Rain only perturbs normals;
 // these slopes do not participate in any parallax height evaluation.
 const float RAIN_RIPPLE_PERIOD_M = 4.0;
 const float RAIN_RIPPLE_LOOP_SECONDS = 4.0;
 const float ARTISTIC_RIPPLE_SPEED = 2.0;
-const float RAIN_RIPPLE_SLOPE_RANGE = 0.15;
+const float RAIN_RIPPLE_SLOPE_RANGE = 0.2;
 
 vec2 SampleRainRippleSlope(vec2 scene_xz) {
     // Reduce absolute integer coordinates before conversion to float, keeping

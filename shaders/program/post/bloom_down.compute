@@ -5,6 +5,7 @@
 #define BLOOM_DST_MIP 2
 #endif
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/post/bloom.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
@@ -13,6 +14,12 @@ layout(rgba16f) uniform restrict image2D colorimg12;
 shared vec3 tile[33][33];
 
 void main() {
+#ifndef BLOOM
+    // The first down runs beside the AE reduction, whose letter entries share
+    // one AE || BLOOM enable condition; it must not touch colortex12 when
+    // only AE is on.
+    return;
+#endif
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
     ivec2 full_size = imageSize(colorimg12);
     ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);

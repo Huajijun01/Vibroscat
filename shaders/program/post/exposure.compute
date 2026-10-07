@@ -12,6 +12,7 @@
 // and bufferObject.0 is sized for exactly 64 of each.
 
 #include "/lib/contract/exposure_data.glsl"
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/color/spaces.glsl"
 
@@ -28,6 +29,12 @@ shared float weight_cache[512];
 shared uint histogram_cache[64];
 
 void main() {
+#ifndef AE
+    // The pass runs whenever AE or BLOOM needs it; the letter entries share
+    // one enable condition, so the sweep must not write ExposureData when
+    // only BLOOM is on.
+    return;
+#endif
     uint tid = gl_LocalInvocationIndex;
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
 

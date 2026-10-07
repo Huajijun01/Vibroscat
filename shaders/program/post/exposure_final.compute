@@ -32,6 +32,12 @@ float HistogramPercentile(float fraction, uint total_weight) {
 }
 
 void main() {
+#ifndef AE
+    // The pass runs whenever AE or BLOOM needs it; the letter entries share
+    // one enable condition, so the reduction must not read or write
+    // ExposureData when only BLOOM is on.
+    return;
+#endif
     uint tid = gl_LocalInvocationIndex;
 
     cache[tid] = log_lum_sums[tid];

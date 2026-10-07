@@ -1,3 +1,4 @@
+#include "/lib/contract/settings.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/post/bloom.glsl"
 
@@ -8,6 +9,12 @@ layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 shared vec4 tile[33][33];
 
 void main() {
+#ifndef BLOOM
+    // The pass runs whenever AE or BLOOM needs it; the letter entries share
+    // one enable condition, so this kernel must not touch colortex12 when
+    // only AE is on.
+    return;
+#endif
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
     ivec2 full_size = imageSize(colorimg0);
     ivec2 dst_size = GetBloomMipSize(full_size, 1);

@@ -107,6 +107,10 @@ void main() {
             + ground_light.rgb * PhaseHenyeyGreenstein(weather_cos_theta, 0.5);
         vec3 weather_radiance = ToLinear(weather.rgb) * weather_scattering
             * WEATHER_SHEET_OPTICAL_DEPTH;
-        out_color = mix(out_color, weather_radiance, weather.a);
+        // colortex11 stores the premultiplied sheet color: the gbuffers
+        // SRC_ALPHA blend already scaled RGB by coverage on write. Composite
+        // premultiplied-over; multiplying by weather.a again would scale the
+        // contribution by coverage squared.
+        out_color = out_color * (1.0 - weather.a) + weather_radiance;
     }
 }

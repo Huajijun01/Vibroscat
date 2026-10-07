@@ -27,8 +27,10 @@
 //   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
 //   colortex9   RGB16F           deferred3 GI irradiance including uncovered SH,
 //                                read directly by deferred4
-//   colortex11  RGBA8            Weather sheet: weather texture colour (RGB) and coverage
-//                                (A); written by gbuffers_weather, composited by air fog
+//   colortex11  RGBA8            Weather sheet: coverage (A) and radiance premultiplied
+//                                by coverage (RGB; the gbuffers SRC_ALPHA blend applies
+//                                it on write); written by gbuffers_weather, composited
+//                                by air fog
 //   colortex12  RGBA16F          Translucent layer (premultiplied color + alpha):
 //                                1. translucent gbuffers blend off = nearest surface wins
 //                                2. composite1 refracts, fogs and over-composites once

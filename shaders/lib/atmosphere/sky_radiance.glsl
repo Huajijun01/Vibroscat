@@ -133,10 +133,14 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     vec4 ground_moon_radiance = vec4(0.0);
     if (t_ground > 0.0) {
         vec3 ground_pos = camera_pos + view_dir * t_ground;
-        float r_g  = ATM_PLANET_R + 0.01;
-        float r2_g = r_g * r_g;
-        // ground_pos lies on the ground_radius sphere from the dip block.
+        // ground_pos lies on the ground_radius sphere from the dip block, and
+        // mu uses that sphere (the true sun zenith at the ground point). The
+        // LUT r domain starts at the planet radius, so the query radius clamps
+        // up to the surface shell instead of pairing a dip-sphere mu with a
+        // surface r one dip scale apart.
         float mu_sun_g = dot(ground_pos, sun_dir) / ground_radius;
+        float r_g  = max(ground_radius, ATM_PLANET_R);
+        float r2_g = r_g * r_g;
 
         // sunlight -> ground; the paired UV helper shares the rho and
         // discriminant sqrt between the sun and the mirrored moon direction

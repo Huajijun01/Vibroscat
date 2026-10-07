@@ -128,8 +128,7 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 }
 #endif
 
-// World-space normal (y up) at the parallax-corrected position (central
-// sample omitted).
+// World-space normal (y up) at the parallax-corrected position.
 void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
 #ifdef WATER_POM
 #if POM_BISECTION_ENABLED

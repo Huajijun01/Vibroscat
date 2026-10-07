@@ -4,30 +4,11 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// River water height field from ONE periodic R8 height texture
-// (utex_mother_river, 128x128, 32 m period, 4-16 m Phillips anchor band
-// baked offline -- research/PhillipsOceanBasis).  Four fetches sample the
-// SAME texels in four rotated/scaled frames:
-//   layer 0  anchor band  4-16 m, drifts at 1 m/s along 20 deg
-//   layer 1  detail band  1-4 m,   1 m/s along 65 deg
-//   layer 2  detail band 0.25-1 m, 1 m/s along -25 deg
-//   layer 3  the anchor band's 60 deg crossing copy (same freq/speed as
-//            layer 0, half its amplitude): gives the large swell a
-//            crossing motion; the former finest layer (0.06-0.25 m,
-//            ~9 mm swing) was dropped as invisible.
-// Layer amplitudes follow the baked spectrum exactly; WATER_RIVER_GAIN
-// scales them all.
-//
-// POM chases the two largest-energy layers (0, 3): 2 fetches per height
-// sample instead of 4; the shading normal uses all four layers.
-
-// Advection: speeds follow the deep-water dispersion RATIO (sqrt of
-// wavelength - long outruns short, groups evolve) scaled into the
-// river-plausible band: 4.0 / 2.0 / 1.0 / 4.0 m/s per layer.
-// Frequency ratios are deliberately INCOMMENSURATE (not exact x4): exact
-// harmonic locking makes the layers' crests coincide at a fixed point grid
-// (a standing dot/honeycomb lattice).  World speeds keep the sqrt-lambda
-// dispersion ratio at 4.0 / 2.0 / 1.0 / 4.0 m/s along 20/65/-25/80 deg.
+// Three affine sampling frames share a periodic 128x128 R8 mother height
+// (32 m anchor period, Phillips spectrum baked in research/PhillipsOceanBasis).
+// POM uses layers 0 and 1; normals use a separate RG8 mother-slope texture.
+// Frequencies are incommensurate to avoid a stationary crest-intersection grid.
+// Advection velocities below are in normalized UV per second.
 const float RIVER_TEX_FREQ[3] = float[](0.03125, 0.12875, 0.5224);
 const vec2 RIVER_TEX_VEL[3] = vec2[](vec2(0.117463, 0.042755),
                                      vec2(0.234900, 0.085433),
@@ -43,8 +24,10 @@ const float RIVER_TEX_AMP[3] = float[](0.58502, 0.14598, 0.03229);
 // POM chases these two layers (the largest-energy pair)
 const int RIVER_TEX_POM_LAYERS[2] = int[](0, 1);
 
-// central-difference step (m), same value as the fitted value-noise ocean
-const float RIVER_TEX_DIFF_EPS = 0.1;
+// Periodic one-texel central differences in normalized UV units. Each RG8
+// channel independently remaps its full baked slope range to [0, 1].
+const vec2 RIVER_SLOPE_MIN_UV = vec2(-7.780392157, -8.282352941);
+const vec2 RIVER_SLOPE_RANGE_UV = vec2(14.556862745, 17.066666667);
 
 // Height of layer j at world XZ: one bilinear fetch, hardware wrap.
 float RiverTextureLayerHeight(vec2 xz, float time, int j) {
@@ -55,7 +38,7 @@ float RiverTextureLayerHeight(vec2 xz, float time, int j) {
          * (texture(utex_mother_river, uv).r - 0.5);
 }
 
-// Full water height: all four layers.
+// Full water height: all three layers.
 float RiverTextureHeight(vec2 xz, float time) {
     float h = 0.0;
     for (int j = 0; j < 3; ++j) {
@@ -73,15 +56,20 @@ float RiverTexturePOMHeight(vec2 xz, float time) {
     return h;
 }
 
-// World-space normal (y up) from a central-difference gradient of the full
-// field (same step and convention as the fitted value-noise ocean).
+// The chain rule transforms each mother slope by amplitude * frequency * R^T.
+// Sum slopes before normalization, preserving the shared POM-adjusted position.
 void RiverTextureNormal(vec2 xz, float time, out vec3 normal) {
-    float eps = RIVER_TEX_DIFF_EPS;
-    float hx = RiverTextureHeight(xz + vec2(eps, 0.0), time)
-             - RiverTextureHeight(xz - vec2(eps, 0.0), time);
-    float hz = RiverTextureHeight(xz + vec2(0.0, eps), time)
-             - RiverTextureHeight(xz - vec2(0.0, eps), time);
-    vec2 grad = vec2(hx, hz) / (2.0 * eps);
+    vec2 grad = vec2(0.0);
+    for (int j = 0; j < 3; ++j) {
+        vec2 rot = RIVER_TEX_ROT[j];
+        vec2 uv = vec2(dot(rot, xz), -rot.y * xz.x + rot.x * xz.y);
+        uv = uv * RIVER_TEX_FREQ[j] - RIVER_TEX_VEL[j] * time;
+        vec2 slope = texture(utex_mother_river_slope, uv).rg
+                   * RIVER_SLOPE_RANGE_UV + RIVER_SLOPE_MIN_UV;
+        slope = vec2(rot.x * slope.x - rot.y * slope.y,
+                     rot.y * slope.x + rot.x * slope.y);
+        grad += slope * (RIVER_TEX_AMP[j] * WATER_RIVER_GAIN * RIVER_TEX_FREQ[j]);
+    }
     normal = normalize(vec3(-grad.x, 1.0, -grad.y));
 }
 

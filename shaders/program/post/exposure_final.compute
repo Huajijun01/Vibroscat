@@ -35,9 +35,10 @@ void main() {
 #ifndef AE
     // The pass runs whenever AE or BLOOM needs it; the letter entries share
     // one enable condition, so the reduction must not read or write
-    // ExposureData when only BLOOM is on.
+    // ExposureData when only BLOOM is on. The body is compiled out, not
+    // skipped after a return, because barrier() may not follow a return.
     return;
-#endif
+#else
     uint tid = gl_LocalInvocationIndex;
 
     cache[tid] = log_lum_sums[tid];
@@ -89,4 +90,5 @@ void main() {
         }
         exposure = exp2(adapted_exposure_ev);
     }
+#endif
 }

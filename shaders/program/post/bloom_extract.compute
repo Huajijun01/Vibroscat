@@ -12,9 +12,10 @@ void main() {
 #ifndef BLOOM
     // The pass runs whenever AE or BLOOM needs it; the letter entries share
     // one enable condition, so this kernel must not touch colortex12 when
-    // only AE is on.
+    // only AE is on. The body is compiled out, not skipped after a return,
+    // because barrier() may not follow a return statement.
     return;
-#endif
+#else
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
     ivec2 full_size = imageSize(colorimg0);
     ivec2 dst_size = GetBloomMipSize(full_size, 1);
@@ -91,4 +92,5 @@ void main() {
     result /= max(total_weight, 1e-6);
 
     if (valid) imageStore(colorimg12, gid, result);
+#endif
 }

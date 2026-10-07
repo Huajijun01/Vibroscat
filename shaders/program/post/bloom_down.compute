@@ -17,9 +17,10 @@ void main() {
 #ifndef BLOOM
     // The first down runs beside the AE reduction, whose letter entries share
     // one AE || BLOOM enable condition; it must not touch colortex12 when
-    // only AE is on.
+    // only AE is on. The body is compiled out, not skipped after a return,
+    // because barrier() may not follow a return statement.
     return;
-#endif
+#else
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
     ivec2 full_size = imageSize(colorimg12);
     ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);
@@ -68,4 +69,5 @@ void main() {
     result += s_br * 0.0625;
 
     if (valid) imageStore(colorimg12, dst_origin + gid, vec4(result, 0.0));
+#endif
 }

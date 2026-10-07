@@ -32,9 +32,10 @@ void main() {
 #ifndef AE
     // The pass runs whenever AE or BLOOM needs it; the letter entries share
     // one enable condition, so the sweep must not write ExposureData when
-    // only BLOOM is on.
+    // only BLOOM is on. The body is compiled out, not skipped after a
+    // return, because barrier() may not follow a return statement.
     return;
-#endif
+#else
     uint tid = gl_LocalInvocationIndex;
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
 
@@ -109,4 +110,5 @@ void main() {
     if (tid < 64u) {
         luminance_histogram[wid * 64u + tid] = histogram_cache[tid];
     }
+#endif
 }

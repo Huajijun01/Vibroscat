@@ -49,6 +49,11 @@ void main() {
     float ao = ComputeGTAO(uv, vec2(block_origin), stbn_noise);
 #elif defined(SSAO)
     float ao = ComputeSSAO(uv, vec2(block_origin), stbn_noise);
+#else
+    // Unreachable while deferred1_a is scheduled (AO_MODE != 0 with
+    // GI_MODE != 1 implies GTAO or SSAO); keeps `ao` defined if that gating
+    // and these macros ever drift apart.
+    float ao = 1.0;
 #endif
     imageStore(uimg_ao, half_texel, vec4(ao, 0.0, 0.0, 1.0));
 }

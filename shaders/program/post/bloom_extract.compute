@@ -5,7 +5,7 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg0;
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
-shared vec4 tile[35][35];
+shared vec4 tile[33][33];
 
 void main() {
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
@@ -14,19 +14,19 @@ void main() {
     bool valid = all(lessThan(gid, dst_size));
 
     ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 16;
-    ivec2 input_base = group_base * 2 - 2;
+    ivec2 input_base = group_base * 2 - 1;
 
     uint idx = gl_LocalInvocationIndex;
-    for (uint i = idx; i < 1225u; i += 256u) {
-        uint ty = i / 35u;
-        uint tx = i % 35u;
+    for (uint i = idx; i < 1089u; i += 256u) {
+        uint ty = i / 33u;
+        uint tx = i % 33u;
         ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), full_size - 1);
         tile[ty][tx] = imageLoad(colorimg0, coord);
     }
 
     barrier();
 
-    ivec2 tile_center = ivec2(gl_LocalInvocationID.xy) * 2 + 2;
+    ivec2 tile_center = ivec2(gl_LocalInvocationID.xy) * 2 + 1;
 
     // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block centre.
     vec4 s_center = tile[tile_center.y + 0][tile_center.x + 0];

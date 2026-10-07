@@ -23,7 +23,7 @@
 //   colortex5   R11F_G11F_B10F   TAA history
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
-//                                carry (ao, age, 1-depth, A=NaN "not cloud")
+//                                carry (ao, age, encoded view depth, A=NaN "not cloud")
 //   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
 //   colortex9   RGB16F           deferred3 GI irradiance including uncovered SH,
 //                                read directly by deferred4
@@ -55,7 +55,7 @@ const int colortex2Format  = RGBA16;
 const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
-const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, 1-depth, A=NaN)
+const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, encoded view depth, A=NaN)
 const int colortex9Format  = RGB16F; // recursive GI irradiance (raw, written by deferred3)
 const int colortex11Format = RGBA8;           // weather texture
 const int colortex12Format = RGBA16F;

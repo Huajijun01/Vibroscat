@@ -5,12 +5,14 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/raytrace/ssr_depth.glsl"
 
 // ============================================================================
 // AO temporal accumulation helpers (used by deferred1).
 // ============================================================================
-// History in the merged colortex8 (R = AO, G = age, B = 1 - depth,
-// A = NaN "not cloud"); this module provides per-pixel math only. Generation
+// History in the merged colortex8 (R = AO, G = age, B = encoded view depth
+// via the EncodeSSRDepth squared curve, A = NaN "not cloud"); this module
+// provides per-pixel math only. Generation
 // is half-res, bilinear upsample, one sample/pixel/frame (full convergence).
 // Rejection trusts the history only within the distance limit and the normal
 // dot floor (AOHistoryWeight); both ramp smoothly to zero.
@@ -33,6 +35,23 @@ bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiv
         && all(lessThanEqual(previous_uv, vec2(1.0)));
 }
 
+// Decode the stored history depth (EncodeSSRDepth curve) back to linear view
+// depth in meters. The clip-depth reference is projection-depth-row derived
+// and therefore FOV-independent; it only moves when near/far change, which
+// reloads the world and reseeds the history anyway.
+float AOHistoryViewDepth(float encoded) {
+    float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
+    return sqrt(max(encoded, 0.0)) * (SSR_DEPTH_HALF_RCP_SQRT / inverse_clip_depth);
+}
+
+// Linear view depth to previous-frame screen depth: inverts the depth row of
+// PreviousScreenToView (view_depth = P[3].z / (ndc_z + P[2].z)).
+float ViewDepthToPreviousScreenDepth(float view_depth) {
+    float ndc_z = gbufferPreviousProjection[3].z / max(view_depth, 1.0e-6)
+        - gbufferPreviousProjection[2].z;
+    return clamp(ndc_z * 0.5 + 0.5, 0.0, 1.0);
+}
+
 // History trust in [0, 1], product of two checks:
 //  - distance: static geometry = zero displacement (full trust); beyond
 //    AO_HISTORY_DISTANCE_LIMIT -> smooth 0.
@@ -50,7 +69,8 @@ float AOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_u
 #ifdef TAA
     projection_uv -= u_taa_offset_previous * 0.5;
 #endif
-    vec3 previous_view = PreviousScreenToView(vec3(projection_uv, 1.0 - history.b));
+    vec3 previous_view = PreviousScreenToView(vec3(projection_uv,
+        ViewDepthToPreviousScreenDepth(AOHistoryViewDepth(history.b))));
     float displacement = length(previous_view - receiver_prev_view);
     float distance_weight = 1.0 - smoothstep(0.0, AO_HISTORY_DISTANCE_LIMIT, displacement);
 

@@ -8,8 +8,10 @@
 // accumulates at full res and writes one merged history frame to colortex8.
 // The two histories are spatially exclusive (depth branch):
 //   sky:      RGBA = radiance.rgb + distance (NaN/0 rejected by cloud validation)
-//   geometry: R = AO, G = age, B = 1 - depth, A = NaN ("not cloud": taps
-//             crossing the boundary propagate NaN and reject the history)
+//   geometry: R = AO, G = age, B = encoded view depth (the EncodeSSRDepth
+//             squared-depth curve, see lib/raytrace/ssr_depth.glsl), A = NaN
+//             ("not cloud": taps crossing the boundary propagate NaN and
+//             reject the history)
 // The colortex flip (read main / write alt) gives deferred2 the current
 // frame without an extra buffer or compute-side race.
 //
@@ -32,6 +34,7 @@
 #include "/lib/cloud/temporal.glsl"
 #include "/lib/cloud/volumetric.glsl"
 #include "/lib/lighting/temporal_ao.glsl"
+#include "/lib/raytrace/ssr_depth.glsl"
 
 layout(location = 0) out vec4 out_history;
 
@@ -133,17 +136,20 @@ void main() {
             next_age = 1.0;   // first frame or reprojection failure: seed
         }
         // R = accumulated AO (clamped vs Catmull-Rom overshoot), G = age,
-        // B = 1 - depth, A = NaN marks "not cloud" (boundary-crossing taps
-        // reject the history). Stays linear; deferred2 applies multibounce +
-        // strength.
-        out_history = vec4(Saturate(accumulated), next_age, 1.0 - scene_depth, HISTORY_NO_CLOUD_DATA);
+        // B = encoded view depth (squared curve, see ssr_depth.glsl: halves
+        // the fp16 relative error so the 0.2 m rejection limit survives to
+        // roughly twice the distance the raw (1 - depth) mapping reached),
+        // A = NaN marks "not cloud" (boundary-crossing taps reject the
+        // history). Stays linear; deferred2 applies multibounce + strength.
+        out_history = vec4(Saturate(accumulated), next_age, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
     }
 #else
     {
         // No temporal path: pass the fresh AO through bilinearly; A still
-        // marks "not cloud".
+        // marks "not cloud". B keeps the shared encoded-depth contract so a
+        // mid-session switch to the temporal path reads consistent history.
         float fresh_ao = texture(usam_ao, SceneImageUV(uv, vec2(textureSize(usam_ao, 0)), 0.5)).r;
-        out_history = vec4(Saturate(fresh_ao), 1.0, 1.0 - scene_depth, HISTORY_NO_CLOUD_DATA);
+        out_history = vec4(Saturate(fresh_ao), 1.0, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
     }
 #endif
 #else

@@ -108,21 +108,13 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     out vec3 cloud_transmittance // combined REAL transmittance of the cloud layers
 ) {
     // Volumetric layer composite over pure sky.
+    bool volumetric_hit = volumetric_radiance.z < 0.99999;
     vec3 volumetric_scattering = vec3(0.0);
     float volumetric_transmittance = 1.0;
-    if (volumetric_radiance.z < 0.99999) {
+    if (volumetric_hit) {
         volumetric_scattering = RelightClouds(volumetric_radiance, volumetric_surface_pos);
         volumetric_transmittance = volumetric_radiance.z;
-        // Transmitted Milky Way glow: the box-filtered map is the background
-        // behind the layer, and isotropic single scattering of a constant
-        // background integrates to source * (1 - T) over the marched column.
-        // vec4(1.0) transmittance: the fades below carry camera-to-cloud
-        // propagation for this term as for the rest of the composite.
-        volumetric_scattering += RenderMilkyWayGlow(view_dir, vec4(1.0),
-            CelestialContextFor(view_dir))
-            * ((1.0 - volumetric_transmittance) * CLOUD_MILKYWAY_TRANSMISSION);
     }
-    vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
 
     // Cirrus layer composite over pure sky. CIRRUS off: neutral layer — the
     // composite degenerates to the sky, the transmittance to 1, and the
@@ -130,19 +122,31 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 cirrus_surface_pos = vec3(0.0);
     vec3 cirrus_transmittance = vec3(1.0);
     vec3 cirrus_composite = sky_color;
+    bool cirrus_hit = false;
 #ifdef CIRRUS
     cirrus_composite = RenderCirrusClouds(view_dir, sky_color, cirrus_light_jitter,
         cirrus_surface_pos, cirrus_transmittance);
-    // Transmitted Milky Way glow: the same closed form as the volumetric
-    // layer. The deck's scattering albedo is 1, so it scatters exactly
-    // source * (1 - T) of the background behind it, keeping the layer total
-    // (direct through + scattered) at one source.
-    if (any(lessThan(cirrus_transmittance, vec3(0.99999)))) {
-        cirrus_composite += RenderMilkyWayGlow(view_dir, vec4(1.0),
-            CelestialContextFor(view_dir))
+    cirrus_hit = any(lessThan(cirrus_transmittance, vec3(0.99999)));
+#endif
+
+    // Transmitted Milky Way glow, evaluated once and shared by both layers:
+    // it is a function of the view ray and the background map alone, so both
+    // layer composites used to evaluate the identical call. Isotropic single
+    // scattering of a constant background integrates to source * (1 - T) over
+    // the marched column, and the deck's scattering albedo is 1, so each
+    // layer scales the shared glow by its own (1 - T) share; a missed layer
+    // keeps its transmittance at 1 and adds exact zero. vec4(1.0)
+    // transmittance: the fades below carry camera-to-cloud propagation for
+    // this term as for the rest of the composite.
+    if (volumetric_hit || cirrus_hit) {
+        vec3 milkyway_glow = RenderMilkyWayGlow(view_dir, vec4(1.0),
+            CelestialContextFor(view_dir));
+        volumetric_scattering += milkyway_glow
+            * ((1.0 - volumetric_transmittance) * CLOUD_MILKYWAY_TRANSMISSION);
+        cirrus_composite += milkyway_glow
             * ((1.0 - cirrus_transmittance) * CIRRUS_MILKYWAY_TRANSMISSION);
     }
-#endif
+    vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
 
     // Atmospheric fades blend each composite toward the sky but must NOT
     // touch the true transmittance (a faded far cloud would otherwise let

@@ -113,7 +113,10 @@ void main() {
         float rain_weight = rainStrength * u_rain_biome;
         if (rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
-            float rain_sky_light = clamp(v_texcoord.w * 1.103449 - 0.0689656, 0.0, 1.0);
+            // v_texcoord.w arrives normalized from the vertex stage; this
+            // used to re-apply the vanilla-domain remap here when the
+            // forward chain still passed the raw matrix output.
+            float rain_sky_light = v_texcoord.w;
             float ripple_weight = rain_weight * RAIN_RIPPLE_STRENGTH
                 * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);
             if (ripple_weight > 0.001) {

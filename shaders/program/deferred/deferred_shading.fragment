@@ -98,15 +98,8 @@ void main() {
             volumetric_entry = cloud_entry;
         }
 #endif
-#ifdef CIRRUS
-        // Cirrus light march seeded at this pixel; the volumetric march
-        // (clouds_render pass) seeds at its own R2 lattice position.
-        float cirrus_light_jitter = SampleSTBN(tx, frameCounter);
-#else
-        float cirrus_light_jitter = 0.0;
-#endif
         sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_radiance,
-            volumetric_surface_pos, volumetric_entry, cirrus_light_jitter,
+            volumetric_surface_pos, volumetric_entry,
             cloud_transmittance);
         // Sun/moon occluded by real cloud transmittance. An opaque column
         // leaves nothing of either term, so the star field and the discs are

@@ -16,6 +16,9 @@
 #include "/lib/cloud/cirrus.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
+// Match the volumetric march cutoff: at most 0.01% of a hidden layer remains.
+const float CLOUD_LAYER_OPAQUE_TRANSMITTANCE = 1.0e-4;
+
 // Atmospheric transmittance along the camera->cloud-surface ray (UE
 // GetTransmittance scheme; (r, mu) camera, (r_d, mu_d) surface, same ray):
 //   ground miss:  T = T_lut(r, mu)      / T_lut(r_d, mu_d)
@@ -98,13 +101,10 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
 // Compose volumetric + cirrus over the sky. Layer order follows the ray:
 // the first-entered layer draws in front (correct occlusion from below,
 // between layers, above the cirrus shell).
-// cirrus_light_jitter is the STBN dither for the cirrus light march, sampled
-// by the pass main.
 vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 volumetric_radiance,   // packed march output: x = sun, y = moon, z = T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
-    float cirrus_light_jitter,
     out vec3 cloud_transmittance // combined REAL transmittance of the cloud layers
 ) {
     // Volumetric layer composite over pure sky.
@@ -124,9 +124,15 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 cirrus_composite = sky_color;
     bool cirrus_hit = false;
 #ifdef CIRRUS
-    cirrus_composite = RenderCirrusClouds(view_dir, sky_color, cirrus_light_jitter,
-        cirrus_surface_pos, cirrus_transmittance);
-    cirrus_hit = any(lessThan(cirrus_transmittance, vec3(0.99999)));
+    // Below the cirrus shell, the lower volumetric shell is encountered first.
+    // Above cirrus the order reverses, so an opaque volumetric layer cannot cull it.
+    bool cirrus_occluded = volumetric_transmittance <= CLOUD_LAYER_OPAQUE_TRANSMITTANCE
+        && u_cam_altitude < CIRRUS_HEIGHT_KM && CLOUD_TOP_ALTITUDE < CIRRUS_HEIGHT_KM;
+    if (!cirrus_occluded) {
+        cirrus_composite = RenderCirrusClouds(view_dir, sky_color,
+            cirrus_surface_pos, cirrus_transmittance);
+        cirrus_hit = any(lessThan(cirrus_transmittance, vec3(0.99999)));
+    }
 #endif
 
     // Transmitted Milky Way glow, evaluated once and shared by both layers:

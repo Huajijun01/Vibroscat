@@ -168,7 +168,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CLOUD_MS_ECCENTRICITY 0.5 // [0.0 0.25 0.33 0.4 0.5 0.6 0.75 1.0] Per-octave phase eccentricity multiplier.
 #define CLOUD_MS_SAT_ALBEDO 0.99 // [0.9 0.95 0.97 0.98 0.99 0.995 0.999 1.0] Saturation albedo omega of the fms series; the added orders converge to omega / (1 - omega), so values near 1.0 brighten dense interiors steeply.
 #define CLOUD_MS_ISOTROPIC 0.2 // [0.0 0.1 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
-#define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment scattering total strength; higher = brighter cloud shadow regions.
+#define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment strength for both cloud layers; higher = brighter cloud shadow regions.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
 #define CLOUD_MILKYWAY_TRANSMISSION 0.1 // [0.0 0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the volumetric layer scatters into a glow; 1.0 is the isotropic single-scatter total.
 #define CIRRUS_MILKYWAY_TRANSMISSION 0.6 // [0.0 0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the cirrus shell scatters into a glow; 1.0 is the isotropic single-scatter total.

@@ -299,7 +299,7 @@ option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow con
 option.CLOUD_MS_ISOTROPIC = Multi-Scatter Isotropic Strength
 option.CLOUD_MS_ISOTROPIC.comment = Strength of the fill light that does not follow the sun or the view direction; it is what keeps shadowed cloud interiors from going black. Higher = brighter, milkier cores.
 option.CLOUD_SKY_LIGHT_STRENGTH = Cloud Sky Light Strength
-option.CLOUD_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the clouds receive: higher = brighter shadowed sides and undersides, so clouds look softer and whiter.
+option.CLOUD_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the volumetric and cirrus layers receive: higher = brighter shadowed sides and undersides, so both layers look softer and whiter.
 option.CIRRUS_MS_ISOTROPIC = Cirrus Multi-Scatter Isotropic
 option.CIRRUS_MS_ISOTROPIC.comment = Strength of the light the cirrus bounces around inside itself, added to the sun and moon. It scales with how dense that part of the sheet is, so thin edges stay thin: higher = fuller, brighter cirrus bodies and less contrast in the sheet.
 option.CLOUD_MILKYWAY_TRANSMISSION = Milky Way Cloud Transmission

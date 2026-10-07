@@ -4,11 +4,9 @@
 // Cirrus layer.
 // Shape: offline-baked 64x64 value noise (source texture removed from
 // scrolled; sampled once at the shell crossing.
-// Light: thin-shell single sample; scalar scattering/extinction, triple-lobe
-// (forward silver lining + backward) HG phase, the isotropic multiple
-// scattering orders owned by /lib/cloud/multiple_scattering.glsl added to the
-// sun and moon beams, sky ambient, up-sun density-tap self shadowing,
-// grazing-path horizon thickening, camera-above/below blend ordering.
+// Light: single shell sample with density-graded direct light, triple-lobe HG
+// silver lining, shared isotropic multiple scattering and sky ambient.
+// View extinction retains grazing-path thickening and above/below ordering.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -23,9 +21,8 @@
 
 
 const float CIRRUS_HEIGHT_KM = 7.0;
-// Single physical extinction for the squared density field (per km). Both the
-// view and light paths use it; their difference comes only from the slab
-// geometry H / mu. A thick core reaches OD ~ 1.0 over the 1 km zenith slab
+// View extinction for the squared density field (per km).
+// A thick core reaches OD ~ 1.0 over the 1 km zenith slab
 // (T ~ 0.4) while thin edges stay under 0.1, so the thin-to-thick gradient
 // stays visible.
 // Scattering equals extinction, so the single-scattering albedo is exactly 1:
@@ -62,17 +59,18 @@ const HenyeyGreensteinTripleLobe CIRRUS_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.3, 0.7,  // forward mid
     0.2, 0.2); // backward
 const float NOISE2D_SIZE = 64.0;
-// Effective slab thickness: the shell is sampled once, so slanted view and
-// light paths integrate extinction over H / |cos| instead of a fixed step.
+// Effective slab thickness: the shell is sampled once, so slanted view paths
+// integrate extinction over H / |cos| instead of a fixed step.
 const float CIRRUS_LAYER_THICKNESS_KM = 1.0;
 // Grazing clamp for the slanted paths (sin of ~3.4 degrees): caps the path
 // where a ray skims the deck.
 const float CIRRUS_GRAZING_MIN_MU = 0.06;
-// Up-sun self-shadow march: uniform 0.4 km steps (under the 0.5 km detail
-// scale, ~7 taps per 2.75 km density blob), path capped at 8 steps. The slab
-// geometry H / mu sets the actual path within that cap.
-const float CIRRUS_LIGHT_STEP_KM = 0.2;
-const int CIRRUS_LIGHT_MAX_STEPS = 3;
+// Artistic source grading, independent of light-path optical depth: thin edges
+// keep their silver lining while dense bodies retain highlight headroom.
+const float CIRRUS_DIRECT_EDGE_GAIN = 0.9;
+const float CIRRUS_DIRECT_BODY_GAIN = 0.4;
+const float CIRRUS_BODY_DENSITY = 0.8;
+const float CIRRUS_SKY_LIGHT_WEIGHT = 0.4;
 
 // Reference cirrus shape algorithm. TIME -> frameTimeCounter; ps =
 // planet-centered position (km), horizontal zx plane only. Noise lattice
@@ -106,48 +104,13 @@ float CirrusCoverageDensity(vec3 ps) {
     return density * density;
 }
 
-// Rational attenuation for the light trace: soft-shouldered, taps never fully
-// occlude the receiver. The volumetric layer attenuates its light march on the
-// same 1 / (1 + tau) curve, so both layers shadow and add their extra orders
-// on one curve.
-float CirrusTransmittance(float optical_depth) {
-    return 1.0 / (1.0 + optical_depth);
-}
-
-// Optical depth from the receiver toward the light, unnormalized so each term
-// can apply its own curve.
-//
-// Self-shadowing for the direct lights: march a few density taps up-sun along
-// the shell tangent and shadow the receiver. A thin deck's light path grows as
-// the light grazes it (H / mu), so low light sweeps a long stretch of deck and
-// dense regions up-sun darken the sample. x^2 strata concentrate taps near the
-// receiver, matching the volumetric light march.
-float CirrusLightOpticalDepth(vec3 sample_position, vec3 shell_normal_world, vec3 light_dir, float light_mu, float jitter) {
-    float light_path_km = min(CIRRUS_LAYER_THICKNESS_KM / max(light_mu, CIRRUS_GRAZING_MIN_MU),
-        float(CIRRUS_LIGHT_MAX_STEPS) * CIRRUS_LIGHT_STEP_KM);
-    vec3 tangential = light_dir - light_mu * shell_normal_world;
-    float tangential_length = length(tangential);
-    vec3 tangent_dir = tangential_length > 1.0e-5 ? tangential / tangential_length : vec3(0.0);
-
-    // Uniform strata no wider than the fixed step; one shared jitter shifts
-    // the whole sequence per frame (STBN averages under TAA).
-    int step_count = int(ceil(light_path_km / CIRRUS_LIGHT_STEP_KM));
-    float stratum_width = light_path_km / float(step_count);
-    float optical_depth = 0.0;
-    for (int i = 0; i < step_count; i++) {
-        float sample_distance = (float(i) + jitter) * stratum_width;
-        optical_depth += CirrusCoverageDensity(sample_position + tangent_dir * sample_distance) * stratum_width;
-    }
-    return optical_depth * CIRRUS_EXTINCTION;
-}
-
 // Slab source at one shell crossing, which the caller turns into radiance with
 // the analytic (1 - T) / sigma_t integral.
 //
 // Single scattering keeps the triple-lobe HG phase. The orders past the first
 // are the isotropic geometric series owned by
 // /lib/cloud/multiple_scattering.glsl and they ride the very same light
-// colours, which already carry each light's 1 / (1 + tau) self shadow. Their
+// colors, which already carry the density-based artistic source gain. Their
 // weight therefore follows the sample's own extinction: a denser or thicker
 // deck returns more of them, and a thin edge returns almost none.
 //
@@ -168,9 +131,7 @@ vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, ve
     return in_scattering * ((1.0 - sample_transmittance) / max(sample_extinction, 1.0e-5));
 }
 
-// light_jitter is the STBN dither sampled by the pass main (its STBN slice
-// advances with the pass's frame clock).
-vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
+vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color,
     out vec3 cirrus_surface_pos, out vec3 cirrus_transmittance
 ) {
     vec3 ray_start = AtmosphereCameraPosition();
@@ -203,7 +164,6 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
 
     if (sample_density > 1.0e-5) {
         vec3 sun_dir = u_world_sun_dir;
-        vec3 moon_dir = -sun_dir;
 
         // Sun/moon sampled separately from the transmittance LUT (same
         // expression as volumetric.glsl). The moon fetch MUST stay after the
@@ -223,6 +183,8 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         float sun_cos = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
         vec3 sun_phase = vec3(PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE));
         vec3 moon_phase = vec3(PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE));
+        float direct_gain = mix(CIRRUS_DIRECT_EDGE_GAIN, CIRRUS_DIRECT_BODY_GAIN,
+            smoothstep(0.0, CIRRUS_BODY_DENSITY, sample_density));
 
         // Each light's LUT colour is only consumed behind its own visibility
         // factor (CirrusPhaseScattering multiplies it in), so a light fully
@@ -233,24 +195,19 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color, float light_jitter,
         if (sun_visible > 0.0) {
             sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
                 SampleTransmittance(utex_tslut, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
-            // Up-sun self shadowing of the direct lights; the moon march offsets
-            // the jitter by half a period to decorrelate its taps from the sun's.
-            vec3 sun_half_vec = normalize(sun_dir - view_dir);
-            sun_color *= CirrusTransmittance(CirrusLightOpticalDepth(
-                sample_position, shell_normal_world, sun_half_vec, sun_mu, light_jitter));
+            sun_color *= direct_gain;
         }
 
         vec3 moon_color = vec3(0.0);
         if (moon_visible > 0.0) {
             moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
                 SampleTransmittance(utex_tslut, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
-            vec3 moon_half_vec = normalize(moon_dir - view_dir);
-            moon_color *= CirrusTransmittance(CirrusLightOpticalDepth(
-                sample_position, shell_normal_world, moon_half_vec, moon_mu, light_jitter));
+            moon_color *= direct_gain;
         }
 
         // Sky ambient from the multiscatter LUT.
-        vec3 ambient_irradiance = GetAmbientColor(sample_position, u_world_sun_dir) * 3.0;
+        vec3 ambient_irradiance = GetAmbientColor(sample_position, u_world_sun_dir)
+            * (CLOUD_SKY_LIGHT_STRENGTH * CIRRUS_SKY_LIGHT_WEIGHT);
         // ambient_irradiance *= 0.8 + 0.2 * ci_transmittance;
 
         float sample_scattering = CIRRUS_SCATTERING * sample_density;

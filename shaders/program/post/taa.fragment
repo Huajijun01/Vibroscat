@@ -129,7 +129,9 @@ void main() {
     if (valid) {
         history = FastCatmullRom5Tap(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
 #ifdef TAAU_ACTIVE
-        if (any(isnan(history)) || any(isinf(history)) || all(equal(history, vec3(0.0)))) {
+        // An exact-zero history is a legitimately black pixel, not stale or
+        // corrupted data; only NaN/Inf invalidate it.
+        if (any(isnan(history)) || any(isinf(history))) {
             valid = false;
             history = current_color;
         }

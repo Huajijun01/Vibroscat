@@ -175,16 +175,20 @@ void main() {
     out_color = current_color;
 #elif defined(TAAU_ACTIVE) && TAAU_DEBUG == 2
     out_color = vec3(blend_weight, 1.0 - blend_weight, 0.0);
-#elif defined(TAAU_ACTIVE) && defined(MOTION_BLUR)
-    // Unsigned R11G11B10F: RG keep small magnitudes, B holds two sign bits.
-    int motion_sign = (velocity.x < 0.0 ? 1 : 0) + (velocity.y < 0.0 ? 2 : 0);
-    out_color = vec3(abs(velocity), float(motion_sign));
-#else
-#ifdef MOTION_BLUR
-    out_color = vec3(velocity * step(0.56, closest_to_camera.z), 0.0);
+#elif defined(MOTION_BLUR)
+    // Unsigned R11G11B10F cannot store negative values: RG keep the motion
+    // magnitude (small values stay precise near zero) and B holds two sign
+    // bits. Shared by the TAAU and non-TAAU paths so the motion-blur decode
+    // is uniform.
+    vec2 motion_velocity = velocity;
+#ifndef TAAU_ACTIVE
+    motion_velocity *= step(0.56, closest_to_camera.z);
+#endif
+    int motion_sign = (motion_velocity.x < 0.0 ? 1 : 0)
+        + (motion_velocity.y < 0.0 ? 2 : 0);
+    out_color = vec3(abs(motion_velocity), float(motion_sign));
 #else
     out_color = jittered_result;
-#endif
 #endif
 
     out_scene = jittered_result;

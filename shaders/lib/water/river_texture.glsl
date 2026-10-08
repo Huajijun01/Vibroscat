@@ -19,7 +19,7 @@ const vec2 RIVER_TEX_ROT[3] = vec2[](vec2(1.0, 0.0),
                                      vec2(0.70710678, -0.70710678));
 // full-range height swing (m): amp_j * WATER_RIVER_GAIN * (r - 0.5),
 // r = texture R in [0, 1].  Spectrum-exact falloff for the detail ladder.
-const float RIVER_TEX_AMP[3] = float[](0.58502, 0.14598, 0.03229);
+const float RIVER_TEX_AMP[3] = float[](0.58502, 0.14598, 0.03229 * 0.68);
 
 // POM chases these two layers (the largest-energy pair)
 const int RIVER_TEX_POM_LAYERS[2] = int[](0, 1);

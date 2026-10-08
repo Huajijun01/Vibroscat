@@ -21,6 +21,7 @@
 
 
 const float CIRRUS_HEIGHT_KM = 7.0;
+const float CIRRUS_RADIUS_KM = ATM_PLANET_R + CIRRUS_HEIGHT_KM;
 // View extinction for the squared density field (per km).
 // A thick core reaches OD ~ 1.0 over the 1 km zenith slab
 // (T ~ 0.4) while thin edges stay under 0.1, so the thin-to-thick gradient
@@ -95,8 +96,11 @@ float CirrusCoverageDensity(vec3 ps) {
 
     // return exp(smoothstep(0.0, 1.0, noise) * -5.0);
 
-    float small = 1.0 - texture(utex_cloud_distribution_tex, ps.xz * 0.06).x;
-    float large = Saturate((texture(utex_cloud_distribution_tex, ps.xz * 0.005).x - 0.15) / 0.85);
+    // A zero coarse field cannot survive subtracting the nonnegative detail.
+    // This raw atlas has one bilinear level; explicit LOD is valid in both stages.
+    float large = Saturate((textureLod(utex_cloud_distribution_tex, ps.xz * 0.005, 0.0).x - 0.15) / 0.85);
+    if (large == 0.0) return 0.0;
+    float small = 1.0 - textureLod(utex_cloud_distribution_tex, ps.xz * 0.06, 0.0).x;
     // Square the contrast-stretched ratio: the raw field saturates into
     // plateaus (0 or 0.5-0.9), and the square widens it into a ramp so the
     // optical depth reads as a gradual thin-to-thick transition.
@@ -116,126 +120,79 @@ float CirrusCoverageDensity(vec3 ps) {
 //
 // The ambient path is untouched by that replacement: sky light is not the
 // beam whose missing orders the series stands in for.
-vec3 CirrusPhaseScattering(vec3 sun_color, float sun_visible, vec3 sun_phase, vec3 moon_color, float moon_visible,
-    vec3 moon_phase, vec3 ambient_irradiance, float sample_scattering, float sample_extinction,
-    float sample_transmittance
+vec3 CirrusPhaseScattering(vec3 sample_position, vec3 view_dir, float sample_density,
+    float sample_extinction, float sample_transmittance
 ) {
+    vec3 sun_dir = u_world_sun_dir;
+    float sun_mu = dot(sample_position, sun_dir) / CIRRUS_RADIUS_KM;
+    float sun_visible = smoothstep(-0.05, 0.0, sun_mu);
+    float moon_visible = smoothstep(-0.05, 0.0, -sun_mu);
+    float sun_cos = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
+    float direct_gain = mix(CIRRUS_DIRECT_EDGE_GAIN, CIRRUS_DIRECT_BODY_GAIN,
+        smoothstep(0.0, CIRRUS_BODY_DENSITY, sample_density));
     float reference_optical_depth = sample_extinction * CIRRUS_MS_REFERENCE_LENGTH_KM;
     float isotropic_orders = CloudIsotropicOrders(
         reference_optical_depth, CIRRUS_MS_SAT_ALBEDO, CIRRUS_MS_ISOTROPIC);
-    vec3 in_scattering = sun_color * sun_visible * (sun_phase + isotropic_orders)
-        + moon_color * moon_visible * (moon_phase + isotropic_orders);
-    in_scattering += ambient_irradiance;
-    in_scattering *= sample_scattering;
-    // a - a*T = a*(1 - T): the quotient collapses to one scalar division.
-    return in_scattering * ((1.0 - sample_transmittance) / max(sample_extinction, 1.0e-5));
+    vec3 in_scattering = vec3(0.0);
+    if (sun_visible > 0.0) {
+        vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+            SampleTransmittance(utex_tslut, CIRRUS_RADIUS_KM, CIRRUS_RADIUS_KM * CIRRUS_RADIUS_KM, sun_mu)
+            * ATM_SOLAR)) * ATM_EXPOSURE;
+        float sun_phase = PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE);
+        in_scattering += sun_color * (direct_gain * sun_visible * (sun_phase + isotropic_orders));
+    }
+    // Keep the moon lookup after the sun branch: mirrored straight-line
+    // lookups of this LUT have been merged incorrectly by the driver.
+    if (moon_visible > 0.0) {
+        vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+            SampleTransmittance(utex_tslut, CIRRUS_RADIUS_KM, CIRRUS_RADIUS_KM * CIRRUS_RADIUS_KM, -sun_mu)
+            * ATM_MOON_IRR)) * ATM_EXPOSURE;
+        float moon_phase = PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE);
+        in_scattering += moon_color * (direct_gain * moon_visible * (moon_phase + isotropic_orders));
+    }
+    if (CLOUD_SKY_LIGHT_STRENGTH > 0.0) {
+        in_scattering += GetAmbientColorAt(CIRRUS_RADIUS_KM, sun_mu)
+            * (CLOUD_SKY_LIGHT_STRENGTH * CIRRUS_SKY_LIGHT_WEIGHT);
+    }
+    // sigma_s == sigma_t, and density > 1e-5 keeps sigma_t above its old
+    // denominator guard: sigma_s * (1 - T) / sigma_t reduces to (1 - T).
+    return in_scattering * (1.0 - sample_transmittance);
 }
 
 vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color,
-    out vec3 cirrus_surface_pos, out vec3 cirrus_transmittance
+    out vec3 cirrus_surface_pos, out float cirrus_entry_km, out vec3 cirrus_transmittance
 ) {
+    cirrus_surface_pos = vec3(0.0);
+    cirrus_entry_km = 1.0e9;
+    cirrus_transmittance = vec3(1.0);
     vec3 ray_start = AtmosphereCameraPosition();
-    float ci_height = ATM_PLANET_R + CIRRUS_HEIGHT_KM;
-    float ci_height_diff = ci_height - length(ray_start);
+    float ci_height_diff = CIRRUS_RADIUS_KM - abs(ray_start.y);
+    if (sign(ci_height_diff) != sign(view_dir.y)) return sky_color;
 
     float t_near;
     float t_far;
-    if (!RayIntersectSphere(ray_start, view_dir, ci_height, t_near, t_far)) {
-        cirrus_surface_pos = vec3(0.0);
-        cirrus_transmittance = vec3(1.0);
-        return sky_color;
-    }
+    if (!RayIntersectSphere(ray_start, view_dir, CIRRUS_RADIUS_KM, t_near, t_far)) return sky_color;
     float ci_offset = t_near > 0.0 ? t_near : t_far;
-    if (sign(ci_height_diff) != sign(view_dir.y) || ci_offset <= 0.0) {
-        cirrus_surface_pos = vec3(0.0);
-        cirrus_transmittance = vec3(1.0);
-        return sky_color;
-    }
+    if (ci_offset <= 0.0) return sky_color;
 
     vec3 sample_position = ray_start + view_dir * ci_offset;
-    cirrus_surface_pos = sample_position;
-    cirrus_transmittance = vec3(1.0);
-    float height = length(sample_position);
-    vec3 shell_normal_world = sample_position / height;
     float sample_density = CirrusCoverageDensity(sample_position);
+    if (sample_density <= 1.0e-5) return sky_color;
 
-    vec3 ci_in_scattering = vec3(0.0);
-    vec3 ci_transmittance = vec3(1.0);
+    float sample_extinction = CIRRUS_EXTINCTION * sample_density;
+    // For a normalized sphere ray, |dot(view, normal)| = (t_far-t_near)/(2R).
+    float view_mu = (t_far - t_near) * (0.5 / CIRRUS_RADIUS_KM);
+    float view_path_km = min(ci_offset,
+        CIRRUS_LAYER_THICKNESS_KM / max(view_mu, CIRRUS_GRAZING_MIN_MU));
+    float sample_transmittance = exp(-sample_extinction * view_path_km);
+    if (sample_transmittance == 1.0) return sky_color;
 
-    if (sample_density > 1.0e-5) {
-        vec3 sun_dir = u_world_sun_dir;
-
-        // Sun/moon sampled separately from the transmittance LUT (same
-        // expression as volumetric.glsl). The moon fetch MUST stay after the
-        // sun branch: adjacent straight-line fetches of this sampler with
-        // mirrored mu get merged by the driver (the LUT uv shares
-        // sqrt(max(r^2 (mu^2 - 1) + R^2, 0))), and the moon then returns the
-        // sun's transmittance — exactly zero at night.
-        float sun_mu = dot(sample_position, sun_dir) / height;
-        float moon_mu = -sun_mu;
-
-        // A light below the local horizon is occluded by the planet.
-        float sun_visible = smoothstep(-0.05, 0.0, sun_mu);
-        float moon_visible = smoothstep(-0.05, 0.0, moon_mu);
-
-        // moon_dir is the exact IEEE negation of sun_dir, so the moon
-        // cosine is the exact negation of the sun's; clamp commutes with it.
-        float sun_cos = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
-        vec3 sun_phase = vec3(PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE));
-        vec3 moon_phase = vec3(PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE));
-        float direct_gain = mix(CIRRUS_DIRECT_EDGE_GAIN, CIRRUS_DIRECT_BODY_GAIN,
-            smoothstep(0.0, CIRRUS_BODY_DENSITY, sample_density));
-
-        // Each light's LUT colour is only consumed behind its own visibility
-        // factor (CirrusPhaseScattering multiplies it in), so a light fully
-        // below the horizon skips the transmittance fetch and both colour
-        // matrices; the factor it would multiply into is exactly zero.
-        // The moon fetch MUST stay after the sun branch (driver bug above).
-        vec3 sun_color = vec3(0.0);
-        if (sun_visible > 0.0) {
-            sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-                SampleTransmittance(utex_tslut, height, height * height, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
-            sun_color *= direct_gain;
-        }
-
-        vec3 moon_color = vec3(0.0);
-        if (moon_visible > 0.0) {
-            moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-                SampleTransmittance(utex_tslut, height, height * height, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
-            moon_color *= direct_gain;
-        }
-
-        // Sky ambient from the multiscatter LUT.
-        vec3 ambient_irradiance = GetAmbientColor(sample_position, u_world_sun_dir)
-            * (CLOUD_SKY_LIGHT_STRENGTH * CIRRUS_SKY_LIGHT_WEIGHT);
-        // ambient_irradiance *= 0.8 + 0.2 * ci_transmittance;
-
-        float sample_scattering = CIRRUS_SCATTERING * sample_density;
-        float sample_extinction = CIRRUS_EXTINCTION * sample_density;
-        // Slanted path through the effective slab: optical depth grows where
-        // the view grazes the deck, so the horizon reads thick while the
-        // zenith keeps the overhead thickness (capped by the true distance).
-        float view_path_km = min(ci_offset,
-            CIRRUS_LAYER_THICKNESS_KM / max(abs(dot(view_dir, shell_normal_world)), CIRRUS_GRAZING_MIN_MU));
-        float sample_optical_depth = sample_extinction * view_path_km;
-        float sample_transmittance = exp(-sample_optical_depth);
-
-        ci_in_scattering = CirrusPhaseScattering(sun_color, sun_visible, sun_phase, moon_color, moon_visible, moon_phase,
-                                           ambient_irradiance, sample_scattering, sample_extinction, sample_transmittance);
-        ci_transmittance = vec3(sample_transmittance);
-        cirrus_transmittance = ci_transmittance;
-    }
-
-    // if (max(ci_in_scattering, ci_transmittance).r < 1.0e-5) {
-    //     return sky_color;
-    // }
-
-    // Single-layer composite. The former multi-layer scaffolding multiplied
-    // the fresh terms by the initial zero/one transmittances; IEEE forbids
-    // folding 0 * x, so write the degenerate products out. ci_transmittance
-    // is exp(-od) and finite positive, so both removed products were
-    // bit-identical to their operands.
-    return sky_color * ci_transmittance + ci_in_scattering;
+    cirrus_surface_pos = sample_position;
+    cirrus_entry_km = ci_offset;
+    cirrus_transmittance = vec3(sample_transmittance);
+    vec3 ci_in_scattering = CirrusPhaseScattering(sample_position, view_dir,
+        sample_density, sample_extinction, sample_transmittance);
+    return sky_color * sample_transmittance + ci_in_scattering;
 }
 
 #endif // LIB_CLOUD_CIRRUS_GLSL

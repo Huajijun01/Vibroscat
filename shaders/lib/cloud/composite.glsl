@@ -25,40 +25,22 @@ const float CLOUD_LAYER_OPAQUE_TRANSMITTANCE = 1.0e-4;
 //   ground hit:   T = T_lut(r_d, -mu_d) / T_lut(r, -mu)   (reciprocity)
 // The baked LUT stores the full chord for non-ground directions (incl.
 // slightly negative cosines), so the first branch is valid for dir.y < 0.
-vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
-    if (any(notEqual(surface_pos, vec3(0.0)))) {
-        vec3 camera_pos = AtmosphereCameraPosition();
-        // The atmosphere frame pins the camera to +y at R + altitude, so the
-        // spherical coordinates need no length or dot round trip.
-        float r = ATM_PLANET_R + u_cam_altitude;
-        float r2 = r * r;
-        float mu = view_dir.y;
-        // surface_pos = camera + view_dir * t on a unit view_dir, so the
-        // law-of-cosines chord sqrt(d^2 + 2 r mu d + r^2) is just
-        // |surface_pos|, and (r*mu + d) is dot(surface_pos, view_dir). Same
-        // real numbers, no camera-relative round trip, one sqrt fewer.
-        float r_d = length(surface_pos);
-        float r_d2 = r_d * r_d;
-        float mu_d = dot(surface_pos, view_dir) / r_d;
-
-        vec4 numerator;
-        vec4 denominator;
-        if (PlanetHorizonOccluded(camera_pos, r2, view_dir, ATM_PLANET_R2)) {
-            // The ray hits the ground: upward LUT samples via reciprocity.
-            numerator = SampleTransmittance(utex_tslut, r_d, r_d2, -mu_d);
-            denominator = SampleTransmittance(utex_tslut, r, r2, -mu);
-        } else {
-            // Upward ray exiting through the top, or a shallow downward ray
-            // that misses the ground: both LUT cosines are valid.
-            numerator = SampleTransmittance(utex_tslut, r, r2, mu);
-            denominator = SampleTransmittance(utex_tslut, r_d, r_d2, mu_d);
-        }
-        // LUT has exact zeros near the horizon: guard the denominator (UE
-        // divides unguarded).
-        vec4 segment_transmittance = min(numerator / max(denominator, vec4(1.0e-5)), vec4(1.0));
-        return TransmittanceToLinearSRGB(segment_transmittance, vec4(1.0));
+vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float surface_r,
+    bool ground_hit, vec4 camera_transmittance
+) {
+    float surface_mu = dot(surface_pos, view_dir) / surface_r;
+    vec4 numerator;
+    vec4 denominator;
+    if (ground_hit) {
+        numerator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, -surface_mu);
+        denominator = camera_transmittance;
+    } else {
+        numerator = camera_transmittance;
+        denominator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, surface_mu);
     }
-    return vec3(1.0);
+    // The caller shares the camera lookup and horizon test across both layers.
+    vec4 segment_transmittance = min(numerator / max(denominator, vec4(1.0e-5)), vec4(1.0));
+    return clamp(SpectralFractionToLinearSRGB(segment_transmittance), vec3(0.0), vec3(1.0));
 }
 
 // Re-light unlit cloud radiance with the current sun/moon; the consumer
@@ -66,10 +48,9 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir) {
 // solar->D65 white-balanced conversion (same pair as the sky LUT), so cloud
 // and sky hues stay locked as transmittance changes through the day.
 // const float MOON_DARKEN = 0.4;
-vec3 RelightClouds(vec3 cloud_data, vec3 surface_position) {
+vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
     vec3 sun_dir = u_world_sun_dir;
     vec3 moon_dir = -sun_dir;
-    float surface_r = length(surface_position);
     float surface_r2 = surface_r * surface_r;
     float sun_mu = dot(surface_position, sun_dir) / surface_r;
     // moon_dir is the exact IEEE negation of sun_dir, so the second dot is
@@ -105,21 +86,18 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 volumetric_radiance,   // packed march output: x = sun, y = moon, z = T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
-    out vec3 cloud_transmittance // combined REAL transmittance of the cloud layers
+    out vec3 cloud_transmittance, // combined REAL transmittance of the cloud layers
+    inout vec4 view_transmittance,
+    inout bool view_transmittance_cached
 ) {
-    // Volumetric layer composite over pure sky.
     bool volumetric_hit = volumetric_radiance.z < 0.99999;
-    vec3 volumetric_scattering = vec3(0.0);
-    float volumetric_transmittance = 1.0;
-    if (volumetric_hit) {
-        volumetric_scattering = RelightClouds(volumetric_radiance, volumetric_surface_pos);
-        volumetric_transmittance = volumetric_radiance.z;
-    }
+    float volumetric_transmittance = volumetric_hit ? volumetric_radiance.z : 1.0;
 
     // Cirrus layer composite over pure sky. CIRRUS off: neutral layer — the
     // composite degenerates to the sky, the transmittance to 1, and the
     // surface position to the no-hit sentinel.
     vec3 cirrus_surface_pos = vec3(0.0);
+    float cirrus_entry_km = 1.0e9;
     vec3 cirrus_transmittance = vec3(1.0);
     vec3 cirrus_composite = sky_color;
     bool cirrus_hit = false;
@@ -130,10 +108,21 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
         && u_cam_altitude < CIRRUS_HEIGHT_KM && CLOUD_TOP_ALTITUDE < CIRRUS_HEIGHT_KM;
     if (!cirrus_occluded) {
         cirrus_composite = RenderCirrusClouds(view_dir, sky_color,
-            cirrus_surface_pos, cirrus_transmittance);
+            cirrus_surface_pos, cirrus_entry_km, cirrus_transmittance);
         cirrus_hit = any(lessThan(cirrus_transmittance, vec3(0.99999)));
     }
 #endif
+    bool cirrus_present = cirrus_entry_km < 1.0e9;
+    cloud_transmittance = vec3(volumetric_transmittance) * cirrus_transmittance;
+    if (!volumetric_hit && !cirrus_present) return sky_color;
+
+    float volumetric_surface_r = 0.0;
+    vec3 volumetric_scattering = vec3(0.0);
+    if (volumetric_hit) {
+        volumetric_surface_r = length(volumetric_surface_pos);
+        volumetric_scattering = RelightClouds(volumetric_radiance,
+            volumetric_surface_pos, volumetric_surface_r);
+    }
 
     // Transmitted Milky Way glow, evaluated once and shared by both layers:
     // it is a function of the view ray and the background map alone, so both
@@ -144,33 +133,55 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     // keeps its transmittance at 1 and adds exact zero. vec4(1.0)
     // transmittance: the fades below carry camera-to-cloud propagation for
     // this term as for the rest of the composite.
-    if (volumetric_hit || cirrus_hit) {
+    bool volumetric_glow = volumetric_hit && CLOUD_MILKYWAY_TRANSMISSION > 0.0;
+    bool cirrus_glow = cirrus_hit && CIRRUS_MILKYWAY_TRANSMISSION > 0.0;
+    if (u_world_sun_dir.y < STAR_FADE_SUNSET && (volumetric_glow || cirrus_glow)) {
         vec3 milkyway_glow = RenderMilkyWayGlow(view_dir, vec4(1.0),
             CelestialContextFor(view_dir));
-        volumetric_scattering += milkyway_glow
-            * ((1.0 - volumetric_transmittance) * CLOUD_MILKYWAY_TRANSMISSION);
-        cirrus_composite += milkyway_glow
-            * ((1.0 - cirrus_transmittance) * CIRRUS_MILKYWAY_TRANSMISSION);
+        if (volumetric_glow) {
+            volumetric_scattering += milkyway_glow
+                * ((1.0 - volumetric_transmittance) * CLOUD_MILKYWAY_TRANSMISSION);
+        }
+        if (cirrus_glow) {
+            cirrus_composite += milkyway_glow
+                * ((1.0 - cirrus_transmittance) * CIRRUS_MILKYWAY_TRANSMISSION);
+        }
     }
-    vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
+
+    float camera_r = ATM_PLANET_R + u_cam_altitude;
+    bool ground_hit = PlanetHorizonOccluded(AtmosphereCameraPosition(),
+        camera_r * camera_r, view_dir, ATM_PLANET_R2);
+    vec4 camera_transmittance = view_transmittance;
+    if (ground_hit || !view_transmittance_cached) {
+        camera_transmittance = SampleTransmittance(utex_tslut,
+            camera_r, camera_r * camera_r, ground_hit ? -view_dir.y : view_dir.y);
+    }
+    view_transmittance = camera_transmittance;
+    // Ground-hit paths use the reciprocal direction, unsuitable for celestial light.
+    view_transmittance_cached = !ground_hit;
 
     // Atmospheric fades blend each composite toward the sky but must NOT
     // touch the true transmittance (a faded far cloud would otherwise let
     // the layer behind show through).
-    vec3 volumetric_fade = AtmosphereTransmittanceToSurface(volumetric_surface_pos, view_dir);
-    vec3 cirrus_fade = AtmosphereTransmittanceToSurface(cirrus_surface_pos, view_dir);
-    vec3 volumetric_faded = mix(sky_color, volumetric_composite, volumetric_fade);
-    vec3 cirrus_faded = mix(sky_color, cirrus_composite, cirrus_fade);
-
-    // Celestial discs attenuated by the combined REAL transmittance of every
-    // cloud layer in front.
-    cloud_transmittance = vec3(volumetric_transmittance) * cirrus_transmittance;
+    vec3 volumetric_faded = sky_color;
+    if (volumetric_hit) {
+        vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
+        vec3 volumetric_fade = AtmosphereTransmittanceToSurface(volumetric_surface_pos,
+            view_dir, volumetric_surface_r, ground_hit, camera_transmittance);
+        volumetric_faded = mix(sky_color, volumetric_composite, volumetric_fade);
+    }
+    vec3 cirrus_faded = sky_color;
+    if (cirrus_present) {
+        vec3 cirrus_fade = AtmosphereTransmittanceToSurface(cirrus_surface_pos,
+            view_dir, CIRRUS_RADIUS_KM, ground_hit, camera_transmittance);
+        cirrus_faded = mix(sky_color, cirrus_composite, cirrus_fade);
+    }
+    if (!cirrus_present) return volumetric_faded;
+    if (!volumetric_hit) return cirrus_faded;
 
     // Depth sort by ray entry: nearer layer drawn last (from the ground the
     // volumetric layer occludes cirrus behind; from above the order flips).
-    float cirrus_entry_km = any(notEqual(cirrus_surface_pos, vec3(0.0)))
-        ? length(cirrus_surface_pos - AtmosphereCameraPosition()) : 1.0e9;
-    bool volumetric_in_front = volumetric_transmittance < 0.99999 && volumetric_entry_km < cirrus_entry_km;
+    bool volumetric_in_front = volumetric_entry_km < cirrus_entry_km;
     if (volumetric_in_front) {
         return volumetric_faded + (cirrus_faded - sky_color) * volumetric_transmittance;
     }

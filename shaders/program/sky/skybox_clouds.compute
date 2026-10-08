@@ -80,13 +80,19 @@ void main() {
         // attenuated radiance the main star render draws, so reflections and
         // the SH probe share the night sky the pixels see. RenderCloudLayers
         // below attenuates it behind clouds through the real transmittance.
-        vec3 milkyway_camera_pos = AtmosphereCameraPosition();
-        float milkyway_camera_r = length(milkyway_camera_pos);
-        vec4 milkyway_transmittance = SampleTransmittance(utex_tslut,
-            milkyway_camera_r, milkyway_camera_r * milkyway_camera_r,
-            dot(milkyway_camera_pos, view_dir) / milkyway_camera_r);
-        sky_color += RenderMilkyWayGlow(view_dir, milkyway_transmittance,
-            CelestialContextFor(view_dir));
+        vec4 cloud_view_transmittance = vec4(1.0);
+        bool cloud_view_transmittance_cached = false;
+        if (sun_dir.y < STAR_FADE_SUNSET) {
+            CelestialContext celestial_context = CelestialContextFor(view_dir);
+            if (!celestial_context.horizon_occluded) {
+                float camera_r = ATM_PLANET_R + u_cam_altitude;
+                cloud_view_transmittance = SampleTransmittance(utex_tslut,
+                    camera_r, camera_r * camera_r, view_dir.y);
+                cloud_view_transmittance_cached = true;
+                sky_color += RenderMilkyWayGlow(view_dir, cloud_view_transmittance,
+                    celestial_context);
+            }
+        }
 
         vec3 cloud_data = vec3(0.0, 0.0, 1.0);
         vec3 surface_position = vec3(0.0);
@@ -126,7 +132,9 @@ void main() {
             cloud_data,
             surface_position,
             cloud_entry,
-            cloud_transmittance
+            cloud_transmittance,
+            cloud_view_transmittance,
+            cloud_view_transmittance_cached
         );
 #endif
         // Fixed-ratio history blend; the first write (fresh start/reload)

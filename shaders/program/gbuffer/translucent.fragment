@@ -232,18 +232,26 @@ void main() {
     const float water_f0 = 0.02;
     const float sun_roughness = 0.02;
 
-    // Sun/moon glint: Decima spherical area light GGX plus exact
-    // dielectric Fresnel (f0 -> IOR). The disc radii come from
-    // contract/settings.glsl (same constants as the rendered sky discs); the
-    // active light is the sun when it is above the horizon (world light
-    // direction y > 0), otherwise the moon.
+    // Sun/moon glint: Decima spherical area light GGX plus Schlick Fresnel.
+    // Schlick meets the exact unpolarized dielectric solve at normal incidence
+    // and at grazing, for one Pow5 instead of two sqrts and three divisions.
+    // Its deviation peaks at 0.06 absolute reflectance near cos_theta 0.1 (a
+    // nearly grazing reflection) and stays under 1% relative above cos_theta
+    // 0.93, which covers the ordinary glint geometry; the highlight is the only
+    // consumer, so the exact solve does not earn its cost here. The disc radii
+    // come from contract/settings.glsl (same constants as the rendered sky
+    // discs); the active light is the sun when it is above the horizon (world
+    // light direction y > 0), otherwise the moon.
     float light_radius = u_world_light_dir.y > 0.0 ? SUN_DISC_RADIUS : MOON_DISC_RADIUS;
 
     float sun_f0 = v_id == 1 ? water_f0 : f0;
-    vec3 sun_fresnel = FresnelDielectric(ldoth, sun_f0);
+    vec3 sun_fresnel = FresnelSchlick(ldoth, vec3(sun_f0));
 
     vec3 sun_specular = vec3(0.0);
-    if (ndotl > 1e-4 && sun_fresnel.r >= 1e-2) {
+    // Fresnel reflectance is at least f0 (0.02 water, 0.1 glass) at every
+    // angle in both models, so a positive N.L is the only gate the area-light
+    // math needs.
+    if (ndotl > 1e-4) {
         float ndoth2 = GetNdotHSquared(ndotl, ndotv, ldotv, light_radius);
         sun_specular = DistributionGGXNdotH2(ndoth2, sun_roughness)
                * VisibilitySmithGGXCorrelated(ndotv, ndotl, sun_roughness)

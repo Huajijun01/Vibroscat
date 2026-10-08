@@ -215,10 +215,13 @@ void main() {
     vec3 light_direction = (u_world_light_dir);
     vec3 half_vector = view_to_eye + light_direction;
     vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
-    float ndotl = Max0(dot(normal_world, light_direction));
-    float ndotv = Max0(dot(normal_world, view_to_eye));
-    float ndoth = Max0(dot(normal_world, half_direction));
-    float vdoth = Max0(dot(view_to_eye, half_direction));
+    // N, V and L are unit and H is their guarded unit sum, so each cosine is
+    // at most 1: the [0,1] clamp is exact here, and saturate() folds into the
+    // producing dot as .SAT where max(x, 0.0) costs a separate instruction.
+    float ndotl = saturate(dot(normal_world, light_direction));
+    float ndotv = saturate(dot(normal_world, view_to_eye));
+    float ndoth = saturate(dot(normal_world, half_direction));
+    float vdoth = saturate(dot(view_to_eye, half_direction));
     // Unit view and light directions with H = normalize(V+L) give V·H == L·H,
     // so both half-vector cosines share the one dot above.
     float ldoth = vdoth;
@@ -331,13 +334,13 @@ void main() {
         float ldotv = dot(light_direction, view_to_eye);
         float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
         float average_albedo = Luminance(albedo);
-        float absorption = (1.0 - 0.75 * Saturate(average_albedo))
+        float absorption = (1.0 - 0.75 * saturate(average_albedo))
             * SHADOW_SSS_DENSITY / sss_amount;
         float transmission = exp(-absorption * sss_thickness_world);
         // Clamp the material budget first so ENERGY remains proportional
         // throughout 0..1, including when the legacy SCALE exceeds one.
-        float material_share = Saturate(sss_amount * SHADOW_SSS_SCALE);
-        float sss_energy = material_share * Saturate(SHADOW_SSS_ENERGY);
+        float material_share = saturate(sss_amount * SHADOW_SSS_SCALE);
+        float sss_energy = material_share * saturate(SHADOW_SSS_ENERGY);
         // The shared diffuse component from the direct BRDF above; the
         // multiplication order keeps this identical to the previous inline
         // recompute (albedo * (1 - fresnel) * weight * Burley * ndotl * shadow).
@@ -349,7 +352,7 @@ void main() {
         // return it: phase * PI matches the (1/PI) diffuse response, so
         // weak-phase directions keep plain diffuse shading and back-lit
         // directions pay the full ENERGY share.
-        float removal_share = sss_energy * Saturate(sss_phase * PI);
+        float removal_share = sss_energy * saturate(sss_phase * PI);
         direct_visibility = max(direct_visibility - direct_diffuse * removal_share,
             vec3(0.0));
     }
@@ -401,18 +404,21 @@ void main() {
     float ssr_weight = 1.0 - sh_weight;
 
     // Same geometric term as ndotv above; nothing rewrites `normal` between.
-    float sh_reflection_ndotv = ndotv;
+    // specular_occlusion is hoisted ahead of the reflection branches because
+    // both of them consume it.
     float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
+    float specular_occlusion = SpecularOcclusion(
+        ndotv, mean_ao, material.perceptual_roughness);
     vec3 sh_specular = vec3(0.0);
     bool need_sh = true;
 #ifdef OPAQUE_SSR
     need_sh = ssr_weight < 1.0;
 #endif
-    float specular_occlusion = SpecularOcclusion(
-        sh_reflection_ndotv, mean_ao, material.perceptual_roughness);
     if (need_sh) {
         vec3 sh_reflection_direction = reflect(-view_to_eye, normal_world);
-        float sh_reflection_ndotl = Max0(
+        // reflect() of two unit vectors stays unit, so the [0,1] clamp is
+        // exact and folds into the dot as .SAT.
+        float sh_reflection_ndotl = saturate(
             dot(normal_world, sh_reflection_direction));
         // SH-only reflections are a low-cost environment fallback. Gate them
         // by sky light visibility and AO so occluded surfaces do not retain a
@@ -423,10 +429,10 @@ void main() {
         // Broad SH reflections retain Fresnel lift at grazing angles. The
         // environment has already been roughness-convolved in SH space.
         vec3 sh_fresnel = FresnelSchlick(
-            sh_reflection_ndotv, material.f0);
+            ndotv, material.f0);
         sh_specular = sh_environment * sh_fresnel
             * VisibleGGXVisibility(
-                sh_reflection_ndotv,
+                ndotv,
                 sh_reflection_ndotl,
                 material.alpha);
         sh_specular *= specular_occlusion;
@@ -440,13 +446,14 @@ void main() {
             normal_world, view_to_eye, material.perceptual_roughness,
             OpaqueSSRSTBNPair(tx), ssr_reflection_half);
         vec3 ssr_incident_radiance = texelFetch(colortex3, tx, 0).rgb;
-        float ssr_reflection_ndotv = sh_reflection_ndotv;
-        float ssr_reflection_ndotl = Max0(
+        // The orthonormal-frame GGX sample and its reflect() both stay unit,
+        // so both clamps are exact and fold into their dots as .SAT.
+        float ssr_reflection_ndotl = saturate(
             dot(normal_world, ssr_reflection_direction));
         vec3 ssr_specular = ssr_incident_radiance * VisibleGGXThroughput(
             material.f0,
-            Max0(dot(view_to_eye, ssr_reflection_half)),
-            ssr_reflection_ndotv,
+            saturate(dot(view_to_eye, ssr_reflection_half)),
+            ndotv,
             ssr_reflection_ndotl,
             material.alpha);
         ssr_specular *= specular_occlusion;

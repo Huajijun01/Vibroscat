@@ -72,7 +72,7 @@ vec2 OceanPOMOffset(vec2 xz, vec3 view_world, float time) {
         if (height_prev <= depth_prev && height > pom_depth) {
             float height_diff_prev = height_prev - depth_prev;
             float height_diff_curr = height - pom_depth;
-            float t = Saturate(height_diff_prev / (height_diff_prev - height_diff_curr));
+            float t = saturate(height_diff_prev / (height_diff_prev - height_diff_curr));
             return xz + dir * mix(depth_prev, pom_depth, t);
         }
         depth_prev = pom_depth;
@@ -118,7 +118,7 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
             }
             float f_a = height_a - depth_a;
             float f_b = height_b - depth_b;
-            float t = Saturate(f_a / (f_a - f_b));
+            float t = saturate(f_a / (f_a - f_b));
             return xz + dir * mix(depth_a, depth_b, t);
         }
         depth_a = depth_b;

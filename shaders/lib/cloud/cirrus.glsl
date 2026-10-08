@@ -98,13 +98,13 @@ float CirrusCoverageDensity(vec3 ps) {
 
     // A zero coarse field cannot survive subtracting the nonnegative detail.
     // This raw atlas has one bilinear level; explicit LOD is valid in both stages.
-    float large = Saturate((textureLod(utex_cloud_distribution_tex, ps.xz * 0.005, 0.0).x - 0.15) / 0.85);
+    float large = saturate((textureLod(utex_cloud_distribution_tex, ps.xz * 0.005, 0.0).x - 0.15) / 0.85);
     if (large == 0.0) return 0.0;
     float small = 1.0 - textureLod(utex_cloud_distribution_tex, ps.xz * 0.06, 0.0).x;
     // Square the contrast-stretched ratio: the raw field saturates into
     // plateaus (0 or 0.5-0.9), and the square widens it into a ramp so the
     // optical depth reads as a gradual thin-to-thick transition.
-    float density = Saturate((large - small) / (1.0 - small * 0.8));
+    float density = saturate((large - small) / (1.0 - small * 0.8));
     return density * density;
 }
 

@@ -141,7 +141,7 @@ void main() {
         // roughly twice the distance the raw (1 - depth) mapping reached),
         // A = NaN marks "not cloud" (boundary-crossing taps reject the
         // history). Stays linear; deferred2 applies multibounce + strength.
-        out_history = vec4(Saturate(accumulated), next_age, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
+        out_history = vec4(saturate(accumulated), next_age, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
     }
 #else
     {
@@ -149,7 +149,7 @@ void main() {
         // marks "not cloud". B keeps the shared encoded-depth contract so a
         // mid-session switch to the temporal path reads consistent history.
         float fresh_ao = texture(usam_ao, SceneImageUV(uv, vec2(textureSize(usam_ao, 0)), 0.5)).r;
-        out_history = vec4(Saturate(fresh_ao), 1.0, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
+        out_history = vec4(saturate(fresh_ao), 1.0, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
     }
 #endif
 #else

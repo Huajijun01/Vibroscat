@@ -197,10 +197,13 @@ void EvaluateBRDF(vec3 albedo, vec4 spec_tex, vec3 normal_view, vec3 view_direct
     Material mat = MaterialDefaults(spec_tex);
 
     vec3 half_direction = normalize(view_direction + light_direction);
-    float ndotv = Max0(dot(normal_view, view_direction));
-    float ndotl = Max0(dot(normal_view, light_direction));
-    float ndoth = Max0(dot(normal_view, half_direction));
-    float vdoth = Max0(dot(view_direction, half_direction));
+    // N, V and L reach here unit and H is their normalized sum, so each cosine
+    // is at most 1: the [0,1] clamp is exact, and saturate() folds into the
+    // producing dot as .SAT where max(x, 0.0) costs a separate instruction.
+    float ndotv = saturate(dot(normal_view, view_direction));
+    float ndotl = saturate(dot(normal_view, light_direction));
+    float ndoth = saturate(dot(normal_view, half_direction));
+    float vdoth = saturate(dot(view_direction, half_direction));
     // V and L are unit and H is their normalized sum, so V.H and L.H both
     // equal (1 + V.L)/|V + L|; callers pass normalized directions.
     float ldoth = vdoth;

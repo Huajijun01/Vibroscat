@@ -138,8 +138,8 @@ bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 pre
 }
 
 float RemapCloudErosion(float density, float threshold) {
-    threshold = Saturate(threshold);
-    return Saturate((density - threshold) / max(1.0 - threshold, 1.0e-5));
+    threshold = saturate(threshold);
+    return saturate((density - threshold) / max(1.0 - threshold, 1.0e-5));
 }
 
 // Distribution-space UV of a world-space XZ position. The first term is the
@@ -239,7 +239,7 @@ struct CloudHeightProfile {
 
 CloudHeightProfile CloudHeightProfileFor(float altitude_km) {
     CloudHeightProfile profile;
-    profile.height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
+    profile.height_fraction = saturate((altitude_km - CLOUD_BASE_ALTITUDE)
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
     profile.bottom_ramp = smoothstep(0.0, 0.2, profile.height_fraction);
     profile.fine_exposure = smoothstep(0.0, 0.5, profile.height_fraction) * 0.6 + 0.4;
@@ -253,7 +253,7 @@ CloudHeightProfile CloudHeightProfileFor(float altitude_km) {
 float SampleCloudDensity(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
 ) {
     vec2 density_world_km = atmosphere_position.xz + frame.world_km_offset;
-    float distribution_density = Saturate((
+    float distribution_density = saturate((
         texture(utex_cloud_distribution_tex,
             CloudDistributionUv(density_world_km, frame.distribution_offset)).r
         - frame.distribution_floor) * frame.inv_coverage);
@@ -285,7 +285,7 @@ float SampleCloudDensity(vec3 atmosphere_position, CloudLayerFrame frame, CloudH
 // saves one 3D read per light step.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
 ) {
-    float distribution_density = Saturate((
+    float distribution_density = saturate((
         texture(utex_cloud_distribution_tex,
             CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset,
                 frame.distribution_offset)).r

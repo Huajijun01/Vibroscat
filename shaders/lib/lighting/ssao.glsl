@@ -111,7 +111,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         float distance_falloff = 1.0 - smoothstep(0.0, SSAO_RADIUS, offset_len);
         occlusion += cos_theta * distance_falloff;
     }
-    return Saturate(1.0 - occlusion / float(SSAO_SAMPLES));
+    return saturate(1.0 - occlusion / float(SSAO_SAMPLES));
 }
 
 #endif // LIB_LIGHTING_SSAO_GLSL

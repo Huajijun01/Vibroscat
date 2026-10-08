@@ -169,7 +169,7 @@ void main() {
             vec3 waves_delta_view = (gbufferModelView * vec4(waves_delta, 0.0)).xyz;
 
             refract_coord = -waves_delta_view.xy;
-            refract_coord *= Saturate(length(view_pos1) - view_len0) * 0.5 / (view_len0 + 0.0001);
+            refract_coord *= saturate(length(view_pos1) - view_len0) * 0.5 / (view_len0 + 0.0001);
             refract_coord += texcoord;
 
             comp_color = texture(colortex0, SceneTextureUV(refract_coord)).rgb;

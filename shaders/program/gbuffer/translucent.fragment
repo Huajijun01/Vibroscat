@@ -218,8 +218,8 @@ void main() {
     vec3 surface_normal_view = current_normal;
     vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
 
-    float ndotv = Saturate(dot(surface_normal_view, view_to_eye));
-    float ndotl = Saturate(dot(surface_normal_view, light_direction));
+    float ndotv = saturate(dot(surface_normal_view, view_to_eye));
+    float ndotl = saturate(dot(surface_normal_view, light_direction));
     float ldotv = dot(light_direction, view_to_eye);
     // For unit V and L, H = normalize(V+L) gives L·H == sqrt((1 + L·V)/2).
     // The half vector has no other consumer on this path, so build the
@@ -281,8 +281,8 @@ void main() {
     // Surface reflections stay at full strength (not modulated by the layer
     // alpha); only the scattered/transmitted terms are alpha-modulated - the
     // blend pass adds them on top of the transmitted background.
-    vec3 comp_light = sun_reflect + sky_reflect + env_reflect * Saturate(out_alpha);
-    out_layer_color = vec4(comp_light, Saturate(out_alpha));
+    vec3 comp_light = sun_reflect + sky_reflect + env_reflect * saturate(out_alpha);
+    out_layer_color = vec4(comp_light, saturate(out_alpha));
 
     // colortex2 (blend off, cleared by deferred2): RGB = wave perturbation
     // relative to the flat face normal (xzy-swizzled, 0.25-scaled),

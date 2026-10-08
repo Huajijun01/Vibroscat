@@ -142,12 +142,12 @@ float RemapCloudErosion(float density, float threshold) {
     return Saturate((density - threshold) / max(1.0 - threshold, 1.0e-5));
 }
 
-vec2 CloudDistributionUv(vec2 world_km) {
-    // Both scale factors are setting literals, so write reciprocal multiplies:
-    // the wind offset becomes one uniform-scale FMA per sample instead of a
-    // divide per component in this per-density-sample hot path.
-    return world_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + vec2(
-            frameTimeCounter * (CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM), 0.0);
+// Distribution-space UV of a world-space XZ position. The first term is the
+// per-sample one; the second is the wind scroll, which no sample changes and
+// now arrives precomputed in CloudLayerFrame. Both scale factors are setting
+// literals, so this stays a reciprocal multiply rather than a divide.
+vec2 CloudDistributionUv(vec2 world_km, vec2 wind_offset) {
+    return world_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + wind_offset;
 }
 
 // 0 while the sun is up, 1 once it is past the fade window. Written in the
@@ -205,12 +205,14 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
 // its max() guard) once per sample. distribution_floor is 1 - coverage and
 // inv_coverage is the coverage floor reciprocal, both folded here so a sample
 // spends one divide instead of a divide plus a max. world_km_offset is the
-// camera term of the distribution-space position, which no sample changes.
+// camera term of the distribution-space position plus the wind scroll, which
+// no sample changes: the distribution UV is world_km * scale + this offset.
 struct CloudLayerFrame {
     float coverage;
     float distribution_floor;
     float inv_coverage;
     vec2 world_km_offset;
+    vec2 distribution_offset;
 };
 
 CloudLayerFrame CloudLayerFrameForRay() {
@@ -219,6 +221,8 @@ CloudLayerFrame CloudLayerFrameForRay() {
     frame.distribution_floor = 1.0 - frame.coverage;
     frame.inv_coverage = 1.0 / max(frame.coverage, 1.0e-5);
     frame.world_km_offset = cameraPosition.xz * 0.001;
+    frame.distribution_offset = frame.world_km_offset * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM)
+        + vec2(frameTimeCounter * (CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM), 0.0);
     return frame;
 }
 
@@ -250,7 +254,8 @@ float SampleCloudDensity(vec3 atmosphere_position, CloudLayerFrame frame, CloudH
 ) {
     vec2 density_world_km = atmosphere_position.xz + frame.world_km_offset;
     float distribution_density = Saturate((
-        texture(utex_cloud_distribution_tex, CloudDistributionUv(density_world_km)).r
+        texture(utex_cloud_distribution_tex,
+            CloudDistributionUv(density_world_km, frame.distribution_offset)).r
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
@@ -282,7 +287,8 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudLayerFrame fra
 ) {
     float distribution_density = Saturate((
         texture(utex_cloud_distribution_tex,
-            CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset)).r
+            CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset,
+                frame.distribution_offset)).r
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;

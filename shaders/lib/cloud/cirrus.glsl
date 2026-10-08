@@ -29,7 +29,7 @@ const float CIRRUS_RADIUS_KM = ATM_PLANET_R + CIRRUS_HEIGHT_KM;
 // Scattering equals extinction, so the single-scattering albedo is exactly 1:
 // ice barely absorbs. Everything a thicker deck returns past the first bounce
 // is the multiple-scattering series, not a gain applied to this pair.
-const float CIRRUS_SCATTERING = 3.0;
+const float CIRRUS_SCATTERING = 2.0;
 const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // This layer's multiple-scattering reference length, in km: the length over
 // which one scattering order spreads inside this deck, and the scale the
@@ -42,7 +42,7 @@ const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // calibrated for 100 km^-1 would leave this shell permanently below its knee
 // and the series would contribute a tenth of a percent rather than a
 // comparable share.
-const float CIRRUS_MS_REFERENCE_LENGTH_KM = 1.2;
+const float CIRRUS_MS_REFERENCE_LENGTH_KM = 2.2;
 // This layer's saturation albedo for the series, which the source writes as the
 // leading omega of fms. Ice crystals barely absorb in the visible, so this sits
 // just under 1: the series converges to omega / (1 - omega) and the model

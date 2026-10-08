@@ -76,11 +76,14 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec
     float weight_sum = 0.0;
     float depth_gap_sum = 0.0;
     ivec2 shadow_size = ivec2(shadowMapResolution);
+    // The texel-to-UV scale is loop-invariant; carry it as a float vector so
+    // each tap trades an int->float conversion of the resolution for a mul.
+    vec2 shadow_size_f = vec2(shadow_size);
     for (int i = 0; i < blocker_steps; ++i) {
         vec2 offset = blocker_offset_scale * ShadowRotateDisk(ShadowDiskPoint(i, blocker_steps),
             rot_x, rot_y);
         vec2 uv = DistortShadowClip(clip_pos.xy + offset);
-        ivec2 sample_texel = clamp(ivec2(uv * vec2(shadow_size)), ivec2(0), shadow_size - 1);
+        ivec2 sample_texel = clamp(ivec2(uv * shadow_size_f), ivec2(0), shadow_size - 1);
         float shadow_depth = texelFetch(shadowtex0, sample_texel, 0).x;
         float gap = max(sp.z - shadow_depth, 0.0);
         float w = step(shadow_depth, sp.z - blocker_bias);

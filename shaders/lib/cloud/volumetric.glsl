@@ -199,39 +199,78 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return radiance + isotropic_orders / (1.0 + light_optical_depth);
 }
 
-// Eroded density in [0, 1] at one point in the cloud layer.
-float SampleCloudDensity(vec3 atmosphere_position) {
-    float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
-    // Cheap band rejection first: rejected samples never need the normalized
-    // height, and the light march crosses the shell boundary on most steps.
-    if (altitude_km <= CLOUD_BASE_ALTITUDE || altitude_km >= CLOUD_TOP_ALTITUDE) {
-        return 0.0;
-    }
-    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
+// Per-frame layer constants shared by both density functions. Coverage folds
+// CLOUD_COVERAGE and rainStrength, so it is constant across every sample of
+// every view and light march; the density functions used to rebuild it (and
+// its max() guard) once per sample. distribution_floor is 1 - coverage and
+// inv_coverage is the coverage floor reciprocal, both folded here so a sample
+// spends one divide instead of a divide plus a max. world_km_offset is the
+// camera term of the distribution-space position, which no sample changes.
+struct CloudLayerFrame {
+    float coverage;
+    float distribution_floor;
+    float inv_coverage;
+    vec2 world_km_offset;
+};
+
+CloudLayerFrame CloudLayerFrameForRay() {
+    CloudLayerFrame frame;
+    frame.coverage = CLOUD_COVERAGE * (1.0 - rainStrength) + rainStrength;
+    frame.distribution_floor = 1.0 - frame.coverage;
+    frame.inv_coverage = 1.0 / max(frame.coverage, 1.0e-5);
+    frame.world_km_offset = cameraPosition.xz * 0.001;
+    return frame;
+}
+
+// Normalized height in the cloud layer plus the two ramps that depend only on
+// it. Both ramps are frozen baseline expressions: the top pair is the
+// intentionally reversed smoothstep (edge0 > edge1) documented at its call
+// site, kept verbatim. Rebuilding them per sample cost four smoothsteps per
+// accepted sample; they are pure functions of the sample height.
+struct CloudHeightProfile {
+    float height_fraction;
+    float bottom_ramp;
+    float fine_exposure;
+};
+
+CloudHeightProfile CloudHeightProfileFor(float altitude_km) {
+    CloudHeightProfile profile;
+    profile.height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
         / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
+    profile.bottom_ramp = smoothstep(0.0, 0.2, profile.height_fraction);
+    profile.fine_exposure = smoothstep(0.0, 0.5, profile.height_fraction) * 0.6 + 0.4;
+    return profile;
+}
 
-    vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
-
-    vec2 distribution_uv = CloudDistributionUv(world_km);
-    float distribution = texture(utex_cloud_distribution_tex, distribution_uv).r;
-    float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
-    float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
+// Eroded density in [0, 1] at one point in the cloud layer. The band test the
+// callers used to keep here is now the callers' own (they need the raw
+// altitude for CloudHeightProfileFor anyway), so the cheap rejection and the
+// height profile are evaluated once per sample instead of twice.
+float SampleCloudDensity(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
+) {
+    vec2 density_world_km = atmosphere_position.xz + frame.world_km_offset;
+    float distribution_density = Saturate((
+        texture(utex_cloud_distribution_tex, CloudDistributionUv(density_world_km)).r
+        - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
     }
-    float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
     // Reversed edge pair (edge0 > edge1): undefined by the GLSL spec, but the
     // common clamp((x-e0)/(e1-e0)) implementation is deterministic and the
     // rendered ramp below is the frozen baseline for the 2026-10 optimization
     // series. Do not swap or rewrite this pair without a visual re-baseline.
-    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
-    float lq_density = distribution_density * bottom_ramp * top_fade;
+    // Both ramps now ride CloudHeightProfileFor, which reproduces its
+    // smoothsteps verbatim; only the number of evaluations changed.
+    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4,
+        profile.height_fraction);
+    float lq_density = distribution_density * profile.bottom_ramp * top_fade;
     if(lq_density < 0.001) {
         return 0.0;
     }
-    float detailed_noise = texture(utex_cloud_voronoise_tex, vec3(world_km, altitude_km) * CLOUD_FINE_EROSION_SCALE).r;
-    float fine_exposure = smoothstep(0.0, 0.5, height_fraction) * 0.6 + 0.4;
-    float hq_density = RemapCloudErosion(lq_density, detailed_noise * CLOUD_FINE_EROSION_STRENGTH * fine_exposure);
+    float detailed_noise = texture(utex_cloud_voronoise_tex,
+        vec3(density_world_km, length(atmosphere_position) - ATM_PLANET_R) * CLOUD_FINE_EROSION_SCALE).r;
+    float hq_density = RemapCloudErosion(lq_density,
+        detailed_noise * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
     return hq_density;
 }
 
@@ -239,34 +278,25 @@ float SampleCloudDensity(vec3 atmosphere_position) {
 // voronoise threshold replaced by the baked texture mean times the same 0.5
 // factor, which keeps the expected threshold equal to the view path and
 // saves one 3D read per light step.
-float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
-    float altitude_km = length(atmosphere_position) - ATM_PLANET_R;
-    // Same cheap-first ordering as SampleCloudDensity; keep in sync.
-    if (altitude_km <= CLOUD_BASE_ALTITUDE || altitude_km >= CLOUD_TOP_ALTITUDE) {
-        return 0.0;
-    }
-    float height_fraction = Saturate((altitude_km - CLOUD_BASE_ALTITUDE)
-        / max(CLOUD_TOP_ALTITUDE - CLOUD_BASE_ALTITUDE, 1.0e-5));
-
-    vec2 world_km = atmosphere_position.xz + cameraPosition.xz * 0.001;
-
-    vec2 distribution_uv = CloudDistributionUv(world_km);
-    float distribution = texture(utex_cloud_distribution_tex, distribution_uv).r;
-    float coverage = (CLOUD_COVERAGE) * (1.0 - rainStrength) + rainStrength;
-    float distribution_density = Saturate((distribution - (1.0 - coverage)) / max(coverage, 1.0e-5));
+float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
+) {
+    float distribution_density = Saturate((
+        texture(utex_cloud_distribution_tex,
+            CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset)).r
+        - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
     }
-    float bottom_ramp = smoothstep(0.0, 0.2, height_fraction);
     // Same intentionally reversed smoothstep pair as SampleCloudDensity; keep
     // the two implementations bit-identical on this ramp.
-    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4, height_fraction);
-    float lq_density = distribution_density * bottom_ramp * top_fade;
+    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4,
+        profile.height_fraction);
+    float lq_density = distribution_density * profile.bottom_ramp * top_fade;
 
     const float fine_average = 0.484805118;
-    float fine_exposure = smoothstep(0.0, 0.5, height_fraction) * 0.6 + 0.4;
 
-    float hq_density = RemapCloudErosion(lq_density, fine_average * CLOUD_FINE_EROSION_STRENGTH * fine_exposure);
+    float hq_density = RemapCloudErosion(lq_density,
+        fine_average * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
     return hq_density;
 }
 
@@ -274,7 +304,9 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position) {
 // CLOUD_LIGHT_STEPS quadratic strata are densest near that start; each is
 // sampled at a jittered point and weighted by its exact interval length.
 // Densities take the low-quality path; every accepted view sample retraces it.
-float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter) {
+float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter,
+    CloudLayerFrame frame
+) {
     float light_distance = min(
         CloudDistanceToShellExit(atmosphere_position, light_dir),
         CLOUD_LIGHT_MAX_DISTANCE_KM
@@ -294,8 +326,14 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
         float x1 = float(i + 1) * inverse_step_count;
         float segment_end = CLOUD_LIGHT_START_OFFSET_KM + trace_distance * x1 * x1;
         float sample_distance = mix(segment_start, segment_end, light_jitter);
-        float sample_density = SampleCloudDensityLowQuality(
-            atmosphere_position + light_dir * sample_distance);
+        vec3 sample_position = atmosphere_position + light_dir * sample_distance;
+        float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
+        float sample_density = 0.0;
+        // Same cheap band rejection the density functions used to open with.
+        if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
+            sample_density = SampleCloudDensityLowQuality(sample_position, frame,
+                CloudHeightProfileFor(sample_altitude_km));
+        }
         optical_depth += sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
             * (segment_end - segment_start);
@@ -347,6 +385,9 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float view_jitter = stbn_jitter.x;
     float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;
+    // Coverage folds rainStrength, which no sample of this ray changes; build
+    // the layer constants once instead of once per sample in each density call.
+    CloudLayerFrame layer_frame = CloudLayerFrameForRay();
 #ifdef CLOUD_SINGLE_LIGHT
     float light_radiance = 0.0;
 #else
@@ -367,7 +408,13 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float sample_distance = march_start + (float(i) + view_jitter) * step_length;
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
-        float sample_density = SampleCloudDensity(sample_position);
+        // The band test and the two height ramps are evaluated once per sample
+        // here; both density paths used to repeat them (four smoothsteps per
+        // accepted sample before this change).
+        float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
+        if (sample_altitude_km <= CLOUD_BASE_ALTITUDE || sample_altitude_km >= CLOUD_TOP_ALTITUDE) continue;
+        CloudHeightProfile sample_height = CloudHeightProfileFor(sample_altitude_km);
+        float sample_density = SampleCloudDensity(sample_position, layer_frame, sample_height);
         if (sample_density < 1.0e-4) continue;
 
         // Only PlanetHorizonOccluded consumes the squared radius below;
@@ -389,7 +436,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
             float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
             float light_optical_depth = CloudLightOpticalDepth(
-                sample_position, light_dir, light_jitter);
+                sample_position, light_dir, light_jitter, layer_frame);
             sample_light = CloudDirectionalScattering(light_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
@@ -398,7 +445,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         float sample_sun = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = CloudLightOpticalDepth(
-                sample_position, sun_dir, light_jitter);
+                sample_position, sun_dir, light_jitter, layer_frame);
             sample_sun = CloudDirectionalScattering(sun_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
@@ -407,7 +454,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
             float light_optical_depth = CloudLightOpticalDepth(
-                sample_position, moon_dir, moon_light_jitter);
+                sample_position, moon_dir, moon_light_jitter, layer_frame);
             sample_moon = CloudDirectionalScattering(moon_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }

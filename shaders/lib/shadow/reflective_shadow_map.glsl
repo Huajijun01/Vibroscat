@@ -99,8 +99,12 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         texel_extent_m = 2.0 * distort_factor * distort_factor
             * texel_extent_inv_denom;
         float texel_footprint = length(texel_extent_m);
-        float delta_length_m = length(delta_shadow);
-        float distance_squared = delta_length_m * delta_length_m;
+        // dot(d,d) needs no root of its own; the plain length is derived from
+        // it below. Writing length(d) first and squaring it back added one
+        // sqrt and one multiply per tap for the same value (a round trip
+        // through sqrt loses rounding on denormal-sized deltas).
+        float distance_squared = dot(delta_shadow, delta_shadow);
+        float delta_length_m = sqrt(distance_squared);
         sum_shadow_occlusion += shadow_weight
             * RSMShadowSampleOcclusion(delta_shadow, normal_shadow, texel_footprint, delta_length_m);
 #endif

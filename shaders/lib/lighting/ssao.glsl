@@ -66,8 +66,10 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         // and stratified per sample (golden angle).
         float u1 = (float(k) + stbn_noise.y) / float(SSAO_SAMPLES);
         float r = sqrt(u1);
+        // 1 - r*r is exactly 1 - u1, so the lifted component is sqrt(1 - u1)
+        // and the r*r round trip (one multiply per sample) drops out.
         vec3 dir = tangent * (r * azimuth_c) + bitangent * (r * azimuth_s)
-            + normal_view * sqrt(max(1.0 - r * r, 0.0));
+            + normal_view * sqrt(max(1.0 - u1, 0.0));
         float next_c = azimuth_c * azimuth_step_c - azimuth_s * azimuth_step_s;
         azimuth_s = azimuth_s * azimuth_step_c + azimuth_c * azimuth_step_s;
         azimuth_c = next_c;

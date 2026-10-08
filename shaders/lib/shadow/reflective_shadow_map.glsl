@@ -69,17 +69,33 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     // so hoist the ground light out of the sample loop. The strength stays at
     // the use site to keep the original multiplication order bit-identical.
     vec3 ground_light_payload = ground_light.rgb;
+    // The azimuth sequence TAU * fract(seed + k * GOLDEN_RATIO) is the orbit of
+    // one fixed rotation (TAU-periodic), so one sin/cos pair per pixel seeds a
+    // rotation recurrence and the per-sample angle never needs fract, a float
+    // convert, a multiply or a sin/cos pair. Same recurrence the SSAO, DOF and
+    // GTAO samplers already use.
+    float cos_step = cos(TAU * GOLDEN_RATIO);
+    float sin_step = sin(TAU * GOLDEN_RATIO);
+    float sample_azimuth_c = cos(TAU * stbn_noise.x);
+    float sample_azimuth_s = sin(TAU * stbn_noise.x);
+    float rsm_inv_sample_count = 1.0 / rsm_sample_count;
 
     for (int sample_index = 0; sample_index < RSM_SAMPLES; ++sample_index) {
-        float radial_distance = RSM_RADIUS * (float(sample_index) + stbn_noise.y) / float(RSM_SAMPLES);
+        float radial_distance = RSM_RADIUS * (float(sample_index) + stbn_noise.y)
+            * rsm_inv_sample_count;
         // Inverse disk-area PDF, with its common constant cancelled. Invalid
         // shadow-map samples retain their weight and count as unoccluded.
 #ifdef RSM_SKY_OCCLUSION
         float shadow_weight = radial_distance / RSM_RADIUS;
         sum_shadow_weight += shadow_weight;
 #endif
-        float angle = TAU * fract(stbn_noise.x + float(sample_index) * GOLDEN_RATIO);
-        vec2 sample_shadow_xy = receiver_shadow.xy + radial_distance * vec2(cos(angle), sin(angle));
+        vec2 sample_shadow_xy = receiver_shadow.xy
+            + radial_distance * vec2(sample_azimuth_c, sample_azimuth_s);
+        // Advance the azimuth by one golden angle; every later sample reads the
+        // rotated pair, so the cos/sin pair below stays per-pixel.
+        float next_azimuth_c = sample_azimuth_c * cos_step - sample_azimuth_s * sin_step;
+        sample_azimuth_s = sample_azimuth_s * cos_step + sample_azimuth_c * sin_step;
+        sample_azimuth_c = next_azimuth_c;
         vec2 sample_clip = projection_xy * sample_shadow_xy + shadowProjection[3].xy;
         if (any(greaterThanEqual(abs(sample_clip), vec2(1.0)))) continue;
         vec2 distort_factor = GetDistortFactor(sample_clip);

@@ -83,13 +83,14 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // with the LUTs: sr/sm/so are the scattering components, se the Mie
         // extinction (scattering + absorption), sigma_t the total, ss the
         // scattering sum; rs/ms_raw fold in the transmittance,
-        // ms is the multi-scatter LUT sample, xs their product.
-        vec4 sr_mid = GetSigmaSRay(h_mid);
-        vec4 sm_mid = GetSigmaSMie(h_mid);
-        vec4 se_mid = GetSigmaEMie(h_mid);
-        vec4 so_mid = GetSigmaAOzone(h_mid);
-        vec4 sigma_t_mid = sr_mid + se_mid + so_mid;
-        vec4 ss_mid = sr_mid + sm_mid;
+        // ms is the multi-scatter LUT sample, xs their product. One call now
+        // builds all four terms: sr/sm/se used to run the same aerosol
+        // vertical profile and the same suso profile twice per step.
+        AtmosphereMedia media = AtmosphereMediaAt(h_mid);
+        vec4 sr_mid = media.sigma_s_ray;
+        vec4 sm_mid = media.sigma_s_mie;
+        vec4 sigma_t_mid = media.sigma_t;
+        vec4 ss_mid = media.sigma_s;
 
         // dot(camera_pos + view_dir*t, sun) splits into two loop-invariant
         // dots plus one scalar FMA; the real-number value is identical.

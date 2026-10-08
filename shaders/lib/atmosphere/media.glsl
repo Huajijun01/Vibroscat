@@ -179,32 +179,41 @@ float DensitySusoH(float h) {
 // Scattering & extinction per wavelength  (vec4 = [450,510,580,650])
 // ===============================================================
 
-vec4 GetSigmaSRay(float h) {
-    return DensityRayH(h) * ATM_SIGMA_S_RAY;
-}
+// The four per-altitude media terms of one integration step, gathered once.
+// The sky-radiance integration needs all four at the same h on each of its 128
+// steps, and the Mie scattering and extinction folds are two evaluations of one
+// vertical profile: the aerosol exp and smoothstep, the ozone fold and the suso
+// profile each ran twice per step. One evaluation each is the same arithmetic
+// in the same order, with half the evaluations.
+struct AtmosphereMedia {
+    vec4 sigma_s_ray;
+    vec4 sigma_s_mie;
+    vec4 sigma_e_mie;
+    vec4 sigma_a_ozone;
+    vec4 sigma_t;      // total extinction: Rayleigh + Mie (sca+abs) + ozone
+    vec4 sigma_s;      // Rayleigh + Mie scattering
+};
 
-// Aerosol vertical profile shared by the Mie folds: an exponential falloff
-// (8 km scale height) whose sea-level base blends into the background term
-// across the low-atmosphere window. base/background pair with the ATM_*_A /
-// ATM_*_B constants above; the scattering and extinction folds differ only
-// in the coefficient pair they run through this one profile.
-vec4 AeroSigma(float h, vec4 base, vec4 background) {
-    float t = smoothstep(ATM_AERO_SMOOTH_LO, ATM_AERO_SMOOTH_HI, h);
-    return exp(-h / ATM_AERO_SCALE) * (base + t * background);
-}
-
-vec4 GetSigmaSMie(float h) {
-    return AeroSigma(h, ATM_SM_A, ATM_SM_B) + DensitySusoH(h) * ATM_SUSO_SCA_V;
-}
-
-// Total aerosol extinction (scattering + absorption) over the folded
-// ATM_EM_A/B constants.
-vec4 GetSigmaEMie(float h) {
-    return AeroSigma(h, ATM_EM_A, ATM_EM_B) + DensitySusoH(h) * (ATM_SUSO_SCA_V + ATM_SUSO_ABS_V);
-}
-
-vec4 GetSigmaAOzone(float h) {
-    return DensityOzoneH(h) * ATM_OZONE_SIGMA;
+AtmosphereMedia AtmosphereMediaAt(float h) {
+    AtmosphereMedia media;
+    // Aerosol vertical profile: exponential falloff (8 km scale height) whose
+    // sea-level base blends into the background term across the low-atmosphere
+    // window. The scattering and extinction folds differ only in the ATM_*_A /
+    // ATM_*_B coefficient pair they run through this one profile.
+    float aero_exp = exp(-h / ATM_AERO_SCALE);
+    float aero_t = smoothstep(ATM_AERO_SMOOTH_LO, ATM_AERO_SMOOTH_HI, h);
+    float suso = DensitySusoH(h);
+    media.sigma_s_ray = DensityRayH(h) * ATM_SIGMA_S_RAY;
+    media.sigma_s_mie = aero_exp * (ATM_SM_A + aero_t * ATM_SM_B)
+        + suso * ATM_SUSO_SCA_V;
+    media.sigma_e_mie = aero_exp * (ATM_EM_A + aero_t * ATM_EM_B)
+        + suso * (ATM_SUSO_SCA_V + ATM_SUSO_ABS_V);
+    media.sigma_a_ozone = DensityOzoneH(h) * ATM_OZONE_SIGMA;
+    // Same association as separate sums did (sr + se first, then + so), so the
+    // totals are bit-identical to the per-fold form.
+    media.sigma_t = (media.sigma_s_ray + media.sigma_e_mie) + media.sigma_a_ozone;
+    media.sigma_s = media.sigma_s_ray + media.sigma_s_mie;
+    return media;
 }
 
 // Total extinction: Rayleigh + aerosol (scattering and absorption in one
@@ -212,11 +221,13 @@ vec4 GetSigmaAOzone(float h) {
 // scattering-only subset (Rayleigh + Mie) that the sky radiance integration
 // uses.
 vec4 GetExtinction(float h) {
-    return GetSigmaSRay(h) + GetSigmaEMie(h) + GetSigmaAOzone(h);
+    AtmosphereMedia media = AtmosphereMediaAt(h);
+    return media.sigma_t;
 }
 
 vec4 GetScattering(float h) {
-    return GetSigmaSRay(h) + GetSigmaSMie(h);
+    AtmosphereMedia media = AtmosphereMediaAt(h);
+    return media.sigma_s;
 }
 
 #endif // LIB_ATMOSPHERE_MEDIA_GLSL

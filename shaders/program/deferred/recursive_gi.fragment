@@ -282,11 +282,9 @@ void main() {
     vec3 raw_gi;
 #if GI_MODE == 2
     vec4 surface_data = texelFetch(colortex2, tx, 0);
-    vec2 nx_ao = Unpack2x8(surface_data.r);
-    vec2 ny_nz = Unpack2x8(surface_data.g);
-    vec3 sky_normal = normalize(vec3(nx_ao.x, ny_nz) * 2.0 - 1.0);
+    vec3 sky_normal = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
     float screen_ao;
-    vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), nx_ao.y, false, screen_ao);
+    vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), surface_data.a, false, screen_ao);
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
     // GI has no temporal accumulator of its own, so both sources follow the
     // shared STBN clock: the slice advances with frameCounter under TAA and

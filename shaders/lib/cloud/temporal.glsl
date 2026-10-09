@@ -15,7 +15,7 @@ struct CloudFrame {
     float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
 };
 
-// Active part of the display-allocated cloud image, matching clouds_render.
+// Active lower-left cloud rectangle in colortex12 alt, matching clouds_render.
 ivec2 CloudCurrentImageSize() {
     return max(ivec2(u_render_res * CLOUD_CURRENT_SCALE), ivec2(1));
 }
@@ -44,8 +44,8 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
     vec2 current_uv = (grid_position + 0.5) * low_texel_size;
     current_uv = clamp(current_uv, 0.5 * low_texel_size, vec2(1.0) - 0.5 * low_texel_size);
-    current_uv *= low_size / vec2(textureSize(usam_clouds_current, 0));
-    vec4 value = texture(usam_clouds_current, current_uv);
+    current_uv *= low_size / vec2(textureSize(colortex12, 0));
+    vec4 value = texture(colortex12, current_uv);
 
     ivec2 nearest_texel = clamp(
         ivec2(floor(grid_position + 0.5)),
@@ -54,7 +54,7 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     );
     CloudFrame frame;
     frame.radiance = value.rgb;
-    frame.surface_distance = texelFetch(usam_clouds_current, nearest_texel, 0).a;
+    frame.surface_distance = texelFetch(colortex12, nearest_texel, 0).a;
     return frame;
 }
 

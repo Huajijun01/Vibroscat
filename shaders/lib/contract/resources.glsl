@@ -12,11 +12,10 @@
 // Buffer map (deferred pipeline):
 //   colortex0   R11F_G11F_B10F   Scene color (post-processed) / TAA input
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
-//   colortex2   RGBA16           Opaque gbuffer (normal/AO/roughness/metalness/emission), then
-//                                translucent surface data after deferred clears it:
-//                                RGB = wave perturbation vs the flat face normal
-//                                (xzy-swizzled, 0.25-scaled), A = water flag;
-//                                blend off (nearest translucent surface wins)
+//   colortex2   RGBA8            Opaque roughness/selector/emission/AO, then low
+//                                bytes of translucent RGB UNORM16 surface data;
+//                                colortex1 RGB carries the high bytes while its
+//                                material-ID alpha survives. A = water flag.
 //   colortex3   R11F_G11F_B10F   Opaque reflection incident radiance transient
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
 //                                lightmap (BA) (solid -> deferred4)
@@ -31,8 +30,12 @@
 //                                by coverage (RGB; the gbuffers SRC_ALPHA blend applies
 //                                it on write); written by gbuffers_weather, composited
 //                                by air fog
-//   colortex12  RGBA16F          Translucent layer (premultiplied color + alpha):
-//                                1. translucent gbuffers blend off = nearest surface wins
+//   colortex12  RGBA16F          Sequential workspace:
+//                                opaque main RG = oct shading world normal;
+//                                deferred1 alt = low-res cloud current frame;
+//                                flip back to main for deferred2/3/4 normals;
+//                                deferred4 clears alt and flips, then
+//                                1. translucent premultiplied-over color + alpha
 //                                2. composite1 refracts, fogs and over-composites once
 //                                3. bloom pyramid workspace
 //                                4. tonemapped LDR scene consumed by final/CAS
@@ -51,7 +54,7 @@
 // the semicolon is tolerated by the parser.
 const int colortex0Format  = R11F_G11F_B10F;
 const int colortex1Format  = RGBA8;
-const int colortex2Format  = RGBA16;
+const int colortex2Format  = RGBA8;
 const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
@@ -66,13 +69,13 @@ const int shadowcolor0Format = RGBA8;
 // true = cleared each frame before shader writes. false = carry data across frames.
 const bool colortex0Clear  = false;   // scene output
 const bool colortex1Clear  = false;   // GBuffer albedo
-const bool colortex2Clear  = false;   // GBuffer merged data
+const bool colortex2Clear  = false;   // GBuffer scalars, then translucent low bytes/flag
 const bool colortex3Clear  = false;   // opaque reflection incident radiance transient
 const bool colortex4Clear  = false;   // opaque geometric world normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
 const bool colortex9Clear  = false;   // recursive GI irradiance (fully rewritten by deferred3)
 const bool colortex11Clear = true;   // weather texture
-const bool colortex12Clear = true;   // sequential GBuffer, bloom, and tonemap workspace
+const bool colortex12Clear = true;   // normal/cloud current, translucent, bloom, and tonemap workspace
 
 #endif // LIB_CONTRACT_RESOURCES_GLSL

@@ -13,11 +13,8 @@
 // GBuffer layout:
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
 //   gbuf1.a   = v_material_id / 255.0  (see lib/material/model.glsl for ranges)
-//   gbuf2 (RGBA16, 2x8 packed):
-//     R = normal.x [0,1] | combined vertex/material AO
-//     G = normal.y     | normal.z
-//     B = perceptual roughness | raw specular selector
-//     A = emission     | auxiliary
+//   gbuf2 (RGBA8) = roughness / raw specular selector / emission / combined AO
+//   colortex12.rg = octahedral-encoded shading world normal (FP16 workspace)
 //   gbuf4.rg = octahedral-encoded geometric world normal
 //   gbuf4.zw = lightmap coordinates
 //
@@ -58,7 +55,7 @@ in vec3 v_world_bitangent;
 layout(location = 0) out vec4 gbuf1;
 layout(location = 1) out vec4 gbuf2;
 layout(location = 2) out vec4 gbuf4;
-layout(location = 3) out vec4 out_translucent_layer;
+layout(location = 3) out vec4 out_shading_normal;
 
 // Terrain programs do not alpha test, so they can run early depth tests.
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID)
@@ -143,16 +140,16 @@ void main() {
     // -- Write GBuffer --
     gbuf1.rgb = albedo;
     gbuf1.a   = float(mat_id) / 255.0;
-    gbuf2 = vec4(
-        Pack2x8(w_normal.x * 0.5 + 0.5, combined_ao),
-        Pack2x8(w_normal.y * 0.5 + 0.5, w_normal.z * 0.5 + 0.5),
-        Pack2x8(mat.perceptual_roughness, mat.specular_selector),
-        Pack2x8(mat.emission, mat.auxiliary));
+    // Match the former Pack2x8 floor quantization, including LabPBR selector
+    // category boundaries, before the RGBA8 attachment stores these scalars.
+    gbuf2 = floor(clamp(vec4(mat.perceptual_roughness, mat.specular_selector,
+        mat.emission, combined_ao), 0.0, 1.0) * 255.0) * (1.0 / 255.0);
     // colortex4 (RGBA8): octahedral world-space geometric normal in RG,
     // lightmap in BA. World space keeps the stored value camera-independent:
     // a view-space normal requantizes whenever the view turns, and that
     // staircase reaches AO, contact shadows, the shadow bias, GI, and SSR.
     gbuf4 = vec4(EncodeOctahedralNormal(geo_normal_world), v_lmcoord.xy);
-    // Opaque coverage clears the translucent workspace before later layers.
-    out_translucent_layer = vec4(0.0, 0.0, 0.0, 0.0);
+    // The existing main workspace holds shading normals until deferred4;
+    // deferred4 clears the opposite side before forward translucent blending.
+    out_shading_normal = vec4(EncodeOctahedralNormal(w_normal), 0.0, 0.0);
 }

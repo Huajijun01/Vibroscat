@@ -174,10 +174,9 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define CIRRUS_MILKYWAY_TRANSMISSION 0.6 // [0.0 0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the cirrus shell scatters into a glow; 1.0 is the isotropic single-scatter total.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
-// GLSL mirror of the image.uimg_clouds_current scale table in
-// shaders.properties; the literals must stay identical. Iris sizes relative
-// images as int(view * scale), so ivec2(u_screen_res * CLOUD_CURRENT_SCALE)
-// reconstructs the allocation exactly.
+// Active cloud rectangle in the existing colortex12 alt workspace. Compute
+// and temporal upsampling both truncate u_render_res * CLOUD_CURRENT_SCALE;
+// the backing texture stays display-sized, including under TAAU.
 #if CLOUD_TEMPORAL_UPSCALING == 1
 const vec2 CLOUD_CURRENT_SCALE = vec2(1.0);
 #elif CLOUD_TEMPORAL_UPSCALING == 2

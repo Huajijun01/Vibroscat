@@ -13,7 +13,7 @@
 // Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance -> irradiance.
 
 #include "/lib/contract/settings.glsl"
-/* RENDERTARGETS: 0,2,5 */
+/* RENDERTARGETS: 0,2,5,12 */
 
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -46,14 +46,17 @@ const float COLOR_JITTER_SEED = 11.0;
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
+layout(location = 3) out vec4 out_translucent_clear;
 
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
-    // Last opaque-gbuffer consumer: colortex2 freed for translucent water data.
+    // Last opaque-gbuffer consumer: clear the next sides before translucency.
+    // The colortex12 input side still contains the shading normals read below.
     out_gbuf_clear = vec4(0.0);
+    out_translucent_clear = vec4(0.0);
 
     // -- Sky (far plane) --
     // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
@@ -142,16 +145,11 @@ void main() {
     vec4 g2 = texelFetch(colortex2, tx, 0);
     int material_id = int(g1.a * 255.0 + 0.5);
     bool is_opaque_hand = material_id == 64;
-    vec2 nx_ao = Unpack2x8(g2.r);
-    vec2 ny_nz = Unpack2x8(g2.g);
-    vec2 rough_selector = Unpack2x8(g2.b);
-    vec2 emission_aux = Unpack2x8(g2.a);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
 
     vec3 albedo   = ToLinear(g1.rgb);    // sRGB -> linear
     PBRMaterial material = ResolveOpaquePBR(
-        albedo, rough_selector.x, rough_selector.y,
-        emission_aux.x, emission_aux.y);
+        albedo, g2.r, g2.g, g2.b, 0.0);
 
 #if OPAQUE_SSR_DEBUG == 1
     out_color = texelFetch(colortex3, tx, 0).rgb;
@@ -175,8 +173,8 @@ void main() {
     out_color = vec3(material.perceptual_roughness);
     return;
 #endif
-    vec3 normal_world   = normalize(vec3(nx_ao.x * 2.0 - 1.0, ny_nz.x * 2.0 - 1.0, ny_nz.y * 2.0 - 1.0));
-    float ao      = nx_ao.y;                            // vanilla ambient occlusion (GTAO-off fallback only)
+    vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
+    float ao = g2.a; // vanilla/material ambient occlusion (screen-AO-off fallback)
     float screen_ao;
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // colortex4 carries the world-space geometric normal (octahedral RG).

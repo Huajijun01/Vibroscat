@@ -17,7 +17,9 @@ layout(local_size_x = 8, local_size_y = 8) in;
 // dead texels.
 const vec2 workGroupsRender = vec2(1.0, 1.0);
 
-layout(rgba16f) uniform restrict writeonly image2D uimg_clouds_current;
+// deferred_pre selects the existing alt workspace; opaque shading normals
+// stay untouched in main until deferred2/3/4 consume them.
+layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 #ifdef CLOUD_HISTORY_GUIDED_MARCH_END
 void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, inout float march_end
@@ -179,5 +181,5 @@ void main() {
     } else {
         frame = vec4(cloud_data, cloud_top_distance);
     }
-    imageStore(uimg_clouds_current, id, frame);
+    imageStore(colorimg12, id, frame);
 }

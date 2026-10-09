@@ -1,4 +1,4 @@
-/* RENDERTARGETS: 12,2 */
+/* RENDERTARGETS: 12,2,1 */
 
 // -- Water shading switches --
 // Water normal evaluation (0 = geometry normal only, no POM/noise).
@@ -16,6 +16,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/material/translucent_surface.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/shadow/filter.glsl"
 #include "/lib/water/fog.glsl"
@@ -40,6 +41,7 @@ in vec4 v_texcoord;
 
 layout(location = 0) out vec4 out_layer_color;
 layout(location = 1) out vec4 out_surface_data;
+layout(location = 2) out vec4 out_surface_high;
 
 vec3 WaterFogCol() {
     vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(v_view_pos));
@@ -72,7 +74,7 @@ void main() {
         vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
                  + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
         out_layer_color = vec4(lit * diffuse.a, diffuse.a);
-        out_surface_data = vec4(v_normal * 0.5 + 0.5, 0.0);
+        PackTranslucentSurface(v_normal * 0.5 + 0.5, 0.0, out_surface_data, out_surface_high);
         return;
     }
 
@@ -284,9 +286,8 @@ void main() {
     vec3 comp_light = sun_reflect + sky_reflect + env_reflect * saturate(out_alpha);
     out_layer_color = vec4(comp_light, saturate(out_alpha));
 
-    // colortex2 (blend off, cleared by deferred2): RGB = wave perturbation
-    // relative to the flat face normal (xzy-swizzled, 0.25-scaled),
-    // A = water flag. Nearest translucent fragment wins (glass in front of
-    // water replaces the water data).
-    out_surface_data = vec4(surface_normal * 0.25 + 0.5, v_id == 1 ? 1.0 : 0.0);
+    // Split the original UNORM16 perturbation across colortex1/2 RGB; both
+    // use nearest-fragment replacement. colortex1 alpha retains the opaque ID.
+    PackTranslucentSurface(surface_normal * 0.25 + 0.5, v_id == 1 ? 1.0 : 0.0,
+        out_surface_data, out_surface_high);
 }

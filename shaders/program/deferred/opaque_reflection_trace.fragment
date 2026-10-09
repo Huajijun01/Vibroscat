@@ -18,15 +18,9 @@ void main() {
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     if (scene_depth >= 1.0) return;
 
-    vec4 packed_surface = texelFetch(colortex2, tx, 0);
-    vec2 nx_ao = Unpack2x8(packed_surface.r);
-    vec2 ny_nz = Unpack2x8(packed_surface.g);
-    vec2 rough_selector = Unpack2x8(packed_surface.b);
-    if (rough_selector.x >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
-    vec3 normal_world = normalize(vec3(
-        nx_ao.x * 2.0 - 1.0,
-        ny_nz.x * 2.0 - 1.0,
-        ny_nz.y * 2.0 - 1.0));
+    float roughness = texelFetch(colortex2, tx, 0).r;
+    if (roughness >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
+    vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
 
     // Move the ray origin off the rasterized geometric surface before
     // marching. Reflection direction and BRDF still use the material normal;
@@ -53,7 +47,7 @@ void main() {
     vec2 stbn_random = OpaqueSSRSTBNPair(tx);
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
-        normal_world, view_to_eye, rough_selector.x, stbn_random, half_vector);
+        normal_world, view_to_eye, roughness, stbn_random, half_vector);
 
     vec3 view_pos = SceneToViewSpace(world_pos);
     vec3 view_direction = normalize(

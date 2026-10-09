@@ -12,7 +12,9 @@
 // Buffer map (deferred pipeline):
 //   colortex0   R11F_G11F_B10F   Scene color (post-processed) / TAA input
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
-//   colortex2   RGBA8            Opaque roughness/selector/emission/AO, then low
+//   colortex2   RGBA8            Opaque roughness/selector/emission/AO on main;
+//                                deferred1 borrows alt R for half-res current AO
+//                                and flips back to main for SSR/GI/shading; then low
 //                                bytes of translucent RGB UNORM16 surface data;
 //                                colortex1 RGB carries the high bytes while its
 //                                material-ID alpha survives. A = water flag.

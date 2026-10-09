@@ -1,16 +1,16 @@
 // ============================================================================
-// AO generation (half resolution, full evaluation) - writes the uimg_ao
-// custom image (R8).
+// AO generation (half resolution, full evaluation) - borrows colortex2 alt R.
 // ============================================================================
 // Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/8),
 // local 8x8). Each invocation covers one 2x2 full-res block, evaluates the
 // kernel (ComputeGTAO / ComputeSSAO) at the block origin; the deferred1
 // fragment upsamples bilinearly, one sample/pixel/frame. Every texel is
 // evaluated EVERY frame (no checkerboard phase - full convergence speed).
-// Runs after the cloud compute in deferred1 (suffixless first, _a second).
+// Runs with cloud compute in deferred1; the two write distinct textures.
 //
-// Storage: single-copy custom image (no flip), compute-written,
-// fragment-sampled. Raw AO (no multibounce/strength): the nonlinear
+// Storage: lower-left half-res rectangle of the existing RGBA8 workspace.
+// deferred_pre selects alt; deferred1 samples it, then restores the opaque
+// material scalars on main. Raw AO (no multibounce/strength): the nonlinear
 // transforms are applied in deferred2 after the temporal blend (the
 // accumulated field stays linear).
 
@@ -23,7 +23,7 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 const vec2 workGroupsRender = vec2(0.5, 0.5);
 
-layout(r8) uniform restrict writeonly image2D uimg_ao;  // AO (half-res)
+layout(rgba8) uniform restrict writeonly image2D colorimg2;
 
 void main() {
     ivec2 half_texel = ivec2(gl_GlobalInvocationID.xy);
@@ -55,5 +55,5 @@ void main() {
     // and these macros ever drift apart.
     float ao = 1.0;
 #endif
-    imageStore(uimg_ao, half_texel, vec4(ao, 0.0, 0.0, 1.0));
+    imageStore(colorimg2, half_texel, vec4(ao, 0.0, 0.0, 1.0));
 }

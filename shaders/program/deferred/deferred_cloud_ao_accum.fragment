@@ -42,6 +42,17 @@ layout(location = 0) out vec4 out_history;
 layout(r8) uniform image2D uimg_clouds_age;
 #endif
 
+#if defined(GTAO) || defined(SSAO)
+// Clamp within the written half-res rectangle before mapping into the full
+// allocation, including native resolution and odd render sizes. This keeps
+// bilinear edge taps out of the unrelated workspace outside the rectangle.
+vec2 AOCurrentTextureUV(vec2 scene_uv) {
+    vec2 active_size = max(floor(u_render_res * 0.5), vec2(1.0));
+    return clamp(scene_uv * active_size, vec2(0.5), active_size - 0.5)
+        / vec2(textureSize(colortex2, 0));
+}
+#endif
+
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     ivec2 tx = ivec2(gl_FragCoord.xy);
@@ -113,8 +124,8 @@ void main() {
 #endif
 
         // Fresh half-res AO, bilinear upsample, one sample/pixel/frame
-        // (full convergence). R8 sampling returns [0, 1] by format.
-        float fresh_ao = texture(usam_ao, SceneImageUV(uv, vec2(textureSize(usam_ao, 0)), 0.5)).r;
+        // (full convergence). RGBA8 R preserves the previous R8 precision.
+        float fresh_ao = texture(colortex2, AOCurrentTextureUV(uv)).r;
 
         float next_age = 0.0;
         float accumulated = fresh_ao;
@@ -148,7 +159,7 @@ void main() {
         // No temporal path: pass the fresh AO through bilinearly; A still
         // marks "not cloud". B keeps the shared encoded-depth contract so a
         // mid-session switch to the temporal path reads consistent history.
-        float fresh_ao = texture(usam_ao, SceneImageUV(uv, vec2(textureSize(usam_ao, 0)), 0.5)).r;
+        float fresh_ao = texture(colortex2, AOCurrentTextureUV(uv)).r;
         out_history = vec4(saturate(fresh_ao), 1.0, EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
     }
 #endif

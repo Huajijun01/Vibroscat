@@ -13,8 +13,8 @@
 
 // E = shadowed direct source integral / unshadowed direct source integral.
 // It remains a dimensionless RGB visibility, without incident light color or
-// radiance. Each bin integrates the same spectral Rayleigh/Mie sources as the
-// composite; phase affects their relative weights when rain and clear air mix.
+// radiance. Each bin uses the composite's constant whole-ray source function
+// and the closed-form transmittance loss across its equal-distance interval.
 vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfile profile,
         AirFogMedium medium, float stbn_jitter) {
     vec3 delta = end_scene - start_scene;
@@ -28,6 +28,10 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfi
     float cos_theta = dot(delta / length_m, u_world_light_dir);
     float phase_ray = PhaseRayleigh(cos_theta);
     float phase_mie = PhaseHenyeyGreensteinTripleLobe(cos_theta, ATM_MIE_PHASE);
+    float clear_column = AirFogColumnDensity(profile, direction_y, length_m);
+    float rain_tau = medium.rain_mie * profile.rain_density * length_m;
+    AirFogSource source = AirFogSourceFunction(medium, clear_column, rain_tau);
+    vec4 source_function = source.ray * phase_ray + source.mie * phase_mie;
     vec4 prefix_transmittance = vec4(1.0);
     vec3 numerator = vec3(0.0);
     vec3 denominator = vec3(0.0);
@@ -37,16 +41,17 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfi
         float u = (float(k) + stbn_jitter) * inv_steps;
         AirFogDensityProfile bin_profile = profile;
         bin_profile.eye_height_m += direction_y * (float(k) * bin_length);
-        AirFogIntegral bin_integral = IntegrateAirFogScattering(bin_profile, medium, direction_y, bin_length);
-        vec4 source = prefix_transmittance * (bin_integral.scattering_ray * phase_ray
-            + bin_integral.scattering_mie * phase_mie);
+        vec4 bin_tau = AirFogOpticalDepth(bin_profile, medium, direction_y, bin_length);
+        vec4 bin_transmittance = exp(-bin_tau);
+        vec4 bin_source = source_function * prefix_transmittance
+            * AirFogRemovedFraction(bin_tau, bin_transmittance);
         // Normalize after the same linear spectral conversion as the composite.
         // Its white normalization and fog intensity cancel in this ratio.
         // Preserve signed color-fit contributions instead of clamping bins.
-        vec3 weight = SpectralToLinearSRGB(source);
+        vec3 weight = SpectralToLinearSRGB(bin_source);
         numerator += weight * EpipolarShadowVisibility(shadow_start, shadow_end, u);
         denominator += weight;
-        prefix_transmittance *= bin_integral.transmittance;
+        prefix_transmittance *= bin_transmittance;
     }
     // No scattering means no shadow contribution; choose neutral E=1.
     return mix(vec3(1.0), numerator / max(denominator, vec3(1e-20)),

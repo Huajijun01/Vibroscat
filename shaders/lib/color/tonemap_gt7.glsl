@@ -5,7 +5,7 @@
 
 
 // ===========================================================================
-// GT7 Tone Mapping (mode 4): Polyphony Digital's color-volume mapping
+// GT7 Tone Mapping (mode 5): Polyphony Digital's color-volume mapping
 // operator, "Driving Toward Reality: Physically Based Tone Mapping and
 // Perceptual Fidelity in Gran Turismo 7" [PDI25], SIGGRAPH 2025 courses.
 // Ported from the official sample implementation shipped with the course
@@ -40,14 +40,24 @@ const mat3 GT7_LMS_TO_BT2020 = mat3(
     vec3(3.4366066943, -0.7913295556, -0.0259498997),
     vec3(-2.5064521187, 1.9836004518, -0.0989137147),
     vec3(0.0698454243, -0.1922708962, 1.1248636144));
+// Each vec3 below is one COLUMN, so these arrays read as the transpose of the
+// sample's row-major formulas:
+//   I  = 0.5*L + 0.5*M          Ct = (6610L - 13613M + 7003S) / 4096
+//   Cp = (17933L - 17390M - 543S) / 4096
+// and its exact inverse (verified to round-trip within 2e-16) is
+//   L = I + 0.0086090370*Ct + 0.1110296250*Cp
+//   M = I - 0.0086090370*Ct - 0.1110296250*Cp
+//   S = I + 0.5600313357*Ct - 0.3206271750*Cp
+// The forward constant keeps S out of I: the sample's I is luma, and both the
+// chroma-fade pivot and the faded path's luminance read it.
 const mat3 GT7_LMS_TO_ICTCP = mat3(
     vec3(2048.0, 6610.0, 17933.0),
     vec3(2048.0, -13613.0, -17390.0),
-    vec3(2048.0, 7003.0, -543.0)) / 4096.0;
+    vec3(0.0, 7003.0, -543.0)) / 4096.0;
 const mat3 GT7_ICTCP_TO_LMS = mat3(
-    vec3(0.6666666667, 0.6666666667, 0.6666666667),
-    vec3(-0.1780680749, -0.1952861489, 0.3733542238),
-    vec3(0.2179053500, -0.0041539000, -0.2137514500));
+    vec3(1.0, 1.0, 1.0),
+    vec3(0.0086090370, -0.0086090370, 0.5600313357),
+    vec3(0.1110296250, -0.1110296250, -0.3206271750));
 
 // ST 2084 transfer on the sample's frame-buffer scale (1.0 = 100 nits).
 float InverseEotfST2084(float framebuffer) {
@@ -92,8 +102,10 @@ const float GT7_TOE_STRENGTH = 1.280;
 const float GT7_SHOULDER_A = 2.5;
 const float GT7_SHOULDER_B = -3.089054009429425;
 const float GT7_SHOULDER_C = -0.719424460431655;
-// UCS luma of the paper-white grey (2.5, 2.5, 2.5): chroma-fade pivot.
-const float GT7_TARGET_LUMA_UCS = 0.903838732486;
+// UCS luma I of the paper-white grey (2.5, 2.5, 2.5): chroma-fade pivot.
+// I is luma, so it is 0.5 * (L + M) and excludes S; the sample's equivalent
+// value is 0.602561.
+const float GT7_TARGET_LUMA_UCS = 0.6025591550;
 // Input prescale re-anchoring 18% grey: 0.4*curve(scale*0.18) = 0.18.
 const float GT7_MID_GREY_SCALE = 2.508318700610;
 // k * M folds into the constant matrix; the per-pixel path pays no scalar

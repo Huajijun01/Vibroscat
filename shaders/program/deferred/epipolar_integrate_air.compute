@@ -22,8 +22,7 @@ void main() {
     uint sample_groups = uint((EPIPOLAR_SAMPLES + 127) / 128);
     vec3 air_start = EyePositionSceneSpace();
     AirFogDensityProfile profile = AirFogProfile();
-    vec4 extinction = AirFogReferenceMedium().extinction;
-    float scalar_extinction = max(max(extinction.x, extinction.y), max(extinction.z, extinction.w));
+    AirFogMedium medium = AirFogReferenceMedium();
     for (uint i = 0u; i < sample_groups; ++i) {
         uint sample_index = gl_LocalInvocationID.y + i * 128u;
         if (sample_index >= uint(EPIPOLAR_SAMPLES)) break;
@@ -42,7 +41,7 @@ void main() {
                 float length_m = AirFogSegmentLength(distance_m, far);
                 float jitter = SampleSTBN(texel, STBNFrame());
                 air_e = EpipolarAirShadowRatio(air_start, air_start + direction_world * length_m,
-                    profile, scalar_extinction, jitter);
+                    profile, medium, jitter);
             }
         }
         // Historical RGBA16F contract: RGB = E, A = linear viewZ column key.

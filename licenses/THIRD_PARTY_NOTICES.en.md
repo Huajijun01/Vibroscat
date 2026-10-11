@@ -539,7 +539,7 @@ Port adaptations:
 
 Restored epipolar geometry retains the provenance and license in section 5. Height density, time-of-day modulation and weather response were studied read-only in iterationT 3.2.0 `shaders/Lib/IndividualFounctions/VolumetricFog.glsl` and Photon v1.3b `shaders/include/weather/fog.glsl`, `shaders/include/fog/overworld/{analytic,raymarched,constants}.glsl`. iterationT has no pack-level license in the snapshot and is treated as reserved; Photon explicitly permits examination and learning (upstream https://github.com/sixthsurge/photon). No source, close translation, distinctive expression, constant or asset was transferred.
 
-The pack independently derives a single exponential-height density plus a uniform rain increment and its closed-form column density. It retains its own four-band medium and phase functions, the historical transmittance-weighted visibility ratio E, and uses uniform stratified marching. Density defaults, reference height and scale height are independently authored.
+The pack independently derives exponential-height clear density and a separate uniform, neutral rain Mie increment. Optical depth and dry-air scattering are closed form; mixed rain/clear source integration is independently derived and numerically evaluated. Rain increases neither Rayleigh scattering nor ozone/aerosol absorption. The pack retains its own four-band medium and phase functions, the dimensionless shadowed/unshadowed scattering ratio E, and uniform stratified shadow marching. Density defaults, reference height and scale height are independently authored.
 
 ## Appendix A: Apache License 2.0 (full text)
 

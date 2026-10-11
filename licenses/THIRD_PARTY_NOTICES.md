@@ -317,6 +317,83 @@ Revelation 采用 Apache-2.0；本次仅研究数据流与通用算法，没有�
 Techniques"（2020）。扩展沿用本包现有的 RGB 边界与 HDRCompress/HDRDecompress。
 最终锐化复用本包现有 AMD FidelityFX CAS（第 4 节）。
 
+## 22. Khronos PBR Neutral Tone Mapper（Apache-2.0）
+
+`shaders/lib/color/tonemap_pbr_neutral.glsl` 的 `TonemapPBRNeutral`（`TONEMAP_MODE == 6`）
+移植自 Khronos Group 的参考实现 `PBR_Neutral/pbrNeutral.glsl`：
+
+> Copyright 2024 The Khronos Group Inc.
+> SPDX-License-Identifier: Apache-2.0
+
+上游：<https://github.com/KhronosGroup/ToneMapping>（`PBR_Neutral/`）。
+许可为 Apache License 2.0（全文见本文件附录 A）；仓库的 `.reuse/dep5` 对
+`PBR_Neutral/pbrNeutral.glsl` 声明 `License: Apache-2.0`，同目录 README 与
+规范文档为 CC-BY-4.0。取用日期 2026-10-11，源文件 SHA-256
+`087a1542c8d12d2d0fb89f570057e4e8365cc04eee5bff76c6e365cfa69f3734`。
+参考实现即 Khronos PBR Neutral 规范本身（F90 = 0.04、Ks = 0.8 - F90、Kd = 0.15
+的公式），本包按规范公式重写函数体并加注常量来源，未引入其他实现。
+
+移植适配说明：
+
+- 依据 Apache-2.0 第 4(b) 条，本包的 `tonemap_pbr_neutral.glsl` 是修改后的版本：
+  函数改名 `TonemapPBRNeutral`，常量改为具名常量，移位量与缩放量按本包设置宏
+  `TONEMAP_PBRN_INPUT_SCALE` 取值，并补充输入非负钳制。
+- 规范自身的标尺以 1.0 为场景最亮值，其 F90 扣除使场景 18% 灰落在 0.14
+  显示线性，比本包其他模式共享的 18% 锚点暗 0.36 档。`TONEMAP_PBRN_INPUT_SCALE`
+  默认值 (0.18 + F90)/0.18 = 1.2222222 把 18% 灰重新锚回 18%；取值 1.0 即官方的
+  原始标尺。
+- 未采用的部分：仓库内的 `config.ocio`、`pbrNeutral.cube` LUT 与 `lut-writer.mjs`
+  均未被使用，本包只移植 GLSL 参考实现。
+- 该算子按设计面向"已正确曝光、超过 1.0 的只有小型镜面高光"的场景；本包把
+  太阳、天空与自发光等高动态范围内容交给它时，这些内容被压入显示范围的顶部
+  20%，这是该算子的既定行为而非移植缺陷，源码注释与设置提示均已说明。
+
+## 23. OpenDRT（GPL-3.0）
+
+`shaders/lib/color/tonemap_opendrt.glsl` 的 `TonemapOpenDRT`（`TONEMAP_MODE == 7`）
+移植自 Jed Smith 的 OpenDRT（Open Display Rendering Transform）参考 DCTL
+`display-transforms/opendrt/OpenDRT.dctl`（文件头标注 OpenDRT v1.1.0，GPLv3）：
+
+> OpenDRT v1.1.0
+> Written by Jed Smith
+> https://github.com/jedypod/open-display-transform
+> License: GPLv3
+
+上游：<https://github.com/jedypod/open-display-transform>。仓库根 `LICENSE` 为
+GNU GPL v3，与本包主许可证一致，故按 GPL-3.0 移植并保留署名；依据 GPL-3.0
+第 5(a) 条在此声明本包对其作了修改（修改内容见下）。取用日期 2026-10-11，
+源文件 SHA-256 `645ba89745691742c5403f8de5964b5934cd1c59bf06fb1f1a1f6b45f54830a1`。
+
+移植范围：DCTL 的 `transform()` 在 `look_preset = 0`（Standard look）、
+`tonescale_preset = 0`（沿 Look 预设）、`display_encoding_preset = 0`
+（Rec.1886 / Rec.709）、`clamp = 1`、线性输入下的完整链路，即渲染空间降饱和、
+色调曲线约束求解、亮度（Brilliance）、双曲压缩、色相窗口 / 色相对比 / 两段色相
+偏移、色纯度压缩与中段色纯度、逆渲染空间、显示色域与白点、后置亮度、
+色纯度软限幅与最终趾部。逐像素结果与参考 DCTL 在 float64 下逐样本最大偏差
+4e-15（默认参数与十组参数回归均验证）。
+
+移植适配说明：
+
+- 仅 SDR：峰值亮度固定 100 尼特，故显示缩放 `ts_dsc = 1`，HDR 灰提升项为
+  `log2(1) = 0`，HDR 色纯度插值权重为零（参考实现中 `tsn_pt` 与 `tsn_const`
+  因此合为同一条曲线）；`tn_Lp`、`tn_gb`、`pt_hdr` 不再是参数。
+- 输出交给本包 `post/final.fragment` 的 sRGB OETF，故省略参考实现的逆显示
+  EOTF；环镜补偿取工具的 "sRGB Display" 预设（`tn_su = 2`，明亮环境），
+  而非工具默认的 Rec.1886 预设，以便与 2.2 次幂 + 亮环境的组合一致。
+- 输入与显示色域固定 Rec.709，参考实现的两步转换（Rec.709 → XYZ D65 → P3D65
+  及其逆）各自折叠为单个常量矩阵；Standard 预设的创意白点为 D65，该阶段为
+  恒等操作，故整体省略。
+- `TONEMAP_ODT_GREY_LUMINANCE` 默认 15.1306824 是按"场景 18% 灰 → 18% 显示线性"
+  数值求解得到的显示中灰亮度（默认色调曲线参数下），与工具自身默认值 10.0
+  不同；后者正是参考实现的原始观感，仍在可选值列表中。
+- 暴露为设置的参数：`TONEMAP_ODT_GREY_LUMINANCE`、`TONEMAP_ODT_CONTRAST`、
+  `TONEMAP_ODT_SHOULDER_CLIP`、`TONEMAP_ODT_TOE`、`TONEMAP_ODT_OFFSET`、
+  `TONEMAP_ODT_RENDER_SATURATION`、`TONEMAP_ODT_PURITY_LOW`、
+  `TONEMAP_ODT_PURITY_HIGH`、`TONEMAP_ODT_BRILLIANCE`，默认值均为 Standard
+  预设值（中灰亮度除外，见上）。其余预设模块（其他 Look 预设、Contrast Low /
+  High、创意白点、色相偏移与亮度的逐通道细分）未移植，按 Standard 预设常量
+  固化，并在源码注释中标明出处。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

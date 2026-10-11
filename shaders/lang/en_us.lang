@@ -37,6 +37,10 @@ screen.TONEMAP_REINHARD_AGX = Reinhard-AgX
 screen.TONEMAP_REINHARD_AGX.comment = Gamut, input scale, shoulder and hue controls for Reinhard-AgX. Applies only while that mode is selected.
 screen.TONEMAP_GT7 = GT7
 screen.TONEMAP_GT7.comment = Path blend and the chroma-fade start and end of the GT7 tone mapper. Applies only while GT7 is selected.
+screen.TONEMAP_PBR_NEUTRAL = PBR Neutral
+screen.TONEMAP_PBR_NEUTRAL.comment = The Khronos Group's PBR Neutral operator and its input scale. Applies only while PBR Neutral is selected.
+screen.TONEMAP_OPENDRT = OpenDRT
+screen.TONEMAP_OPENDRT.comment = OpenDRT's display grey, tone curve, color volume and purity controls. Applies only while OpenDRT is selected.
 screen.EXPOSURE = Exposure
 screen.EXPOSURE.comment = Automatic eye adaptation (like a phone camera's auto brightness), a manual brightness offset, and the night-vision color effect.
 screen.CAMERA = Camera & Effects
@@ -112,13 +116,15 @@ value.INFO_TOOLTIPS.0 = Hover any setting
 
 #Post: tonemapping
 option.TONEMAP_MODE = Tone Mapping Mode
-option.TONEMAP_MODE.comment = The final color "film look". Each mode compresses the scene's brightness differently and has its own character: AgX is natural and keeps highlights from going neon, OKLAB is a smooth modern curve, ACES is the classic film-industry look with strong contrast, Reinhard-Gamut and Reinhard-AgX are softer custom curves with extra color protection, and GT7 imitates the vivid look of the racing game Gran Turismo 7. Purely a matter of taste - try a few.
+option.TONEMAP_MODE.comment = The final color "film look". Each mode compresses the scene's brightness differently and has its own character: AgX is natural and keeps highlights from going neon, OKLAB is a smooth modern curve, ACES is the classic film-industry look with strong contrast, Reinhard-Gamut and Reinhard-AgX are softer custom curves with extra color protection, and GT7 imitates the vivid look of the racing game Gran Turismo 7. PBR Neutral is the Khronos Group's neutral operator, which reproduces ordinary surface colors almost exactly and rolls off only the highlights, and OpenDRT is a film-style display rendering transform with its own tone curve, hue paths and color volume. Purely a matter of taste - try a few.
 value.TONEMAP_MODE.0 = AgX
 value.TONEMAP_MODE.1 = OKLAB
 value.TONEMAP_MODE.2 = ACES
 value.TONEMAP_MODE.3 = Reinhard-Gamut
 value.TONEMAP_MODE.4 = GT7
 value.TONEMAP_MODE.5 = Reinhard-AgX
+value.TONEMAP_MODE.6 = PBR Neutral
+value.TONEMAP_MODE.7 = OpenDRT
 option.TONEMAP_EXPOSURE = Manual Exposure
 option.TONEMAP_EXPOSURE.comment = A fixed brightness offset applied before auto exposure, measured in stops: +1.0 makes everything twice as bright, -1.0 half as bright. Use it if you consistently find the game too dark or too bright.
 option.TONEMAP_SATURATION = Saturation
@@ -168,6 +174,27 @@ option.TONEMAP_GT7_CHROMA_FADE_START = GT7 Chroma Fade Start
 option.TONEMAP_GT7_CHROMA_FADE_START.comment = The brightness level (relative to paper white) where colors start washing out toward white, like a camera overexposing a bright light source. Lower = the washing starts earlier.
 option.TONEMAP_GT7_CHROMA_FADE_END = GT7 Chroma Fade End
 option.TONEMAP_GT7_CHROMA_FADE_END.comment = The brightness level where colors are fully washed out to white. Keep it above the fade start; the official default is 1.16.
+option.TONEMAP_PBRN_INPUT_SCALE = PBR Neutral Scale
+option.TONEMAP_PBRN_INPUT_SCALE.comment = Overall input scale of the PBR Neutral operator. The default keeps middle grey exactly as bright as the other tone mappers; 1.0 is the reference's own scale and renders 0.36 EV darker. Higher values brighten the image and start highlight compression earlier.
+option.TONEMAP_ODT_GREY_LUMINANCE = OpenDRT Grey Luminance
+option.TONEMAP_ODT_GREY_LUMINANCE.comment = Brightness of middle grey in OpenDRT, measured in nits against a 100-nit white (the tool's "Display Grey Luminance"). The default keeps middle grey as bright as the other tone mappers; the OpenDRT tool's own default is 10.0 and renders darker.
+suffix.TONEMAP_ODT_GREY_LUMINANCE = nits
+option.TONEMAP_ODT_CONTRAST = OpenDRT Contrast
+option.TONEMAP_ODT_CONTRAST.comment = Midtone contrast of the OpenDRT tone curve: higher makes the image punchier, lower flatter.
+option.TONEMAP_ODT_SHOULDER_CLIP = OpenDRT Shoulder Clip
+option.TONEMAP_ODT_SHOULDER_CLIP.comment = How bright the scene has to get before OpenDRT reaches paper white. Every step doubles the scene value that clips: 0.0 clips around 16x middle grey, 1.0 around 1024x. Lower values roll highlights off earlier.
+option.TONEMAP_ODT_TOE = OpenDRT Toe
+option.TONEMAP_ODT_TOE.comment = Shadow compression in OpenDRT: higher crushes deep shadows toward black, 0 leaves them as they are.
+option.TONEMAP_ODT_OFFSET = OpenDRT Offset
+option.TONEMAP_ODT_OFFSET.comment = Lifts the whole scene before the OpenDRT tone curve. This brightens shadows and softens the transition into black without moving where highlights land.
+option.TONEMAP_ODT_RENDER_SATURATION = OpenDRT Color Volume
+option.TONEMAP_ODT_RENDER_SATURATION.comment = How wide the color volume OpenDRT compresses is (the tool's "Render Space Strength"). Lower desaturates first for brighter but paler colors; higher keeps colors purer and renders them darker.
+option.TONEMAP_ODT_PURITY_LOW = OpenDRT Midtone Purity
+option.TONEMAP_ODT_PURITY_LOW.comment = How much color OpenDRT keeps in midtones and shadows (the tool's "Purity Limit Low"). Higher keeps ordinary surfaces more colorful, lower pulls them toward grey.
+option.TONEMAP_ODT_PURITY_HIGH = OpenDRT Highlight Purity
+option.TONEMAP_ODT_PURITY_HIGH.comment = How much color survives in OpenDRT's brightest highlights (the tool's "Purity Limit High"). Higher keeps some color in bright light sources, lower washes them out to white.
+option.TONEMAP_ODT_BRILLIANCE = OpenDRT Brilliance
+option.TONEMAP_ODT_BRILLIANCE.comment = Darkens or brightens only the most saturated colors, in stops, before OpenDRT's tone curve. Negative values keep pure reds, greens and blues from looking neon; 0.0 is neutral.
 
 #Post: camera & effects
 option.DOF = Depth of Field

@@ -70,8 +70,8 @@ const float centerDepthHalflife = 1.0;
 #define CAS_SHARPNESS 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
 // Tonemap operator (0 = AgX, 1 = OKLAB, 2 = ACES, 3 = Reinhard-Gamut,
-// 4 = GT7, 5 = Reinhard-AgX)
-#define TONEMAP_MODE 4 // [0 1 2 3 4 5] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut 4=GT7 5=Reinhard-AgX
+// 4 = GT7, 5 = Reinhard-AgX, 6 = PBR Neutral, 7 = OpenDRT)
+#define TONEMAP_MODE 4 // [0 1 2 3 4 5 6 7] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut 4=GT7 5=Reinhard-AgX 6=PBR Neutral 7=OpenDRT
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
@@ -137,6 +137,28 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define TONEMAP_GT7_BLEND 0.6 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] GT7 blend between the per-channel curve and the chroma-fade UCS path (official 0.6)
 #define TONEMAP_GT7_CHROMA_FADE_START 0.98 // [0.80 0.85 0.90 0.94 0.96 0.98 1.00 1.02 1.04] GT7 chroma-fade start, UCS luma relative to paper white (official 0.98)
 #define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)
+
+// Khronos PBR Neutral (TONEMAP_MODE == 6): the Khronos Group reference
+// operator (Apache-2.0). Its own scale takes 1.0 as the brightest scene
+// value, which lands scene 18% grey on 0.14 display-linear; the default
+// input scale re-anchors it on the 18% display-linear anchor the other modes
+// share. (0.18 + F90) / 0.18 with F90 = 0.04.
+#define TONEMAP_PBRN_INPUT_SCALE 1.2222222 // [0.5 0.75 1.0 1.2222222 1.5 2.0 2.5 3.0 4.0] PBR Neutral input scale (1.2222222 = shared 18% grey anchor, 1.0 = reference scale)
+
+// OpenDRT (TONEMAP_MODE == 7): Jed Smith's Open Display Rendering Transform
+// (GPL-3.0), Standard look preset. Grey luminance is the operator's own
+// display grey level in nits on a fixed 100-nit SDR peak; the reference
+// default is 10.0, the default here is the solved value that anchors scene
+// 18% grey on 18% display-linear with the default tone-scale parameters.
+#define TONEMAP_ODT_GREY_LUMINANCE 15.1306824 // [5.0 7.5 10.0 12.5 15.1306824 17.5 20.0 22.5 25.0] OpenDRT display grey luminance (nits on a 100-nit peak)
+#define TONEMAP_ODT_CONTRAST 1.66 // [1.0 1.15 1.3 1.4 1.5 1.66 1.8 2.0] OpenDRT tone-scale contrast
+#define TONEMAP_ODT_SHOULDER_CLIP 0.5 // [0.0 0.15 0.25 0.35 0.5 0.65 0.8 1.0] OpenDRT shoulder clip: scene value 2^(6*value+4) and up reaches paper white
+#define TONEMAP_ODT_TOE 0.003 // [0.0 0.003 0.01 0.02 0.04 0.07 0.1] OpenDRT quadratic toe strength (deep-shadow compression)
+#define TONEMAP_ODT_OFFSET 0.005 // [0.0 0.002 0.005 0.008 0.012 0.016 0.02] OpenDRT pre-tonescale scene offset (shadow lift)
+#define TONEMAP_ODT_RENDER_SATURATION 0.35 // [0.0 0.1 0.2 0.25 0.35 0.45 0.55 0.6] OpenDRT render-space strength (scale of the color volume)
+#define TONEMAP_ODT_PURITY_LOW 0.25 // [0.0 0.1 0.15 0.25 0.4 0.6 0.8 1.0] OpenDRT purity limit low (midtone and shadow color retention)
+#define TONEMAP_ODT_PURITY_HIGH 0.25 // [0.0 0.1 0.15 0.25 0.5 0.8 1.0] OpenDRT purity limit high (highlight color retention)
+#define TONEMAP_ODT_BRILLIANCE 0.0 // [-3.0 -2.0 -1.0 -0.5 0.0 0.5 1.0] OpenDRT brilliance (intensity scale of pure stimuli, stops)
 
 // ==========================================================================
 // CLOUDS - Cloud layers (volumetric + cirrus)

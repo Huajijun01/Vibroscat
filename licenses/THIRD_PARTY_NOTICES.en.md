@@ -360,6 +360,103 @@ Temporal reconstruction references Yang, Liu, and Salvi,
 the pack's existing RGB bounds and HDRCompress/HDRDecompress round-trip.
 Final sharpening reuses the pack's existing AMD FidelityFX CAS (section 4).
 
+## 22. Khronos PBR Neutral Tone Mapper (Apache-2.0)
+
+`TonemapPBRNeutral` in `shaders/lib/color/tonemap_pbr_neutral.glsl`
+(`TONEMAP_MODE == 6`) is ported from the Khronos Group reference implementation
+`PBR_Neutral/pbrNeutral.glsl`:
+
+> Copyright 2024 The Khronos Group Inc.
+> SPDX-License-Identifier: Apache-2.0
+
+Upstream: <https://github.com/KhronosGroup/ToneMapping> (`PBR_Neutral/`).
+The license is the Apache License 2.0 (full text in Appendix A). The
+repository's `.reuse/dep5` declares `License: Apache-2.0` for
+`PBR_Neutral/pbrNeutral.glsl`; the README and specification in that directory
+are CC-BY-4.0. Retrieved 2026-10-11, source file SHA-256
+`087a1542c8d12d2d0fb89f570057e4e8365cc04eee5bff76c6e365cfa69f3734`. The
+reference implementation is the Khronos PBR Neutral specification itself
+(the F90 = 0.04, Ks = 0.8 - F90 and Kd = 0.15 equations); this pack rewrites
+the function body from those equations and documents where each constant
+comes from. No other implementation was used.
+
+Port adaptations:
+
+- Under Apache-2.0 section 4(b), `tonemap_pbr_neutral.glsl` is a modified
+  version of the work: the function is renamed `TonemapPBRNeutral`, the inline
+  constants become named constants, the pre-scale comes from the pack's
+  `TONEMAP_PBRN_INPUT_SCALE` option, and the input is clamped to non-negative.
+- The specification's own scale takes 1.0 as the brightest scene value, so its
+  F90 subtraction lands scene 18% grey on 0.14 display-linear, 0.36 EV below
+  the 18% anchor the other modes in this pack share. The default
+  `TONEMAP_PBRN_INPUT_SCALE` of (0.18 + F90)/0.18 = 1.2222222 re-anchors 18%
+  grey on 18%; the value 1.0 is the reference's own scale.
+- Not used: the repository's `config.ocio`, `pbrNeutral.cube` LUT and
+  `lut-writer.mjs`. Only the GLSL reference implementation was ported.
+- The operator is designed for a well-exposed scene whose values above 1.0 are
+  small specular highlights. Handed this pack's sun, sky and emissive
+  radiance, it maps them into the top 20% of the display range. That is the
+  operator's designed behavior rather than a port defect, and both the source
+  comment and the setting tooltip say so.
+
+## 23. OpenDRT (GPL-3.0)
+
+`TonemapOpenDRT` in `shaders/lib/color/tonemap_opendrt.glsl`
+(`TONEMAP_MODE == 7`) is ported from Jed Smith's OpenDRT (Open Display
+Rendering Transform) reference DCTL `display-transforms/opendrt/OpenDRT.dctl`
+(its header identifies OpenDRT v1.1.0, GPLv3):
+
+> OpenDRT v1.1.0
+> Written by Jed Smith
+> https://github.com/jedypod/open-display-transform
+> License: GPLv3
+
+Upstream: <https://github.com/jedypod/open-display-transform>. The repository
+root `LICENSE` is the GNU GPL v3, the same license as this pack, so the port
+keeps the attribution; under GPL-3.0 section 5(a) this notice states that the
+pack modified the work (see below). Retrieved 2026-10-11, source file SHA-256
+`645ba89745691742c5403f8de5964b5934cd1c59bf06fb1f1a1f6b45f54830a1`.
+
+Ported scope: the complete `transform()` chain at `look_preset = 0`
+(Standard look), `tonescale_preset = 0` (follow the look preset),
+`display_encoding_preset = 0` (Rec.1886 / Rec.709), `clamp = 1` and linear
+input - render-space desaturation, the tone-scale constraint solve, brilliance,
+hyperbolic compression, the hue windows / hue contrast / two hue-shift stages,
+purity compression with mid-range purity, inverse render space, display gamut
+and whitepoint, post brilliance, purity softclip and the final toe. Per-pixel
+results match the reference DCTL to a maximum deviation of 4e-15 in float64
+over the default parameters and ten parameter regressions.
+
+Port adaptations:
+
+- SDR only: the peak luminance is fixed at 100 nits, so the display scale
+  `ts_dsc` is 1, the HDR grey-boost term is `log2(1) = 0`, and the HDR purity
+  lerp has zero weight (which collapses the reference's `tsn_pt` and
+  `tsn_const` onto one curve). `tn_Lp`, `tn_gb` and `pt_hdr` are therefore not
+  parameters here.
+- The output feeds this pack's sRGB OETF in `post/final.fragment`, so the
+  reference's inverse display EOTF is omitted, and the surround compensation
+  uses the tool's "sRGB Display" preset (`tn_su = 2`, bright surround) rather
+  than its default Rec.1886 preset, matching a 2.2-power encode in a bright
+  viewing environment.
+- Input and display gamut are fixed to Rec.709, so the reference's two-step
+  conversions (Rec.709 -> XYZ D65 -> P3D65 and its inverse) fold into one
+  constant matrix each; the Standard preset's creative whitepoint is D65,
+  where that stage is the identity and is omitted.
+- The default `TONEMAP_ODT_GREY_LUMINANCE` of 15.1306824 is the display grey
+  luminance solved for "scene 18% grey -> 18% display-linear" at the default
+  tone-scale parameters, not the tool's own default of 10.0. That reference
+  default remains in the option's value list.
+- Exposed as settings: `TONEMAP_ODT_GREY_LUMINANCE`, `TONEMAP_ODT_CONTRAST`,
+  `TONEMAP_ODT_SHOULDER_CLIP`, `TONEMAP_ODT_TOE`, `TONEMAP_ODT_OFFSET`,
+  `TONEMAP_ODT_RENDER_SATURATION`, `TONEMAP_ODT_PURITY_LOW`,
+  `TONEMAP_ODT_PURITY_HIGH` and `TONEMAP_ODT_BRILLIANCE`, all defaulting to
+  the Standard preset values except the grey luminance above. The remaining
+  preset modules (the other look presets, Contrast Low/High, the creative
+  whitepoint, and the per-channel hue-shift and brilliance subdivisions) are
+  not ported: they are fixed to the Standard preset values, which the source
+  comments state.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

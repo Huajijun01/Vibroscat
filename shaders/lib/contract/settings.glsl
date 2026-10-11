@@ -133,7 +133,7 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 // GT7 Tone Mapping (TONEMAP_MODE == 4): Polyphony Digital color-volume
 // mapping (SIGGRAPH 2025 course, official MIT sample). The curve parameters
 // use the official SDR preset except alpha 0 (shoulder converges exactly to
-// paper white; see lib/color/color.glsl) and are fixed there.
+// paper white; see lib/color/tonemap_gt7.glsl) and are fixed there.
 #define TONEMAP_GT7_BLEND 0.6 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] GT7 blend between the per-channel curve and the chroma-fade UCS path (official 0.6)
 #define TONEMAP_GT7_CHROMA_FADE_START 0.98 // [0.80 0.85 0.90 0.94 0.96 0.98 1.00 1.02 1.04] GT7 chroma-fade start, UCS luma relative to paper white (official 0.98)
 #define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)

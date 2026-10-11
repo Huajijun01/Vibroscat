@@ -15,7 +15,7 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 
 ## 2. AgX（概念 + MIT 实现）
 
-`shaders/lib/color/color.glsl` 的 `TonemapAGX` 基于 AgX-S2O3 解析曲线（linlin, MIT），概念来源为 Troy Sobotka 的 AgX：
+`shaders/lib/color/tonemap_agx.glsl` 的 `TonemapAGX` 基于 AgX-S2O3 解析曲线（linlin, MIT），概念来源为 Troy Sobotka 的 AgX：
 
 - [SOB22] Sobotka, Troy. "AgX". 2022. https://github.com/sobotka/AgX （概念与配置；上游仓库无许可证，仅作概念引用）
 - [LIN24] linlin, "AgX". 2024. MIT License. Copyright (c) 2024 linlin. 上游：https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087
@@ -176,7 +176,7 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 
 ## 17. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
 
-`shaders/lib/color/color.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 4`）移植自
+`shaders/lib/color/tonemap_gt7.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 4`）移植自
 Polyphony Digital 随 SIGGRAPH 2025 课程材料发布的官方样例实现
 `gt7_tone_mapping.cpp`，课程为 *Driving Toward Reality: Physically Based Tone
 Mapping and Perceptual Fidelity in Gran Turismo 7*（Kentaro Suzuki、Kenichiro

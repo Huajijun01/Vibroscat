@@ -15,7 +15,7 @@ The redistribution restrictions of Photon's custom license do not apply to the p
 
 ## 2. AgX (concept + MIT implementation)
 
-`TonemapAGX` in `shaders/lib/color/color.glsl` is based on the AgX-S2O3 analytic curve (linlin, MIT), with the AgX concept from Troy Sobotka:
+`TonemapAGX` in `shaders/lib/color/tonemap_agx.glsl` is based on the AgX-S2O3 analytic curve (linlin, MIT), with the AgX concept from Troy Sobotka:
 
 - [SOB22] Sobotka, Troy. "AgX". 2022. https://github.com/sobotka/AgX (concept and configuration; upstream repository has no license, referenced for concept only)
 - [LIN24] linlin, "AgX". 2024. MIT License. Copyright (c) 2024 linlin. Upstream: https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087
@@ -183,7 +183,7 @@ Piscium (GPL-3.0) were architecture comparisons; no source or assets were copied
 
 ## 17. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
 
-`TonemapGT7` in `shaders/lib/color/color.glsl` (`TONEMAP_MODE == 4`) is ported
+`TonemapGT7` in `shaders/lib/color/tonemap_gt7.glsl` (`TONEMAP_MODE == 4`) is ported
 from the official sample implementation `gt7_tone_mapping.cpp` released by
 Polyphony Digital with the SIGGRAPH 2025 course material *Driving Toward
 Reality: Physically Based Tone Mapping and Perceptual Fidelity in Gran Turismo 7*

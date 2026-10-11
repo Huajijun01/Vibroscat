@@ -28,45 +28,10 @@ const mat3 SRGB_TO_XYZ = mat3(
     vec3(0.3575761, 0.7151522, 0.1191920),
     vec3(0.1804375, 0.0721750, 0.9503041));
 
-// OKLAB
-// l/m/s are the LMS cone responses, l_/m_/s_ their cube roots (Ottosson's
-// reference notation).
-vec3 RGBToOKLAB(vec3 c) {
-    float l = 0.4121656120 * c.r + 0.5362752080 * c.g + 0.0514575653 * c.b;
-    float m = 0.2118591070 * c.r + 0.6807189584 * c.g + 0.1074065790 * c.b;
-    float s = 0.0883097947 * c.r + 0.2818474174 * c.g + 0.6302613616 * c.b;
-
-    float l_ = pow(l, 1.0 / 3.0);
-    float m_ = pow(m, 1.0 / 3.0);
-    float s_ = pow(s, 1.0 / 3.0);
-
-    vec3 lab;
-    lab.x = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
-    lab.y = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
-    lab.z = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
-    return lab;
-}
-
-vec3 OKLABToRGB(vec3 c) {
-    float l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
-    float m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
-    float s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
-
-    float l = l_ * l_ * l_;
-    float m = m_ * m_ * m_;
-    float s = s_ * s_ * s_;
-
-    vec3 rgb;
-    rgb.r =  4.0767245293 * l - 3.3072168827 * m + 0.2307590544 * s;
-    rgb.g = -1.2681437731 * l + 2.6093323231 * m - 0.3411344290 * s;
-    rgb.b = -0.0041119885 * l - 0.7034763098 * m + 1.7068625689 * s;
-    return rgb;
-}
-
 // AgX display rendering transform.
 // Concept: [SOB22] Sobotka, Troy. AgX. 2022. https://github.com/sobotka/AgX
 
-// --- HSV helpers (shared by the Reinhard-Gamut hue protection) ---
+// --- HSV helpers (used by the AgX hue repair) ---
 
 vec3 RGBToHSV(vec3 color) {
     float maximum = max(color.r, max(color.g, color.b));

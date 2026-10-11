@@ -13,44 +13,21 @@ Photon Shaders (Copyright © 2021-2025 Benjamin Stott "SixthSurge", custom licen
 
 The redistribution restrictions of Photon's custom license do not apply to the pack's current code. The historical port and cleanup records remain in the Git history.
 
-## 2. AgX (concept + MIT implementation)
+## 2. AgX (concept; current implementation in section 3)
 
-`TonemapAGX` in `shaders/lib/color/tonemap_agx.glsl` is based on the AgX-S2O3 analytic curve (linlin, MIT), with the AgX concept from Troy Sobotka:
+`TonemapAGX` in `shaders/lib/color/tonemap_agx.glsl` is the HSV hue-repair variant of the AgX family. The AgX concept comes from Troy Sobotka:
 
 - [SOB22] Sobotka, Troy. "AgX". 2022. https://github.com/sobotka/AgX (concept and configuration; upstream repository has no license, referenced for concept only)
-- [LIN24] linlin, "AgX". 2024. MIT License. Copyright (c) 2024 linlin. Upstream: https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087
 
-> AgX-S2O3
-> Upstream: https://github.com/bWFuanVzYWth/AgX
-> Revision: 0796e1b4aa9df94152eff353bae131eae1a4c087
->
-> MIT License
->
-> Copyright (c) 2024 linlin
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
+The curve, the log shaper and the hue repair now come from DRT Bench; see section 3 for that provenance. Before 2026-10 the pack used linlin's AgX-S2O3 analytic implementation (MIT, https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087); that curve and its implementation were removed with the 2026-10 tone-mapper list change and are no longer distributed.
 
-## 3. DRT tone mapping (direct author permission; GPL-3.0)
+## 3. DRT tone mapping (GPL-3.0)
 
-`TonemapOklabDRT` (Björn Ottosson "A display rendering transform", 2021), `TonemapReinhardGamut` (`TONEMAP_MODE == 3`) and `TonemapReinhardAgx` (`TONEMAP_MODE == 5`) are ported from DRT Bench (github.com/bWFuanVzYWth/DRT, by linlin). The virtual-primary gamut, the Reinhard curve, the AgX log shoulder and the HSV hue repair are that tool's designs; the Oklab concept and formulas come from Björn Ottosson's public articles.
+`TonemapAGX` (`TONEMAP_MODE == 0`) is ported from DRT Bench (github.com/bWFuanVzYWth/DRT, by linlin), `shaders/agx_hsv.wgsl`, at that tool's `AgxParameters::hsv_default()` curve: the -10 .. +6.5 EV log2 shaper, the sRGB OETF(0.18) output pivot, the 1.55 / 5.2 toe and shoulder powers, the 0.05 gamut compression, and the HSV hue-repair stage that this variant is named for.
 
-When Oklab and Reinhard-Gamut were ported in 2026-08 the repository had not selected an open-source license (publish=false), and the author granted Vibroscat permission directly (written confirmation available from linlin on request). Since 2026-09 the repository is published under `GPL-3.0-only` (LICENSE added in commit 49e67a3), which is compatible with this pack's main license, GNU GPL v3.
+The repository is published under `GPL-3.0-only` since 2026-09 (LICENSE added in commit 49e67a3), which is compatible with this pack's main license, GNU GPL v3. The log-domain contrast, the display-domain saturation/gamma, the look presets and the added `TONEMAP_AGX_HIGHLIGHT_HUE` control are Vibroscat's own additions; the reference operator has no such controls.
+
+History: between 2026-08 and 2026-10 the pack also carried ports of this tool's Oklab DRT, Reinhard-Gamut and Reinhard-AgX (used at the time with the author's direct permission, before the repository chose a license). All three were removed in the 2026-10 tone-mapper list change and are no longer distributed.
 
 ## 4. AMD FidelityFX CAS (MIT)
 
@@ -183,7 +160,7 @@ Piscium (GPL-3.0) were architecture comparisons; no source or assets were copied
 
 ## 17. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
 
-`TonemapGT7` in `shaders/lib/color/tonemap_gt7.glsl` (`TONEMAP_MODE == 4`) is ported
+`TonemapGT7` in `shaders/lib/color/tonemap_gt7.glsl` (`TONEMAP_MODE == 5`) is ported
 from the official sample implementation `gt7_tone_mapping.cpp` released by
 Polyphony Digital with the SIGGRAPH 2025 course material *Driving Toward
 Reality: Physically Based Tone Mapping and Perceptual Fidelity in Gran Turismo 7*
@@ -360,49 +337,152 @@ Temporal reconstruction references Yang, Liu, and Salvi,
 the pack's existing RGB bounds and HDRCompress/HDRDecompress round-trip.
 Final sharpening reuses the pack's existing AMD FidelityFX CAS (section 4).
 
-## 22. Khronos PBR Neutral Tone Mapper (Apache-2.0)
+## 22. ACES 2.0 Output Transform (Apache-2.0)
 
-`TonemapPBRNeutral` in `shaders/lib/color/tonemap_pbr_neutral.glsl`
-(`TONEMAP_MODE == 6`) is ported from the Khronos Group reference implementation
-`PBR_Neutral/pbrNeutral.glsl`:
+`TonemapACES2` in `shaders/lib/color/tonemap_aces2.glsl` (`TONEMAP_MODE == 1`)
+is ported from the ACES 2.0 reference implementation:
 
-> Copyright 2024 The Khronos Group Inc.
+> Copyright Contributors to the ACES Project.
 > SPDX-License-Identifier: Apache-2.0
 
-Upstream: <https://github.com/KhronosGroup/ToneMapping> (`PBR_Neutral/`).
-The license is the Apache License 2.0 (full text in Appendix A). The
-repository's `.reuse/dep5` declares `License: Apache-2.0` for
-`PBR_Neutral/pbrNeutral.glsl`; the README and specification in that directory
-are CC-BY-4.0. Retrieved 2026-10-11, source file SHA-256
-`087a1542c8d12d2d0fb89f570057e4e8365cc04eee5bff76c6e365cfa69f3734`. The
-reference implementation is the Khronos PBR Neutral specification itself
-(the F90 = 0.04, Ks = 0.8 - F90 and Kd = 0.15 equations); this pack rewrites
-the function body from those equations and documents where each constant
-comes from. No other implementation was used.
+Upstream: <https://github.com/ampas/aces-core> (version 2.0, 2025-04-04) and
+<https://github.com/ampas/aces-output>. Both are released under the Apache
+License 2.0 (full text in Appendix A). Retrieved 2026-10-11; source files and
+their SHA-256:
+
+- `aces-core/lib/Lib.Academy.OutputTransform.ctl` - `8bdebd1d7f313fc652c8fc282cb73b6621834e1f760c1af9b305e9b70ad36e9d`
+- `aces-core/lib/Lib.Academy.Tonescale.ctl` - `16bf0696f856c5f1b848fbac27be17604d98af4ef280cd61c638ce57049e7823`
+- `aces-core/lib/Lib.Academy.ColorSpaces.ctl` - `2bf18df76298232fe7cf456c8469672b5a631d84a9ee884a6e5591fc82ee0f4e`
+- `aces-output/d65/displayP3/Output.Academy.Rec709-D65_100nit_in_P3-D65_sRGB-Piecewise.ctl` - `4dc4af31672ddbe900cf5fad6888b01d772d10d1ff203efab44c1e45191c988d`
+
+Port adaptations (under Apache-2.0 section 4(b) this states that the pack
+modified the work):
+
+- Ported: the Rec.709(D65) -> ACES2065-1 Bradford adaptation, the AP1 input
+  clamp, the Hellwig-2022 CAM forward/inverse JMh conversions, the MM tone
+  scale at a 100-nit peak, the hue-dependent chroma compression driven by both
+  J and the tone-scaled J, and the Rec.709 display-linear output. Viewing
+  conditions are the reference's fixed SDR set (dim surround, L_A = 100,
+  Y_b = 20, 100-nit peak, model gamma cz = 1.1370560).
+- Not ported: the display-cusp gamut compressor `gamut_compress_fwd` (which
+  needs per-hue cusp and upper-hull gamma tables plus the nested solvers
+  `find_display_cusp_for_hue` / `make_upper_hull_gamma_table`) and the whole
+  inverse transform. This pack clamps in the display-linear domain instead, so
+  extremely saturated highlights clip per channel; the chroma compression has
+  already rolled those colors off, so common content is unaffected.
+- **No lookup table of any kind.** The reference precomputes three 360-entry
+  hue tables as a "compute once" optimisation; the only one this port needs,
+  the reach limit, is solved per pixel with a bounded bisection (the reference
+  table spans 72.5 .. 194.4, the port bisects [50, 250] in 8 steps - no table,
+  nothing baked). Against the reference core the output differs by at most
+  0.0078 display-linear (mean 0.0005) over 23016 samples.
+- Anchoring: the reference maps scene 18% grey to c_d = 10.013 nits = 0.100
+  display-linear. `TONEMAP_ACES2_INPUT_SCALE` (default 1.7133450, solved)
+  re-anchors it on the 0.18 every other mode in this pack shares; 1.0 is the
+  reference's own scale.
+
+## 23. Blender AgX (GPL-2.0-or-later)
+
+`TonemapBlenderAgX` in `shaders/lib/color/tonemap_blender_agx.glsl`
+(`TONEMAP_MODE == 2`) is ported from the AgX view transform Blender has shipped
+as the default for new files since 4.0 (Blender 4.0 color management release
+notes; blender/blender!106355, "AgX View Transform"). Blender is released under
+GPL-2.0-or-later, which is compatible with this pack's GNU GPL v3. The AgX
+concept itself is Troy Sobotka's (section 2); the configuration Blender ships
+is maintained by EaryChow (the `EaryChow-AgX` OCIO config and its
+`AgX_LUT_Gen` generator).
+
+Reference chain: `AgX_LUT_Gen/AgXBasesRGB.py`, `AgX_LUT_Gen/sigmoid.py`,
+`AgX_LUT_Gen/working_space.py`, and Blender's shipped 57^3 `AgX_Base_sRGB.cube`.
+The local snapshot lives under `research/AgX/official/` (development tree, not
+distributed).
 
 Port adaptations:
 
-- Under Apache-2.0 section 4(b), `tonemap_pbr_neutral.glsl` is a modified
-  version of the work: the function is renamed `TonemapPBRNeutral`, the inline
-  constants become named constants, the pre-scale comes from the pack's
-  `TONEMAP_PBRN_INPUT_SCALE` option, and the input is clamped to non-negative.
-- The specification's own scale takes 1.0 as the brightest scene value, so its
-  F90 subtraction lands scene 18% grey on 0.14 display-linear, 0.36 EV below
-  the 18% anchor the other modes in this pack share. The default
-  `TONEMAP_PBRN_INPUT_SCALE` of (0.18 + F90)/0.18 = 1.2222222 re-anchors 18%
-  grey on 18%; the value 1.0 is the reference's own scale.
-- Not used: the repository's `config.ocio`, `pbrNeutral.cube` LUT and
-  `lut-writer.mjs`. Only the GLSL reference implementation was ported.
-- The operator is designed for a well-exposed scene whose values above 1.0 are
-  small specular highlights. Handed this pack's sun, sky and emissive
-  radiance, it maps them into the top 20% of the display range. That is the
-  operator's designed behavior rather than a port defect, and both the source
-  comment and the setting tooltip say so.
+- Blender bakes this imaging chain into `AgX_Base_sRGB.cube`; this pack
+  evaluates the same chain in **closed form** instead: linear sRGB -> (the
+  Rec.709 -> Rec.2020 matrix folded with the AgX inset into one constant) ->
+  the normalized -10 .. +6.5 EV log2 shaper -> the toe/shoulder contrast
+  sigmoid (slope 2.4, power 1.5) -> the 2.4-power inverse of the AgX Base
+  encoding -> (the AgX outset folded with Rec.2020 -> Rec.709) ->
+  display-linear Rec.709. **No LUT, no baked curve, no sampled table.**
+- Not ported: the per-channel chroma-angle mixing (40% in the generator) and
+  the sRGB guard rails (`compensate_low_side`). Both are a second per-channel
+  pass over an already formed image, and Blender's own realtime GLSL port of
+  this configuration drops them for the same reason.
+- Not ported: the optional contrast looks (Punchy and the other six). They are
+  OCIO v2 grading-primary transforms acting in Blender's 25-stop "AgX Log"
+  space, which is a different encoding from the 16.5-stop shaper this port (and
+  the Base Contrast view transform) uses; the release notes describe them as
+  darkening looks, so reproducing one outside its grading space would
+  misrepresent it. This mode therefore exposes no operator settings.
+- Anchor: the shaper puts scene 0.18 at 10/16.5 EV, which is the curve's own x
+  pivot, and the curve satisfies curve(x_pivot) = y_pivot with y_pivot^2.4 =
+  0.18; both matrices keep neutrals fixed (their rows sum to 1 within 1e-15).
+  Scene 18% grey therefore lands on 18% display-linear with no pre-scale.
+- Verification: the closed-form port was compared against the neutral diagonal
+  of Blender's shipped `AgX_Base_sRGB.cube` over -10 .. +6.5 EV, agreeing to
+  1.3e-05 in the encoded domain (6.6e-07 at -10 EV).
 
-## 23. OpenDRT (GPL-3.0)
+## 24. AMD FidelityFX LPM (MIT)
+
+`TonemapLPM` in `shaders/lib/color/tonemap_lpm.glsl` (`TONEMAP_MODE == 4`) is
+ported from AMD's FidelityFX Luma Preserving Mapper, `ffx-lpm/ffx_lpm.h`
+(header tag `[LPM] LUMA PRESERVING MAPPER 1.20200225`):
+
+> Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
+> (the repository's `NOTICES.txt` records the same MIT code as "AMD copyrighted
+> code (MIT) / Copyright (c) 2020 Advanced Micro Devices, Inc. All rights
+> reserved."; the full MIT text is in that file)
+
+Upstream: <https://github.com/GPUOpen-Effects/FidelityFX-LPM>. Retrieved
+2026-10-11; source file SHA-256
+`7a7c0f376c89bcecd51fe8a5d8ba3b34ec59841e9915cb5b3e16ee87e9448c4d`.
+
+The reference is itself the ALU version (its changelog records "Switched from
+using LUTs to doing the full mapping in ALU"), so **this port contains and needs
+no lookup table**.
+
+Port adaptations:
+
+- Ported: `LpmSetup`'s toneScaleBias solve (`tone(x) = x^contrast / (x^shoulder
+  * bias.x + bias.y)`, pinned by tone(midIn) = 0.18 and tone(hdrMax) = 1.0;
+  folded into compile-time constants here) and the whole `LpmMap` chain: the
+  ratio/luma split, the saturation power on the ratio, the tone curve applied
+  to the luma of the *original* color (which is what makes the map luma
+  preserving), the ratio re-scale, the crosstalk walk back into gamut and the
+  final luma make-up.
+- `LPM_CONFIG_709_709` with `LPM_COLORS_709_709`: working, output and container
+  gamut are all Rec.709 D65, so the reference's `con`/`con2` matrices are
+  identity and omitted, and its `clip` and `scaleOnly` paths are dead.
+- Not ported: `soft` gamut mapping (the reference needs `con` alongside it and
+  only reaches it when the working and output gamuts differ),
+  `shoulder`/`shoulderContrast` (the reference's own value is 1.0 and its
+  example disables it), the con2/scaleOnly output transforms (FS2, HDR10,
+  scRGB), the FP16 packed path and `LpmSetupOut`. This pack returns
+  display-linear Rec.709 and applies its sRGB OETF in `post/final.fragment`.
+- Two guards cover inputs the reference documents as outside its contract
+  ({0 .. hdrMax}) but can still receive: color == 0 makes its `1/max(rgb)` a
+  division by zero (this port returns black), and once the tone-mapped luma
+  reaches 1.0 every crosstalk cap term is 0, making its `lumaAdd/dot(cap,
+  lumaT)` a 0/0 (this port takes the limit t = 0).
+- Anchor: LPM's curve already maps midIn to 0.18, and every official preset
+  uses exposure = log2(hdrMax), so the defaults (hdrMax 1024, exposure 10, from
+  the FidelityFX sample) keep 18% grey in place. `TONEMAP_LPM_CONTRAST` defaults
+  to 0.15, this port's one tuned value (the reference header's 0.25 and the
+  sample's 0.0 are both selectable); `TONEMAP_LPM_SATURATION` defaults to 1.0,
+  which corresponds to the reference's own neutral saturation value (this port
+  re-expresses the reference's additive parameter as 1.0 = neutral).
+- Verification: compared sample by sample against a Python transcription of
+  `ffx_lpm.h` over 28084 samples (neutrals, primaries, secondaries and HDR
+  noise across [0, 1024]), maximum deviation 6.5e-15; seven contrast and seven
+  saturation settings each agreed to 7.1e-15; the neutral-grey response matches
+  the reference point for point (0.18 -> 0.180000).
+
+## 25. OpenDRT (GPL-3.0)
 
 `TonemapOpenDRT` in `shaders/lib/color/tonemap_opendrt.glsl`
-(`TONEMAP_MODE == 7`) is ported from Jed Smith's OpenDRT (Open Display
+(`TONEMAP_MODE == 3`) is ported from Jed Smith's OpenDRT (Open Display
 Rendering Transform) reference DCTL `display-transforms/opendrt/OpenDRT.dctl`
 (its header identifies OpenDRT v1.1.0, GPLv3):
 

@@ -69,9 +69,9 @@ const float centerDepthHalflife = 1.0;
 #define CAS
 #define CAS_SHARPNESS 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
 
-// Tonemap operator (0 = AgX, 1 = OKLAB, 2 = ACES, 3 = Reinhard-Gamut,
-// 4 = GT7, 5 = Reinhard-AgX, 6 = PBR Neutral, 7 = OpenDRT)
-#define TONEMAP_MODE 4 // [0 1 2 3 4 5 6 7] Tonemap: 0=AgX 1=OKLAB 2=ACES 3=Reinhard-Gamut 4=GT7 5=Reinhard-AgX 6=PBR Neutral 7=OpenDRT
+// Tonemap operator (0 = AgX, 1 = ACES 2.0, 2 = Blender AgX, 3 = OpenDRT,
+// 4 = AMD LPM, 5 = GT7)
+#define TONEMAP_MODE 0 // [0 1 2 3 4 5] Tonemap: 0=AgX 1=ACES 2.0 2=Blender AgX 3=OpenDRT 4=AMD LPM 5=GT7
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 #define TONEMAP_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] Pre-tonemap saturation
 #define TONEMAP_STRENGTH 1.0 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] Blend between linear HDR and tonemapped result
@@ -91,61 +91,38 @@ const float PURKINJE_PHOTOPIC_KEY = 0.04;
 const float PURKINJE_CONE_LUMINANCE = 0.35;
 const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 
-// AgX look and adjustments (only used when TONEMAP_MODE == 0)
+// AgX (TONEMAP_MODE == 0): AgX-HSV from DRT Bench. Look, log-domain contrast
+// and the display-domain saturation/gamma are the pack's own adjustments on
+// top of the reference operator.
 #define TONEMAP_AGX_LOOK 1 // [0 1 2] AgX look: 0=Base 1=Punchy 2=Greyscale
 #define TONEMAP_AGX_CONTRAST 0.95 // [0.5 0.6 0.7 0.8 0.9 0.95 1.0 1.1 1.2 1.3 1.4 1.5] AgX log-domain contrast around the mid-grey pivot
 #define TONEMAP_AGX_SATURATION 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0] AgX display-domain saturation
 #define TONEMAP_AGX_GAMMA 0.9 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] AgX display-domain gamma
+// The variant's signature control: how much of the original hue survives in
+// the brightest highlights (1.0 at black, this value at paper white).
+#define TONEMAP_AGX_HIGHLIGHT_HUE 0.5 // [0.0 0.25 0.5 0.75 1.0] AgX highlight hue retention (0 = curve's own hue, 1 = keep the scene hue)
 
-// AgX-S2O3 curve parameters (linlin MIT implementation; pack 0.18 anchor).
-#define TONEMAP_AGX_TOE_POWER 3.0
-#define TONEMAP_AGX_SHOULDER_POWER 3.25
-#define TONEMAP_AGX_GAMUT_COMPRESSION 0.2
-const float AGX_INPUT_PIVOT = 0.6060606060606061;   // 10 / 16.5 EV
-const float AGX_OUTPUT_PIVOT = 0.48943708957387834; // sRGB OETF(0.18)
-const float AGX_PIVOT_SLOPE = 2.0;
-const float AGX_TOE_A = 63.74164317180604;      // curve_coefficient(0.60606, 0.48944, 2.0, 3.0)
-const float AGX_SHOULDER_A = 63.9174843229821;  // curve_coefficient(0.39394, 0.51056, 2.0, 3.25)
+// AgX-HSV curve parameters (DRT Bench `AgxParameters::hsv_default()`).
+#define TONEMAP_AGX_TOE_POWER 1.55
+#define TONEMAP_AGX_SHOULDER_POWER 5.2
+#define TONEMAP_AGX_GAMUT_COMPRESSION 0.05
+const float AGX_MIN_LOG2 = -12.473931188332412333;    // log2(0.18) - 10 EV
+const float AGX_INVERSE_DYNAMIC_RANGE = 0.060606060606060606; // 1 / 16.5 EV
+const float AGX_INPUT_PIVOT = 0.6060606060606061;     // 10 / 16.5 EV
+const float AGX_OUTPUT_PIVOT = 0.4613561300;          // sRGB OETF(0.18)
+const float AGX_PIVOT_SLOPE = 2.4606366;
+const float AGX_TOE_A = 11.2194730786;         // curve_coefficient(0.60606, 0.46136, 2.46064, 1.55)
+const float AGX_SHOULDER_A = 2568.7503334098;  // curve_coefficient(0.39394, 0.53864, 2.46064, 5.2)
 const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.3958121374360396);
 
-// Oklab DRT (TONEMAP_MODE == 1): Ottosson display rendering transform.
-// Highlight asymptote E (0.5..2.0); mid-grey 0.18 is preserved for any E.
-#define TONEMAP_OKLAB_OVEREXPOSURE 1.0 // [0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0 1.05 1.1 1.15 1.2 1.25 1.3 1.35 1.4 1.45 1.5 1.55 1.6 1.65 1.7 1.75 1.8 1.85 1.9 1.95 2.0] Oklab DRT highlight asymptote
+// ACES 2.0 output transform (TONEMAP_MODE == 1): the ACES 2.0 reference
+// chain (Hellwig-2022 JMh, MM tonescale, hue-dependent chroma compression).
+// Its own anchor is c_d = 10.013 nits = 0.100 display-linear for scene 18%
+// grey; the default input scale is solved so that the shared 0.18 anchor
+// holds, and 1.0 is the reference's own scale.
+#define TONEMAP_ACES2_INPUT_SCALE 1.7133450 // [0.5 0.75 1.0 1.25 1.5 1.7133450 2.0 2.5 3.0] ACES 2.0 input scale (1.7133450 = shared 18% grey anchor, 1.0 = reference scale)
 
-// Reinhard-Gamut (TONEMAP_MODE == 3): virtual-gamut Reinhard experiment.
-// Input scale maps scene-linear 18% gray back to 18% (default 1/(1-0.18)).
-#define TONEMAP_RG_GAMUT_EXPANSION 0.03 // [0.0 0.01 0.02 0.03 0.04 0.05 0.1 0.15 0.2 0.3 0.4 0.5 0.6 0.7 0.8] Reinhard-Gamut virtual-primary expansion (coordinates contract toward neutral)
-#define TONEMAP_RG_INPUT_SCALE 1.2195122 // [0.1 0.2 0.3 0.5 0.75 1.0 1.2195122 1.5 2.0 3.0 4.0 6.0 8.0] Reinhard-Gamut input scale (1/(1-0.18) preserves 18% gray)
-#define TONEMAP_RG_HIGHLIGHT_REACH_EV 6.5 // [6.0 6.5 7.0 7.5 8.0 9.0 10.0 12.0 15.0 20.0] Reinhard-Gamut scene stops above 18% gray that first reach the display peak
-#define TONEMAP_RG_HUE_RETENTION 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Reinhard-Gamut original-hue retention (shortest hue angle)
-
-// Reinhard-AgX (TONEMAP_MODE == 5): DRT Bench's linear-shadow / AgX-shoulder
-// hybrid. It shares the virtual gamut and the HSV hue repair with
-// Reinhard-Gamut and adds the log shoulder plus its power. Defaults are the
-// DRT tool's.
-#define TONEMAP_RA_GAMUT_EXPANSION 0.04 // [0.0 0.01 0.02 0.03 0.04 0.05 0.1 0.15 0.2 0.3 0.4 0.5 0.6 0.7 0.8] Reinhard-AgX virtual-primary expansion (coordinates contract toward neutral)
-#define TONEMAP_RA_INPUT_SCALE 1.2195122 // [0.1 0.2 0.3 0.5 0.75 1.0 1.2195122 1.5 2.0 3.0 4.0 6.0 8.0] Reinhard-AgX input scale (1/(1-0.18) preserves 18% gray)
-#define TONEMAP_RA_COMPRESSION_START 0.18 // [0.0 0.05 0.1 0.15 0.18 0.25 0.35 0.5 0.7 0.9] Reinhard-AgX scene-linear level where the linear segment hands over to the log shoulder
-#define TONEMAP_RA_HIGHLIGHT_REACH_EV 8.0 // [4.0 5.0 6.0 6.5 7.0 7.5 8.0 9.0 10.0 12.0 15.0 20.0] Reinhard-AgX scene stops above 18% gray that first reach the display peak
-#define TONEMAP_RA_SHOULDER_POWER 5.0 // [1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0] Reinhard-AgX log-shoulder power (higher holds the linear segment longer and sharpens the knee)
-#define TONEMAP_RA_HUE_RETENTION 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Reinhard-AgX original-hue retention (shortest hue angle)
-
-// GT7 Tone Mapping (TONEMAP_MODE == 4): Polyphony Digital color-volume
-// mapping (SIGGRAPH 2025 course, official MIT sample). The curve parameters
-// use the official SDR preset except alpha 0 (shoulder converges exactly to
-// paper white; see lib/color/tonemap_gt7.glsl) and are fixed there.
-#define TONEMAP_GT7_BLEND 0.6 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] GT7 blend between the per-channel curve and the chroma-fade UCS path (official 0.6)
-#define TONEMAP_GT7_CHROMA_FADE_START 0.98 // [0.80 0.85 0.90 0.94 0.96 0.98 1.00 1.02 1.04] GT7 chroma-fade start, UCS luma relative to paper white (official 0.98)
-#define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)
-
-// Khronos PBR Neutral (TONEMAP_MODE == 6): the Khronos Group reference
-// operator (Apache-2.0). Its own scale takes 1.0 as the brightest scene
-// value, which lands scene 18% grey on 0.14 display-linear; the default
-// input scale re-anchors it on the 18% display-linear anchor the other modes
-// share. (0.18 + F90) / 0.18 with F90 = 0.04.
-#define TONEMAP_PBRN_INPUT_SCALE 1.2222222 // [0.5 0.75 1.0 1.2222222 1.5 2.0 2.5 3.0 4.0] PBR Neutral input scale (1.2222222 = shared 18% grey anchor, 1.0 = reference scale)
-
-// OpenDRT (TONEMAP_MODE == 7): Jed Smith's Open Display Rendering Transform
+// OpenDRT (TONEMAP_MODE == 3): Jed Smith's Open Display Rendering Transform
 // (GPL-3.0), Standard look preset. Grey luminance is the operator's own
 // display grey level in nits on a fixed 100-nit SDR peak; the reference
 // default is 10.0, the default here is the solved value that anchors scene
@@ -159,6 +136,26 @@ const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.
 #define TONEMAP_ODT_PURITY_LOW 0.25 // [0.0 0.1 0.15 0.25 0.4 0.6 0.8 1.0] OpenDRT purity limit low (midtone and shadow color retention)
 #define TONEMAP_ODT_PURITY_HIGH 0.25 // [0.0 0.1 0.15 0.25 0.5 0.8 1.0] OpenDRT purity limit high (highlight color retention)
 #define TONEMAP_ODT_BRILLIANCE 0.0 // [-3.0 -2.0 -1.0 -0.5 0.0 0.5 1.0] OpenDRT brilliance (intensity scale of pure stimuli, stops)
+
+// AMD LPM (TONEMAP_MODE == 4): FidelityFX Luma Preserving Mapper (MIT). Its
+// curve is pinned by tone(midIn) = 0.18 and tone(hdrMax) = 1.0, and every
+// reference preset uses exposure = log2(hdrMax), so the defaults keep LPM's
+// own 18% grey anchor exactly (hdrMax 1024 / exposure 10 are the FidelityFX
+// sample's values). Contrast is the one tuned default: 0.15 follows this
+// pack's shared 0.18-anchored response; the reference header's 0.25 and the
+// sample's 0.0 are both selectable.
+#define TONEMAP_LPM_CONTRAST 0.15 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3] LPM tone-curve contrast (reference header 0.25, sample 0.0)
+#define TONEMAP_LPM_SATURATION 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0] LPM saturation power on the color ratio (1.0 = the reference's own neutral value)
+#define TONEMAP_LPM_HDR_MAX 1024.0 // [16.0 64.0 256.0 1024.0 4096.0] LPM input white level the curve maps to 1.0 (hdrMax)
+#define TONEMAP_LPM_EXPOSURE 10.0 // [0.0 2.0 4.0 6.0 8.0 10.0] LPM exposure in stops; log2(hdrMax) keeps 18% grey anchored
+
+// GT7 Tone Mapping (TONEMAP_MODE == 5): Polyphony Digital color-volume
+// mapping (SIGGRAPH 2025 course, official MIT sample). The curve parameters
+// use the official SDR preset except alpha 0 (shoulder converges exactly to
+// paper white; see lib/color/tonemap_gt7.glsl) and are fixed there.
+#define TONEMAP_GT7_BLEND 0.6 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] GT7 blend between the per-channel curve and the chroma-fade UCS path (official 0.6)
+#define TONEMAP_GT7_CHROMA_FADE_START 0.98 // [0.80 0.85 0.90 0.94 0.96 0.98 1.00 1.02 1.04] GT7 chroma-fade start, UCS luma relative to paper white (official 0.98)
+#define TONEMAP_GT7_CHROMA_FADE_END 1.16 // [1.00 1.04 1.08 1.12 1.16 1.20 1.24 1.28] GT7 chroma-fade end where chroma reaches fully faded (official 1.16)
 
 // ==========================================================================
 // CLOUDS - Cloud layers (volumetric + cirrus)

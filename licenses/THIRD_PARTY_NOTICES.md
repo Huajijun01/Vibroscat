@@ -13,44 +13,21 @@ Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义�
 
 Photon 自定义许可协议中的再分发限制不适用于本包当前代码。历史移植与清理记录保留在 Git 历史中。
 
-## 2. AgX（概念 + MIT 实现）
+## 2. AgX（概念；当前实现见第 3 节）
 
-`shaders/lib/color/tonemap_agx.glsl` 的 `TonemapAGX` 基于 AgX-S2O3 解析曲线（linlin, MIT），概念来源为 Troy Sobotka 的 AgX：
+`shaders/lib/color/tonemap_agx.glsl` 的 `TonemapAGX` 是 AgX 家族的 HSV 色相修复变体。AgX 概念来源为 Troy Sobotka：
 
 - [SOB22] Sobotka, Troy. "AgX". 2022. https://github.com/sobotka/AgX （概念与配置；上游仓库无许可证，仅作概念引用）
-- [LIN24] linlin, "AgX". 2024. MIT License. Copyright (c) 2024 linlin. 上游：https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087
 
-> AgX-S2O3
-> Upstream: https://github.com/bWFuanVzYWth/AgX
-> Revision: 0796e1b4aa9df94152eff353bae131eae1a4c087
->
-> MIT License
->
-> Copyright (c) 2024 linlin
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
+曲线、对数整形与色相修复的出处见第 3 节（DRT Bench）。2026-10 之前本包使用 linlin 的 AgX-S2O3 解析实现（MIT，https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087）；该曲线与实现已随 2026-10 的模式列表更换一并移除，不再随包分发。
 
-## 3. DRT 色调映射（作者直接授权；GPL-3.0）
+## 3. DRT 色调映射（GPL-3.0）
 
-`TonemapOklabDRT`（Björn Ottosson "A display rendering transform", 2021）、`TonemapReinhardGamut`（`TONEMAP_MODE == 3`）与 `TonemapReinhardAgx`（`TONEMAP_MODE == 5`）移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）。虚拟原色色域、Reinhard 曲线、AgX 对数肩部与 HSV 色相修复均为该工具的设计；Oklab 概念与公式来自 Björn Ottosson 的公开文章。
+`TonemapAGX`（`TONEMAP_MODE == 0`）移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）的 `shaders/agx_hsv.wgsl`，采用该工具的 `AgxParameters::hsv_default()` 曲线：−10…+6.5 EV 的对数编码范围、sRGB OETF(0.18) 输出枢轴、1.55 / 5.2 的 toe 与 shoulder 幂、0.05 的色域压缩，以及该变体得名的 HSV 色相修复阶段。
 
-2026-08 移植 Oklab 与 Reinhard-Gamut 时该仓库尚未选择开源协议（publish=false），作者已直接授权 Vibroscat 使用（如需书面确认可向 linlin 索取）。该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包主许可证 GNU GPL v3 兼容。
+该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包主许可证 GNU GPL v3 兼容。对数域对比度、显示域饱和度/伽马、风格预设以及新增的 `TONEMAP_AGX_HIGHLIGHT_HUE` 均为 Vibroscat 自有；参考算子本身没有这些控制项。
+
+历史：2026-08 至 2026-10 期间本包还移植过该工具的 Oklab DRT、Reinhard-Gamut 与 Reinhard-AgX（当时该仓库尚未选择许可证，按作者直接授权使用）。三者在 2026-10 的模式列表更换中全部移除，不再随包分发。
 
 ## 4. AMD FidelityFX CAS（MIT）
 
@@ -176,7 +153,7 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 
 ## 17. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
 
-`shaders/lib/color/tonemap_gt7.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 4`）移植自
+`shaders/lib/color/tonemap_gt7.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 5`）移植自
 Polyphony Digital 随 SIGGRAPH 2025 课程材料发布的官方样例实现
 `gt7_tone_mapping.cpp`，课程为 *Driving Toward Reality: Physically Based Tone
 Mapping and Perceptual Fidelity in Gran Turismo 7*（Kentaro Suzuki、Kenichiro
@@ -317,40 +294,113 @@ Revelation 采用 Apache-2.0；本次仅研究数据流与通用算法，没有�
 Techniques"（2020）。扩展沿用本包现有的 RGB 边界与 HDRCompress/HDRDecompress。
 最终锐化复用本包现有 AMD FidelityFX CAS（第 4 节）。
 
-## 22. Khronos PBR Neutral Tone Mapper（Apache-2.0）
+## 22. ACES 2.0 Output Transform（Apache-2.0）
 
-`shaders/lib/color/tonemap_pbr_neutral.glsl` 的 `TonemapPBRNeutral`（`TONEMAP_MODE == 6`）
-移植自 Khronos Group 的参考实现 `PBR_Neutral/pbrNeutral.glsl`：
+`shaders/lib/color/tonemap_aces2.glsl` 的 `TonemapACES2`（`TONEMAP_MODE == 1`）移植自 ACES 2.0 参考实现：
 
-> Copyright 2024 The Khronos Group Inc.
+> Copyright Contributors to the ACES Project.
 > SPDX-License-Identifier: Apache-2.0
 
-上游：<https://github.com/KhronosGroup/ToneMapping>（`PBR_Neutral/`）。
-许可为 Apache License 2.0（全文见本文件附录 A）；仓库的 `.reuse/dep5` 对
-`PBR_Neutral/pbrNeutral.glsl` 声明 `License: Apache-2.0`，同目录 README 与
-规范文档为 CC-BY-4.0。取用日期 2026-10-11，源文件 SHA-256
-`087a1542c8d12d2d0fb89f570057e4e8365cc04eee5bff76c6e365cfa69f3734`。
-参考实现即 Khronos PBR Neutral 规范本身（F90 = 0.04、Ks = 0.8 - F90、Kd = 0.15
-的公式），本包按规范公式重写函数体并加注常量来源，未引入其他实现。
+上游：<https://github.com/ampas/aces-core>（版本 2.0，2025-04-04）与
+<https://github.com/ampas/aces-output>。两者均以 Apache License 2.0 发布（全文见本文件附录 A）。
+取用日期 2026-10-11，所用源文件与 SHA-256：
+
+- `aces-core/lib/Lib.Academy.OutputTransform.ctl` — `8bdebd1d7f313fc652c8fc282cb73b6621834e1f760c1af9b305e9b70ad36e9d`
+- `aces-core/lib/Lib.Academy.Tonescale.ctl` — `16bf0696f856c5f1b848fbac27be17604d98af4ef280cd61c638ce57049e7823`
+- `aces-core/lib/Lib.Academy.ColorSpaces.ctl` — `2bf18df76298232fe7cf456c8469672b5a631d84a9ee884a6e5591fc82ee0f4e`
+- `aces-output/d65/displayP3/Output.Academy.Rec709-D65_100nit_in_P3-D65_sRGB-Piecewise.ctl` — `4dc4af31672ddbe900cf5fad6888b01d772d10d1ff203efab44c1e45191c988d`
+
+移植适配说明（依据 Apache-2.0 第 4(b) 条声明本包已修改该作品）：
+
+- 移植：Rec.709(D65) → ACES2065-1 的 Bradford 色适应、AP1 输入钳制、Hellwig-2022 CAM 的
+  JMh 正/反变换、100 nit 峰值下的 MM 色调曲线、由 J 与色调后 J 共同驱动的色相相关色度压缩，
+  以及 Rec.709 显示线性输出。观看条件取参考实现固定的 SDR 组合（弱环绕、L_A = 100、
+  Y_b = 20、100 nit 峰值、模型伽马 cz = 1.1370560）。
+- 未移植：显示色域压缩器 `gamut_compress_fwd`（依赖按色相预计算的 cusp 表与
+  upper-hull gamma 表，以及嵌套迭代求解 `find_display_cusp_for_hue` /
+  `make_upper_hull_gamma_table`），以及全部逆变换。本包改为在显示线性域钳制，
+  代价是极端饱和高光按通道裁切；色度压缩已先行滚降，常见内容不受影响。
+- **不含任何查找表**：参考实现把三个 360 项 hue 表作为"只算一次"的优化。本包唯一需要的
+  reach 极限改为逐像素有界二分求解（参考表在 72.5…194.4 之间，本包取 [50, 250] 区间、
+  8 步；无表、无预烘焙）。与参考核心相比，23016 个采样的输出偏差最大 0.0078、
+  平均 0.0005（显示线性）。
+- 锚点：参考实现把场景 18% 灰映射到 c_d = 10.013 nit = 0.100 显示线性；本包用
+  `TONEMAP_ACES2_INPUT_SCALE`（默认 1.7133450，数值求解）把它重新锚到其他模式共享的
+  0.18，取值 1.0 即官方标尺。
+
+## 23. Blender AgX（GPL-2.0-or-later）
+
+`shaders/lib/color/tonemap_blender_agx.glsl` 的 `TonemapBlenderAgX`（`TONEMAP_MODE == 2`）移植自
+Blender 4.0 起作为新文件默认视图变换的 AgX（Blender 4.0 颜色管理发布说明、
+blender/blender!106355 "AgX View Transform"）。Blender 以 GPL-2.0-or-later 发布，与本包主许可证
+GNU GPL v3 兼容。AgX 概念本身来自 Troy Sobotka（见第 2 节）；Blender 内置的这套配置由 EaryChow
+维护（`EaryChow-AgX` OCIO 配置与 `AgX_LUT_Gen` 生成器）。
+
+参考链：`AgX_LUT_Gen/AgXBasesRGB.py`、`AgX_LUT_Gen/sigmoid.py`、
+`AgX_LUT_Gen/working_space.py`，以及 Blender 随包发行的 57³ `AgX_Base_sRGB.cube`。
+本地快照位于 `research/AgX/official/`（开发目录，不随包分发）。
 
 移植适配说明：
 
-- 依据 Apache-2.0 第 4(b) 条，本包的 `tonemap_pbr_neutral.glsl` 是修改后的版本：
-  函数改名 `TonemapPBRNeutral`，常量改为具名常量，移位量与缩放量按本包设置宏
-  `TONEMAP_PBRN_INPUT_SCALE` 取值，并补充输入非负钳制。
-- 规范自身的标尺以 1.0 为场景最亮值，其 F90 扣除使场景 18% 灰落在 0.14
-  显示线性，比本包其他模式共享的 18% 锚点暗 0.36 档。`TONEMAP_PBRN_INPUT_SCALE`
-  默认值 (0.18 + F90)/0.18 = 1.2222222 把 18% 灰重新锚回 18%；取值 1.0 即官方的
-  原始标尺。
-- 未采用的部分：仓库内的 `config.ocio`、`pbrNeutral.cube` LUT 与 `lut-writer.mjs`
-  均未被使用，本包只移植 GLSL 参考实现。
-- 该算子按设计面向"已正确曝光、超过 1.0 的只有小型镜面高光"的场景；本包把
-  太阳、天空与自发光等高动态范围内容交给它时，这些内容被压入显示范围的顶部
-  20%，这是该算子的既定行为而非移植缺陷，源码注释与设置提示均已说明。
+- Blender 把该成像链路烘焙进 `AgX_Base_sRGB.cube`；本包改为**闭式求值**同一条链：线性 sRGB →
+  （Rec.709→Rec.2020 与 AgX inset 合并为单个常量矩阵）→ −10…+6.5 EV 归一化 log2 整形 →
+  toe/shoulder 对比 sigmoid（slope 2.4、power 1.5）→ 2.4 次幂反解出 AgX Base 编码 →
+  （AgX outset 与 Rec.2020→Rec.709 合并为单个常量矩阵）→ 显示线性 Rec.709。**不含任何 LUT、
+  烘焙曲线或采样表。**
+- 未移植：逐通道色相角混合（生成器中的 40%）与 sRGB guard rails（`compensate_low_side`），
+  两者都是在已成形的图像上再做一次逐通道处理；Blender 自己的实时 GLSL 端口同样省略它们。
+- 未移植可选的对比 look（Punchy 等七个）：它们是 OCIO v2 grading-primary 变换，作用于 Blender
+  的 25 档 "AgX Log" 空间，与本包复现的 Base Contrast 视图变换所用的 16.5 档整形空间不同；
+  发布说明明确把它们描述为"压暗画面"的 look，脱离其 grading 空间复现会失真。本模式因此没有
+  算子自身的设置项。
+- 锚点：整形把场景 0.18 放到 10/16.5 EV（即曲线自身的 x 枢轴），曲线满足 curve(x_pivot) =
+  y_pivot 且 y_pivot^2.4 = 0.18，两个矩阵对中性色均为恒等（行和与 1 的偏差 < 1e-15），
+  因此场景 18% 灰直接落在 18% 显示线性，无需预缩放。
+- 验证：闭式端口与 Blender 发行版 `AgX_Base_sRGB.cube` 的中性对角线在 −10…+6.5 EV 上比对，
+  最大偏差 1.3e-05（编码域），−10 EV 处 6.6e-07。
 
-## 23. OpenDRT（GPL-3.0）
+## 24. AMD FidelityFX LPM（MIT）
 
-`shaders/lib/color/tonemap_opendrt.glsl` 的 `TonemapOpenDRT`（`TONEMAP_MODE == 7`）
+`shaders/lib/color/tonemap_lpm.glsl` 的 `TonemapLPM`（`TONEMAP_MODE == 4`）移植自 AMD 的
+FidelityFX Luma Preserving Mapper，`ffx-lpm/ffx_lpm.h`（文件头标记
+`[LPM] LUMA PRESERVING MAPPER 1.20200225`）：
+
+> Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
+> （仓库 `NOTICES.txt` 记为 "AMD copyrighted code (MIT) / Copyright (c) 2020 Advanced Micro
+> Devices, Inc. All rights reserved."，MIT 许可全文见该文件）
+
+上游：<https://github.com/GPUOpen-Effects/FidelityFX-LPM>。取用日期 2026-10-11，源文件 SHA-256
+`7a7c0f376c89bcecd51fe8a5d8ba3b34ec59841e9915cb5b3e16ee87e9448c4d`。
+
+参考实现本身就是 ALU 版本（其更新记录写明 "Switched from using LUTs to doing the full mapping
+in ALU"），因此**本移植不含、也不需要任何查找表**。
+
+移植适配说明：
+
+- 移植：`LpmSetup` 的 toneScaleBias 求解（`tone(x) = x^contrast / (x^shoulder * bias.x + bias.y)`，
+  以 tone(midIn) = 0.18 与 tone(hdrMax) = 1.0 约束；本包把该求解折成编译期常量），以及
+  `LpmMap` 的完整链路：比值/亮度分离、比值上的饱和度幂、对**原始颜色**亮度做色调曲线
+  （这正是"亮度保持"的来源）、比值重标定、crosstalk 回入色域、最终亮度补足。
+- 取 `LPM_CONFIG_709_709` + `LPM_COLORS_709_709`：工作、输出与容器色域均为 Rec.709 D65，
+  故参考实现的 `con`/`con2` 矩阵均为单位矩阵并被省略，`clip` 与 `scaleOnly` 分支为死代码。
+- 未移植：`soft` 软色域映射（参考实现要求同时提供 `con`，且仅在工作色域与输出色域不同时生效）、
+  `shoulder`/`shoulderContrast`（参考实现自身取 1.0，示例亦不启用）、con2/scaleOnly 输出变换
+  （FS2、HDR10、scRGB）、FP16 打包路径与 `LpmSetupOut`。本包返回显示线性 Rec.709，
+  sRGB OETF 由 `post/final.fragment` 施加。
+- 两处守护覆盖参考实现契约（{0..hdrMax}）之外但仍可能收到的输入：颜色为 0 时其 `1/max(rgb)`
+  除零（本包返回黑），以及色调后亮度达到 1.0 时 `cap` 全为 0、其 `lumaAdd/dot(cap, lumaT)` 为
+  0/0（本包取其极限 t = 0）。
+- 锚点：LPM 曲线本身就把 midIn 映射到 0.18，而所有官方预置都取 exposure = log2(hdrMax)，
+  因此默认值（hdrMax 1024、exposure 10，取自 FidelityFX 样例）保持 18% 灰不动。
+  `TONEMAP_LPM_CONTRAST` 默认 0.15 是本包唯一的调整值（参考头文件为 0.25、样例为 0.0，
+  两者都在取值列表内）；`TONEMAP_LPM_SATURATION` 默认 1.0，对应参考实现自身的 saturation 中性值（本包把参考的加性参数折算为 1.0 = 中性）。
+- 验证：与 `ffx_lpm.h` 的 Python 转写逐样本比对，28084 个样本（中性色、原色、间色与
+  [0, 1024] 的 HDR 噪声）最大偏差 6.5e-15；对比度与饱和度各扫 7 组，最大偏差 7.1e-15；
+  中性灰响应与参考实现逐点一致（0.18 → 0.180000）。
+
+## 25. OpenDRT（GPL-3.0）
+
+`shaders/lib/color/tonemap_opendrt.glsl` 的 `TonemapOpenDRT`（`TONEMAP_MODE == 3`）
 移植自 Jed Smith 的 OpenDRT（Open Display Rendering Transform）参考 DCTL
 `display-transforms/opendrt/OpenDRT.dctl`（文件头标注 OpenDRT v1.1.0，GPLv3）：
 

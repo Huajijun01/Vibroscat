@@ -2,32 +2,27 @@
 #define LIB_COLOR_TONEMAP_GLSL
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/color/tonemap_aces.glsl"
+#include "/lib/color/tonemap_aces2.glsl"
 #include "/lib/color/tonemap_agx.glsl"
-#include "/lib/color/tonemap_drt_oklab.glsl"
+#include "/lib/color/tonemap_blender_agx.glsl"
 #include "/lib/color/tonemap_gt7.glsl"
+#include "/lib/color/tonemap_lpm.glsl"
 #include "/lib/color/tonemap_opendrt.glsl"
-#include "/lib/color/tonemap_pbr_neutral.glsl"
-#include "/lib/color/tonemap_reinhard.glsl"
 
 
 vec3 Tonemap(vec3 linear_rgb) {
 #if TONEMAP_MODE == 0
     return TonemapAGX(linear_rgb);
 #elif TONEMAP_MODE == 1
-    return TonemapOklabDRT(linear_rgb);
+    return TonemapACES2(linear_rgb);
 #elif TONEMAP_MODE == 2
-    return TonemapACES(linear_rgb);
-#elif TONEMAP_MODE == 4
-    return TonemapGT7(linear_rgb);
-#elif TONEMAP_MODE == 5
-    return TonemapReinhardAgx(linear_rgb);
-#elif TONEMAP_MODE == 6
-    return TonemapPBRNeutral(linear_rgb);
-#elif TONEMAP_MODE == 7
+    return TonemapBlenderAGX(linear_rgb);
+#elif TONEMAP_MODE == 3
     return TonemapOpenDRT(linear_rgb);
+#elif TONEMAP_MODE == 4
+    return TonemapLPM(linear_rgb);
 #else
-    return TonemapReinhardGamut(linear_rgb);
+    return TonemapGT7(linear_rgb);
 #endif
 }
 

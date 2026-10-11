@@ -5,11 +5,11 @@
 
 
 // ===========================================================================
-// OpenDRT (mode 7)
+// OpenDRT (mode 3)
 //
 // Ported from Jed Smith's OpenDRT (Open Display Rendering Transform),
 // github.com/jedypod/open-display-transform, display-transforms/opendrt/
-// OpenDRT.dctl, GPL-3.0; licenses/THIRD_PARTY_NOTICES.md section 23. The
+// OpenDRT.dctl, GPL-3.0; licenses/THIRD_PARTY_NOTICES.md section 25. The
 // DCTL's parameter presets are collapsed to its "Standard" look preset
 // (look_preset = 0, tonescale_preset = 0), which is what the port
 // reproduces; the tone-scale and color-volume parameters that preset drives

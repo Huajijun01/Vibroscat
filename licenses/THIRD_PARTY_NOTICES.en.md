@@ -207,8 +207,14 @@ Porting adaptations:
   paper white — this pack's pipeline lacks GT7's in-engine exposure
   normalization, and the sample's overshooting shoulder hard-clipped roughly
   half a stop of highlights above scene white.
-- The UCS is the sample default ICtCp (ITU-R BT.2124, Rec.2020); the ICtCp
-  inverse matrix is an exact-by-definition constant.
+- The UCS is the sample default ICtCp (ITU-R BT.2124, Rec.2020). The forward
+  transform follows the standard definition: I = 0.5*L + 0.5*M (luma, excludes
+  S), with Ct and Cp the corresponding chroma combinations. An earlier port
+  wrongly folded S into I (I = 0.5*L + 0.5*M + 0.5*S); this has been corrected.
+  The inverse is the exact matrix inverse of the forward transform, verified to
+  round-trip within 2e-16. The chroma-fade pivot is the UCS luma I of the
+  paper-white grey (2.5, 2.5, 2.5) = 0.6025591550 (I excludes S; the sample's
+  equivalent value is 0.602561).
 - Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,
   `TONEMAP_GT7_CHROMA_FADE_END` (defaults are the official sample values).
 

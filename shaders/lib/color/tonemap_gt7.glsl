@@ -16,9 +16,7 @@
 // highlight, so saturated highlights roll off without the per-channel hue
 // twist. The sample's frame-buffer domain (1.0 = 100 nits, linear
 // Rec.2020, SDR paper white 250 nits) is entered and left through the
-// BT.709 <-> BT.2020 matrices below; GT7_MID_GREY_SCALE re-anchors scene
-// 18% grey at 18% display-linear, the anchor shared with the other modes
-// (same role as ACES_MID_GREY_SCALE, solved from 0.4*curve(scale*0.18)=0.18).
+// BT.709 <-> BT.2020 matrices below, without a middle-gray prescale.
 // ===========================================================================
 
 const mat3 SRGB_TO_BT2020 = mat3(
@@ -66,7 +64,9 @@ float InverseEotfST2084(float framebuffer) {
 }
 
 float EotfST2084(float pq) {
-    float shaped = pow(max(pq, 0.0), 1.0 / 78.84375);
+    // The official EOTF limits PQ to its normalized signal domain before
+    // decoding; above 1 its rational denominator can become negative.
+    float shaped = pow(clamp(pq, 0.0, 1.0), 1.0 / 78.84375);
     return 100.0 * pow(max(shaped - 0.8359375, 0.0) / (18.8515625 - 18.6875 * shaped), 6.277394636015);
 }
 
@@ -82,36 +82,23 @@ vec3 ICtCpToRgb(vec3 ictcp) {
     return max(GT7_LMS_TO_BT2020 * lms, 0.0);
 }
 
-// GT Tone Mapping Curve V2. Official SDR preset (peak 2.5, gray point
-// 0.538, linear section 0.444, toe strength 1.28) with one deliberate
-// deviation: alpha 0 instead of the sample's 0.25, so the shoulder
-// asymptote is exactly paper white. The sample's engine normalizes scene
-// exposure before the curve and can output HDR, which hides its
-// overshooting shoulder; this pack feeds un-normalized scene values into
-// an SDR target, where the 0.25 shoulder crossed white at ~1.45x scene
-// white and the official min() hard-clipped everything brighter.
-// Perfectly linear below 0.444 * peak, contrast toe toward black,
-// converging exponential shoulder above the linear section.
-const float GT7_PEAK = 2.5;             // paper white, frame-buffer scale
-const float GT7_SDR_CORRECTION = 0.4;   // 1 / paper-white frame-buffer value
+// GT Tone Mapping Curve V2: the official initializeAsSDR() parameters.
+const float GT7_PEAK = 2.5;
+const float GT7_SDR_CORRECTION = 0.4;
 const float GT7_GRAY_POINT = 0.538;
 const float GT7_LINEAR_SECTION = 0.444;
 const float GT7_TOE_STRENGTH = 1.280;
-// Shoulder terms kA + kB*exp(kC*x) with k = (0.444 - 1) / (0 - 1);
-// kA = peak * (0.444 + k) = peak for alpha 0.
-const float GT7_SHOULDER_A = 2.5;
-const float GT7_SHOULDER_B = -3.089054009429425;
-const float GT7_SHOULDER_C = -0.719424460431655;
+// Precomputed from alpha = 0.25, using the sample's initializeCurve().
+const float GT7_SHOULDER_A = 2.963333333333333;
+const float GT7_SHOULDER_B = -3.373351238064431;
+const float GT7_SHOULDER_C = -0.539568345323741;
+const float GT7_BLEND = 0.6;
+const float GT7_CHROMA_FADE_START = 0.98;
+const float GT7_CHROMA_FADE_END = 1.16;
 // UCS luma I of the paper-white grey (2.5, 2.5, 2.5): chroma-fade pivot.
 // I is luma, so it is 0.5 * (L + M) and excludes S; the sample's equivalent
 // value is 0.602561.
 const float GT7_TARGET_LUMA_UCS = 0.6025591550;
-// Input prescale re-anchoring 18% grey: 0.4*curve(scale*0.18) = 0.18.
-const float GT7_MID_GREY_SCALE = 2.508318700610;
-// k * M folds into the constant matrix; the per-pixel path pays no scalar
-// multiply for the anchor.
-const mat3 SRGB_TO_BT2020_SCALED = SRGB_TO_BT2020 * GT7_MID_GREY_SCALE;
-
 float GT7Curve(float x) {
     if (x <= 0.0) return 0.0;
     if (x >= GT7_LINEAR_SECTION * GT7_PEAK) {
@@ -124,7 +111,7 @@ float GT7Curve(float x) {
 }
 
 vec3 TonemapGT7(vec3 linear_rgb) {
-    vec3 rgb = SRGB_TO_BT2020_SCALED * max(linear_rgb, 0.0);
+    vec3 rgb = SRGB_TO_BT2020 * max(linear_rgb, 0.0);
     vec3 ucs = RgbToICtCp(rgb);
 
     // Step 1: per-channel curve pass (color-accurate midtones, hue twist
@@ -134,17 +121,16 @@ vec3 TonemapGT7(vec3 linear_rgb) {
     // Step 2: UCS pass - twisted luma, original chroma faded toward white
     // as the scene luminance approaches paper white.
     vec3 skewed_ucs = RgbToICtCp(skewed);
-    // Ordered edges: the two sliders may be set either way round, and
-    // smoothstep is undefined when edge0 >= edge1.
-    float chroma_scale = 1.0 - smoothstep(
-        min(TONEMAP_GT7_CHROMA_FADE_START, TONEMAP_GT7_CHROMA_FADE_END),
-        max(TONEMAP_GT7_CHROMA_FADE_START, TONEMAP_GT7_CHROMA_FADE_END),
-        ucs.x / GT7_TARGET_LUMA_UCS);
+    // The official thresholds are fixed and strictly ordered.
+    float relative_luma = ucs.x / GT7_TARGET_LUMA_UCS;
+    float chroma_scale = 1.0 - smoothstep(GT7_CHROMA_FADE_START, GT7_CHROMA_FADE_END, relative_luma);
     vec3 faded = ICtCpToRgb(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));
 
     // Step 3: blend the paths and apply the SDR paper-white correction.
-    vec3 blended = mix(skewed, faded, TONEMAP_GT7_BLEND);
-    return BT2020_TO_SRGB * (min(blended, vec3(GT7_PEAK)) * GT7_SDR_CORRECTION);
+    vec3 blended = mix(skewed, faded, GT7_BLEND);
+    // Rec.2020's SDR cube is larger than Rec.709's. Apply the display clamp
+    // after converting primaries, before the pack's sharpening and OETF.
+    return clamp(BT2020_TO_SRGB * (min(blended, vec3(GT7_PEAK)) * GT7_SDR_CORRECTION), 0.0, 1.0);
 }
 
 #endif // LIB_COLOR_TONEMAP_GT7_GLSL

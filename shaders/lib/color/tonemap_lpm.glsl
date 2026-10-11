@@ -33,12 +33,6 @@
 //               `con` and `con2` matrices are both identity and are omitted,
 //               lumaW == lumaT, and its `clip` and `scaleOnly` paths are dead.
 //
-// One parameter remap: the reference's `saturation` input is an additive term
-// on the contrast exponent (its own value is 0.0, so the exponent is just the
-// contrast). TONEMAP_LPM_SATURATION exposes that exponent as a multiplicative
-// strength instead, which keeps 1.0 equal to the reference exactly and stops
-// the option from moving the same value that CONTRAST already moves.
-//
 // Omitted stages, and why:
 //   - `soft` gamut mapping (softGap): the reference requires `con` alongside
 //     it (its prefabs never pair `soft` with a single gamut) and only reaches
@@ -58,16 +52,9 @@
 // 0/0. The port returns black in the first case and takes the limit t = 0 in
 // the second, which leaves the already-clipped color untouched.
 //
-// Anchoring: LPM's curve already maps midIn = hdrMax * 0.18 * 2^-exposure to
-// 0.18, and every reference preset as well as the LpmSetup example in the
-// ffx_lpm.h header sets exposure = log2(hdrMax), so LPM anchors 18% grey
-// itself. The defaults keep that identity exactly (hdrMax 1024 and exposure 10
-// are the sample's own "Lamp" preset values, hdrMax 256 and exposure 8 the
-// header's example), which puts scene 18% grey on 18% display-linear.
-// TONEMAP_LPM_CONTRAST is the one tuned default: 0.15 follows this pack's
-// shared 0.18-anchored response (scene 1.0 -> 0.612 against ACES 2.0's 0.601,
-// scene 4.0 -> 0.886 against 0.868); the reference's header value 0.25 and the
-// sample's 0.0 are both in the option list.
+// Fixed setup: the header's Rec.709 example uses hdrMax 256, exposure 8,
+// contrast 0.25, shoulderContrast 1, saturation 0 and the crosstalk below.
+// Its display-format prefabs are output configurations, not artistic looks.
 // ===========================================================================
 
 // Luma weights: the Y row of the reference's LpmColRgbToXyz() matrix for the
@@ -84,21 +71,21 @@ const vec3 LPM_CROSSTALK = vec3(1.0, 0.5, 0.03125);
 // LpmSetup() tone curve, folded to compile-time constants. LPM_CONTRAST_POWER
 // is the reference's contrast after its `contrast += 1.0`, and with
 // shoulderContrast 1.0 it is also the shoulder exponent `cs` of the solve.
-const float LPM_CONTRAST_POWER = 1.0 + TONEMAP_LPM_CONTRAST;
-// The reference adds its per-channel `saturation` input to the contrast
-// exponent before the ratio is raised to it; the strength scale above makes
-// 1.0 that same exponent.
-const float LPM_SATURATION_POWER = LPM_CONTRAST_POWER * TONEMAP_LPM_SATURATION;
+const float LPM_CONTRAST_POWER = 1.25;
+// Reference saturation input is 0, so the ratio exponent equals contrast.
+const float LPM_SATURATION_POWER = LPM_CONTRAST_POWER;
 // midOut is the reference's fixed display target; midIn is the scene value it
 // lands on, which is hdrMax displaced by `exposure` stops.
+const float LPM_HDR_MAX = 256.0;
+const float LPM_EXPOSURE = 8.0;
 const float LPM_MID_OUT = 0.18;
-const float LPM_MID_IN = TONEMAP_LPM_HDR_MAX * LPM_MID_OUT * exp2(-TONEMAP_LPM_EXPOSURE);
+const float LPM_MID_IN = LPM_HDR_MAX * LPM_MID_OUT * exp2(-LPM_EXPOSURE);
 // The reference's z0..z4 and w0..w3 solved into toneScaleBias. Its w0..w3
 // equal z1..z4 here because cs == contrast at shoulderContrast 1.0.
 const float LPM_Z0 = -pow(LPM_MID_IN, LPM_CONTRAST_POWER);
-const float LPM_Z1 = pow(TONEMAP_LPM_HDR_MAX, LPM_CONTRAST_POWER) * pow(LPM_MID_IN, LPM_CONTRAST_POWER);
-const float LPM_Z2 = pow(TONEMAP_LPM_HDR_MAX, LPM_CONTRAST_POWER) * pow(LPM_MID_IN, LPM_CONTRAST_POWER) * LPM_MID_OUT;
-const float LPM_Z3 = pow(TONEMAP_LPM_HDR_MAX, LPM_CONTRAST_POWER) * LPM_MID_OUT;
+const float LPM_Z1 = pow(LPM_HDR_MAX, LPM_CONTRAST_POWER) * pow(LPM_MID_IN, LPM_CONTRAST_POWER);
+const float LPM_Z2 = pow(LPM_HDR_MAX, LPM_CONTRAST_POWER) * pow(LPM_MID_IN, LPM_CONTRAST_POWER) * LPM_MID_OUT;
+const float LPM_Z3 = pow(LPM_HDR_MAX, LPM_CONTRAST_POWER) * LPM_MID_OUT;
 const float LPM_Z4 = pow(LPM_MID_IN, LPM_CONTRAST_POWER) * LPM_MID_OUT;
 const float LPM_TONE_SCALE_A = -((LPM_Z0 + LPM_MID_OUT * (LPM_Z1 - LPM_Z2) / (LPM_Z3 - LPM_Z4)) / LPM_Z4);
 const float LPM_TONE_SCALE_B = (LPM_Z1 - LPM_Z2) / (LPM_Z3 - LPM_Z4);

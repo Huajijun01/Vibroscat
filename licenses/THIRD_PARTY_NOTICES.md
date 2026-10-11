@@ -25,7 +25,11 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 
 `TonemapAGX`（`TONEMAP_MODE == 0`）移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）的 `shaders/agx_hsv.wgsl`，采用该工具的 `AgxParameters::hsv_default()` 曲线：−10…+6.5 EV 的对数编码范围、sRGB OETF(0.18) 输出枢轴、1.55 / 5.2 的 toe 与 shoulder 幂、0.05 的色域压缩，以及该变体得名的 HSV 色相修复阶段。
 
-该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包主许可证 GNU GPL v3 兼容。对数域对比度、显示域饱和度/伽马、风格预设以及新增的 `TONEMAP_AGX_HIGHLIGHT_HUE` 均为 Vibroscat 自有；参考算子本身没有这些控制项。
+该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包 GPLv3
+兼容。算子使用参考实现的固定默认值，包括黑端/白端色相保留 1.0/0.5。原先本包额外叠加的
+对比度、伽马、饱和度与自行编造的 look 已移除。参考实现的最终显示信号钳制之后，解码 sRGB
+以供本包显示线性后处理使用。此 HSV 变体的参考实现不提供艺术风格预设；Blender AgX 官方
+look 属于下文的模式 2。
 
 历史：2026-08 至 2026-10 期间本包还移植过该工具的 Oklab DRT、Reinhard-Gamut 与 Reinhard-AgX（当时该仓库尚未选择许可证，按作者直接授权使用）。三者在 2026-10 的模式列表更换中全部移除，不再随包分发。
 
@@ -181,27 +185,22 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-来源：<https://blog.selfshadow.com/publications/s2025-shading-course/pdi/>
+来源：<https://blog.selfshadow.com/publications/s2025-shading-course/pdi/supplemental/gt7_tone_mapping.cpp>
+（版本 1.0，2025-08-10）
 （课程幻灯片 `s2025_pbs_pdi_slides_v1.1.pdf` 及配套 `gt7_tone_mapping.cpp`）。
 
 移植适配说明：
 
-- 输入/输出域由样例的线性 Rec.2020 frame-buffer（1.0 = 100 nits）经
-  BT.709 ↔ BT.2020 线性矩阵转换为本包的线性 sRGB 约定；矩阵常量由原色推导。
-- 加入 `GT7_MID_GREY_SCALE` 中灰锚定预缩放（数值求解 0.4·curve(2.50832·0.18) =
-  0.18），与其他色调映射模式共享 18% 灰锚点；曲线参数保持官方 SDR 预设
-  （peak 2.5、gray point 0.538、linear section 0.444、toe strength 1.28、
-  blend 0.6、chroma fade 0.98–1.16），仅一处有意偏差：alpha 取 0（官方样例的
-  合法参数）而非 0.25，使肩部渐近线恰为纸白——本包管线没有 GT7 引擎的曝光
-  归一化，样例的过冲肩部会把场景白色以上约半档的内容硬裁成纯白。
-- UCS 采用样例默认的 ICtCp（ITU-R BT.2124，Rec.2020）。ICtCp 正变换按标准定义
-  实现：I = 0.5·L + 0.5·M（luma，不含 S），Ct、Cp 为对应的色度组合；早期移植曾
-  错误地把 S 折入 I（I = 0.5·L + 0.5·M + 0.5·S），本次已修正。逆变换为该正变换的
-  精确矩阵逆，已验证往返误差在 2e-16 以内。色度淡出枢轴取纸白灰
-  （2.5, 2.5, 2.5）的 UCS luma I = 0.6025591550（I 不含 S，样例等价值为
-  0.602561）。
-- 暴露为设置的参数：`TONEMAP_GT7_BLEND`、`TONEMAP_GT7_CHROMA_FADE_START`、
-  `TONEMAP_GT7_CHROMA_FADE_END`（默认值均为官方样例值）。
+- 线性 Rec.709 输入/输出与样例 Rec.2020 framebuffer（1.0 = 100 nits）之间转换，
+  不添加中灰预缩放。
+- 使用完整官方 `initializeAsSDR()` 参数：peak 2.5、alpha 0.25、gray point 0.538、
+  linear section 0.444、toe strength 1.28、blend 0.6、chroma fade 0.98–1.16，全部固定。
+- 采用默认 ICtCp UCS 及 ITU 正/逆矩阵；PQ 解码按样例钳制 [0,1]。最终 SDR 钳制在
+  Rec.2020→Rec.709 转换之后执行，使锐化收到合法显示范围。
+- 官方样例提供 SDR/HDR 显示目标和另一内部色彩空间 JzAzBz，并非一组艺术 look。
+  本包的 SDR 路径固定默认 ICtCp，不开放 GT7 数值调节项。
+- 实际 GLSL 与编译执行的官方 C++ 样例比对；允许 ST2084 float32 舍入差异，显示白
+  归一化误差预算为 5e-4。
 
 ## 18. 云内多重散射近似（算法出处）
 
@@ -298,70 +297,75 @@ Revelation 采用 Apache-2.0；本次仅研究数据流与通用算法，没有�
 Techniques"（2020）。扩展沿用本包现有的 RGB 边界与 HDRCompress/HDRDecompress。
 最终锐化复用本包现有 AMD FidelityFX CAS（第 4 节）。
 
-## 22. ACES 2.0 Output Transform（Apache-2.0）
+## 22. ACES 2.0 Output Transform（Apache-2.0 / BSD-3-Clause）
 
-`shaders/lib/color/tonemap_aces2.glsl` 的 `TonemapACES2`（`TONEMAP_MODE == 1`）移植自 ACES 2.0 参考实现：
+`shaders/lib/color/tonemap_aces2.glsl` 的 `TonemapACES2`（`TONEMAP_MODE == 1`）
+适配完整的 ACES 2.0 SDR 100 nit Rec.709 输出变换。Academy 参考实现与输入色适应来自
+<https://github.com/ampas/aces-core>（2.0，2025-04-04）和
+<https://github.com/ampas/aces-output>，采用 Apache-2.0（全文见附录 A）：
 
 > Copyright Contributors to the ACES Project.
 > SPDX-License-Identifier: Apache-2.0
 
-上游：<https://github.com/ampas/aces-core>（版本 2.0，2025-04-04）与
-<https://github.com/ampas/aces-output>。两者均以 Apache License 2.0 发布（全文见本文件附录 A）。
-取用日期 2026-10-11，所用源文件与 SHA-256：
+`shaders/lib/third_party/opencolorio/aces2_output.glsl` 由 OpenColorIO 2.6.0 的官方内置变换
+`ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-100nit-REC709_2.0` 生成：
 
-- `aces-core/lib/Lib.Academy.OutputTransform.ctl` — `8bdebd1d7f313fc652c8fc282cb73b6621834e1f760c1af9b305e9b70ad36e9d`
-- `aces-core/lib/Lib.Academy.Tonescale.ctl` — `16bf0696f856c5f1b848fbac27be17604d98af4ef280cd61c638ce57049e7823`
-- `aces-core/lib/Lib.Academy.ColorSpaces.ctl` — `2bf18df76298232fe7cf456c8469672b5a631d84a9ee884a6e5591fc82ee0f4e`
-- `aces-output/d65/displayP3/Output.Academy.Rec709-D65_100nit_in_P3-D65_sRGB-Piecewise.ctl` — `4dc4af31672ddbe900cf5fad6888b01d772d10d1ff203efab44c1e45191c988d`
+- 上游：<https://github.com/AcademySoftwareFoundation/OpenColorIO/tree/v2.6.0>。
+- 许可证：BSD-3-Clause；版权归 Contributors to the OpenColorIO Project。
+  完整版权、许可条件和免责声明保留在随包分发的上述 GLSL 文件中。
+- GPU 生成器：`src/OpenColorIO/ops/fixedfunction/FixedFunctionOpGPU.cpp`。
 
-移植适配说明（依据 Apache-2.0 第 4(b) 条声明本包已修改该作品）：
+修改与集成说明：
 
-- 移植：Rec.709(D65) → ACES2065-1 的 Bradford 色适应、AP1 输入钳制、Hellwig-2022 CAM 的
-  JMh 正/反变换、100 nit 峰值下的 MM 色调曲线、由 J 与色调后 J 共同驱动的色相相关色度压缩，
-  以及 Rec.709 显示线性输出。观看条件取参考实现固定的 SDR 组合（弱环绕、L_A = 100、
-  Y_b = 20、100 nit 峰值、模型伽马 cz = 1.1370560）。
-- 未移植：显示色域压缩器 `gamut_compress_fwd`（依赖按色相预计算的 cusp 表与
-  upper-hull gamma 表，以及嵌套迭代求解 `find_display_cusp_for_hue` /
-  `make_upper_hull_gamma_table`），以及全部逆变换。本包改为在显示线性域钳制，
-  代价是极端饱和高光按通道裁切；色度压缩已先行滚降，常见内容不受影响。
-- **不含任何查找表**：参考实现把三个 360 项 hue 表作为"只算一次"的优化。本包唯一需要的
-  reach 极限改为逐像素有界二分求解（参考表在 72.5…194.4 之间，本包取 [50, 250] 区间、
-  8 步；无表、无预烘焙）。与参考核心相比，23016 个采样的输出偏差最大 0.0078、
-  平均 0.0005（显示线性）。
-- 锚点：参考实现把场景 18% 灰映射到 c_d = 10.013 nit = 0.100 显示线性；本包用
-  `TONEMAP_ACES2_INPUT_SCALE`（默认 1.7133450，数值求解）把它重新锚到其他模式共享的
-  0.18，取值 1.0 即官方标尺。
+- 场景 Rec.709/D65 先经 Bradford 色适应转换为 AP0，再由官方变换在 AP1 内钳制。
+  不预先裁切源 RGB，避免改变带负分量的超色域颜色的色相。
+- 完整正向变换包含 Hellwig-2022 JMh、MM 色调曲线、色度压缩和显示 cusp 色域压缩。
+  SDR 观看条件及色域边界均采用官方内置变换的常量。
+- OpenColorIO 的 reach 和 cusp/gamma 纹理改为不可变 GLSL 常量数组，保持原有色相插值。
+  这些是色域边界表，不是采样色调曲线；本包没有新增纹理、自定义图像、缓冲区或 pass。
+- 去掉末尾 Rec.709→XYZ 转换，直接返回显示线性 Rec.709；sRGB OETF 由最终 pass 统一执行一次。
+  不包含逆向输出变换。
+- 使用官方参考曝光，不添加中灰校准或用户输入缩放。ACES 输出变换是显示目标配置，
+  并非艺术风格预设；本包固定 SDR 100 nit Rec.709。
+- 实际 GLSL 与完整 OpenColorIO CPU 变换比较 12,276 个中性、饱和、随机 HDR 和
+  带负分量输入，显示线性误差预算为 5e-5。
 
-## 23. Blender AgX（GPL-2.0-or-later）
+## 23. Blender AgX（GPL-2.0-or-later / BSD-3-Clause）
 
-`shaders/lib/color/tonemap_blender_agx.glsl` 的 `TonemapBlenderAgX`（`TONEMAP_MODE == 2`）移植自
-Blender 4.0 起作为新文件默认视图变换的 AgX（Blender 4.0 颜色管理发布说明、
-blender/blender!106355 "AgX View Transform"）。Blender 以 GPL-2.0-or-later 发布，与本包主许可证
-GNU GPL v3 兼容。AgX 概念本身来自 Troy Sobotka（见第 2 节）；Blender 内置的这套配置由 EaryChow
-维护（`EaryChow-AgX` OCIO 配置与 `AgX_LUT_Gen` 生成器）。
+`shaders/lib/color/tonemap_blender_agx.glsl` 的 `TonemapBlenderAGX`（`TONEMAP_MODE == 2`）
+重建 Blender 4.0 AgX 视图变换的 Base Contrast 成像。Blender 采用 GPL-2.0-or-later，
+与本包 GPLv3 兼容。AgX 概念来自 Troy Sobotka（第 2 节），该配置来自 EaryChow，sigmoid 来自 Jed Smith。
 
-参考链：`AgX_LUT_Gen/AgXBasesRGB.py`、`AgX_LUT_Gen/sigmoid.py`、
-`AgX_LUT_Gen/working_space.py`，以及 Blender 随包发行的 57³ `AgX_Base_sRGB.cube`。
-本地快照位于 `research/AgX/official/`（开发目录，不随包分发）。
+发行版标准：<https://github.com/blender/blender/tree/v4.0.0/release/datafiles/colormanagement>
+中的 `config.ocio` 和 `luts/AgX_Base_sRGB.cube`。数学参考为
+<https://github.com/EaryChow/AgX_LUT_Gen> 中的 `AgXBasesRGB.py`、`AgXBaseRec2020.py`、
+`working_space.py`、`sigmoid.py` 和两份下侧 guard rail 生成器。本包不分发生成器 Python 源码；
+guard rail 采用独立代数重建：亮度权重之和为 1 时，对手色补偿可化简为 `2*Y-min`。
 
-移植适配说明：
+成像与适配说明：
 
-- Blender 把该成像链路烘焙进 `AgX_Base_sRGB.cube`；本包改为**闭式求值**同一条链：线性 sRGB →
-  （Rec.709→Rec.2020 与 AgX inset 合并为单个常量矩阵）→ −10…+6.5 EV 归一化 log2 整形 →
-  toe/shoulder 对比 sigmoid（slope 2.4、power 1.5）→ 2.4 次幂反解出 AgX Base 编码 →
-  （AgX outset 与 Rec.2020→Rec.709 合并为单个常量矩阵）→ 显示线性 Rec.709。**不含任何 LUT、
-  烘焙曲线或采样表。**
-- 未移植：逐通道色相角混合（生成器中的 40%）与 sRGB guard rails（`compensate_low_side`），
-  两者都是在已成形的图像上再做一次逐通道处理；Blender 自己的实时 GLSL 端口同样省略它们。
-- 未移植可选的对比 look（Punchy 等七个）：它们是 OCIO v2 grading-primary 变换，作用于 Blender
-  的 25 档 "AgX Log" 空间，与本包复现的 Base Contrast 视图变换所用的 16.5 档整形空间不同；
-  发布说明明确把它们描述为"压暗画面"的 look，脱离其 grading 空间复现会失真。本模式因此没有
-  算子自身的设置项。
-- 锚点：整形把场景 0.18 放到 10/16.5 EV（即曲线自身的 x 枢轴），曲线满足 curve(x_pivot) =
-  y_pivot 且 y_pivot^2.4 = 0.18，两个矩阵对中性色均为恒等（行和与 1 的偏差 < 1e-15），
-  因此场景 18% 灰直接落在 18% 显示线性，无需预缩放。
-- 验证：闭式端口与 Blender 发行版 `AgX_Base_sRGB.cube` 的中性对角线在 −10…+6.5 EV 上比对，
-  最大偏差 1.3e-05（编码域），−10 EV 处 6.6e-07。
+- 线性 Rec.709 → Rec.2020 → 下侧输入 guard rail → 旋转/inset 工作色域 → −10…+6.5 EV log 整形
+  → toe/shoulder sigmoid（slope 2.4、power 1.5）→ 2.4 次幂线性化 → 原始色相向成形色相的
+  40% 最短弧插值 → outset/Rec.709 → 下侧输出 guard rail → 显示钳制。
+- guard rail 亮度权重以 Blender 4.0 随包 LUT 为准，不替换为上游生成器 2025 年 6 月更新的
+  D65 权重；该更新会改变饱和颜色。
+- 本包使用解析求值，网格点之间与 Blender 的四面体 LUT 插值存在差别，不声称逐像素等同于
+  插值 LUT 输出。
+- 上侧 guard rail 在生成器中禁用，本包同样禁用。
+- `TONEMAP_BLENDER_AGX_LOOK` 提供 Blender v4.0.0 的九个真实 look：Base Contrast、
+  Punchy、Greyscale、Very High Contrast、High Contrast、Medium High Contrast、
+  Medium Low Contrast、Low Contrast、Very Low Contrast，默认 Base Contrast。
+  完整预设变换在官方 25 档 AgX Log 处理空间内执行，然后进行视图成像。
+- `shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` 由 OpenColorIO 2.6.0 从
+  `config.ocio` 的 look 生成，版权归 Contributors to the OpenColorIO Project，采用
+  BSD-3-Clause，完整许可保留在该文件中。Punchy 包含真正的 grading-tone 和 CDL 阶段，
+  不以显示伽马/饱和度捷径模拟。
+- 每个 look 均对照官方 OCIO CPU 预设变换及独立解析成像测试；参考 CPU 使用无损优化，
+  关闭默认的近似 grading 运算。
+- 场景 18% 灰无需预缩放即映射为 18% 显示线性。
+- 与 Blender 4.0 随包的 57³ LUT 比较了 5,000 个精确网格点，包括带负 Rec.709 分量的颜色，
+  最大显示线性误差为 1.1e-6；与完整解析生成器比较 12,248 个有效中性/HDR/带负分量输入，
+  误差低于 1e-6。
 
 ## 24. AMD FidelityFX LPM（MIT）
 
@@ -394,13 +398,11 @@ in ALU"），因此**本移植不含、也不需要任何查找表**。
 - 两处守护覆盖参考实现契约（{0..hdrMax}）之外但仍可能收到的输入：颜色为 0 时其 `1/max(rgb)`
   除零（本包返回黑），以及色调后亮度达到 1.0 时 `cap` 全为 0、其 `lumaAdd/dot(cap, lumaT)` 为
   0/0（本包取其极限 t = 0）。
-- 锚点：LPM 曲线本身就把 midIn 映射到 0.18，而所有官方预置都取 exposure = log2(hdrMax)，
-  因此默认值（hdrMax 1024、exposure 10，取自 FidelityFX 样例）保持 18% 灰不动。
-  `TONEMAP_LPM_CONTRAST` 默认 0.15 是本包唯一的调整值（参考头文件为 0.25、样例为 0.0，
-  两者都在取值列表内）；`TONEMAP_LPM_SATURATION` 默认 1.0，对应参考实现自身的 saturation 中性值（本包把参考的加性参数折算为 1.0 = 中性）。
-- 验证：与 `ffx_lpm.h` 的 Python 转写逐样本比对，28084 个样本（中性色、原色、间色与
-  [0, 1024] 的 HDR 噪声）最大偏差 6.5e-15；对比度与饱和度各扫 7 组，最大偏差 7.1e-15；
-  中性灰响应与参考实现逐点一致（0.18 → 0.180000）。
+- 固定使用官方头文件的 Rec.709 配置样例：hdrMax 256、exposure 8、contrast 0.25、
+  shoulderContrast 1、saturation 0、crosstalk (1, 0.5, 1/32)。这些是内容制作/集成参数，
+  不开放给玩家。`LPM_CONFIG_*` 是显示格式和色域转换配置，并非艺术 look。
+- 实际 GLSL 对照完整参考映射的独立转写，覆盖 12,276 个中性、原色、随机 HDR 与带负分量
+  输入，显示线性误差预算为 1e-5。
 
 ## 25. OpenDRT（GPL-3.0）
 
@@ -418,35 +420,26 @@ GNU GPL v3，与本包主许可证一致，故按 GPL-3.0 移植并保留署名�
 第 5(a) 条在此声明本包对其作了修改（修改内容见下）。取用日期 2026-10-11，
 源文件 SHA-256 `645ba89745691742c5403f8de5964b5934cd1c59bf06fb1f1a1f6b45f54830a1`。
 
-移植范围：DCTL 的 `transform()` 在 `look_preset = 0`（Standard look）、
-`tonescale_preset = 0`（沿 Look 预设）、`display_encoding_preset = 0`
-（Rec.1886 / Rec.709）、`clamp = 1`、线性输入下的完整链路，即渲染空间降饱和、
-色调曲线约束求解、亮度（Brilliance）、双曲压缩、色相窗口 / 色相对比 / 两段色相
-偏移、色纯度压缩与中段色纯度、逆渲染空间、显示色域与白点、后置亮度、
-色纯度软限幅与最终趾部。逐像素结果与参考 DCTL 在 float64 下逐样本最大偏差
-4e-15（默认参数与十组参数回归均验证）。
+移植范围：七个官方默认启用的 Look（Standard、Arriba、Sylvan、Colorful、Aery、Dystopic、
+Umbra）和全部十四种 Tonescale 选择，包含 USE LOOK PRESET。上游 UI 默认禁用的开发者
+Base look 不作为玩家选项。`tonemap_opendrt_presets.glsl` 保存原始完整参数组；Look 选择整组，
+Tonescale 可单独覆盖曲线。原始数值全部固定，包含 Contrast Low/High、逐通道色相范围和
+创意白点适应。
 
 移植适配说明：
 
-- 仅 SDR：峰值亮度固定 100 尼特，故显示缩放 `ts_dsc = 1`，HDR 灰提升项为
-  `log2(1) = 0`，HDR 色纯度插值权重为零（参考实现中 `tsn_pt` 与 `tsn_const`
-  因此合为同一条曲线）；`tn_Lp`、`tn_gb`、`pt_hdr` 不再是参数。
-- 输出交给本包 `post/final.fragment` 的 sRGB OETF，故省略参考实现的逆显示
-  EOTF；环镜补偿取工具的 "sRGB Display" 预设（`tn_su = 2`，明亮环境），
-  而非工具默认的 Rec.1886 预设，以便与 2.2 次幂 + 亮环境的组合一致。
-- 输入与显示色域固定 Rec.709，参考实现的两步转换（Rec.709 → XYZ D65 → P3D65
-  及其逆）各自折叠为单个常量矩阵；Standard 预设的创意白点为 D65，该阶段为
-  恒等操作，故整体省略。
-- `TONEMAP_ODT_GREY_LUMINANCE` 默认 15.1306824 是按"场景 18% 灰 → 18% 显示线性"
-  数值求解得到的显示中灰亮度（默认色调曲线参数下），与工具自身默认值 10.0
-  不同；后者正是参考实现的原始观感，仍在可选值列表中。
-- 暴露为设置的参数：`TONEMAP_ODT_GREY_LUMINANCE`、`TONEMAP_ODT_CONTRAST`、
-  `TONEMAP_ODT_SHOULDER_CLIP`、`TONEMAP_ODT_TOE`、`TONEMAP_ODT_OFFSET`、
-  `TONEMAP_ODT_RENDER_SATURATION`、`TONEMAP_ODT_PURITY_LOW`、
-  `TONEMAP_ODT_PURITY_HIGH`、`TONEMAP_ODT_BRILLIANCE`，默认值均为 Standard
-  预设值（中灰亮度除外，见上）。其余预设模块（其他 Look 预设、Contrast Low /
-  High、创意白点、色相偏移与亮度的逐通道细分）未移植，按 Standard 预设常量
-  固化，并在源码注释中标明出处。
+- 输入为场景线性 Rec.709，输出为显示线性 Rec.709，固定 SDR 峰值 100 尼特、官方中灰
+  10 尼特和 sRGB Display 环境（`tn_su = 2`）。最终 pass 负责 sRGB OETF，省略 DCTL 信号
+  编码，不添加与其他算子的中灰对齐。
+- 100 尼特时 HDR 中灰提升为零，HDR 色纯度插值合为同一条曲线，不开放 HDR 数值或显示格式
+  开关。
+- 固定色域矩阵折叠，包含 P3D65→XYZ→创意白点 CAT→Rec.709；保留官方范围混合及归一化，
+  包含 Aery 的 D75、Dystopic 的 D60、Umbra 的 D50 白点。
+- 带负分量 RGB 不预裁切；对手色向量为零时取零角度，匹配参考中性路径并避开 GLSL
+  未定义的 `atan(0,0)`。
+- 实际 GLSL 对照编译执行的官方 DCTL；仅适配宿主向量/数学接口并绕过最终信号编码。
+  所有 Look、所有 Tonescale 和交叉覆盖均以每组 12,276 个 HDR/带负分量样本测试，
+  显示线性误差预算为 2e-5；另检查全部 98 种 Look/Tonescale 组合的有限值及显示范围。
 
 ## 附录 A：Apache License 2.0 全文
 

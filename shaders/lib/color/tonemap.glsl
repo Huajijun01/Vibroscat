@@ -26,7 +26,7 @@ vec3 Tonemap(vec3 linear_rgb) {
 #endif
 }
 
-// Rational-only mapping used by the bloom chain (bright-pass transfer).
+// Rational compression for temporal HDR history; this is not a display DRT.
 vec3 FastTonemap(vec3 x) {
     return x / (0.903453 * x + 0.427205);
 }

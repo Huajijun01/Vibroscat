@@ -25,7 +25,14 @@ The curve, the log shaper and the hue repair now come from DRT Bench; see sectio
 
 `TonemapAGX` (`TONEMAP_MODE == 0`) is ported from DRT Bench (github.com/bWFuanVzYWth/DRT, by linlin), `shaders/agx_hsv.wgsl`, at that tool's `AgxParameters::hsv_default()` curve: the -10 .. +6.5 EV log2 shaper, the sRGB OETF(0.18) output pivot, the 1.55 / 5.2 toe and shoulder powers, the 0.05 gamut compression, and the HSV hue-repair stage that this variant is named for.
 
-The repository is published under `GPL-3.0-only` since 2026-09 (LICENSE added in commit 49e67a3), which is compatible with this pack's main license, GNU GPL v3. The log-domain contrast, the display-domain saturation/gamma, the look presets and the added `TONEMAP_AGX_HIGHLIGHT_HUE` control are Vibroscat's own additions; the reference operator has no such controls.
+The repository is published under `GPL-3.0-only` since 2026-09 (LICENSE
+added in commit 49e67a3), compatible with this pack's GPLv3. The operator uses
+the reference's fixed defaults, including black/white hue retention 1.0/0.5.
+The former pack contrast, gamma, saturation and invented looks were removed.
+The reference's final display-signal clamp is followed by sRGB decoding for
+the pack's display-linear post-processing. No artistic preset is supplied
+for this HSV variant by the reference; Blender AgX's official looks belong
+to mode 2, below.
 
 History: between 2026-08 and 2026-10 the pack also carried ports of this tool's Oklab DRT, Reinhard-Gamut and Reinhard-AgX (used at the time with the author's direct permission, before the repository chose a license). All three were removed in the 2026-10 tone-mapper list change and are no longer distributed.
 
@@ -189,34 +196,27 @@ licensed:
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/>
+Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/supplemental/gt7_tone_mapping.cpp>
+(version 1.0, 2025-08-10)
 (course slides `s2025_pbs_pdi_slides_v1.1.pdf` and the companion
 `gt7_tone_mapping.cpp`).
 
 Porting adaptations:
 
-- The sample's linear Rec.2020 frame-buffer domain (1.0 = 100 nits) is entered
-  and left through linear BT.709 <-> BT.2020 matrices derived from the
-  primaries, matching the pack's linear sRGB convention.
-- A `GT7_MID_GREY_SCALE` input prescale (numerically solved from
-  0.4*curve(2.50832*0.18) = 0.18) re-anchors 18% grey, the anchor shared with
-  the other tonemap modes; the curve keeps the official SDR preset (peak 2.5,
-  gray point 0.538, linear section 0.444, toe strength 1.28, blend 0.6,
-  chroma fade 0.98-1.16) with one deliberate deviation: alpha is 0 (a legal
-  sample parameter) instead of 0.25, so the shoulder converges exactly to
-  paper white — this pack's pipeline lacks GT7's in-engine exposure
-  normalization, and the sample's overshooting shoulder hard-clipped roughly
-  half a stop of highlights above scene white.
-- The UCS is the sample default ICtCp (ITU-R BT.2124, Rec.2020). The forward
-  transform follows the standard definition: I = 0.5*L + 0.5*M (luma, excludes
-  S), with Ct and Cp the corresponding chroma combinations. An earlier port
-  wrongly folded S into I (I = 0.5*L + 0.5*M + 0.5*S); this has been corrected.
-  The inverse is the exact matrix inverse of the forward transform, verified to
-  round-trip within 2e-16. The chroma-fade pivot is the UCS luma I of the
-  paper-white grey (2.5, 2.5, 2.5) = 0.6025591550 (I excludes S; the sample's
-  equivalent value is 0.602561).
-- Exposed settings: `TONEMAP_GT7_BLEND`, `TONEMAP_GT7_CHROMA_FADE_START`,
-  `TONEMAP_GT7_CHROMA_FADE_END` (defaults are the official sample values).
+- Linear Rec.709 input/output is converted to/from the sample's Rec.2020
+  framebuffer domain (1.0 = 100 nits), without a middle-gray prescale.
+- Uses the complete official `initializeAsSDR()` parameters: peak 2.5,
+  alpha 0.25, gray point 0.538, linear section 0.444, toe strength 1.28,
+  blend 0.6 and chroma fade 0.98-1.16. All are fixed constants.
+- Uses the default ICtCp UCS, with the ITU forward matrix and its inverse.
+  PQ decoding clamps its signal to [0,1] as in the sample. The final SDR
+  clamp follows Rec.2020-to-Rec.709 conversion so sharpening receives
+  display-range color.
+- The sample offers SDR/HDR display targets and an alternative JzAzBz
+  internal color space, not a collection of artistic looks. This SDR pack
+  fixes the default ICtCp path and exposes no numerical GT7 settings.
+- GPU output is checked against the compiled official C++ sample. Different
+  float32 rounding through ST2084 is allowed within 5e-4 of display white.
 
 ## 18. Cloud multiple-scattering approximation (algorithm source)
 
@@ -343,92 +343,98 @@ Temporal reconstruction references Yang, Liu, and Salvi,
 the pack's existing RGB bounds and HDRCompress/HDRDecompress round-trip.
 Final sharpening reuses the pack's existing AMD FidelityFX CAS (section 4).
 
-## 22. ACES 2.0 Output Transform (Apache-2.0)
+## 22. ACES 2.0 Output Transform (Apache-2.0 / BSD-3-Clause)
 
 `TonemapACES2` in `shaders/lib/color/tonemap_aces2.glsl` (`TONEMAP_MODE == 1`)
-is ported from the ACES 2.0 reference implementation:
+adapts the complete ACES 2.0 SDR 100-nit Rec.709 output transform. The
+Academy reference and the input chromatic adaptation are from
+<https://github.com/ampas/aces-core> (2.0, 2025-04-04) and
+<https://github.com/ampas/aces-output>, under Apache-2.0 (Appendix A):
 
 > Copyright Contributors to the ACES Project.
 > SPDX-License-Identifier: Apache-2.0
 
-Upstream: <https://github.com/ampas/aces-core> (version 2.0, 2025-04-04) and
-<https://github.com/ampas/aces-output>. Both are released under the Apache
-License 2.0 (full text in Appendix A). Retrieved 2026-10-11; source files and
-their SHA-256:
+The GPU transform in `shaders/lib/third_party/opencolorio/aces2_output.glsl`
+is generated by OpenColorIO 2.6.0's official built-in
+`ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-100nit-REC709_2.0`:
 
-- `aces-core/lib/Lib.Academy.OutputTransform.ctl` - `8bdebd1d7f313fc652c8fc282cb73b6621834e1f760c1af9b305e9b70ad36e9d`
-- `aces-core/lib/Lib.Academy.Tonescale.ctl` - `16bf0696f856c5f1b848fbac27be17604d98af4ef280cd61c638ce57049e7823`
-- `aces-core/lib/Lib.Academy.ColorSpaces.ctl` - `2bf18df76298232fe7cf456c8469672b5a631d84a9ee884a6e5591fc82ee0f4e`
-- `aces-output/d65/displayP3/Output.Academy.Rec709-D65_100nit_in_P3-D65_sRGB-Piecewise.ctl` - `4dc4af31672ddbe900cf5fad6888b01d772d10d1ff203efab44c1e45191c988d`
+- Upstream: <https://github.com/AcademySoftwareFoundation/OpenColorIO/tree/v2.6.0>.
+- License: BSD-3-Clause; copyright Contributors to the OpenColorIO Project.
+  The complete copyright, conditions, and disclaimer are retained in that
+  distributed GLSL file.
+- GPU generator: `src/OpenColorIO/ops/fixedfunction/FixedFunctionOpGPU.cpp`.
 
-Port adaptations (under Apache-2.0 section 4(b) this states that the pack
-modified the work):
+Modifications and integration:
 
-- Ported: the Rec.709(D65) -> ACES2065-1 Bradford adaptation, the AP1 input
-  clamp, the Hellwig-2022 CAM forward/inverse JMh conversions, the MM tone
-  scale at a 100-nit peak, the hue-dependent chroma compression driven by both
-  J and the tone-scaled J, and the Rec.709 display-linear output. Viewing
-  conditions are the reference's fixed SDR set (dim surround, L_A = 100,
-  Y_b = 20, 100-nit peak, model gamma cz = 1.1370560).
-- Not ported: the display-cusp gamut compressor `gamut_compress_fwd` (which
-  needs per-hue cusp and upper-hull gamma tables plus the nested solvers
-  `find_display_cusp_for_hue` / `make_upper_hull_gamma_table`) and the whole
-  inverse transform. This pack clamps in the display-linear domain instead, so
-  extremely saturated highlights clip per channel; the chroma compression has
-  already rolled those colors off, so common content is unaffected.
-- **No lookup table of any kind.** The reference precomputes three 360-entry
-  hue tables as a "compute once" optimisation; the only one this port needs,
-  the reach limit, is solved per pixel with a bounded bisection (the reference
-  table spans 72.5 .. 194.4, the port bisects [50, 250] in 8 steps - no table,
-  nothing baked). Against the reference core the output differs by at most
-  0.0078 display-linear (mean 0.0005) over 23016 samples.
-- Anchoring: the reference maps scene 18% grey to c_d = 10.013 nits = 0.100
-  display-linear. `TONEMAP_ACES2_INPUT_SCALE` (default 1.7133450, solved)
-  re-anchors it on the 0.18 every other mode in this pack shares; 1.0 is the
-  reference's own scale.
+- Rec.709/D65 scene input is converted to AP0 with Bradford adaptation.
+  The official AP1 clamp follows that conversion; source RGB is not clipped
+  first, which would change signed out-of-gamut hues.
+- The complete forward transform includes Hellwig-2022 JMh, the MM tone
+  scale, chroma compression, and display-cusp gamut compression. SDR viewing
+  conditions and gamut boundaries are the official built-in's constants.
+- OpenColorIO's reach and cusp/gamma textures are represented by immutable
+  GLSL arrays, with the original hue interpolation. These are gamut-boundary
+  tables, not sampled tone curves. No texture, custom image, buffer, or pass
+  is added to the pack.
+- The final Rec.709-to-XYZ conversion is omitted: the pack consumes
+  display-linear Rec.709 and applies the sRGB OETF once in the final pass.
+  The inverse output transform is not included.
+- Uses the reference exposure, without a middle-gray calibration or player
+  scale option. ACES output transforms specify display targets rather than
+  artistic looks; the fixed target is SDR 100-nit Rec.709.
+- Actual GLSL is compared with the complete OpenColorIO CPU transform on
+  12,276 neutral, saturated, random HDR and signed inputs, within 5e-5 of
+  display-linear white.
 
-## 23. Blender AgX (GPL-2.0-or-later)
+## 23. Blender AgX (GPL-2.0-or-later / BSD-3-Clause)
 
-`TonemapBlenderAgX` in `shaders/lib/color/tonemap_blender_agx.glsl`
-(`TONEMAP_MODE == 2`) is ported from the AgX view transform Blender has shipped
-as the default for new files since 4.0 (Blender 4.0 color management release
-notes; blender/blender!106355, "AgX View Transform"). Blender is released under
-GPL-2.0-or-later, which is compatible with this pack's GNU GPL v3. The AgX
-concept itself is Troy Sobotka's (section 2); the configuration Blender ships
-is maintained by EaryChow (the `EaryChow-AgX` OCIO config and its
-`AgX_LUT_Gen` generator).
+`TonemapBlenderAGX` in `shaders/lib/color/tonemap_blender_agx.glsl`
+(`TONEMAP_MODE == 2`) reconstructs the Base Contrast formation represented
+by Blender 4.0's AgX view transform. Blender is GPL-2.0-or-later, compatible
+with this pack's GPLv3. AgX is Troy Sobotka's concept (section 2); this
+configuration is EaryChow's and its sigmoid is Jed Smith's.
 
-Reference chain: `AgX_LUT_Gen/AgXBasesRGB.py`, `AgX_LUT_Gen/sigmoid.py`,
-`AgX_LUT_Gen/working_space.py`, and Blender's shipped 57^3 `AgX_Base_sRGB.cube`.
-The local snapshot lives under `research/AgX/official/` (development tree, not
-distributed).
+Authoritative distribution:
+<https://github.com/blender/blender/tree/v4.0.0/release/datafiles/colormanagement>
+(`config.ocio` and `luts/AgX_Base_sRGB.cube`). Mathematical references are
+<https://github.com/EaryChow/AgX_LUT_Gen> (`AgXBasesRGB.py`,
+`AgXBaseRec2020.py`, `working_space.py`, `sigmoid.py`, and the two lower
+guard-rail generators). No generator Python source is distributed here.
+The guard rails are independently reconstructed algebraically: with
+unit-sum luminance weights the opponent compensation reduces to `2*Y-min`.
 
-Port adaptations:
+Formation and adaptations:
 
-- Blender bakes this imaging chain into `AgX_Base_sRGB.cube`; this pack
-  evaluates the same chain in **closed form** instead: linear sRGB -> (the
-  Rec.709 -> Rec.2020 matrix folded with the AgX inset into one constant) ->
-  the normalized -10 .. +6.5 EV log2 shaper -> the toe/shoulder contrast
-  sigmoid (slope 2.4, power 1.5) -> the 2.4-power inverse of the AgX Base
-  encoding -> (the AgX outset folded with Rec.2020 -> Rec.709) ->
-  display-linear Rec.709. **No LUT, no baked curve, no sampled table.**
-- Not ported: the per-channel chroma-angle mixing (40% in the generator) and
-  the sRGB guard rails (`compensate_low_side`). Both are a second per-channel
-  pass over an already formed image, and Blender's own realtime GLSL port of
-  this configuration drops them for the same reason.
-- Not ported: the optional contrast looks (Punchy and the other six). They are
-  OCIO v2 grading-primary transforms acting in Blender's 25-stop "AgX Log"
-  space, which is a different encoding from the 16.5-stop shaper this port (and
-  the Base Contrast view transform) uses; the release notes describe them as
-  darkening looks, so reproducing one outside its grading space would
-  misrepresent it. This mode therefore exposes no operator settings.
-- Anchor: the shaper puts scene 0.18 at 10/16.5 EV, which is the curve's own x
-  pivot, and the curve satisfies curve(x_pivot) = y_pivot with y_pivot^2.4 =
-  0.18; both matrices keep neutrals fixed (their rows sum to 1 within 1e-15).
-  Scene 18% grey therefore lands on 18% display-linear with no pre-scale.
-- Verification: the closed-form port was compared against the neutral diagonal
-  of Blender's shipped `AgX_Base_sRGB.cube` over -10 .. +6.5 EV, agreeing to
-  1.3e-05 in the encoded domain (6.6e-07 at -10 EV).
+- Linear Rec.709 -> Rec.2020 -> lower input guard rail -> rotated/inset
+  working gamut -> -10 .. +6.5 EV log shaper -> toe/shoulder sigmoid
+  (slope 2.4, powers 1.5) -> power 2.4 linearization -> shortest-arc hue
+  interpolation, 40% from original to formed hue -> outset/Rec.709 ->
+  lower output guard rail -> display clamp.
+- The guard-rail luminance weights match Blender 4.0's shipped LUT. The
+  generator's June 2025 D65-weight revision changes saturated colors and is
+  not substituted for the distribution being reproduced.
+- The transform is evaluated analytically rather than through a sampled
+  LUT. Between lattice nodes it therefore differs from Blender's tetrahedral
+  interpolation. No exact match to interpolated LUT output is claimed.
+- The upper guard rail is disabled in the generator and remains disabled.
+- `TONEMAP_BLENDER_AGX_LOOK` selects Blender v4.0.0's actual nine looks:
+  Base Contrast, Punchy, Greyscale, Very High Contrast, High Contrast,
+  Medium High Contrast, Medium Low Contrast, Low Contrast and Very Low
+  Contrast. The default is Base Contrast. The complete preset transforms
+  run in the official 25-stop AgX Log process space before view formation.
+- `shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` is generated
+  by OpenColorIO 2.6.0 from those `config.ocio` look transforms. Copyright
+  Contributors to the OpenColorIO Project, BSD-3-Clause; the full license
+  is retained in that file. Punchy includes the actual grading-tone and CDL
+  stages. No look is approximated by a display-gamma/saturation shortcut.
+- Every look is checked against the official OCIO CPU look transform with
+  lossless optimization, followed by the independent analytical formation.
+  The CPU's default approximate grading math is disabled in that oracle.
+- Scene 18% grey maps to 18% display-linear without an input prescale.
+- Validation against 5,000 exact lattice nodes of Blender 4.0's distributed
+  57-cubed LUT, including colors with negative Rec.709 components, gave a
+  maximum display-linear error of 1.1e-6. The complete analytical generator
+  comparison on 12,248 valid neutral/HDR/signed inputs stayed below 1e-6.
 
 ## 24. AMD FidelityFX LPM (MIT)
 
@@ -472,18 +478,14 @@ Port adaptations:
   division by zero (this port returns black), and once the tone-mapped luma
   reaches 1.0 every crosstalk cap term is 0, making its `lumaAdd/dot(cap,
   lumaT)` a 0/0 (this port takes the limit t = 0).
-- Anchor: LPM's curve already maps midIn to 0.18, and every official preset
-  uses exposure = log2(hdrMax), so the defaults (hdrMax 1024, exposure 10, from
-  the FidelityFX sample) keep 18% grey in place. `TONEMAP_LPM_CONTRAST` defaults
-  to 0.15, this port's one tuned value (the reference header's 0.25 and the
-  sample's 0.0 are both selectable); `TONEMAP_LPM_SATURATION` defaults to 1.0,
-  which corresponds to the reference's own neutral saturation value (this port
-  re-expresses the reference's additive parameter as 1.0 = neutral).
-- Verification: compared sample by sample against a Python transcription of
-  `ffx_lpm.h` over 28084 samples (neutrals, primaries, secondaries and HDR
-  noise across [0, 1024]), maximum deviation 6.5e-15; seven contrast and seven
-  saturation settings each agreed to 7.1e-15; the neutral-grey response matches
-  the reference point for point (0.18 -> 0.180000).
+- Uses the header's fixed Rec.709 setup example: hdrMax 256, exposure 8,
+  contrast 0.25, shoulderContrast 1, saturation 0 and crosstalk
+  (1, 0.5, 1/32). These are authoring/integration parameters, not player
+  controls. The `LPM_CONFIG_*` prefabs describe output formats and gamut
+  conversions; they are not artistic look presets.
+- Actual GLSL is checked against an independent transcription of the full
+  reference mapping on 12,276 neutral, primary, random HDR and signed
+  samples, with a display-linear error budget of 1e-5.
 
 ## 25. OpenDRT (GPL-3.0)
 
@@ -503,45 +505,35 @@ keeps the attribution; under GPL-3.0 section 5(a) this notice states that the
 pack modified the work (see below). Retrieved 2026-10-11, source file SHA-256
 `645ba89745691742c5403f8de5964b5934cd1c59bf06fb1f1a1f6b45f54830a1`.
 
-Ported scope: the complete `transform()` chain at `look_preset = 0`
-(Standard look), `tonescale_preset = 0` (follow the look preset),
-`display_encoding_preset = 0` (Rec.1886 / Rec.709), `clamp = 1` and linear
-input - render-space desaturation, the tone-scale constraint solve, brilliance,
-hyperbolic compression, the hue windows / hue contrast / two hue-shift stages,
-purity compression with mid-range purity, inverse render space, display gamut
-and whitepoint, post brilliance, purity softclip and the final toe. Per-pixel
-results match the reference DCTL to a maximum deviation of 4e-15 in float64
-over the default parameters and ten parameter regressions.
+Ported scope: the complete SDR formation for all seven enabled official
+look presets (Standard, Arriba, Sylvan, Colorful, Aery, Dystopic, Umbra),
+and all fourteen tonescale selections, including USE LOOK PRESET. The
+developer-only Base look disabled in the upstream UI is not a player option.
+`tonemap_opendrt_presets.glsl` contains the original complete parameter sets;
+Look selects the set and Tonescale optionally overrides only its curve.
+All raw parameters are fixed. Contrast Low/High, per-channel hue-shift
+ranges and creative-white adaptation are included.
 
 Port adaptations:
 
-- SDR only: the peak luminance is fixed at 100 nits, so the display scale
-  `ts_dsc` is 1, the HDR grey-boost term is `log2(1) = 0`, and the HDR purity
-  lerp has zero weight (which collapses the reference's `tsn_pt` and
-  `tsn_const` onto one curve). `tn_Lp`, `tn_gb` and `pt_hdr` are therefore not
-  parameters here.
-- The output feeds this pack's sRGB OETF in `post/final.fragment`, so the
-  reference's inverse display EOTF is omitted, and the surround compensation
-  uses the tool's "sRGB Display" preset (`tn_su = 2`, bright surround) rather
-  than its default Rec.1886 preset, matching a 2.2-power encode in a bright
-  viewing environment.
-- Input and display gamut are fixed to Rec.709, so the reference's two-step
-  conversions (Rec.709 -> XYZ D65 -> P3D65 and its inverse) fold into one
-  constant matrix each; the Standard preset's creative whitepoint is D65,
-  where that stage is the identity and is omitted.
-- The default `TONEMAP_ODT_GREY_LUMINANCE` of 15.1306824 is the display grey
-  luminance solved for "scene 18% grey -> 18% display-linear" at the default
-  tone-scale parameters, not the tool's own default of 10.0. That reference
-  default remains in the option's value list.
-- Exposed as settings: `TONEMAP_ODT_GREY_LUMINANCE`, `TONEMAP_ODT_CONTRAST`,
-  `TONEMAP_ODT_SHOULDER_CLIP`, `TONEMAP_ODT_TOE`, `TONEMAP_ODT_OFFSET`,
-  `TONEMAP_ODT_RENDER_SATURATION`, `TONEMAP_ODT_PURITY_LOW`,
-  `TONEMAP_ODT_PURITY_HIGH` and `TONEMAP_ODT_BRILLIANCE`, all defaulting to
-  the Standard preset values except the grey luminance above. The remaining
-  preset modules (the other look presets, Contrast Low/High, the creative
-  whitepoint, and the per-channel hue-shift and brilliance subdivisions) are
-  not ported: they are fixed to the Standard preset values, which the source
-  comments state.
+- Rec.709 scene-linear input, Rec.709 display-linear output, SDR peak 100
+  nits, reference gray 10 nits and sRGB Display surround (`tn_su = 2`).
+  The pack's final pass owns the sRGB OETF; DCTL signal encoding is omitted.
+  No middle-gray alignment to another mapper is applied.
+- At 100 nits, HDR gray boost is zero and HDR purity interpolation collapses
+  the two purity curves. No HDR controls or display-format switches are
+  exposed in this SDR pipeline.
+- Fixed gamut matrices are folded, including P3D65 -> XYZ -> creative-white
+  CAT -> Rec.709. The official range blend and normalization are preserved,
+  including Aery's D75, Dystopic's D60 and Umbra's D50 creative whites.
+- Signed RGB reaches the rendering space unchanged. A zero opponent vector
+  selects a zero angle, avoiding undefined GLSL `atan(0,0)` while matching
+  the reference neutral path.
+- Actual GLSL is compared with the compiled official DCTL, with only host
+  vector/math adapters and final signal-encoding bypass. All looks, all
+  tonescales and cross-look overrides are checked on 12,276 HDR/signed
+  samples each, within 2e-5 of display-linear white. All 98 Look/Tonescale
+  combinations additionally receive finite/range checks.
 
 ## Appendix A: Apache License 2.0 (full text)
 

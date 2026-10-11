@@ -6,12 +6,14 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/render_scale.glsl"
+#include "/lib/atmosphere/air_fog.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/scattering/phase.glsl"
+#include "/lib/volume/epipolar_core.glsl"
 
 layout(location = 0) out vec3 out_color;
 
@@ -74,6 +76,19 @@ void main() {
     // loaded-area edge is masked instead of cutting off. Sky
     // pixels (depth >= 1.0) keep the actual sky and are left untouched.
     scene = ApplyBoundaryFog(scene, scene_pos, world_dir, scene_depth, far);
+
+#ifdef AIR_FOG
+    float distance_m = length(scene_pos - EyePositionSceneSpace());
+    float length_m = AirFogSegmentLength(distance_m, far);
+    vec3 visibility = vec3(1.0);
+#ifdef AIR_EPIPOLAR_ACTIVE
+    visibility = EpipolarSampleE(uv * 2.0 - 1.0, LinearDepthFromScreenDepth(scene_depth));
+#endif
+    AirFogResult fog = AirFogRender(world_dir, length_m, AirFogProfile(), AirFogReferenceMedium(), visibility);
+    // Eye skylight suppresses the outdoor medium inside caves/interiors.
+    float sky_access = SkyLightFromLm(float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE);
+    scene = scene * mix(vec3(1.0), fog.transmittance, sky_access) + fog.in_scattering * sky_access;
+#endif
 
     out_color = scene;
 

@@ -1,0 +1,54 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/noise.glsl"
+#include "/lib/atmosphere/air_fog.glsl"
+#include "/lib/volume/air_epipolar.glsl"
+#include "/lib/volume/epipolar_core.glsl"
+
+layout(local_size_x = 1, local_size_y = 128) in;
+// Literal dispatch required by Iris; excess slices/samples are guarded.
+const ivec3 workGroups = ivec3(2048, 1, 1);
+
+#ifdef AIR_EPIPOLAR_ACTIVE
+layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
+
+void main() {
+    uint slice = gl_WorkGroupID.x;
+    if (slice >= uint(EPIPOLAR_SLICES)) return;
+    vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(int(slice), 0), 0);
+    bool line_valid = !all(equal(line, vec4(0.0)));
+    float sample_rcp = 1.0 / float(EPIPOLAR_SAMPLES - 1);
+    uint sample_groups = uint((EPIPOLAR_SAMPLES + 127) / 128);
+    vec3 air_start = EyePositionSceneSpace();
+    AirFogDensityProfile profile = AirFogProfile();
+    vec4 extinction = AirFogReferenceMedium().extinction;
+    float scalar_extinction = max(max(extinction.x, extinction.y), max(extinction.z, extinction.w));
+    for (uint i = 0u; i < sample_groups; ++i) {
+        uint sample_index = gl_LocalInvocationID.y + i * 128u;
+        if (sample_index >= uint(EPIPOLAR_SAMPLES)) break;
+        vec3 air_e = vec3(1.0);
+        float air_key = 0.0;
+        if (line_valid && isEyeInWater == 0) {
+            float p = float(sample_index) * sample_rcp;
+            vec2 uv = mix(line.xy, line.zw, p) * 0.5 + 0.5;
+            ivec2 texel = EpipolarScreenTexel(uv);
+            float depth0 = texelFetch(depthtex0, texel, 0).r;
+            air_key = LinearDepthFromScreenDepth(depth0);
+            vec3 delta = EpipolarViewToScene(uv, depth0) - air_start;
+            float distance_m = length(delta);
+            if (distance_m > 1e-6) {
+                vec3 direction_world = delta / distance_m;
+                float length_m = AirFogSegmentLength(distance_m, far);
+                float jitter = SampleSTBN(texel, STBNFrame());
+                air_e = EpipolarAirShadowRatio(air_start, air_start + direction_world * length_m,
+                    profile, scalar_extinction, jitter);
+            }
+        }
+        // Historical RGBA16F contract: RGB = E, A = linear viewZ column key.
+        imageStore(uimg_epipolar_term, ivec2(int(slice), int(sample_index)), vec4(air_e, air_key));
+    }
+}
+#else
+void main() {}
+#endif

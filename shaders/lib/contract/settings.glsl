@@ -284,11 +284,38 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define WATER_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
 
 // ==========================================================================
-// FOG - Boundary fog
+// FOG - Air and boundary fog
 // ==========================================================================
 const float eyeBrightnessHalflife = 3.0;
 // Minecraft lightmap units: eyeBrightnessSmooth components range 0..240.
 const float EYE_BRIGHTNESS_SCALE = 240.0;
+
+#define AIR_FOG
+#define AIR_FOG_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define AIR_FOG_DENSITY_DAY 10.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
+#define AIR_FOG_DENSITY_DUSK 30.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
+#define AIR_FOG_DENSITY_NIGHT 40.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
+#define AIR_FOG_DENSITY_RAIN 60.0 // [0.0 5.0 10.0 20.0 30.0 40.0 60.0 80.0 100.0]
+#define AIR_FOG_REFERENCE_HEIGHT_M 64.0 // [0.0 32.0 64.0 96.0 128.0]
+#define AIR_FOG_SCALE_HEIGHT_M 96.0 // [32.0 48.0 64.0 96.0 128.0 192.0 256.0]
+#define AIR_FOG_SKY_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define AIR_FOG_SHADOWS
+#define EPIPOLAR_VOLUMETRICS
+#define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
+#define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
+#define AIR_EPIPOLAR_SHADOW_STEPS 32 // [8 12 16 24 32 48 64]
+#define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08]
+#define EPIPOLAR_SHARPEN_THRESHOLD 0.25 // [0.1 0.2 0.25 0.3 0.4]
+#define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
+#ifdef WORLD_OVERWORLD
+#ifdef AIR_FOG
+#ifdef AIR_FOG_SHADOWS
+#ifdef EPIPOLAR_VOLUMETRICS
+#define AIR_EPIPOLAR_ACTIVE
+#endif
+#endif
+#endif
+#endif
 
 // Fade near-boundary geometry into the cloud-free sky in composite2.
 // Overworld only; independent of the always-on analytic water fog.

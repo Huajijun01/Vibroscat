@@ -441,6 +441,12 @@ Tonescale 可单独覆盖曲线。原始数值全部固定，包含 Contrast Low
   所有 Look、所有 Tonescale 和交叉覆盖均以每组 12,276 个 HDR/带负分量样本测试，
   显示线性误差预算为 2e-5；另检查全部 98 种 Look/Tonescale 组合的有限值及显示范围。
 
+## 26. 空气雾密度模型（概念研究）
+
+恢复的极线几何来源及许可证见第 5 节。指数高度密度、昼夜调节和天气响应的概念比较参考 iterationT 3.2.0 的 `shaders/Lib/IndividualFounctions/VolumetricFog.glsl`，以及 Photon v1.3b 的 `shaders/include/weather/fog.glsl`、`shaders/include/fog/overworld/{analytic,raymarched,constants}.glsl`。iterationT 未提供包级许可证，按保留权利处理；Photon 自定义许可证明确允许检视和学习（上游 https://github.com/sixthsurge/photon）。两者只作只读概念参考，没有移植或近似翻译源代码、特征表达式、常数或资源。
+
+本包独立推导单一指数高度密度加雨天常值项的闭式柱密度，沿用本包四波段介质及相函数；保留历史 E 的透射率加权可见度比值，采用均匀分层步进。默认密度、参考高度与标高为本包独立调节值。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

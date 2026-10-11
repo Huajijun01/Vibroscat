@@ -55,14 +55,15 @@ uniform sampler2D normals;        // LabPBR normal atlas (1x1 fallback = none)
 uniform sampler2D specular;       // LabPBR specular atlas (1x1 fallback = none)
 uniform sampler2D colortex0;      // scene color (post chain input)
 uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
-uniform sampler2D colortex2;      // opaque GBuffer, then translucent surface data
+uniform sampler2D colortex2;      // opaque/translucent surface data
 uniform sampler2D colortex3;      // opaque reflection incident radiance transient
-uniform sampler2D colortex4;      // opaque geometric world normal (RG) + lightmap (BA)
+uniform sampler2D colortex4;      // geometric normal + lightmap
 uniform sampler2D colortex5;      // TAA / composite history
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex9;      // deferred3 GI irradiance including uncovered SH (raw)
 uniform sampler2D colortex11;    // weather
 uniform sampler2D colortex12;     // sequential post workspace
+uniform sampler2D colortex13;     // quarter-size RG8 scalar fog history (automatic flip)
 
 // -- Shadow bindings and transforms --
 uniform mat4 shadowModelView;
@@ -82,11 +83,14 @@ uniform sampler2D utex_cloud_distribution_tex; // cloud coverage atlas (R8, 1024
 uniform sampler3D utex_cloud_voronoise_tex;   // experimental voronoise volume (R8, 32^3, periodic)
 uniform sampler3D utex_stbn_scalar;           // 128x128x64 STBN volume
 uniform sampler3D utex_caustics;              // baked water caustics volume
+uniform sampler3D utex_godray_caustics;       // low-res linear caustic irradiance (R16F)
 uniform sampler3D utex_rain_ripples;          // periodic linear XZ slopes (RG8, 256x256x64)
 
 // -- Custom images (image bindings; sampler side only) --
 uniform sampler2D usam_skylut;        // sky view LUT (128x128 RGBA16F)
 uniform sampler2D usam_sky_radiance;  // cloud skybox LUT (256x256 RGBA16F)
+uniform sampler2D usam_clouds_current; // low-res cloud current frame
+uniform sampler2D usam_ao;            // half-res AO (full evaluation every frame)
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
 uniform sampler2D usam_ssr_depth;     // quarter-size squared linear depth, clip endpoint = sky
 #endif

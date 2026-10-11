@@ -57,9 +57,8 @@ const float centerDepthHalflife = 1.0;
 // Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
 // gradients. Its pattern is a fixed function of the screen position, so a
 // still camera accumulates it instead of averaging it out, and it stays as a
-// regular hatch over sky, clouds and fog. Off by default: enable it only when
-// banding is worse than the grain.
-//#define COLOR_DITHER
+// regular hatch over sky, clouds and fog.
+#define COLOR_DITHER
 #define COLOR_DITHER_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Color dither strength: 0.5=conservative, 1.0=default, 2.0=aggressive
 
 #define AE
@@ -292,18 +291,18 @@ const float EYE_BRIGHTNESS_SCALE = 240.0;
 
 #define AIR_FOG
 #define AIR_FOG_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
-#define AIR_FOG_DENSITY_DAY 10.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
-#define AIR_FOG_DENSITY_DUSK 120.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0]
-#define AIR_FOG_DENSITY_NIGHT 40.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
+#define AIR_FOG_DENSITY_DAY 20.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
+#define AIR_FOG_DENSITY_DUSK 160.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0]
+#define AIR_FOG_DENSITY_NIGHT 80.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0]
 #define AIR_FOG_DENSITY_RAIN 160.0 // [0.0 5.0 10.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0 200.0 256.0]
 #define AIR_FOG_REFERENCE_HEIGHT_M 64.0 // [0.0 32.0 64.0 96.0 128.0]
-#define AIR_FOG_SCALE_HEIGHT_M 32.0 // [32.0 48.0 64.0 96.0 128.0 192.0 256.0]
-#define AIR_FOG_SKY_STRENGTH 0.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define AIR_FOG_SCALE_HEIGHT_M 12.0 // [12.0 32.0 48.0 64.0 96.0 128.0 192.0 256.0]
+#define AIR_FOG_SKY_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
 #define AIR_FOG_SHADOWS
 #define EPIPOLAR_VOLUMETRICS
 #define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
 #define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
-#define AIR_EPIPOLAR_SHADOW_STEPS 32 // [8 12 16 24 32 48 64]
+#define AIR_EPIPOLAR_SHADOW_STEPS 12 // [8 12 16 24 32 48 64]
 #define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08]
 #define EPIPOLAR_SHARPEN_THRESHOLD 0.25 // [0.1 0.2 0.25 0.3 0.4]
 #define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]

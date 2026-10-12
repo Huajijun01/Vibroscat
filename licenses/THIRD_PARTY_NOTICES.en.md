@@ -204,10 +204,12 @@ Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/suppl
 Porting adaptations:
 
 - Linear Rec.709 input/output is converted to/from the sample's Rec.2020
-  framebuffer domain (1.0 = 100 nits), without a middle-gray prescale.
-- Uses the complete official `initializeAsSDR()` parameters: peak 2.5,
-  alpha 0.25, gray point 0.538, linear section 0.444, toe strength 1.28,
-  blend 0.6 and chroma fade 0.98-1.16. All are fixed constants.
+  framebuffer domain (1.0 = 100 nits). Restores the pack's pre-rewrite input
+  scale of 2.508318700610, mapping 18% scene gray to 18% display gray.
+- Retains the official SDR peak 2.5, gray point 0.538, linear section 0.444,
+  toe strength 1.28, blend 0.6 and chroma fade 0.98-1.16. Restores the pack's
+  alpha-0 shoulder (sample: 0.25), smoothly approaching paper white.
+  Parameters are fixed; this SDR adaptation is the pack's default mapper.
 - Uses the default ICtCp UCS, with the ITU forward matrix and its inverse.
   PQ decoding clamps its signal to [0,1] as in the sample. The final SDR
   clamp follows Rec.2020-to-Rec.709 conversion so sharpening receives
@@ -215,8 +217,9 @@ Porting adaptations:
 - The sample offers SDR/HDR display targets and an alternative JzAzBz
   internal color space, not a collection of artistic looks. This SDR pack
   fixes the default ICtCp path and exposes no numerical GT7 settings.
-- GPU output is checked against the compiled official C++ sample. Different
-  float32 rounding through ST2084 is allowed within 5e-4 of display white.
+- GPU output is checked against frozen pre-rewrite GT7 output from this pack.
+  Different float32 rounding through ST2084 is allowed within 5e-4 of display
+  white. This adaptation does not claim exact official SDR output.
 
 ## 18. Cloud multiple-scattering approximation (algorithm source)
 

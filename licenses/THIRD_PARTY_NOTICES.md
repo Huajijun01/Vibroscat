@@ -191,16 +191,17 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 
 移植适配说明：
 
-- 线性 Rec.709 输入/输出与样例 Rec.2020 framebuffer（1.0 = 100 nits）之间转换，
-  不添加中灰预缩放。
-- 使用完整官方 `initializeAsSDR()` 参数：peak 2.5、alpha 0.25、gray point 0.538、
-  linear section 0.444、toe strength 1.28、blend 0.6、chroma fade 0.98–1.16，全部固定。
+- 线性 Rec.709 输入/输出与样例 Rec.2020 framebuffer（1.0 = 100 nits）之间转换。
+  恢复本包改写前的 2.508318700610 倍输入校准，使 18% 场景中灰映射为 18% 显示中灰。
+- 保留官方 SDR 的 peak 2.5、gray point 0.538、linear section 0.444、toe strength
+  1.28、blend 0.6、chroma fade 0.98–1.16；恢复本包原有 alpha 0 高光曲线（样例为
+  0.25），使高光平滑趋近白点。参数固定；此 SDR 适配为本包默认色调映射。
 - 采用默认 ICtCp UCS 及 ITU 正/逆矩阵；PQ 解码按样例钳制 [0,1]。最终 SDR 钳制在
   Rec.2020→Rec.709 转换之后执行，使锐化收到合法显示范围。
 - 官方样例提供 SDR/HDR 显示目标和另一内部色彩空间 JzAzBz，并非一组艺术 look。
   本包的 SDR 路径固定默认 ICtCp，不开放 GT7 数值调节项。
-- 实际 GLSL 与编译执行的官方 C++ 样例比对；允许 ST2084 float32 舍入差异，显示白
-  归一化误差预算为 5e-4。
+- 实际 GLSL 与改写前本包 GT7 的固定 GPU 输出比对；允许 ST2084 float32 舍入差异，
+  显示白归一化误差预算为 5e-4。此适配不宣称与官方 SDR 输出完全一致。
 
 ## 18. 云内多重散射近似（算法出处）
 

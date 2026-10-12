@@ -10,12 +10,17 @@
 
 // Air-only epipolar geometry and depth-aware unwarp.
 // composite1.csh writes endpoints; composite2.csh writes RGBA16F (E, viewZ).
-// composite2.fsh reads both after the Iris group-end barrier.
+// composite2.fsh reads E and viewZ after the Iris group-end barrier.
 
 #include "/lib/core/coordinates.glsl"
 #include "/lib/color/spaces.glsl"
 
 #ifdef AIR_EPIPOLAR_ACTIVE
+
+#ifdef AIR_EPIPOLAR_POLE_VARYING
+flat in vec2 v_epipolar_pole;
+flat in int v_epipolar_pole_in_screen;
+#endif
 
 // Quantize a screen UV to the texel holding its center, shared by every
 // epipolar depth/key fetch: clamping to texel centers keeps truncation inside
@@ -88,66 +93,18 @@ vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
 // same parametrization as EpipolarSliceExit; in [0, EPIPOLAR_SLICES).
 float EpipolarSliceOf(vec2 ndc, vec2 pole) {
     vec2 dir = ndc - pole;
-    float len = length(dir);
-    if (len < 1e-6) return 0.0;
-    vec2 ray_dir = dir / len;
-    float x = ndc.x;
-    float y = ndc.y;
-    float rx = ray_dir.x;
-    float ry = ray_dir.y;
-    // Exit edge by quadrant + one cross-multiplied time comparison (only the
-    // chosen edge needs a division).
+    if (dot(dir, dir) < 1e-12) return 0.0;
+    vec2 edge_distance = mix(vec2(1.0) - ndc, ndc + vec2(1.0), lessThan(dir, vec2(0.0)));
+    bool hit_x = edge_distance.x * abs(dir.y) < edge_distance.y * abs(dir.x);
     float s;
-    if (rx > 1e-6) {
-        if (ry > 1e-6) {
-            if ((1.0 - x) * ry < (1.0 - y) * rx) {
-                float t = (1.0 - x) / rx;
-                s = 2.0 + (y + ry * t + 1.0) * 0.5;
-            } else {
-                float t = (1.0 - y) / ry;
-                s = 3.0 + (1.0 - (x + rx * t)) * 0.5;
-            }
-        } else if (ry < -1e-6) {
-            if ((1.0 - x) * (-ry) < (y + 1.0) * rx) {
-                float t = (1.0 - x) / rx;
-                s = 2.0 + (y + ry * t + 1.0) * 0.5;
-            } else {
-                float t = (-1.0 - y) / ry;
-                s = 1.0 + (x + rx * t + 1.0) * 0.5;
-            }
-        } else {
-            float t = (1.0 - x) / rx;
-            s = 2.0 + (y + 1.0) * 0.5;
-        }
-    } else if (rx < -1e-6) {
-        if (ry > 1e-6) {
-            if ((x + 1.0) * ry < (1.0 - y) * (-rx)) {
-                float t = (x + 1.0) / (-rx);
-                s = 0.0 + (1.0 - (y + ry * t)) * 0.5;
-            } else {
-                float t = (1.0 - y) / ry;
-                s = 3.0 + (1.0 - (x + rx * t)) * 0.5;
-            }
-        } else if (ry < -1e-6) {
-            if ((x + 1.0) * (-ry) < (y + 1.0) * (-rx)) {
-                float t = (x + 1.0) / (-rx);
-                s = 0.0 + (1.0 - (y + ry * t)) * 0.5;
-            } else {
-                float t = (-1.0 - y) / ry;
-                s = 1.0 + (x + rx * t + 1.0) * 0.5;
-            }
-        } else {
-            float t = (x + 1.0) / (-rx);
-            s = 0.0 + (1.0 - y) * 0.5;
-        }
-    } else if (ry > 1e-6) {
-        float t = (1.0 - y) / ry;
-        s = 3.0 + (1.0 - x) * 0.5;
+    if (hit_x) {
+        float edge_y = ndc.y + dir.y * (edge_distance.x / abs(dir.x));
+        s = dir.x < 0.0 ? (1.0 - edge_y) * 0.5 : 2.0 + (edge_y + 1.0) * 0.5;
     } else {
-        float t = (-1.0 - y) / ry;
-        s = 1.0 + (x + 1.0) * 0.5;
+        float edge_x = ndc.x + dir.x * (edge_distance.y / abs(dir.y));
+        s = dir.y < 0.0 ? 1.0 + (edge_x + 1.0) * 0.5 : 3.0 + (1.0 - edge_x) * 0.5;
     }
-    return s * 0.25 * float(EPIPOLAR_SLICES);
+    return s * (0.25 * float(EPIPOLAR_SLICES));
 }
 
 // Camera-relative scene point from UV+depth; do NOT add cameraPosition
@@ -157,135 +114,143 @@ vec3 EpipolarViewToScene(vec2 uv01, float depth01) {
     return ViewToSceneSpace(view_pos);
 }
 
-// Depth-aware unwarp weight: columns differing from the pixel's are
-// down-weighted (no silhouette/shadow-edge smearing). The keys are linear
-// viewZ and the tolerance is RELATIVE (fraction of the deeper key), so the
-// acceptance band is scale-invariant: full weight inside the band, steep
-// 4th-power falloff outside. A relative test with linear depth fixes the
-// hard blocks at low epipolar resolution, where raw depth01 saturates and
-// an absolute tolerance mis-accepts distant columns.
-float EpipolarEdgeWeight(float pixel_key, float sample_key) {
-    if (pixel_key <= 0.0 || sample_key <= 0.0) return 0.0;
-    float max_z = max(pixel_key, max(sample_key, 1.0));
-    float rel = abs(pixel_key - sample_key) / max_z;
-    float w = EPIPOLAR_DEPTH_TOLERANCE / max(rel, EPIPOLAR_DEPTH_TOLERANCE);
-    float w2 = w * w;
-    return w2 * w2;
+// Gather order: lower/upper sample on slice0, then on slice1. Iris uses
+// linear filtering and clamp-to-edge for these noninteger custom images.
+vec4 EpipolarGatherKeys(int slice0, int row) {
+    vec2 uv = vec2(float(slice0 + 1) / float(EPIPOLAR_SLICES),
+        float(row + 1) / float(EPIPOLAR_SAMPLES));
+    if (slice0 < EPIPOLAR_SLICES - 1) return textureGather(usam_epipolar_term, uv, 3).wxzy;
+    vec4 left = textureGather(usam_epipolar_term, vec2((float(slice0) + 0.5)
+        / float(EPIPOLAR_SLICES), uv.y), 3);
+    vec4 right = textureGather(usam_epipolar_term, vec2(0.5 / float(EPIPOLAR_SLICES), uv.y), 3);
+    return vec4(left.w, left.x, right.w, right.x);
 }
 
-// Value-aware sharpening: strong candidate difference = real shadow edge ->
-// strengthen the contrast of the blend weight continuously (no hard snap:
-// step() at low resolution turns sparse samples into blocky edges).
-float EpipolarSharpen(float w, float a, float b) {
-    float edge = smoothstep(0.05, EPIPOLAR_SHARPEN_THRESHOLD, abs(a - b));
-    float sharp = w * w * (3.0 - 2.0 * w); // smooth S-curve, same endpoints
-    return mix(w, sharp, edge);
-}
-
-// Interpolate E between the two nearest stored samples, gated by column
-// depth. E is read directly from RGB and the air viewZ key from A.
-vec3 EpipolarSampleOnSlice(int slice, vec2 ndc, float pixel_key,
-                           out float sample_key) {
-    vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(slice, 0), 0);
-    if (all(equal(line, vec4(0.0)))) {
-        sample_key = 0.0;
-        return vec3(1.0);
+// Compare relative errors by cross multiplication, without four reciprocals
+// per search footprint. Settings expose power-of-two slice counts.
+void EpipolarSelectKey(vec4 keys, float pixel_key, int slice0, int row,
+        inout float closest_distance, inout float closest_scale, inout ivec2 closest_texel) {
+    vec4 distance_z = abs(vec4(pixel_key) - keys);
+    vec4 scale_z = max(vec4(pixel_key), max(keys, vec4(1.0)));
+    distance_z = mix(vec4(1e30), distance_z, greaterThan(keys, vec4(0.0)));
+    int corner = 0;
+    float candidate_distance = distance_z.x;
+    float candidate_scale = scale_z.x;
+    if (distance_z.y * candidate_scale < candidate_distance * scale_z.y) {
+        corner = 1;
+        candidate_distance = distance_z.y;
+        candidate_scale = scale_z.y;
     }
-    vec2 d = line.zw - line.xy;
-    float len2 = dot(d, d);
-    float t = dot(ndc - line.xy, d) / max(len2, 1e-8);
-    float sample_f = clamp(t, 0.0, 1.0) * float(EPIPOLAR_SAMPLES - 1);
-    int s = int(sample_f);
-    float f = fract(sample_f);
-    vec4 a = texelFetch(usam_epipolar_term, ivec2(slice, s), 0);
-    vec4 b = texelFetch(usam_epipolar_term, ivec2(slice, min(s + 1, EPIPOLAR_SAMPLES - 1)), 0);
-
-    float ka = a.a;
-    float kb = b.a;
-    vec3 va = a.rgb;
-    vec3 vb = b.rgb;
-
-    float wa = EpipolarEdgeWeight(pixel_key, ka);
-    float wb = EpipolarEdgeWeight(pixel_key, kb);
-    f = EpipolarSharpen(f, Luminance(va), Luminance(vb));
-    float wsum = (1.0 - f) * wa + f * wb;
-    if (wsum < 1e-4) {
-        // No matching column on the two nearest samples. Do NOT fall back to
-        // E=1 here -- on a shadowed silhouette that paints a bright
-        // unshadowed ring. Instead weight-average the valid columns within
-        // EPIPOLAR_EDGE_EXTEND by the relative-depth weight (closest column
-        // dominates, tiny far-column bleed keeps the value continuous);
-        // E=1 stays only for a slice with no valid column at all (sky /
-        // no medium), where it is the correct neutral value.
-        if (pixel_key > 0.0) {
-            // nsum/nval: edge-extend weight sum and weighted radiance
-            // numerator; nkey_sum weights keys by the same w; ck = key.
-            float nsum = 0.0;
-            vec3 nval = vec3(0.0);
-            float nkey_sum = 0.0;
-            for (int k = 1; k <= EPIPOLAR_EDGE_EXTEND; ++k) {
-                int lo = max(s - k, 0);
-                int hi = min(s + 1 + k, EPIPOLAR_SAMPLES - 1);
-                vec4 c = texelFetch(usam_epipolar_term, ivec2(slice, lo), 0);
-                float ck = c.a;
-                if (ck > 0.0) {
-                    float w = EpipolarEdgeWeight(pixel_key, ck);
-                    nsum += w;
-                    nval += w * c.rgb;
-                    nkey_sum += w * ck;
-                }
-                c = texelFetch(usam_epipolar_term, ivec2(slice, hi), 0);
-                ck = c.a;
-                if (ck > 0.0) {
-                    float w = EpipolarEdgeWeight(pixel_key, ck);
-                    nsum += w;
-                    nval += w * c.rgb;
-                    nkey_sum += w * ck;
-                }
-            }
-            if (nsum > 1e-4) {
-                sample_key = nkey_sum / nsum;
-                return nval / nsum;
-            }
-        }
-        sample_key = 0.0;
-        return vec3(1.0);
+    if (distance_z.z * candidate_scale < candidate_distance * scale_z.z) {
+        corner = 2;
+        candidate_distance = distance_z.z;
+        candidate_scale = scale_z.z;
     }
-    sample_key = ((1.0 - f) * ka * wa + f * kb * wb) / wsum;
-    return ((1.0 - f) * va * wa + f * vb * wb) / wsum;
+    if (distance_z.w * candidate_scale < candidate_distance * scale_z.w) {
+        corner = 3;
+        candidate_distance = distance_z.w;
+        candidate_scale = scale_z.w;
+    }
+    if (candidate_distance * closest_scale < closest_distance * candidate_scale) {
+        closest_distance = candidate_distance;
+        closest_scale = candidate_scale;
+        closest_texel = ivec2((slice0 + (corner >> 1)) & (EPIPOLAR_SLICES - 1), row + (corner & 1));
+    }
 }
 
-// Full unwarp: pixel's slice by angle, bilinear across neighbouring slices
-// and stored samples, gated by column depth. Returns E (1.0 when invalid).
-// Call only in the fragment stage following the air integrate pass.
 vec3 EpipolarSampleE(vec2 ndc, float pixel_key) {
+#ifdef AIR_EPIPOLAR_POLE_VARYING
+    bool pole_in_screen = v_epipolar_pole_in_screen != 0;
+    vec2 pole = v_epipolar_pole;
+#else
     bool pole_in_screen;
     vec2 pole = EpipolarLightNDC(pole_in_screen);
-    float slice_f = EpipolarSliceOf(ndc, pole);
-    int s0 = int(slice_f) % EPIPOLAR_SLICES;
-    float w = fract(slice_f);
-    float key0;
-    float key1;
-    vec3 e0 = EpipolarSampleOnSlice(s0, ndc, pixel_key, key0);
-    vec3 e1 = EpipolarSampleOnSlice((s0 + 1) % EPIPOLAR_SLICES, ndc, pixel_key,
-                                    key1);
-    w = EpipolarSharpen(w, Luminance(e0), Luminance(e1));
-    float w0 = EpipolarEdgeWeight(pixel_key, key0);
-    float w1 = EpipolarEdgeWeight(pixel_key, key1);
-    float wsum = (1.0 - w) * w0 + w * w1;
-    if (wsum < 1e-4) {
-        // Neither neighbouring slice has a matching column: fall back to the
-        // depth-weighted blend of the two slice results (continuous value)
-        // instead of E=1, which would paint a bright unshadowed ring. E=1 is
-        // returned only when the pixel has no valid column at all (sky / no
-        // medium), where it is the correct neutral value.
-        float ssum = w0 + w1;
-        if (ssum > 1e-6) return (e0 * w0 + e1 * w1) / ssum;
-        if (key0 > 0.0) return e0;
-        if (key1 > 0.0) return e1;
-        return vec3(1.0);
+    if (pole_in_screen) pole = unpackHalf2x16(packHalf2x16(pole));
+#endif
+    vec2 delta = ndc - pole;
+    vec2 magnitude = max(abs(delta), vec2(1e-10));
+    bvec2 negative = lessThan(delta, vec2(0.0));
+    vec2 forward_bounds = mix(vec2(1.0) - ndc, ndc + vec2(1.0), negative);
+    bool exit_x = forward_bounds.x * magnitude.y < forward_bounds.y * magnitude.x;
+    float exit_bound = exit_x ? forward_bounds.x : forward_bounds.y;
+    float exit_magnitude = exit_x ? magnitude.x : magnitude.y;
+    float to_exit = exit_bound / exit_magnitude;
+    vec2 exit_point = ndc + delta * to_exit;
+    float perimeter;
+    if (exit_x) {
+        perimeter = negative.x ? (1.0 - exit_point.y) * 0.5 : 2.0 + (exit_point.y + 1.0) * 0.5;
+    } else {
+        perimeter = negative.y ? 1.0 + (exit_point.x + 1.0) * 0.5 : 3.0 + (1.0 - exit_point.x) * 0.5;
     }
-    return (e0 * ((1.0 - w) * w0) + e1 * (w * w1)) / wsum;
+    float slice_f = fract(perimeter * 0.25 - 0.5 / float(EPIPOLAR_SLICES)) * float(EPIPOLAR_SLICES);
+    int slice0 = int(slice_f);
+    int slice1 = (slice0 + 1) & (EPIPOLAR_SLICES - 1);
+    // Progress on the continuous pole->pixel line. Inside one exit sector
+    // this inverts the producer grid exactly for an in-screen pole. Outside
+    // the screen it follows the continuous entry/exit ray; interpolation of
+    // neighbouring stored lines remains a finite-grid approximation.
+    float t;
+    if (pole_in_screen) {
+        float pole_bound = exit_x ? (negative.x ? 1.0 + pole.x : 1.0 - pole.x)
+            : (negative.y ? 1.0 + pole.y : 1.0 - pole.y);
+        t = exit_magnitude / max(pole_bound, 1e-6);
+    } else {
+        vec2 backward_bounds = vec2(2.0) - forward_bounds;
+        bool entry_x = backward_bounds.x * magnitude.y < backward_bounds.y * magnitude.x;
+        float entry_bound = entry_x ? backward_bounds.x : backward_bounds.y;
+        float entry_magnitude = entry_x ? magnitude.x : magnitude.y;
+        float entry_weight = entry_bound * exit_magnitude;
+        t = entry_weight / max(entry_weight + exit_bound * entry_magnitude, 1e-20);
+    }
+    float sample_f = clamp(t, 0.0, 1.0) * float(EPIPOLAR_SAMPLES - 1);
+    int row = min(int(sample_f), EPIPOLAR_SAMPLES - 2);
+    vec2 blend = vec2(fract(slice_f), sample_f - float(row));
+    vec4 keys = EpipolarGatherKeys(slice0, row);
+    vec4 distance_z = abs(vec4(pixel_key) - keys);
+    vec4 tolerance_z = EPIPOLAR_DEPTH_TOLERANCE * max(vec4(pixel_key), max(keys, vec4(1.0)));
+    vec2 uv = vec2((slice_f + 0.5) / float(EPIPOLAR_SLICES),
+        (sample_f + 0.5) / float(EPIPOLAR_SAMPLES));
+    if (slice0 < EPIPOLAR_SLICES - 1 && all(greaterThan(keys, vec4(0.0)))
+            && all(lessThanEqual(distance_z, tolerance_z))) {
+        return textureLod(usam_epipolar_term, uv, 0.0).rgb;
+    }
+    vec4 spatial = vec4((1.0 - blend.x) * (1.0 - blend.y), (1.0 - blend.x) * blend.y,
+        blend.x * (1.0 - blend.y), blend.x * blend.y);
+    vec4 weight = tolerance_z / max(distance_z, tolerance_z);
+    weight *= weight;
+    weight *= weight;
+    weight = mix(vec4(0.0), weight * spatial, greaterThan(keys, vec4(0.0)));
+    float total = dot(weight, vec4(1.0));
+    if (total >= 1e-4) {
+        if (slice0 < EPIPOLAR_SLICES - 1) {
+            vec2 footprint_uv = vec2(float(slice0 + 1) / float(EPIPOLAR_SLICES),
+                float(row + 1) / float(EPIPOLAR_SAMPLES));
+            vec4 red = textureGather(usam_epipolar_term, footprint_uv, 0).wxzy;
+            vec4 green = textureGather(usam_epipolar_term, footprint_uv, 1).wxzy;
+            vec4 blue = textureGather(usam_epipolar_term, footprint_uv, 2).wxzy;
+            return vec3(dot(red, weight), dot(green, weight), dot(blue, weight)) / total;
+        }
+        vec4 a = texelFetch(usam_epipolar_term, ivec2(slice0, row), 0);
+        vec4 b = texelFetch(usam_epipolar_term, ivec2(slice0, row + 1), 0);
+        vec4 c = texelFetch(usam_epipolar_term, ivec2(slice1, row), 0);
+        vec4 d = texelFetch(usam_epipolar_term, ivec2(slice1, row + 1), 0);
+        return (a.rgb * weight.x + b.rgb * weight.y + c.rgb * weight.z + d.rgb * weight.w) / total;
+    }
+    if (pixel_key <= 0.0) return vec3(1.0);
+    float closest_distance = 1e30;
+    float closest_scale = 1.0;
+    ivec2 closest_texel = ivec2(slice0, row);
+    EpipolarSelectKey(keys, pixel_key, slice0, row, closest_distance, closest_scale, closest_texel);
+    for (int k = 1; k <= EPIPOLAR_EDGE_EXTEND; k += 2) {
+        int below = max(row - k - 1, 0);
+        int above = min(row + 1 + k, EPIPOLAR_SAMPLES - 2);
+        EpipolarSelectKey(EpipolarGatherKeys(slice0, below), pixel_key, slice0, below,
+            closest_distance, closest_scale, closest_texel);
+        EpipolarSelectKey(EpipolarGatherKeys(slice0, above), pixel_key, slice0, above,
+            closest_distance, closest_scale, closest_texel);
+        if (closest_distance <= EPIPOLAR_DEPTH_TOLERANCE * closest_scale) break;
+    }
+    return closest_distance < 1e30 ? texelFetch(usam_epipolar_term, closest_texel, 0).rgb : vec3(1.0);
 }
 
 #endif // AIR_EPIPOLAR_ACTIVE

@@ -1,6 +1,8 @@
 
 /* RENDERTARGETS: 0 */
 
+#define AIR_EPIPOLAR_POLE_VARYING
+
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"

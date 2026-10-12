@@ -9,6 +9,11 @@
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/scattering/phase.glsl"
 
+const HenyeyGreensteinTripleLobe AIRFOG_MIE_PHASE = HenyeyGreensteinTripleLobe(
+    0.95, 0.15,  // forward peak
+    0.6, 0.8,  // forward mid
+    0.3, 0.05); // backward
+
 // Independent exponential-height model, informed by the density/time/weather
 // concepts in iterationT and Photon. See third-party notices and the local
 // derivation in docs/epipolar-air-fog.md. No reference-pack code is transferred.
@@ -116,8 +121,9 @@ AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float
 
 vec3 AirFogRemovedFraction(vec3 tau, vec3 transmittance) {
     // Stable 1-exp(-tau) near zero. This changes no integration endpoint.
-    return mix(vec3(1.0) - transmittance,
-        tau * (1.0 - tau * 0.5), lessThan(tau, vec3(0.001)));
+    // return mix(vec3(1.0) - transmittance,
+    //     tau * (1.0 - tau * 0.5), lessThan(tau, vec3(0.001)));
+    return 1.0 - transmittance;
 }
 
 // For a constant source S, integral S*sigma_t(s)*T(s) ds = S*(1-T(L)),
@@ -148,11 +154,11 @@ AirFogSource AirFogSkySource(vec3 world_dir) {
         dot(sky_sh_b0.yzw, basis_l1));
     vec3 l2 = vec3(dot(sky_sh_r1, basis_l2), dot(sky_sh_g1, basis_l2), dot(sky_sh_b1, basis_l2))
         + vec3(sky_sh_r2.x, sky_sh_g2.x, sky_sh_b2.x) * basis_l22;
-    float mie_l1 = ATM_MIE_PHASE.peak_weight * ATM_MIE_PHASE.peak_g
-        + ATM_MIE_PHASE.mid_weight * ATM_MIE_PHASE.mid_g - ATM_MIE_PHASE.back_weight * ATM_MIE_PHASE.back_g;
-    float mie_l2 = ATM_MIE_PHASE.peak_weight * ATM_MIE_PHASE.peak_g * ATM_MIE_PHASE.peak_g
-        + ATM_MIE_PHASE.mid_weight * ATM_MIE_PHASE.mid_g * ATM_MIE_PHASE.mid_g
-        + ATM_MIE_PHASE.back_weight * ATM_MIE_PHASE.back_g * ATM_MIE_PHASE.back_g;
+    float mie_l1 = AIRFOG_MIE_PHASE.peak_weight * AIRFOG_MIE_PHASE.peak_g
+        + AIRFOG_MIE_PHASE.mid_weight * AIRFOG_MIE_PHASE.mid_g - AIRFOG_MIE_PHASE.back_weight * AIRFOG_MIE_PHASE.back_g;
+    float mie_l2 = AIRFOG_MIE_PHASE.peak_weight * AIRFOG_MIE_PHASE.peak_g * AIRFOG_MIE_PHASE.peak_g
+        + AIRFOG_MIE_PHASE.mid_weight * AIRFOG_MIE_PHASE.mid_g * AIRFOG_MIE_PHASE.mid_g
+        + AIRFOG_MIE_PHASE.back_weight * AIRFOG_MIE_PHASE.back_g * AIRFOG_MIE_PHASE.back_g;
     return AirFogSource(max(l0 + 0.1 * l2, vec3(0.0)), max(l0 + mie_l1 * l1 + mie_l2 * l2, vec3(0.0)));
 }
 
@@ -165,7 +171,7 @@ AirFogResult AirFogRender(vec3 world_dir, float length_m, AirFogDensityProfile p
     // Use the existing ground sun/moon color as constant incident light;
     // there is no light-directed transmittance integration in this medium.
     vec3 direct = (ray_rgb * PhaseRayleigh(cos_theta)
-        + mie_rgb * PhaseHenyeyGreensteinTripleLobe(cos_theta, ATM_MIE_PHASE)) * ground_light.rgb * visibility;
+        + mie_rgb * PhaseHenyeyGreensteinTripleLobe(cos_theta, AIRFOG_MIE_PHASE)) * ground_light.rgb * visibility;
     AirFogSource sky = AirFogSkySource(world_dir);
     vec3 ambient = (ray_rgb * sky.ray + mie_rgb * sky.mie) * AIR_FOG_SKY_STRENGTH;
     return AirFogResult(integral.transmittance, direct + ambient);

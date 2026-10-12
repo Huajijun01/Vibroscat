@@ -16,7 +16,9 @@
 // highlight, so saturated highlights roll off without the per-channel hue
 // twist. The sample's frame-buffer domain (1.0 = 100 nits, linear
 // Rec.2020, SDR paper white 250 nits) is entered and left through the
-// BT.709 <-> BT.2020 matrices below, without a middle-gray prescale.
+// BT.709 <-> BT.2020 matrices below. The pack's pre-rewrite SDR adaptation
+// anchors scene 18% gray at 18% display-linear and approaches paper white
+// smoothly; see GT7_MID_GREY_SCALE and the alpha-0 shoulder below.
 // ===========================================================================
 
 const mat3 SRGB_TO_BT2020 = mat3(
@@ -82,16 +84,19 @@ vec3 ICtCpToRgb(vec3 ictcp) {
     return max(GT7_LMS_TO_BT2020 * lms, 0.0);
 }
 
-// GT Tone Mapping Curve V2: the official initializeAsSDR() parameters.
+// GT Tone Mapping Curve V2: the official SDR toe and linear section, with
+// the pack's pre-rewrite alpha = 0 shoulder (official sample: 0.25).
+// Its asymptote is paper white, preserving highlight gradation in SDR
+// instead of overshooting white and relying on the final hard clamp.
 const float GT7_PEAK = 2.5;
 const float GT7_SDR_CORRECTION = 0.4;
 const float GT7_GRAY_POINT = 0.538;
 const float GT7_LINEAR_SECTION = 0.444;
 const float GT7_TOE_STRENGTH = 1.280;
-// Precomputed from alpha = 0.25, using the sample's initializeCurve().
-const float GT7_SHOULDER_A = 2.963333333333333;
-const float GT7_SHOULDER_B = -3.373351238064431;
-const float GT7_SHOULDER_C = -0.539568345323741;
+// Precomputed from alpha = 0, using the sample's initializeCurve().
+const float GT7_SHOULDER_A = 2.5;
+const float GT7_SHOULDER_B = -3.089054009429425;
+const float GT7_SHOULDER_C = -0.719424460431655;
 const float GT7_BLEND = 0.6;
 const float GT7_CHROMA_FADE_START = 0.98;
 const float GT7_CHROMA_FADE_END = 1.16;
@@ -99,6 +104,11 @@ const float GT7_CHROMA_FADE_END = 1.16;
 // I is luma, so it is 0.5 * (L + M) and excludes S; the sample's equivalent
 // value is 0.602561.
 const float GT7_TARGET_LUMA_UCS = 0.6025591550;
+// Solve 0.4 * GT7Curve(scale * 0.18) = 0.18 for the scene exposure key.
+// Fold the input scale into the primaries matrix, as before c1fe8b6.
+const float GT7_MID_GREY_SCALE = 2.508318700610;
+const mat3 SRGB_TO_BT2020_SCALED = SRGB_TO_BT2020 * GT7_MID_GREY_SCALE;
+
 float GT7Curve(float x) {
     if (x <= 0.0) return 0.0;
     if (x >= GT7_LINEAR_SECTION * GT7_PEAK) {
@@ -111,7 +121,7 @@ float GT7Curve(float x) {
 }
 
 vec3 TonemapGT7(vec3 linear_rgb) {
-    vec3 rgb = SRGB_TO_BT2020 * max(linear_rgb, 0.0);
+    vec3 rgb = SRGB_TO_BT2020_SCALED * max(linear_rgb, 0.0);
     vec3 ucs = RgbToICtCp(rgb);
 
     // Step 1: per-channel curve pass (color-accurate midtones, hue twist

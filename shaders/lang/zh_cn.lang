@@ -104,7 +104,7 @@ value.INFO_TOOLTIPS.0 = 悬停查看说明
 
 #Post: tonemapping
 option.TONEMAP_MODE = 色调映射模式
-option.TONEMAP_MODE.comment = AgX-HSV、ACES 2.0、Blender AgX、OpenDRT、AMD LPM 或 GT7。各算法的数值参数已固定。
+option.TONEMAP_MODE.comment = AgX-HSV、ACES 2.0、Blender AgX、OpenDRT、AMD LPM 或 GT7（默认）。GT7 使用本包校准过的 SDR 曲线。各算法的数值参数已固定。
 value.TONEMAP_MODE.0 = AgX-HSV
 value.TONEMAP_MODE.1 = ACES 2.0
 value.TONEMAP_MODE.2 = Blender AgX

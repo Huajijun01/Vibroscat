@@ -134,10 +134,14 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 
 `shaders/lib/lighting/rsm_data.glsl`、`reflective_shadow_map.glsl` 和
 `gi_history.glsl`、`gi_denoise.glsl` 中的 RSM 数据编码、采样与 GI 重建为 Vibroscat 独立实现。
+`gi_sampling.glsl` 独立实现三维数字平移 Sobol 序列，方向数通过二进制递推生成；
+未复制外部方向数表或采样代码。历史的重心插值由平面三角形面积独立推导。
 
 - Carsten Dachsbacher、Marc Stamminger，*Reflective Shadow Maps*，I3D 2005，
   [DOI: 10.1145/1053427.1053460](https://doi.org/10.1145/1053427.1053460)：
   从光源可见表面构造虚拟点光源。
+- I. M. Sobol，*On the distribution of points in a cube and the approximate
+  evaluation of integrals*，1967：低差异数字序列的算法参考。
 - Christoph Schied 等，*Spatiotemporal Variance-Guided Filtering:
   Real-Time Reconstruction for Path-Traced Global Illumination*，HPG 2017，
   [作者发布页及论文](https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced)，
@@ -145,15 +149,6 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
   去除材质调制的辐照度、逐采样历史有效性检查和边缘感知重建。本包并未实现完整 SVGF。
 - iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）仅用于架构比较。其再分发许可
   未经确认。本次变更未复制该包的源码或资产。
-
-### ReBLUR 漫反射降噪（算法引用）
-
-`gi_reblur*.glsl` 与对应 compute 阶段为 Vibroscat 独立编写的 GLSL 适配。
-参考 NVIDIA 的 [ReBLUR 算法介绍](https://developer.nvidia.com/rtx/ray-tracing/rt-denoisers)
-与 [NRD 4.17.3 文档](https://cdn.jsdelivr.net/gh/NVIDIA-RTX/NRD@4.17.3/README.md) 中的长短历史、
-历史修复、自适应模糊与空间反馈架构。精简适配采用本包的几何数据和距离编码，
-未引入 NRD SDK、HLSL 源码或其运行时。Revelation（Apache-2.0）和 Alpha Piscium
-（GPL-3.0）仅用于架构比较，未复制其中的源码或资产。
 
 ## 17. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
 

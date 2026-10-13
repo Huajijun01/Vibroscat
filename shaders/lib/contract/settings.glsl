@@ -43,7 +43,7 @@ const float centerDepthHalflife = 1.0;
 #define SSGI_MARCH_PIXELS 512.0 // [128.0 256.0 384.0 512.0 768.0 1024.0] March width cap in screen pixels (the reference's Raymarching_Width).
 #define SSGI_THICKNESS 0.5 // [0.1 0.25 0.5 0.75 1.0 1.5 2.0] Sample geometry thickness in view-depth meters (the reference's Thickness).
 #define SSGI_RADIANCE_LIMIT 128.0 // [16.0 32.0 64.0 128.0 256.0 512.0] Firefly clamp bounding the stored GI radiance.
-#define RSM_SAMPLES 16 // [8 16 32 64]
+#define RSM_SAMPLES 8 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
 #define RSM_SKY_OCCLUSION // Darkens SH where the shadow map shows sky occlusion; off compiles the tracking path out.

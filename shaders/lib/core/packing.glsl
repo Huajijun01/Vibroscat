@@ -17,7 +17,7 @@ vec2 Unpack2x8(float p16) {
 
 // Octahedral normal codec. The caller owns the space: colortex4 RG carries
 // the geometric world normal, shadowcolor0 BA the shadow-view RSM normal, and
-// the R32UI GI history an oct5 world normal.
+// GI history packs the receiver's world normal in colortex10 R.
 vec2 EncodeOctahedralNormal(vec3 unit_normal) {
     unit_normal.xy /= abs(unit_normal.x) + abs(unit_normal.y) + abs(unit_normal.z);
     unit_normal.xy = unit_normal.z >= 0.0 ? unit_normal.xy : (vec2(1.0) - abs(unit_normal.yx)) * vec2(unit_normal.x >= 0.0 ? 1.0 : -1.0,

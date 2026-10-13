@@ -140,10 +140,16 @@ design-level comparison uses a 2x2 history pattern.
 The RSM source encoding, sampling and reconstruction in
 `shaders/lib/lighting/rsm_data.glsl`, `reflective_shadow_map.glsl` and
 `gi_history.glsl` and `gi_denoise.glsl` are independent implementations for Vibroscat.
+`gi_sampling.glsl` independently implements a digitally shifted 3D Sobol sequence
+with binary direction-number recurrences; no external direction table or sampling
+code was copied. History barycentric weights are independently derived from
+planar triangle areas.
 
 - Carsten Dachsbacher and Marc Stamminger, *Reflective Shadow Maps*, I3D 2005,
   [DOI: 10.1145/1053427.1053460](https://doi.org/10.1145/1053427.1053460):
   virtual point lights from the light-visible surfaces.
+- I. M. Sobol, *On the distribution of points in a cube and the approximate
+  evaluation of integrals*, 1967: algorithmic reference for digital low-discrepancy sequences.
 - Christoph Schied et al., *Spatiotemporal Variance-Guided Filtering:
   Real-Time Reconstruction for Path-Traced Global Illumination*, HPG 2017,
   [author publication and paper](https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced),
@@ -153,17 +159,6 @@ The RSM source encoding, sampling and reconstruction in
 - iterationT 3.2.0 (`GlobalIllumination.glsl` and shadow outputs) was examined
   for architecture comparison only. Its redistribution permission was not
   established. No source or assets from that pack are included in this change.
-
-### ReBLUR diffuse denoising (algorithmic reference)
-
-`gi_reblur*.glsl` and the corresponding compute stages are independently written
-GLSL implementations for Vibroscat. References are NVIDIA's
-[ReBLUR overview](https://developer.nvidia.com/rtx/ray-tracing/rt-denoisers) and the
-[NRD 4.17.3 documentation](https://cdn.jsdelivr.net/gh/NVIDIA-RTX/NRD@4.17.3/README.md):
-long/fast histories, history repair, adaptive blur and spatial feedback. This
-reduced adaptation uses the pack's geometry and distance encoding.
-It includes no NRD SDK, HLSL source or runtime. Revelation (Apache-2.0) and Alpha
-Piscium (GPL-3.0) were architecture comparisons; no source or assets were copied.
 
 ## 17. GT7 Tone Mapping (MIT, ported from the official Polyphony Digital sample)
 

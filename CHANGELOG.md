@@ -18,15 +18,11 @@
 
 - **降雪群系因子**：新增平滑群系降雪因子 `u_snow_biome`（相机所在群系降雪资格的 [0,1] 连续权重，10 tick 半衰期升降平滑），供后续降雪类效果使用，当前不改变渲染表现。
 
-- **ReBLUR GI 降噪模式**：在 GI 设置中新增轻量 / ReBLUR 选择，默认保留轻量模式。
-  精简为 temporal、history fix、blur 三步，保留长短历史、命中距离驱动的单次模糊
-  和空间结果反馈，复用现有深度/法线元数据与重投影校验。
-  使用一个 RGBA16F 快历史缓冲和两个临时图像，两个 compute 阶段在关闭时停用；
-  已移除 post-blur、时间稳定化及其专用历史缓冲。
-  SSGI 使用已有扇区命中统计，RSM 使用 VPL 距离近似；未集成 NRD SDK。
-
-- **全局光照（GI）**：新增 `deferred3` 着色阶段（`program/deferred/recursive_gi.fragment`，三个维度各一对 `.fsh`/`.vsh` 包装），渲染目标为新的 `colortex9`（RGB16F，含未覆盖方向 SH 回退的 GI 辐照度）与 `colortex10`（R32UI 元数据：半精度视图深度 [0:15]、oct5 世界法线 [16:25]、年龄 [26:30]、来源位 [31]）。`GI_MODE` 三档：0 = 无（默认）、1 = SSGI、2 = 反射阴影贴图（RSM）。SSGI 移植 Mirko Salm 的单向 GT-VBGI 可见性位掩码屏幕空间 GI（CC0 1.0），预算 `SSGI_STEPS` 16、`SSGI_MARCH_PIXELS` 512 像素、`SSGI_THICKNESS` 0.5 m、`SSGI_RADIANCE_LIMIT` 128；RSM 按 Dachsbacher–Stamminger 2005 采样虚拟点光源，`RSM_SAMPLES` 16、`RSM_RADIUS` 8 m、`RSM_STRENGTH` 3.0。两种 GI 都以 SH 补齐未被覆盖的方向，并共享可选的时域累积与空间降噪（`GI_DENOISE` 默认开启，`GI_HISTORY_FRAMES` 24；历史失效时用 5×5 邻域借用已滤波值 `RepairGIDisocclusion`）。
-- **GI 调试视图**：`RSM_DEBUG` 0–4（正常 / 原始辐照度 / 时域辐照度 / 滤波辐照度 / 历史年龄），集中到“信息 → 调试视图”页。
+- **半分辨率 GI 重建**：SSGI 与 RSM 复用 `deferred3` 生成并积累未模糊辐照度，历史年龄与 EMA 窗口分别限制为 64／128 帧。GI 使用持续探索的 Sobol 序列与无偏 FP16 舍入；`deferred4` 用对称十二邻居按世界几何法线与接收平面重建，再应用接收材质。GI 拥有独立于最终 TAA 的时域积累；已有 `colortex9`（RGB16F）缩至半宽半高，同尺寸 `colortex10`（RGBA16F）记录压缩法线、亮度二阶矩、深度及历史状态。无新增自定义图像、SSBO、着色程序或计算阶段；空间重建不写回 GI 历史，SSGI 仍读取正常的上一帧场景辐射。SSGI 保留 16 步，RSM 默认采样由 16 降至 8；四档质量预设的采样预算保持各自设置。薄物体若没有匹配代表像素，则使用自身环境光；一般物体运动缺少运动向量，仍有时域误差的可能。降噪质量仍在验证。
+- **GI 调试视图**：`RSM_DEBUG` 0–1（正常 / 重建辐照度）。
+- **GI 历史偏移修正**：历史重投影与空间权重均使用实际代表像素的位置；坐标完全对应时直接保留自身历史，修正以网格中心插值导致静止表面噪声随时间迁移的问题。
+- **GI 移动历史插值修正**：按实际代表点包围目标，并修正奇数分辨率的取整边界；正权重三角插值保持线性光照梯度，减少连续移动中的历史漂移。冲刺动态 FOV 不再触发全屏历史拒绝。
+- **RSM 草边缘回退修正**：薄草没有匹配的半分辨率 GI 代表点时，环境光回退仍计算天空遮蔽，避免阴影内出现未衰减天空光的亮点。仅在重建失败处使用固定的八点阴影深度采样，保留环境光下限和距离渐退；不依赖 TAA。
 - **屏幕空间接触阴影**：`deferred4` 内联向当前方向光对深度缓冲做短程行进，结果作为阴影贴图结果的上界（取 `min`），补全 PCF 接触缝隙并在阴影贴图范围外保持方向光遮蔽。`CONTACT_SHADOW` 默认开启，`CONTACT_SHADOW_STEPS` 12、`CONTACT_SHADOW_MAX_DISTANCE` 24 m（行进距离视距的 7%，下限 0.12 m）、`CONTACT_SHADOW_THICKNESS` 0.02 m（按距离增长 0.0125 m/m）；主世界与末地可用（下界无方向光），附 `CONTACT_SHADOW_DEBUG` 原始遮罩 / 加暗视图。
 - **色调映射列表整体更换**（`TONEMAP_MODE`，**默认改为 0 = AgX**）：列表重排为 0=AgX、1=ACES 2.0、2=Blender AgX、3=OpenDRT、4=AMD LPM、5=GT7，并删除 OKLAB（Ottosson DRT）、ACES 1.0（Narkowicz 拟合曲线）、Reinhard-Gamut、Reinhard-AgX 与短暂存在过的 Khronos PBR Neutral：算子文件（`tonemap_drt_oklab.glsl`、`tonemap_aces.glsl`、`tonemap_reinhard.glsl`、`tonemap_pbr_neutral.glsl`）、设置项、界面页、语言条目与溯源章节一并移除；`spaces.glsl` 中因此失去唯一消费者的 `RGBToOKLAB`/`OKLABToRGB` 也删除。旧存档里的数值含义随之改变，首次进入需要重新选择模式。
 - **AgX 换成 AgX-HSV**（`TONEMAP_MODE = 0`，**新默认**）：`tonemap_agx.glsl` 由 linlin 的 AgX-S2O3 曲线改为 DRT Bench 的 `agx_hsv.wgsl` 与它的 `AgxParameters::hsv_default()`（GPL-3.0）：对数范围仍为 −10…+6.5 EV，输出枢轴改为 sRGB OETF(0.18) = 0.46135613，pivot slope 2.4606366、toe/shoulder 幂 1.55/5.2、色域压缩 0.05，末段新增 HSV 色相修复。曲线系数与 DRT Bench 的测试值一致（toe_a = 11.2194730786、shoulder_a = 2568.7503334098）；输出域为 sRGB OETF，末端用本包 `ToLinear` 精确解码，锚点仍是场景 18% 灰 → 18% 显示线性、无需预缩放。中灰以上比被替换的 S2O3 曲线更亮（场景 0.5 / 1.0 / 4.0：0.421 / 0.641 / 0.944，旧曲线 0.378 / 0.547 / 0.847），与 GT7 的差距（场景 1.0 时为其 0.805）来自 AgX 自身的肩部。新增设置 `TONEMAP_AGX_HIGHLIGHT_HUE`（默认 0.5；0 = 交给曲线，1 = 完全保留场景色相）。
@@ -47,6 +43,9 @@
 - **信息界面**：主界面新增版本/作者栏（`ABOUT`）与“信息”子界面（开源许可证、性能预设说明、设置提示用法、调试视图入口），均为只读展示项。
 
 ### 二、重做与行为变化
+
+- **GI 历史响应与冷启动降噪**：SSGI／RSM 历史窗口分别限制为 64／128 帧，取消成熟后的额外长窗口。光照变化检查采用时域方差与连续同向残差，适用于几何未变的阴影变化；变化计数独立于真实年龄，修复普通噪声造成年龄回退、迟迟不收敛后突然变干净的问题。继续使用现有半分辨率历史与十二点上采样。
+- **掠射角 GI 历史稳定性**：历史几何检查改为验证采样射线与接收平面的深度残差，消除远处方块侧面因沿面采样间距增大而错误刷新的问题；历史平面恢复 RGBA8 编码误差范围内的轴向法线，避免极浅视角放大法线量化误差。保留异面、深度遮挡与初始化邻域限制。
 
 - **快速水雾**：始终使用解析水雾，水上、水下、焦散吸收和水下反射回退共用近海介质；不提供开关。独立 `const` 光学参数采用 CoASTS–BiOMaP 北亚得里亚海实测样本 `V770201`，补入 Pope–Fry 纯水吸收与 Zhang–Hu–He 海水分子散射，呈现蓝绿色并缩短可视距离；单独降低解析入射光权重以控制亮度，不缩放实测系数。旧空气雾、旧水雾、极线体积光及其全部设置和专用资源已移除。
 
@@ -153,7 +152,7 @@
 
 ### 六、资源与文件
 
-- **新增缓冲**：`colortex9`（RGB16F，GI 辐照度历史）、`colortex10`（R32UI，GI 深度/法线/年龄/来源历史）、`colortex11`（RGBA8，天气面片，补上格式声明与清除标志）、`shadowcolor0`（RGBA8，RSM 的 RGB565 反照率 + 八面体法线，此前完全未使用）。
+- **新增缓冲**：`colortex9`（RGB16F，GI 辐照度历史）、`colortex10`（RGBA16F，半分辨率 GI 几何/年龄/来源历史）、`colortex11`（RGBA8，天气面片，补上格式声明与清除标志）、`shadowcolor0`（RGBA8，RSM 的 RGB565 反照率 + 八面体法线，此前完全未使用）。
 - **SSBO**：`bufferObject.0` 268 → 16904 字节（曝光统计）；`bufferObject.1` 保持 160 字节。
 - **自定义图像**：`uimg_skylut_cloud` 更名为 `uimg_sky_radiance`（仍为 256×256 RGBA16F）。
 - **贴图**：新增 `cloud_distribution_worley_fbm_1024.dat`、`cloud_distribution_worley_fbm_512.dat`、`cloud_erosion_perlin_worley_r8_64.dat`；重新烘焙 `transmittance_lut.dat`（数值与旧版基本一致）、`multiscatter_lut.dat`（各通道能量约为旧版的 1.5–2.8 倍，对应新的气溶胶吸收与地面反照率）与 `cloud_distribution_worley_fbm_128.dat`（整图重新生成）。`cloud_distribution_worley_fbm_128.dat`、`cloud_distribution_worley_fbm_512.dat` 与 `cloud_erosion_composite_r8_64.dat` 仍随包分发，但已没有任何 properties 声明引用它们；六个既有 `.mcmeta` 仅换行符不同，过滤与环绕设置未变。

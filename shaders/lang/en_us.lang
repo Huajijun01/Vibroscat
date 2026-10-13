@@ -403,12 +403,12 @@ value.GI_MODE.2 = Reflective Shadow Map
 screen.SSGI = Screen Space GI
 screen.RSM = Reflective Shadow Map
 option.RSM_SAMPLES = RSM Samples
-option.RSM_SAMPLES.comment = How many bounce-light samples each pixel gathers per frame: higher = smoother, more detailed colored bounce light, slower.
+option.RSM_SAMPLES.comment = Bounce samples per half-resolution GI pixel per frame; default 8. GI temporal denoising also works with TAA off. More samples improve newly exposed regions and cost more GPU time.
 option.RSM_RADIUS = RSM Radius
 option.RSM_RADIUS.comment = How wide an area each pixel gathers bounce light from, in metres: higher = broader, softer color bleeding.
 suffix.RSM_RADIUS = m
 option.SSGI_STEPS = SSGI Steps
-option.SSGI_STEPS.comment = Depth samples traced per pixel: higher = smoother, more detailed bounce light in the distance, slower.
+option.SSGI_STEPS.comment = Depth samples traced per half-resolution GI pixel; default 16. More steps improve trace detail and cost more GPU time. GI uses its own temporal denoising even with TAA off.
 option.SSGI_MARCH_PIXELS = SSGI March Width Cap
 suffix.SSGI_MARCH_PIXELS = px
 option.SSGI_MARCH_PIXELS.comment = How far the bounce-light ray marches across the screen, in pixels: higher = bounce light reaches farther from its source, slower.
@@ -424,7 +424,7 @@ option.RSM_SKY_OCCLUSION.comment = Darkens the bounce-light sky glow in areas th
 option.RSM_SKY_OCCLUSION_FLOOR = Minimum Sky Light Factor
 option.RSM_SKY_OCCLUSION_FLOOR.comment = How much sky light is left in areas the shadow data shows are shielded from the sky: lower = darker, more natural enclosed spaces; 1.0 = no extra limiting. Only applies while RSM Sky Occlusion is on.
 option.RSM_DEBUG = RSM Debug View
-option.RSM_DEBUG.comment = Diagnostic view for troubleshooting the bounce light: normal view and raw single-frame. Needs Global Illumination set to Reflective Shadow Map; otherwise it produces no output. Leave on Normal View while playing.
+option.RSM_DEBUG.comment = Diagnostic view: normal lighting or denoised, reconstructed irradiance. Requires Reflective Shadow Map GI. Leave on Normal View while playing.
 value.RSM_SAMPLES.8 = 8
 value.RSM_SAMPLES.16 = 16
 value.RSM_SAMPLES.32 = 32
@@ -456,7 +456,7 @@ value.RSM_SKY_OCCLUSION_FLOOR.0.8 = 0.8
 value.RSM_SKY_OCCLUSION_FLOOR.0.9 = 0.9
 value.RSM_SKY_OCCLUSION_FLOOR.1.0 = 1.0
 value.RSM_DEBUG.0 = Normal View
-value.RSM_DEBUG.1 = Raw Irradiance
+value.RSM_DEBUG.1 = Reconstructed Irradiance
 option.AMBIENT_FLOOR = Minimum Ambient Light
 option.AMBIENT_FLOOR.comment = A small guaranteed light level added to every surface, so unlit caves and the deepest shadows keep a hint of visibility instead of pure black. 0 = fully realistic darkness.
 option.SKY_AMBIENT_STRENGTH = Sky Ambient Strength

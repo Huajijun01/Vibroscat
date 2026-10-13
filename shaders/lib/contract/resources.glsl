@@ -26,8 +26,11 @@
 //                                merged with the AO history: geometry pixels
 //                                carry (ao, age, encoded view depth, A=NaN "not cloud")
 //   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
-//   colortex9   RGB16F           deferred3 GI irradiance including uncovered SH,
-//                                read directly by deferred4
+//   colortex9   RGB16F           Half-res unblurred temporal GI irradiance,
+//                                including uncovered SH; deferred3 flip history
+//   colortex10  RGBA16F          Half-res GI history: oct6 normal/change count,
+//                                luminance second moment, view depth,
+//                                packed real age/receiver selector/source
 //   colortex11  RGBA8            Weather sheet: coverage (A) and radiance premultiplied
 //                                by coverage (RGB; the gbuffers SRC_ALPHA blend applies
 //                                it on write); written by gbuffers_weather, composited
@@ -61,7 +64,8 @@ const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
 const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, encoded view depth, A=NaN)
-const int colortex9Format  = RGB16F; // recursive GI irradiance (raw, written by deferred3)
+const int colortex9Format  = RGB16F; // half-res temporal irradiance (deferred3)
+const int colortex10Format = RGBA16F; // half-res GI geometry/age history (deferred3)
 const int colortex11Format = RGBA8;           // weather texture
 const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
@@ -76,7 +80,8 @@ const bool colortex3Clear  = false;   // opaque reflection incident radiance tra
 const bool colortex4Clear  = false;   // opaque geometric world normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
-const bool colortex9Clear  = false;   // recursive GI irradiance (fully rewritten by deferred3)
+const bool colortex9Clear  = false;   // unblurred temporal GI history
+const bool colortex10Clear = false;   // actual previous GI receiver geometry/age
 const bool colortex11Clear = true;   // weather texture
 const bool colortex12Clear = true;   // normal/cloud current, translucent, bloom, and tonemap workspace
 

@@ -1,5 +1,5 @@
 #include "/lib/contract/settings.glsl"
-/* RENDERTARGETS: 9 */
+/* RENDERTARGETS: 9,10 */
 
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
@@ -9,6 +9,9 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/gi_denoise.glsl"
+#include "/lib/lighting/gi_history.glsl"
+#include "/lib/lighting/gi_sampling.glsl"
 #if GI_MODE == 2
 #include "/lib/lighting/ambient_occlusion.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
@@ -21,11 +24,12 @@
 // The slice sampler's fast arctangent is from
 //   https://www.shadertoy.com/view/lXBfWm
 // colortex5 is read-only scene radiance from the existing pipeline; this pass
-// writes the raw one-estimate GI irradiance to colortex9, which deferred4
-// consumes directly. No temporal or spatial denoising runs here.
+// fuses the current estimate with unblurred GI history in colortex9. Metadata
+// in colortex10 records the selected receiver; deferred4 reconstructs spatially.
 // Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
 
 layout(location = 0) out vec3 out_gi;
+layout(location = 1) out vec4 out_gi_metadata;
 
 
 #if GI_MODE == 1
@@ -116,7 +120,8 @@ uint GIVisibilityMaskFromRange(vec2 range01) {
 }
 
 vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
-        out float coverage) {
+        out float coverage, out float second_moment) {
+    second_moment = 0.0;
     vec3 view_direction = -normalize(origin_view_position);
     vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
@@ -236,7 +241,10 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred4
                 // consumes it with the same unit as AmbientLight().
-                gi += texture(colortex5, previous_uv).rgb * (PI * visible_weight);
+                vec3 incident_irradiance = texture(colortex5, previous_uv).rgb * PI;
+                gi += incident_irradiance * visible_weight;
+                float sample_luminance = Luminance(incident_irradiance);
+                second_moment += sample_luminance * sample_luminance * visible_weight;
             }
         }
         occupied |= sample_mask;
@@ -249,8 +257,25 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 #endif
 
 void main() {
-    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
-    ivec2 tx = ivec2(gl_FragCoord.xy);
+    ivec2 gi_texel = ivec2(gl_FragCoord.xy);
+    if (any(greaterThanEqual(gi_texel, GIActiveSize()))) discard;
+    out_gi = vec3(0.0);
+    out_gi_metadata = vec4(0.0);
+    ivec2 tx = ivec2(0);
+    float scene_depth = 1.0;
+    int offset_code = 0;
+    // One actual receiver per block; hand remains a full-res SH path in
+    // deferred4 and never replaces world geometry in this history grid.
+    for (int i = 0; i < 4; ++i) {
+        ivec2 sample_texel = ivec2(GISampleUV(gi_texel, i) * u_render_res);
+        float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
+        int sample_material = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
+        if (sample_material == 64 || sample_depth >= scene_depth) continue;
+        scene_depth = sample_depth;
+        tx = sample_texel;
+        offset_code = i;
+    }
+    if (scene_depth >= 1.0) return;
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
     vec4 material_data = texelFetch(colortex1, tx, 0);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
@@ -258,21 +283,7 @@ void main() {
     // fallback consumes directly.
     vec3 fallback_normal = DecodeOctahedralNormal(geometry_data.xy);
 #if GI_MODE != 0
-    int material_id = int(material_data.a * 255.0 + 0.5);
-    float scene_depth = texelFetch(depthtex2, tx, 0).r;
-    out_gi = vec3(0.0);
-    if (scene_depth >= 1.0 && material_id != 64) return;
-    // The SH fallback is evaluated per branch below: the hand inlines its own
-    // call, and the RSM branch (GI_MODE == 2) replaces the geometry-normal
-    // version with the sky-normal one before any use, so mode 2 never pays
-    // for an evaluation it would discard.
     vec3 fallback;
-    // The hand has camera-relative motion; keep its stable SH fallback out
-    // of world-space reprojection for both GI sources.
-    if (material_id == 64) {
-        out_gi = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
-        return;
-    }
     vec2 reconstruction_uv = uv;
 #ifdef TAA
     reconstruction_uv -= u_taa_offset * 0.5;
@@ -280,39 +291,42 @@ void main() {
     vec3 receiver_view = NDCToView(vec3(reconstruction_uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
     vec3 receiver_world = ViewToSceneSpace(receiver_view);
     vec3 raw_gi;
+    float sample_sigma;
+    vec3 gi_noise = SampleGINoise(tx, frameCounter);
 #if GI_MODE == 2
     vec4 surface_data = texelFetch(colortex2, tx, 0);
     vec3 sky_normal = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
     float screen_ao;
     vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), surface_data.a, false, screen_ao);
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
-    // GI has no temporal accumulator of its own, so both sources follow the
-    // shared STBN clock: the slice advances with frameCounter under TAA and
-    // pins to slice 0 without it (streams 2/3 for the radial/rotation pair).
-    vec2 rsm_stbn_noise = vec2(SampleSTBN(tx, STBNFrame()),
-        SampleSTBN(tx, STBNFrame() + STBN_STREAM_2));
-    raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, rsm_stbn_noise,
-        fallback);
+    // GI owns its temporal reconstruction, independently of the final TAA.
+    raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, gi_noise.xy,
+        fallback, sample_sigma);
 #else
     fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     float coverage;
-    // Reference Rnd01x4 usage: x samples the slice direction, y jitters the
-    // first march step, z jitters the sector arcs (streams 0/3/1). GI has no
-    // temporal accumulator of its own, so the slices follow the shared STBN
-    // clock instead of advancing unconditionally with frameCounter.
-    vec3 gi_stbn_noise = vec3(
-        SampleSTBN(tx, STBNFrame() + STBN_STREAM_0),
-        SampleSTBN(tx, STBNFrame() + STBN_STREAM_3),
-        SampleSTBN(tx, STBNFrame() + STBN_STREAM_1));
+    float second_moment;
+    // x samples the slice, y jitters march steps, z jitters sector arcs.
     // The screen-space trace builds its slice basis in view space.
     vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
-    raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, gi_stbn_noise,
-        coverage);
+    raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, gi_noise,
+        coverage, second_moment);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;
+    // Sectors share one random slice. Their radiance spread is a conservative
+    // response scale, not the variance of SSGI_STEPS independent samples.
+    float fallback_luminance = Luminance(fallback);
+    float mean_luminance = Luminance(raw_gi);
+    sample_sigma = sqrt(max(second_moment + fallback_luminance * fallback_luminance * miss_fraction
+        - mean_luminance * mean_luminance, 0.0));
     raw_gi = clamp(raw_gi, vec3(0.0), vec3(SSGI_RADIANCE_LIMIT));
 #endif
-    out_gi = raw_gi;
+    GIReprojectedHistory history = ReprojectGIHistory(receiver_world, fallback_normal);
+    float history_age;
+    out_gi = QuantizeGIHistory(AccumulateGI(raw_gi, sample_sigma, history, history_age), gi_texel, frameCounter);
+    float stored_second_moment = QuantizeGISecondMoment(history.second_moment, gi_texel, frameCounter);
+    out_gi_metadata = EncodeGIHistory(fallback_normal, -receiver_view.z, history_age,
+        offset_code, stored_second_moment, history.change_count);
 #else
     out_gi = vec3(0.0);
 #endif

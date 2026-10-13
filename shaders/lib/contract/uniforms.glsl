@@ -60,7 +60,8 @@ uniform sampler2D colortex3;      // opaque reflection incident radiance transie
 uniform sampler2D colortex4;      // geometric normal + lightmap
 uniform sampler2D colortex5;      // TAA / composite history
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
-uniform sampler2D colortex9;      // deferred3 GI irradiance including uncovered SH (raw)
+uniform sampler2D colortex9;      // half-res unblurred temporal GI irradiance
+uniform sampler2D colortex10;     // half-res GI receiver geometry and age
 uniform sampler2D colortex11;    // weather
 uniform sampler2D colortex12;     // sequential post workspace
 uniform sampler2D colortex13;     // quarter-size RG8 scalar fog history (automatic flip)

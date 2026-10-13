@@ -24,17 +24,19 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     // ATM_HORIZON_DIP_SCALE km beneath the planet surface instead of on the
     // surface itself, so it integrates a little of the exponentially denser
     // low-altitude Mie/aerosol air and the horizon reads thicker/hazier.
+    // The terminator is only a march bound now: the ground's own reflected
+    // radiance is not evaluated, because the below-surface dip puts that
+    // shell out of sight.
     float max_dist = t1;
-    float t_ground = -1.0;  // negative = no ground hit
-    float ground_radius = ATM_PLANET_R;
     {
+        float ground_radius = ATM_PLANET_R;
 #if ATM_HORIZON_DIP
         ground_radius = max(ATM_PLANET_R - ATM_HORIZON_DIP_SCALE, 1.0);
 #endif
-        float t_entry, t_exit;
-        if (RayIntersectSphere(camera_pos, view_dir, ground_radius, t_entry, t_exit) && t_entry > 0.0) {
+        float t_entry;
+        float t_discard;  // far root: unread, only the near one bounds the march
+        if (RayIntersectSphere(camera_pos, view_dir, ground_radius, t_entry, t_discard) && t_entry > 0.0) {
             max_dist = t_entry;
-            t_ground = t_entry;
         }
     }
     if (max_dist <= 0.0) return vec4(0.0);
@@ -129,37 +131,8 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         t_prev  = t_cur;
     }
 
-    // -- ground albedo (sun + moon) --
-    vec4 ground_sun_radiance = vec4(0.0);
-    vec4 ground_moon_radiance = vec4(0.0);
-    if (t_ground > 0.0) {
-        vec3 ground_pos = camera_pos + view_dir * t_ground;
-        // ground_pos lies on the ground_radius sphere from the dip block, and
-        // mu uses that sphere (the true sun zenith at the ground point). The
-        // LUT r domain starts at the planet radius, so the query radius clamps
-        // up to the surface shell instead of pairing a dip-sphere mu with a
-        // surface r one dip scale apart.
-        float mu_sun_g = dot(ground_pos, sun_dir) / ground_radius;
-        float r_g  = max(ground_radius, ATM_PLANET_R);
-        float r2_g = r_g * r_g;
-
-        // sunlight -> ground; the paired UV helper shares the rho and
-        // discriminant sqrt between the sun and the mirrored moon direction
-        // (each output bit-identical to GetTransmittanceLUTUV).
-        vec2 uv_sun_g;
-        vec2 uv_moon_g;
-        GetTransmittanceLUTUVPair(r_g, r2_g, mu_sun_g, uv_sun_g, uv_moon_g);
-        vec4 trans_sun_g = textureLod(utex_tslut, uv_sun_g, 0.0);
-        vec4 ms_g = SampleMultiScatter(utex_mslut, r_g, mu_sun_g);
-        ground_sun_radiance = (trans_sun_g * saturate(mu_sun_g) * (1.0 / PI) + ms_g) * ATM_GROUND_ALBEDO * trans;
-
-        // moonlight -> ground (no multiscat)
-        vec4 trans_moon_g = textureLod(utex_tslut, uv_moon_g, 0.0);
-        ground_moon_radiance = trans_moon_g * ATM_GROUND_ALBEDO * (1.0 / PI) * trans * saturate(-mu_sun_g);
-    }
-
-    return ATM_SOLAR   * (phase_rayleigh * acc_ray + phase_mie * acc_mie + acc_x + ground_sun_radiance)
-         + ATM_MOON_IRR * (phase_rayleigh * acc_ray_moon + phase_mie_moon * acc_mie_moon + ground_moon_radiance);
+    return ATM_SOLAR   * (phase_rayleigh * acc_ray + phase_mie * acc_mie + acc_x)
+         + ATM_MOON_IRR * (phase_rayleigh * acc_ray_moon + phase_mie_moon * acc_mie_moon);
 }
 
 // ===============================================================

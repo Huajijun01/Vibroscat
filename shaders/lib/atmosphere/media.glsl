@@ -144,10 +144,6 @@ const float ATM_EXPOSURE = 0.05;  // from the 4-wave offline fit
 const float ATM_NUM_STEPS = 128.0;
 const vec4 ATM_EPS = vec4(1.0e-5);
 
-// -- Ground albedo (Lambertian) --
-const float ATM_GROUND_ALBEDO_BAKE = 0.25;  // used when baking LUTs
-const float ATM_GROUND_ALBEDO      = 0.05;  // runtime, tweak independently
-
 // -- Moonlight irradiance (W/m2/nm) --
 const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 

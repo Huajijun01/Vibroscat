@@ -17,10 +17,20 @@ bool IsOpaqueHand(ivec2 texel) {
     return scene_depth < 1.0 && material_id == 64;
 }
 
+vec3 PassthroughColor() {
+    return JitterR11G11B10F(texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz,
+        gl_FragCoord.xy, COLOR_JITTER_SEED);
+}
+
 void main() {
-#if !defined(MOTION_BLUR) || !defined(TAA)
-    vec3 passthrough_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
-    out_color = JitterR11G11B10F(passthrough_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+    // Iris registers a boolean option only where an #ifdef/#ifndef names it,
+    // so the two dispatch guards cannot stay a single one-line #if.
+#ifndef MOTION_BLUR
+    out_color = PassthroughColor();
+    return;
+#endif
+#ifndef TAA
+    out_color = PassthroughColor();
     return;
 #endif
     ivec2 tx = ivec2(gl_FragCoord.xy);

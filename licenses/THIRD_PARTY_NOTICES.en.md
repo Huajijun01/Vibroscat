@@ -102,7 +102,7 @@ The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage
 ## 13. Other mathematical/convention references
 
 - `FastSin`: Bhaskara I sine approximation (circa 12th century, public-domain mathematics)
-- TAA jitter R2 sequence: Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences" (public constants 1.3247179572 / 1.7548776662)
+- R2 sequence (R2Offset in lib/core/noise.glsl, continuous jitter for cloud and other temporal accumulators): Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences" (public constants 1.3247179572 / 1.7548776662)
 - `LowBias32Hash` in `lib/core/noise.glsl`: lowbias32 constants from Wellons, Chris. "Prospecting for Hash Functions" (released by the author as public domain)
 - specular channel convention in `material/core.glsl`: oldPBR/seusPBR specifications (data-format convention, not code)
 

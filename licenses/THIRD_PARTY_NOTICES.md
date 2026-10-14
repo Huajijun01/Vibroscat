@@ -100,7 +100,7 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 ## 13. 其它数学/惯例引用
 
 - `FastSin`：Bhaskara I 正弦近似（约 12 世纪，公有领域数学）
-- TAA 抖动 R2 序列：Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences"（公开常数 1.3247179572 / 1.7548776662）
+- R2 序列（lib/core/noise.glsl 的 R2Offset，用于云等时间累积的连续抖动）：Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences"（公开常数 1.3247179572 / 1.7548776662）
 - `material/core.glsl` 的 specular 通道约定：oldPBR/seusPBR 规格（数据格式约定，非代码）
 - `lib/core/noise.glsl` 的 `LowBias32Hash`：Wellons, Chris. “Prospecting for Hash Functions” 的 lowbias32 常量（作者声明为公有领域）
 

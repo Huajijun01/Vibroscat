@@ -157,29 +157,42 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
     return bracket;
 }
 
-// Interpolate the crossing inside the march step in the affine ray-depth
-// domain, then correct once for the candidate's local surface depth without
-// clamping the jittered endpoint.
-vec3 RefineSSRInterpolation(vec3 previous_pos, vec3 sample_pos,
-        float previous_ray_depth, float ray_depth, float surface_sample) {
-    float ray_depth_span = ray_depth - previous_ray_depth;
-    float span_sign = sign(ray_depth_span);
-    float inverse_span = span_sign / max(abs(ray_depth_span), 1e-20);
-    // A zero span keeps the midpoint; nonzero spans retain their sign.
+// Refine the accepted crossing: unconditional bisection localizes the depth
+// flip inside the march bracket — planar faces and silhouette steps alike —
+// then one chord-domain correction reads the surface at the bisected
+// position and projects the hit onto it, which restores the interpolation's
+// exact landing on planar surfaces without clamping the jittered endpoint.
+vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
+        float previous_ray_depth, float ray_depth, bool toward_eye,
+        int refine_steps) {
+    vec3 hit_pos = 0.5 * (previous_pos + sample_pos);
+    // The initial step sign encodes the ray-depth direction, which reverses
+    // for toward-eye rays.
+    vec3 refine_step = (sample_pos - previous_pos)
+        * (0.25 - 0.5 * float(toward_eye));
+    for (int j = 0; j < refine_steps; ++j) {
+        float mid_surface = ReadSSRDepthSample(hit_pos.xy);
+        float mid_ray_depth = SSRRayDepthFromScreen(hit_pos.z);
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
-    float surface_depth = 1.0 / surface_sample;
+        float depth_delta = mid_ray_depth * mid_surface - 1.0;
 #else
-    float surface_depth = surface_sample;
+        float depth_delta = mid_surface - mid_ray_depth;
 #endif
-    float hit_frac = clamp((surface_depth - previous_ray_depth) * inverse_span,
-        0.0, 1.0);
-    vec3 hit_pos = mix(previous_pos, sample_pos, hit_frac);
-    float candidate_surface_depth = ReadSSRDepthSample(hit_pos.xy);
+        hit_pos += sign(depth_delta) * refine_step;
+        refine_step *= 0.5;
+    }
+    float ray_depth_span = ray_depth - previous_ray_depth;
+    float inverse_span = sign(ray_depth_span)
+        / max(abs(ray_depth_span), 1e-20);
+    // A zero span keeps the midpoint; nonzero spans retain their sign.
+    float hit_surface = ReadSSRDepthSample(hit_pos.xy);
 #ifdef SSR_QUARTER_DEPTH_ACTIVE
-    candidate_surface_depth = 1.0 / candidate_surface_depth;
+    float hit_frac = clamp((1.0 / hit_surface - previous_ray_depth)
+        * inverse_span, 0.0, 1.0);
+#else
+    float hit_frac = clamp((hit_surface - previous_ray_depth)
+        * inverse_span, 0.0, 1.0);
 #endif
-    hit_frac = clamp((candidate_surface_depth - previous_ray_depth) * inverse_span,
-        0.0, 1.0);
     return mix(previous_pos, sample_pos, hit_frac);
 }
 
@@ -230,9 +243,9 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
     }
 
 #ifdef SSR_INTERPOLATION
-    vec3 hit_pos = RefineSSRInterpolation(bracket.previous_pos,
+    vec3 hit_pos = RefineSSRBisection(bracket.previous_pos,
         bracket.sample_pos, bracket.previous_ray_depth, bracket.ray_depth,
-        bracket.surface_sample);
+        toward_eye, OPAQUE_SSR_BISECT_STEPS);
 #else
     // Raw trace: report the accepted march sample without refinement.
     vec3 hit_pos = bracket.sample_pos;
@@ -264,9 +277,9 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) 
     }
 
 #ifdef SSR_INTERPOLATION
-    vec3 hit_pos = RefineSSRInterpolation(bracket.previous_pos,
+    vec3 hit_pos = RefineSSRBisection(bracket.previous_pos,
         bracket.sample_pos, bracket.previous_ray_depth, bracket.ray_depth,
-        bracket.surface_sample);
+        false, WATER_SSR_BISECT_STEPS);
 #else
     // Raw trace: report the accepted march sample without refinement.
     vec3 hit_pos = bracket.sample_pos;

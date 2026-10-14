@@ -61,7 +61,7 @@
 - **删除水雾焦散调制**：`WATER_FOG_CAUSTICS` 与 `WATER_FOG_CAUSTIC_STRENGTH` 只用波浪法线的面积代理削弱水雾里的阳光散射项，系数恒在 0 与 1 之间且只作用于“从空中看向水面”一条分支；两项设置、`WaterFogRender` 的 `caustic_factor` 参数与调制代码一并删除，体积焦散保持不变。
 - **间接镜面反射**：新增粗糙度闸门，介电反射在 `OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD`（0.5）处归零，金属度把截止推向更粗糙的材质；SH 环境反射改用粗糙度卷积，去掉原先的 `mix(1, albedo, 0.8)` 着色与 `pow(skyLight, 16) · AO³` 调制；SSR 与 SH 共用同一个 `SpecularOcclusion`。
 - **SSR 射线与回退**：朝向相机的反射方向此前被直接跳过，现在改为构建正确的前向目标并正常追踪；追踪未命中或落在屏幕外时回退到天空/SH 环境（此前直接返回黑色，屏幕边缘会出现黑块）。行进深度统一钳制到 [0,1]；深度穿越判定移到远平面/天空判定之前，此前在远平面附近找到的命中会被当作“射线出屏”直接丢弃。SSR 的随机数由两次 STBN 读取合并为一次配对读取。
-- **SSR 追踪拆分**：不透明反射（deferred2）与半透明反射（水面/玻璃）拆为两套独立追踪入口（`TraceOpaqueSSR`/`TraceTranslucentSSR`），投影弦、行进、插值细化与天空分类下沉为共享底层模块；删除按编译单元切换行为的 `SSR_OPAQUE_TRACE` 宏与 `WATER_SSR_ENABLED` 别名，行进步数直接由设置宏（`OPAQUE_SSR_STEPS`/`WATER_SSR_STEPS`）驱动。不透明 SSR 的“反射质量”枚举（仅环境/中/高/极高）拆为独立参数；命中点细化合并为共享的 `SSR_INTERPOLATION` 开关（默认开启）：在行进步长内插值求首次深度交叉，并按插值位置做一次表面深度校正；关闭后直接输出行进采样点的裸追踪结果，不再细化。
+- **SSR 追踪拆分**：不透明反射（deferred2）与半透明反射（水面/玻璃）拆为两套独立追踪入口（`TraceOpaqueSSR`/`TraceTranslucentSSR`），投影弦、行进、插值细化与天空分类下沉为共享底层模块；删除按编译单元切换行为的 `SSR_OPAQUE_TRACE` 宏与 `WATER_SSR_ENABLED` 别名，行进步数直接由设置宏（`OPAQUE_SSR_STEPS`/`WATER_SSR_STEPS`）驱动。不透明 SSR 的“反射质量”枚举（仅环境/中/高/极高）拆为独立参数；命中点细化合并为共享的 `SSR_INTERPOLATION` 开关（默认开启）：在行进括弧内以 `OPAQUE_SSR_BISECT_STEPS`/`WATER_SSR_BISECT_STEPS`（各 4 次）二分定位首次深度交叉，再按二分位置做一次表面深度校正，平面上保持解析精确、轮廓处命中落在翻转侧；关闭后直接输出行进采样点的裸追踪结果，不再细化。
 - **GBuffer 几何法线改为世界空间**：`colortex4` 的 RG 由视图空间改为世界空间八面体法线，消除视角转动时的 8 位重量化阶梯；所有消费者（AO、AO 历史、接触阴影、阴影 bias、GI、SSR）同步更新，需要视图空间时显式做一次 `mat3(gbufferModelView)` 变换。
 - **环境光遮蔽**：深度来源由 `depthtex1` 改为 `depthtex2`（不含半透明与手部），手持物不再遮挡 AO；GTAO 地平线步进补上纹素索引钳制（`uv == 1.0` 时不再越界读取）；AO 的应用数学集中到 `lib/lighting/ambient_occlusion.glsl`，手部像素直接返回无遮蔽；GTAO 多重反弹由 true/false 值选项改为独立编译开关并**默认关闭**；时域重投影改为输出上一帧视图空间接收点，历史权重在上一帧视图空间比较（不再每像素求逆矩阵两次），历史参数改名并修正取值列表（`AO_HISTORY_FRAMES` 补入默认值 48、`AO_HISTORY_DISTANCE_LIMIT` 补入 0.2、`AO_HISTORY_NORMAL_DOT_FLOOR` 反序列表改为升序）；时域累积改为由 `AO_HISTORY_FRAMES` 封顶的累计平均（前 N−1 帧等权、随后保持 1/N，与云累积同律），移除与该设置脱钩的 4 帧定长 box 启动相位和 0.2 固定 EMA 稳态——稳态降噪深度由 `AO_HISTORY_FRAMES` 直接控制。
 - **粒子渲染路径重做**：`gbuffers_particles` 改用新的轻量 `solid_simple` 程序（`RENDERTARGETS: 12,2`），在 G-buffer 阶段直接光照并经 SRC_ALPHA 混合写入半透明工作区 `colortex12`，渲染顺序改为半透明之后；粒子按世界朝上表面着色（此前把视图法线硬设为 `(0,1,0)`，等于屏幕朝上，光照随镜头俯仰翻转），且不再读取镜面贴图；所有不透明 G-buffer 程序直写 `colortex12`（关闭混合）以清空半透明工作区，避免残留。
@@ -136,8 +136,8 @@
 | `CLOUD_VIEW_MAX_STEPS` | 128 | 40 |
 | `CLOUD_LIGHT_STEPS` | 8 | 6 |
 | `CLOUD_SKY_LIGHT_STRENGTH` | 1.0 | 8.0（取值上限同步扩展） |
-| `OPAQUE_SSR_QUALITY` → `OPAQUE_SSR_STEPS` | 2（40 步） | 8 步（总采样 = 8 行进 + 1 插值） |
-| `WATER_SSR_STEPS` | 16 | 8（总采样 = 8 行进 + 1 插值） |
+| `OPAQUE_SSR_QUALITY` → `OPAQUE_SSR_STEPS` | 2（40 步） | 12 步（总采样 = 12 行进 + 4 二分 + 1 校正） |
+| `WATER_SSR_STEPS` | 16 | 12（总采样 = 12 行进 + 4 二分 + 1 校正） |
 | `SSR_BISECTION_REFINE` | 关闭（两路共享） | 改为共享插值开关 `SSR_INTERPOLATION`，默认开启 |
 | `ATM_GROUND_ALBEDO`（内部常量） | 0.03 | 0.05 |
 | `CIRRUS_SCATTERING`/`CIRRUS_EXTINCTION`（内部常量） | 0.2 km⁻¹ | 3.0 km⁻¹ |

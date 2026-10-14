@@ -39,7 +39,10 @@ vec3 DepthOfField(vec2 uv) {
 
     // golden spiral (Fibonacci) sampling
     const float golden_ratio = 1.61803398875;
-    float dither = InterleavedGradientNoise(gl_FragCoord.xy);
+    // The dither is static in screen space, so only its temporal variation
+    // gives TAA something to average; STBNFrame() pins the slice when TAA is
+    // off, leaving a fixed spatial blue-noise pattern instead of shimmering.
+    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
 
     vec3 dof = vec3(0.0);
     float inv_n = 1.0 / float(DOF_SAMPLES);
@@ -65,7 +68,11 @@ vec3 DepthOfField(vec2 uv) {
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     vec3 scene_color;
-#if !defined(DOF) || defined(TAAU_ACTIVE)
+    // Iris registers a boolean option only where an #ifdef/#ifndef names it,
+    // so the DOF part of this dispatch cannot use the one-line #if form.
+#ifndef DOF
+    scene_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
+#elif defined(TAAU_ACTIVE)
     // DOF is forced off under TAAU: the cropped scene rectangle puts the
     // display center outside it, and the raw center-depth fetch that works
     // around that loses centerDepthSmooth's temporal stabilization, which

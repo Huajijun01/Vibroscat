@@ -102,11 +102,8 @@ void main() {
     // Keep implicit-derivative history sampling outside divergent validity
     // branches. Invalid reprojection samples a safe UV and contributes zero.
     history_uv = valid ? clamp(history_uv, 2.0 * u_view_pixel_size, 1.0 - 2.0 * u_view_pixel_size) : texcoord;
-#if TAA_RECONSTRUCTION == 1
+    // History sharpening is independent of the current-frame reconstruction option.
     history = FastCatmullRom5Tap(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
-#else
-    history = texture(colortex5, history_uv).rgb;
-#endif
     // Exact zero is legitimate black history. Sanitize nonfinite data before
     // compression even when its eventual contribution will be zero.
     bool finite_history = !any(isnan(history)) && !any(isinf(history));
@@ -128,11 +125,6 @@ void main() {
         vec3 i = FetchColorClamped(colortex0, tx + ivec2( 1, -1));
         clip_min = min(a, min(b, min(c, min(d, min(e, min(f, min(g, min(h, i))))))));
         clip_max = max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h, i))))))));
-        // This scales the min/max box, not a variance-clipping sigma.
-        vec3 clip_center = 0.5 * (clip_min + clip_max);
-        vec3 clip_extent = 0.5 * (clip_max - clip_min) * TAA_CLIP_GAMMA;
-        clip_min = min(current_color, clip_center - clip_extent);
-        clip_max = max(current_color, clip_center + clip_extent);
     }
     vec3 clamped = clamp(history, clip_min, clip_max);
     float current_weight = GetBlendWeight(history, clamped, clip_max - clip_min, velocity);

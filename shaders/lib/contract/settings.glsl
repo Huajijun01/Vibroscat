@@ -14,7 +14,6 @@
 #define TAAU_RENDER_SCALE 0.75 // [0.50 0.59 0.67 0.75 0.85]
 #define TAA_RECONSTRUCTION 0 // [0 1] 0=Bilinear 1=Cubic
 #define TAA_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
-#define TAA_CLIP_GAMMA 1.25 // [0.75 1.00 1.25 1.50 1.75 2.00]
 #define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
 #define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
 #define TAA_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
@@ -237,10 +236,14 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 
 // Opaque SSR march budget: samples along the full reflection path
-// (McGuire & Mara 2014). The default keeps the whole trace at 9 depth
-// samples: 8 march steps plus 1 interpolation read. Raising the march count
-// extends how far reflections reach, not how accurately they hit.
-#define OPAQUE_SSR_STEPS 8 // [8 12 16 20 24 32 40 48 64] opaque SSR march samples
+// (McGuire & Mara 2014). The default keeps the whole trace at 17 depth
+// samples: 12 march steps plus 5 refinement reads (4 bisection + 1
+// correction). Raising the march count extends how far reflections reach,
+// not how accurately they hit.
+#define OPAQUE_SSR_STEPS 12 // [8 12 16 20 24 32 40 48 64] opaque SSR march samples
+// Bisection iterations refining the accepted crossing; each halves the
+// march-step bracket, so 4 steps keep the hit within step/16 of the flip.
+#define OPAQUE_SSR_BISECT_STEPS 4
 #define OPAQUE_SSR_RECURSION_DECAY 0.92
 #define OPAQUE_PBR_EMISSION_SCALE 10.0
 
@@ -253,17 +256,21 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #endif
 #endif
 
-// Shared SSR first-crossing refinement: interpolate the hit inside the
-// accepted march step in the affine ray-depth domain, then correct once
-// against the interpolated position's surface depth. Off reports the raw
-// march sample at the crossing.
+// Shared SSR first-crossing refinement: bisect inside the accepted march
+// bracket to localize the depth flip (planar faces and silhouette steps
+// alike), then correct once against the bisected position's surface depth.
+// Off reports the raw march sample at the crossing.
 #define SSR_INTERPOLATION
 
 // Water SSR march budget: samples along the full reflection path
-// (McGuire & Mara 2014). The default keeps the whole trace at 9 depth
-// samples: 8 march steps plus 1 interpolation read. Raising the march count
-// extends how far reflections reach, not how accurately they hit.
-#define WATER_SSR_STEPS 8 // [8 10 12 16 20 24 32] water SSR march samples
+// (McGuire & Mara 2014). The default keeps the whole trace at 17 depth
+// samples: 12 march steps plus 5 refinement reads (4 bisection + 1
+// correction). Raising the march count extends how far reflections reach,
+// not how accurately they hit.
+#define WATER_SSR_STEPS 12 // [8 10 12 16 20 24 32] water SSR march samples
+// Bisection iterations refining the accepted crossing; each halves the
+// march-step bracket, so 4 steps keep the hit within step/16 of the flip.
+#define WATER_SSR_BISECT_STEPS 4
 
 // Water parallax occlusion mapping (ocean.glsl): normal evaluated at the
 // parallax-corrected position. LOW profile disables it (normal at the plane

@@ -16,18 +16,16 @@ const float COLOR_JITTER_SEED = 83.0;
 
 layout(location = 0) out vec3 main_color;
 
-// Dense Phillips wave spectrum with analytic normals, baked at 1/4/9/16 m.
-// The moving, skewed cell spans (v0 - v2) * 4 s and (v1 - v2) * 4 s:
-// all three river bands keep their exact world velocities while the volume
-// closes analytically after 4 s. The unresolved fine tail follows layer 2.
-// Spectrum realization differs from the R8 water; motion agrees per band.
-// 3883 modes, 4096^2 source, 16384 photons/output pixel, WATER_RIVER_GAIN=1.5.
-// Matrix is column-major; constants are generated with the texture bake.
-const mat2 CAUSTIC_WORLD_TO_UV = mat2(0.08549018063, -0.06079713429,
-                                    0.00297625931, 0.18249895080);
-const vec2 CAUSTIC_ADVECTION_MPS = vec2(0.86803042545, 0.40513266195);
+// Independent dense Phillips water, calibrated to current band RMS at gain 1.
+// Random phases and a 0.16 m short-wave tail enrich the 1/4/9/16 m caustics.
+// The 8 m cell moves with river layer 2; relative mode rates round to whole
+// cycles per 4 s. Runtime crest phases and position warp are not reproduced.
+// 3928 modes, 4096^2 source, 16384 photons/output pixel; analytic normals.
+// Matrix, carrier and filtered-light reference are generated with the asset.
+const mat2 CAUSTIC_WORLD_TO_UV = mat2(0.125, 0.0, 0.0, 0.125);
+const vec2 CAUSTIC_ADVECTION_MPS = vec2(0.86140636021, 0.23905094417);
 #define CAUSTIC_TIME_SPEED 0.25
-#define CAUSTIC_REFERENCE vec4(0.06737530, 0.05167234, 0.07432320, 0.13514517) // filtered mean light
+#define CAUSTIC_REFERENCE vec4(0.23626452, 0.05691363, 0.05043673, 0.08803585) // filtered mean light
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
 // Fixed bake reference plane; underwater eyeBrightnessSmooth cannot

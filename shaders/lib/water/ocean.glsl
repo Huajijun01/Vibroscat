@@ -36,10 +36,12 @@ vec3 SoftClampWaterNormal(vec3 normal, vec3 to_camera) {
 // ---- parallax occlusion mapping ----
 // Bounded height chase on the two largest-energy layers of the river
 // texture (2 fetches per height sample); the final normal uses the full
-// four-layer field. Linear crossing by default; POM_BISECTION_ENABLED
+// three-layer field. Linear crossing by default; POM_BISECTION_ENABLED
 // refines with bisection.
 const int OCEAN_POM_STEPS = 8;
-const float OCEAN_POM_MAX_DEPTH = 0.6;  // m, >= max crest of the field
+// Bound both extrema of the two-layer field at every supported wave gain.
+const float OCEAN_POM_MAX_DEPTH = (RIVER_TEX_AMP[0] + RIVER_TEX_AMP[1]) * WATER_RIVER_GAIN
+                              * max(RIVER_TEX_CENTER, 1.0 - RIVER_TEX_CENTER);
 const float OCEAN_POM_MAX_OFFSET = 2.0; // m, clamp grazing offsets
 const float OCEAN_POM_MIN_SHIFT = 0.05; // m, skip invisible shifts
 
@@ -130,6 +132,7 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 
 // World-space normal (y up) at the parallax-corrected position.
 void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
+    xz = RiverTextureWarpPosition(xz);
 #ifdef WATER_POM
 #if POM_BISECTION_ENABLED
     vec2 xz_offset = OceanPOMOffsetBisection(xz, view_world, time);

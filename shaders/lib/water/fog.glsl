@@ -6,8 +6,8 @@
 #include "/lib/scattering/phase.glsl"
 
 
-const vec3 FAST_WATERFOG_SCATTERING = vec3(0.2, 0.4, 0.4) * 0.025;
-const vec3 FAST_WATERFOG_EXTINCTION = vec3(0.4, 0.08, 0.05) * 2.0;
+const vec3 FAST_WATERFOG_SCATTERING = vec3(0.1, 0.4, 0.4) * 0.1;
+const vec3 FAST_WATERFOG_EXTINCTION = vec3(0.4, 0.19, 0.15) * 1.3;
 // Lighting approximations, not measured optical properties. The uniform,
 // unshadowed source needs a neutral gain; do not dim the measured scattering.
 const float FAST_WATERFOG_PHASE_G = 0.15;

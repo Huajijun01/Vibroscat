@@ -278,9 +278,9 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define WATER_POM
 
 
-// River texture height gain: scales all four layer amplitudes.
-// 1.0 (default) matches the master band energies (sigma ~4.4 cm).
-#define WATER_RIVER_GAIN 1.5 // [0.5 1.0 1.5 2.0 2.5 3.0 3.69 5.0]
+// River height and slope gain: scales all three short-wave layers.
+// 1.0 uses the baked small-wave sea state (height sigma ~1.9 cm).
+#define WATER_RIVER_GAIN 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 3.69 5.0]
 
 // Water parallax search budget: coarse fixed-step height-chase samples and
 // bisection refinement iterations (mode selected by POM_BISECTION_ENABLED in

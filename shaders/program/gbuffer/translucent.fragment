@@ -102,8 +102,8 @@ void main() {
 #ifdef HAS_AT_TANGENT
             vec3 face_pos = v_world_pos + cameraPosition;
             vec3 ts_n;
-            RiverTextureNormal(vec2(dot(face_pos, v_world_tangent), dot(face_pos, v_world_bitangent)),
-                frameTimeCounter, ts_n);
+            vec2 face_wave_pos = vec2(dot(face_pos, v_world_tangent), dot(face_pos, v_world_bitangent));
+            RiverTextureNormal(RiverTextureWarpPosition(face_wave_pos), frameTimeCounter, ts_n);
             world_n = normalize(mat3(v_world_tangent, geo_n_world, v_world_bitangent) * ts_n);
 #else
             world_n = geo_n_world; // no tangent attribute: flat side face

@@ -1,99 +1,37 @@
 #ifndef LIB_CONTRACT_SETTINGS_GLSL
 #define LIB_CONTRACT_SETTINGS_GLSL
 
-// Consolidated compile-time settings: every config module (post,
-// clouds, shadows, water, fog, ao) and the shared lighting
-// constants in one file. Edit the values here; consumers include
-// only this file.
+// Consolidated compile-time settings: every config module (sky, clouds, fog,
+// shadows, GI, AO, lighting, water, post) in one file. Edit the values here;
+// consumers include only this file.
+//
+// Sections follow the render pipeline from the sky down to post processing.
+// The settings screen order is a UI choice and lives in shaders.properties.
 
 // ==========================================================================
-// POST - Post / tonemap
+// 1. SKY - atmosphere and celestial
 // ==========================================================================
-#define TAA
-//#define TAAU
-#define TAAU_RENDER_SCALE 0.75 // [0.50 0.59 0.67 0.75 0.85]
-#define TAA_RECONSTRUCTION 0 // [0 1] 0=Bilinear 1=Cubic
-#define TAA_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
-#define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
-#define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
-#define TAA_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
+#define ATM_HORIZON_DIP 1 // [0 1] Horizon below-dip; 0 = off
+#define ATM_HORIZON_DIP_SCALE 8.0 // [0.0 2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] below-surface dip depth (km)
 
-#ifdef TAAU
-#ifdef TAA
-#define TAAU_ACTIVE
-#endif
-#endif
-//#define DOF
-//#define MOTION_BLUR
-#define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
+// Night star map gain: linear multiplier applied after the LogLuv32
+// decode (celestial.glsl).
+#define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness
+// Night star map artistic grade, applied to the decoded map color before the
+// transmittance and night fades (celestial.glsl).
+#define STAR_MAP_CONTRAST 2.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] star map contrast exponent
+#define STAR_MAP_BRIGHT_BOOST 4.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
 
-// Iris constant: half-life in ticks for the time-smoothed center depth that
-// the DOF focus distance reads (centerDepthSmooth). Lives with the other Iris
-// constant directives.
-const float centerDepthHalflife = 1.0;
-
-
-// Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
-#define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
-// Screen-space GI trace budget (GI_MODE 1), ported from the GT-VBGI
-// reference constants in recursive_gi.fragment.
-#define SSGI_STEPS 16 // [4 8 12 16 24 32 48 64] Geometric march steps per pixel; higher = smoother distant bounce light, linear cost.
-#define SSGI_MARCH_PIXELS 512.0 // [128.0 256.0 384.0 512.0 768.0 1024.0] March width cap in screen pixels (the reference's Raymarching_Width).
-#define SSGI_THICKNESS 0.5 // [0.1 0.25 0.5 0.75 1.0 1.5 2.0] Sample geometry thickness in view-depth meters (the reference's Thickness).
-#define SSGI_RADIANCE_LIMIT 128.0 // [16.0 32.0 64.0 128.0 256.0 512.0] Firefly clamp bounding the stored GI radiance.
-#define RSM_SAMPLES 8 // [8 16 32 64]
-#define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
-#define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
-#define RSM_SKY_OCCLUSION // Darkens SH where the shadow map shows sky occlusion; off compiles the tracking path out.
-#define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
-#define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
-
-
-
-#define BLOOM
-#define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
-// Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
-// gradients. Its pattern is a fixed function of the screen position, so a
-// still camera accumulates it instead of averaging it out, and it stays as a
-// regular hatch over sky, clouds and fog.
-#define COLOR_DITHER
-#define COLOR_DITHER_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Color dither strength: 0.5=conservative, 1.0=default, 2.0=aggressive
-
-#define AE
-#define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure reference display key; 0.18 is middle gray
-#define AE_ADAPTATION_STRENGTH 0.70 // [0.0 0.25 0.40 0.55 0.70 0.85 1.0] Scene-key EV compensation; 0=fixed exposure, 1=full compensation
-
-#define CAS
-#define CAS_SHARPNESS 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
-
-// Tonemap operator (0 = AgX, 1 = ACES 2.0, 2 = Blender AgX, 3 = OpenDRT,
-// 4 = AMD LPM, 5 = GT7)
-#define TONEMAP_MODE 5 // [0 1 2 3 4 5] Tonemap: 0=AgX-HSV 1=ACES 2.0 2=Blender AgX 3=OpenDRT 4=AMD LPM 5=GT7
-#define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
-
-// #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
-#define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
-// Rod-vision (scotopic) model, gated by the exposure state alone. The
-// adaptation key is reconstructed from the persistent exposure EV and ramps
-// the rod share log-linearly across the mesopic band: 0.004 anchors near the
-// full-moon night key (moon ground irradiance ATM_MOON_IRR * ATM_EXPOSURE ~
-// 0.007), 0.04 stays below the daylight key. CONE_LUMINANCE is the
-// post-exposure luminance pivot where cone color vision retakes over (0.35 ~
-// +1 EV over the 0.18 exposure target); the tint is the unit-luminance rod
-// gray.
-const float PURKINJE_SCOTOPIC_KEY = 0.004;
-const float PURKINJE_PHOTOPIC_KEY = 0.04;
-const float PURKINJE_CONE_LUMINANCE = 0.35;
-const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
-
-// Only official artistic presets are user options. Numeric DRT parameters
-// are immutable constants in their owning color libraries.
-#define TONEMAP_BLENDER_AGX_LOOK 0 // [0 1 2 3 4 5 6 7 8] Blender 4.0 AgX look
-#define TONEMAP_ODT_LOOK 0 // [0 1 2 3 4 5 6] OpenDRT v1.1.0 look preset
-#define TONEMAP_ODT_TONESCALE 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13] OpenDRT tonescale preset; 0 uses the selected look
+// Angular radii of the rendered sun/moon discs, in radians. Shared by the
+// sky disc renderer (celestial.glsl) and the water/translucent GGX area
+// light so the specular glint uses the same disc size as the visible sky.
+const float SUN_DISC_RADIUS  = 0.005;   // ~0.267 deg
+const float SUN_GLOW_RADIUS  = 0.03;    // ~1.0 deg soft falloff
+const float MOON_DISC_RADIUS = 0.00436; // ~0.25 deg
+const float MOON_GLOW_RADIUS = 0.012;
 
 // ==========================================================================
-// CLOUDS - Cloud layers (volumetric + cirrus)
+// 2. CLOUDS - Cloud layers (volumetric + cirrus)
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
 #define CIRRUS // Enable the high-altitude cirrus shell; independent of the volumetric layer.
@@ -147,7 +85,47 @@ const vec2 CLOUD_CURRENT_SCALE = vec2(0.25);
 #define HISTORY_NO_CLOUD_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 
 // ==========================================================================
-// SHADOWS - Shadows / PCSS / SSS
+// 3. FOG - Air and boundary fog
+// ==========================================================================
+const float eyeBrightnessHalflife = 3.0;
+// Minecraft lightmap units: eyeBrightnessSmooth components range 0..240.
+const float EYE_BRIGHTNESS_SCALE = 240.0;
+
+#define AIR_FOG
+#define AIR_FOG_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 5.0]
+#define AIR_FOG_DENSITY_DAY 20.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
+#define AIR_FOG_DENSITY_DUSK 160.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0 200.0 240.0 300.0]
+#define AIR_FOG_DENSITY_NIGHT 80.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0]
+#define AIR_FOG_DENSITY_RAIN 160.0 // [0.0 5.0 10.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0 200.0 256.0]
+#define AIR_FOG_REFERENCE_HEIGHT_M 64.0 // [0.0 32.0 64.0 96.0 128.0]
+#define AIR_FOG_SCALE_HEIGHT_M 8.0 // [8.0 12.0 32.0 48.0 64.0 96.0 128.0 192.0 256.0]
+#define AIR_FOG_SKY_STRENGTH 0.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
+#define AIR_FOG_SHADOWS
+#define EPIPOLAR_VOLUMETRICS
+#define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
+#define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
+#define AIR_EPIPOLAR_SHADOW_STEPS 12 // [8 12 16 24 32 48 64]
+#define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08]
+#define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
+#ifdef WORLD_OVERWORLD
+#ifdef AIR_FOG
+#ifdef AIR_FOG_SHADOWS
+#ifdef EPIPOLAR_VOLUMETRICS
+#define AIR_EPIPOLAR_ACTIVE
+#endif
+#endif
+#endif
+#endif
+
+// Fade near-boundary geometry into the cloud-free sky in composite2.
+// Overworld only; independent of the always-on analytic water fog.
+#define BOUNDARY_FOG
+#define BOUNDARY_FOG_START 0.7 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
+#define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
+#define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 0.8 1.0] sky-facing dampening
+
+// ==========================================================================
+// 4. SHADOWS - Shadows / PCSS / SSS
 // ==========================================================================
 const int shadowMapResolution = 2048; // [1024 1536 2048 3072 4096 6144 8192]
 const bool shadowHardwareFiltering = true;
@@ -208,7 +186,97 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion guard (m)
 
 // ==========================================================================
-// WATER - Water surface
+// 5. GLOBAL ILLUMINATION - Diffuse indirect (SSGI / RSM)
+// ==========================================================================
+
+// Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
+#define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
+// Screen-space GI trace budget (GI_MODE 1), ported from the GT-VBGI
+// reference constants in recursive_gi.fragment.
+#define SSGI_STEPS 16 // [4 8 12 16 24 32 48 64] Geometric march steps per pixel; higher = smoother distant bounce light, linear cost.
+#define SSGI_MARCH_PIXELS 512.0 // [128.0 256.0 384.0 512.0 768.0 1024.0] March width cap in screen pixels (the reference's Raymarching_Width).
+#define SSGI_THICKNESS 0.5 // [0.1 0.25 0.5 0.75 1.0 1.5 2.0] Sample geometry thickness in view-depth meters (the reference's Thickness).
+#define SSGI_RADIANCE_LIMIT 128.0 // [16.0 32.0 64.0 128.0 256.0 512.0] Firefly clamp bounding the stored GI radiance.
+#define RSM_SAMPLES 8 // [8 16 32 64]
+#define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
+#define RSM_STRENGTH 3.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
+#define RSM_SKY_OCCLUSION // Darkens SH where the shadow map shows sky occlusion; off compiles the tracking path out.
+#define RSM_SKY_OCCLUSION_FLOOR 0.2 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
+#define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
+
+// ==========================================================================
+// 6. AO - Ambient occlusion
+// ==========================================================================
+const float ambientOcclusionLevel = 1.0;
+
+// AO_MODE selects the algorithm (settings slider, 0/1/2): GTAO is the
+// horizon-based method (Jimenez et al. 2016), SSAO the Monte-Carlo
+// hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
+// generator, deferred1 full-res temporal accumulation and deferred2 apply.
+#define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
+#if AO_MODE == 1 && GI_MODE != 1
+#define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
+#endif
+#if AO_MODE == 2 && GI_MODE != 1
+#define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
+#endif
+#define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
+#define GTAO_RADIUS 3.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
+#define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
+#define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
+#define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
+//#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
+#define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
+#define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
+#define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
+
+// Temporal accumulation (deferred1 fragment): full-resolution history in the
+// merged colortex8 buffer with reprojection, soft depth rejection and a
+// capped running average (the cloud scheme, CloudAccumulate).
+#define AO_TEMPORAL // temporal toggle: enables the history accumulation
+#ifdef AO_TEMPORAL
+#define AO_TEMPORAL_ENABLED
+#endif
+// AO generation is plain half resolution: every half-res texel is evaluated
+// every frame at its full-res block origin and upsampled bilinearly - one
+// sample per pixel per frame at full convergence speed.
+#define AO_HISTORY_FRAMES 48 // [2 4 6 8 10 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
+// Rejection lifts the fresh-sample weight toward 1, so an untrusted history
+// is replaced quickly instead of lingering (vanished objects' AO does not
+// fade out slowly).
+// History rejection: the reprojected history is
+// trusted only when the world-space displacement from the previous-frame
+// depth stays under the distance limit and the normal at the reprojected
+// position agrees with the current pixel beyond the dot floor; both weights
+// ramp smoothly to zero (AOHistoryWeight in lib/lighting/temporal_ao.glsl).
+#define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
+#define AO_HISTORY_NORMAL_DOT_FLOOR 0.866 // [0.5 0.71 0.82 0.866 0.91 0.94] history rejection: min normal dot (cos 30 deg)
+
+// ==========================================================================
+// 7. LIGHTING - Lighting constants
+// ==========================================================================
+
+// Warm artificial-light palette, shared by deferred2 and the forward
+// translucent passes. TORCH_BRIGHTNESS scales the light intensity only;
+// the warm tint stays fixed.
+#define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
+const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
+
+// Sky ambient (SH) strength: scales the SH sky irradiance that
+// lib/lighting/ambient_light.glsl feeds into every surface's ambient term, so
+// the no-GI ambient of the deferred shading pass and the SH fallback both GI
+// sources leave in their uncovered directions share one control. Direct
+// sunlight, the AMBIENT_FLOOR floor below and the SH environment reflection are
+// outside this scale.
+#define SKY_AMBIENT_STRENGTH 0.9 // [0.0 0.25 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.25 1.5 2.0] sky SH ambient light intensity multiplier
+
+// Minimum ambient light floor added to every surface's sky ambient, so caves
+// and deep shadows never render fully black (see AmbientLight in
+// lib/lighting/ambient_light.glsl).
+#define AMBIENT_FLOOR 0.005 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
+
+// ==========================================================================
+// 8. WATER - Water surface
 // ==========================================================================
 
 // Rain uses the existing opaque material/normal payload and reflection path.
@@ -289,140 +357,77 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define WATER_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
 
 // ==========================================================================
-// FOG - Air and boundary fog
+// 9. POST - Exposure, tonemapping, and screen effects
 // ==========================================================================
-const float eyeBrightnessHalflife = 3.0;
-// Minecraft lightmap units: eyeBrightnessSmooth components range 0..240.
-const float EYE_BRIGHTNESS_SCALE = 240.0;
 
-#define AIR_FOG
-#define AIR_FOG_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 5.0]
-#define AIR_FOG_DENSITY_DAY 20.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0]
-#define AIR_FOG_DENSITY_DUSK 160.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0 200.0 240.0 300.0]
-#define AIR_FOG_DENSITY_NIGHT 80.0 // [0.0 1.0 2.0 5.0 10.0 15.0 20.0 30.0 40.0 60.0 80.0]
-#define AIR_FOG_DENSITY_RAIN 160.0 // [0.0 5.0 10.0 20.0 30.0 40.0 60.0 80.0 100.0 120.0 160.0 200.0 256.0]
-#define AIR_FOG_REFERENCE_HEIGHT_M 64.0 // [0.0 32.0 64.0 96.0 128.0]
-#define AIR_FOG_SCALE_HEIGHT_M 8.0 // [8.0 12.0 32.0 48.0 64.0 96.0 128.0 192.0 256.0]
-#define AIR_FOG_SKY_STRENGTH 0.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
-#define AIR_FOG_SHADOWS
-#define EPIPOLAR_VOLUMETRICS
-#define EPIPOLAR_SLICES 1024 // [256 512 1024 2048]
-#define EPIPOLAR_SAMPLES 512 // [128 256 512 1024]
-#define AIR_EPIPOLAR_SHADOW_STEPS 12 // [8 12 16 24 32 48 64]
-#define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08]
-#define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
-#ifdef WORLD_OVERWORLD
-#ifdef AIR_FOG
-#ifdef AIR_FOG_SHADOWS
-#ifdef EPIPOLAR_VOLUMETRICS
-#define AIR_EPIPOLAR_ACTIVE
+#define AE
+#define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure reference display key; 0.18 is middle gray
+#define AE_ADAPTATION_STRENGTH 0.70 // [0.0 0.25 0.40 0.55 0.70 0.85 1.0] Scene-key EV compensation; 0=fixed exposure, 1=full compensation
+
+// Tonemap operator (0 = AgX, 1 = ACES 2.0, 2 = Blender AgX, 3 = OpenDRT,
+// 4 = AMD LPM, 5 = GT7)
+#define TONEMAP_MODE 5 // [0 1 2 3 4 5] Tonemap: 0=AgX-HSV 1=ACES 2.0 2=Blender AgX 3=OpenDRT 4=AMD LPM 5=GT7
+#define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
+
+// #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
+#define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
+// Rod-vision (scotopic) model, gated by the exposure state alone. The
+// adaptation key is reconstructed from the persistent exposure EV and ramps
+// the rod share log-linearly across the mesopic band: 0.004 anchors near the
+// full-moon night key (moon ground irradiance ATM_MOON_IRR * ATM_EXPOSURE ~
+// 0.007), 0.04 stays below the daylight key. CONE_LUMINANCE is the
+// post-exposure luminance pivot where cone color vision retakes over (0.35 ~
+// +1 EV over the 0.18 exposure target); the tint is the unit-luminance rod
+// gray.
+const float PURKINJE_SCOTOPIC_KEY = 0.004;
+const float PURKINJE_PHOTOPIC_KEY = 0.04;
+const float PURKINJE_CONE_LUMINANCE = 0.35;
+const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
+
+// Only official artistic presets are user options. Numeric DRT parameters
+// are immutable constants in their owning color libraries.
+#define TONEMAP_BLENDER_AGX_LOOK 0 // [0 1 2 3 4 5 6 7 8] Blender 4.0 AgX look
+#define TONEMAP_ODT_LOOK 0 // [0 1 2 3 4 5 6] OpenDRT v1.1.0 look preset
+#define TONEMAP_ODT_TONESCALE 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13] OpenDRT tonescale preset; 0 uses the selected look
+
+#define BLOOM
+#define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
+// Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
+// gradients. Its pattern is a fixed function of the screen position, so a
+// still camera accumulates it instead of averaging it out, and it stays as a
+// regular hatch over sky, clouds and fog.
+#define COLOR_DITHER
+#define COLOR_DITHER_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Color dither strength: 0.5=conservative, 1.0=default, 2.0=aggressive
+
+#define CAS
+#define CAS_SHARPNESS 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
+
+//#define DOF
+//#define MOTION_BLUR
+#define MB_STRENGTH 0.8 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0]
+
+// Iris constant: half-life in ticks for the time-smoothed center depth that
+// the DOF focus distance reads (centerDepthSmooth). Lives with the other Iris
+// constant directives.
+const float centerDepthHalflife = 1.0;
+
+#define TAA
+//#define TAAU
+#define TAAU_RENDER_SCALE 0.75 // [0.50 0.59 0.67 0.75 0.85]
+#define TAA_RECONSTRUCTION 0 // [0 1] 0=Bilinear 1=Cubic
+#define TAA_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
+#define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
+#define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
+#define TAA_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
+
+#ifdef TAAU
+#ifdef TAA
+#define TAAU_ACTIVE
 #endif
 #endif
-#endif
-#endif
-
-// Fade near-boundary geometry into the cloud-free sky in composite2.
-// Overworld only; independent of the always-on analytic water fog.
-#define BOUNDARY_FOG
-#define BOUNDARY_FOG_START 0.7 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
-#define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
-#define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 0.8 1.0] sky-facing dampening
 
 // ==========================================================================
-// ATMOSPHERE - Sky atmosphere
-// ==========================================================================
-
-#define ATM_HORIZON_DIP 1 // [0 1] Horizon below-dip; 0 = off
-#define ATM_HORIZON_DIP_SCALE 8.0 // [0.0 2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] below-surface dip depth (km)
-
-// ==========================================================================
-// AO - Ambient occlusion
-// ==========================================================================
-const float ambientOcclusionLevel = 1.0;
-
-// AO_MODE selects the algorithm (settings slider, 0/1/2): GTAO is the
-// horizon-based method (Jimenez et al. 2016), SSAO the Monte-Carlo
-// hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
-// generator, deferred1 full-res temporal accumulation and deferred2 apply.
-#define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
-#if AO_MODE == 1 && GI_MODE != 1
-#define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
-#endif
-#if AO_MODE == 2 && GI_MODE != 1
-#define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
-#endif
-#define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
-#define GTAO_RADIUS 3.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
-#define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
-#define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
-#define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
-//#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
-#define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
-#define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
-#define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
-
-// Temporal accumulation (deferred1 fragment): full-resolution history in the
-// merged colortex8 buffer with reprojection, soft depth rejection and a
-// capped running average (the cloud scheme, CloudAccumulate).
-#define AO_TEMPORAL // temporal toggle: enables the history accumulation
-#ifdef AO_TEMPORAL
-#define AO_TEMPORAL_ENABLED
-#endif
-// AO generation is plain half resolution: every half-res texel is evaluated
-// every frame at its full-res block origin and upsampled bilinearly - one
-// sample per pixel per frame at full convergence speed.
-#define AO_HISTORY_FRAMES 48 // [2 4 6 8 10 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
-// Rejection lifts the fresh-sample weight toward 1, so an untrusted history
-// is replaced quickly instead of lingering (vanished objects' AO does not
-// fade out slowly).
-// History rejection: the reprojected history is
-// trusted only when the world-space displacement from the previous-frame
-// depth stays under the distance limit and the normal at the reprojected
-// position agrees with the current pixel beyond the dot floor; both weights
-// ramp smoothly to zero (AOHistoryWeight in lib/lighting/temporal_ao.glsl).
-#define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
-#define AO_HISTORY_NORMAL_DOT_FLOOR 0.866 // [0.5 0.71 0.82 0.866 0.91 0.94] history rejection: min normal dot (cos 30 deg)
-
-// ==========================================================================
-// LIGHTING - Lighting constants
-// ==========================================================================
-
-// Warm artificial-light palette, shared by deferred2 and the forward
-// translucent passes. TORCH_BRIGHTNESS scales the light intensity only;
-// the warm tint stays fixed.
-#define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
-const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
-
-// Sky ambient (SH) strength: scales the SH sky irradiance that
-// lib/lighting/ambient_light.glsl feeds into every surface's ambient term, so
-// the no-GI ambient of the deferred shading pass and the SH fallback both GI
-// sources leave in their uncovered directions share one control. Direct
-// sunlight, the AMBIENT_FLOOR floor below and the SH environment reflection are
-// outside this scale.
-#define SKY_AMBIENT_STRENGTH 0.9 // [0.0 0.25 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.25 1.5 2.0] sky SH ambient light intensity multiplier
-
-// Minimum ambient light floor added to every surface's sky ambient, so caves
-// and deep shadows never render fully black (see AmbientLight in
-// lib/lighting/ambient_light.glsl).
-#define AMBIENT_FLOOR 0.005 // [0.0 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
-// Night star map gain: linear multiplier applied after the LogLuv32
-// decode (celestial.glsl).
-#define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness
-// Night star map artistic grade, applied to the decoded map color before the
-// transmittance and night fades (celestial.glsl).
-#define STAR_MAP_CONTRAST 2.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5] star map contrast exponent
-#define STAR_MAP_BRIGHT_BOOST 4.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
-
-// Angular radii of the rendered sun/moon discs, in radians. Shared by the
-// sky disc renderer (celestial.glsl) and the water/translucent GGX area
-// light so the specular glint uses the same disc size as the visible sky.
-const float SUN_DISC_RADIUS  = 0.005;   // ~0.267 deg
-const float SUN_GLOW_RADIUS  = 0.03;    // ~1.0 deg soft falloff
-const float MOON_DISC_RADIUS = 0.00436; // ~0.25 deg
-const float MOON_GLOW_RADIUS = 0.012;
-
-// ==========================================================================
-// UI-ONLY - display-only pseudo options, never read by shader code
+// 10. UI-ONLY - display-only pseudo options, never read by shader code
 // ==========================================================================
 
 // Iris renders each single-value option as an inert settings button; the

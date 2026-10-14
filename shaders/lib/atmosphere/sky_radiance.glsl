@@ -30,7 +30,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     float max_dist = t1;
     {
         float ground_radius = ATM_PLANET_R;
-#if ATM_HORIZON_DIP
+#ifdef ATM_HORIZON_DIP
         ground_radius = max(ATM_PLANET_R - ATM_HORIZON_DIP_SCALE, 1.0);
 #endif
         float t_entry;

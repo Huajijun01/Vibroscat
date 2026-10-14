@@ -5,12 +5,12 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 const vec2 workGroupsRender = vec2(0.25, 0.25);
 
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
 layout(r16f) uniform restrict writeonly image2D uimg_ssr_depth;
 #endif
 
 void main() {
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
     ivec2 depth_texel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 depth_size = max(ivec2(u_render_res * 0.25), ivec2(1));
     if (any(greaterThanEqual(depth_texel, depth_size))) return;

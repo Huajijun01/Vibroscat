@@ -185,7 +185,7 @@ void main() {
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // colortex4 carries the world-space geometric normal (octahedral RG).
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
-#if CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
+#if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     // Contact shadows work in view space. The transform is compile-time
     // gated and computed inside the shadow_needed gate at its only consumer.
 #endif
@@ -286,7 +286,7 @@ void main() {
         // response on the same curve; no hard switch at the map border.
         shadow_occlusion = mix(1.0, shadow_filtered, shadow_coverage);
     }
-#if CONTACT_SHADOW == 1 && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
+#if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
 #if CONTACT_SHADOW_DEBUG > 0
     if (shadow_needed) {
 #else
@@ -437,7 +437,7 @@ void main() {
         ndotv, mean_ao, material.perceptual_roughness);
     vec3 sh_specular = vec3(0.0);
     bool need_sh = true;
-#ifdef OPAQUE_SSR
+#if defined(OPAQUE_SSR)
     need_sh = ssr_weight < 1.0;
 #endif
     if (need_sh) {
@@ -465,7 +465,7 @@ void main() {
     }
 
     vec3 indirect_specular = sh_specular;
-#ifdef OPAQUE_SSR
+#if defined(OPAQUE_SSR)
     if (ssr_weight > 0.0) {
         vec3 ssr_reflection_half;
         vec3 ssr_reflection_direction = OpaqueReflectionDirection(

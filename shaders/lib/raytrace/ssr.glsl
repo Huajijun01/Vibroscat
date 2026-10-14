@@ -129,7 +129,7 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
             : behind_surface;
         if (depth_crossing) {
             float surface_view_depth = bracket.surface_sample;
-#ifndef SSR_QUARTER_DEPTH_ACTIVE
+#if !defined(SSR_QUARTER_DEPTH_ACTIVE)
             surface_view_depth = LinearDepthFromScreenDepth(surface_view_depth);
 #endif
             // Accept segment/thickness overlap before spending work on
@@ -173,7 +173,7 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
     for (int j = 0; j < refine_steps; ++j) {
         float mid_surface = ReadSSRDepthSample(hit_pos.xy);
         float mid_ray_depth = SSRRayDepthFromScreen(hit_pos.z);
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
         float depth_delta = mid_ray_depth * mid_surface - 1.0;
 #else
         float depth_delta = mid_surface - mid_ray_depth;
@@ -186,7 +186,7 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
         / max(abs(ray_depth_span), 1e-20);
     // A zero span keeps the midpoint; nonzero spans retain their sign.
     float hit_surface = ReadSSRDepthSample(hit_pos.xy);
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float hit_frac = clamp((1.0 / hit_surface - previous_ray_depth)
         * inverse_span, 0.0, 1.0);
 #else

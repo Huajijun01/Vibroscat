@@ -301,8 +301,6 @@ option.SHADOW_SSS_FADE_START = 阴影淡出起点
 option.SHADOW_SSS_FADE_START.comment = 阴影贴图覆盖边缘处阴影平滑淡出，此项决定从离边缘多近开始淡出（越高阴影延伸得越远）。植物透叶光在贴图仍能采样的范围内全量渲染，越过边界后直接结束。
 option.CONTACT_SHADOW = 屏幕空间接触阴影
 option.CONTACT_SHADOW.comment = 短距离屏幕空间阴影：沿屏幕投影的光线对深度缓冲行进，补上阴影贴图容易漏掉的细节，比如脚边的物体，并且在阴影贴图范围之外仍然有效。仅主世界与末地生效。
-value.CONTACT_SHADOW.0 = 关
-value.CONTACT_SHADOW.1 = 开
 option.CONTACT_SHADOW_STEPS = 接触阴影步数
 option.CONTACT_SHADOW_STEPS.comment = 这类小阴影的精度：越高越少漏影或噪点，速度越慢。
 option.CONTACT_SHADOW_MAX_DISTANCE = 接触阴影距离
@@ -379,8 +377,6 @@ option.BOUNDARY_FOG_HEIGHT_FADE.comment = 抬头看天时边缘雾减弱的程�
 #Lighting
 option.OPAQUE_REFLECTION = 实体表面反射
 option.OPAQUE_REFLECTION.comment = 让有光泽的实体方块反射周围真实的场景。关闭后只剩一层基于天空的通用光泽。
-value.OPAQUE_REFLECTION.0 = 关
-value.OPAQUE_REFLECTION.1 = 开
 option.OPAQUE_SSR_STEPS = 实体反射步数
 option.OPAQUE_SSR_STEPS.comment = 实体反射光线上的深度采样次数。默认保持整条射线共 17 次深度采样（12 次步进 + 4 次二分 + 1 次校正），调高主要让反射沿射线延伸更远，而非提高命中精度。
 option.SSR_INTERPOLATION = SSR 命中点细化
@@ -467,8 +463,6 @@ option.STAR_MAP_BRIGHT_BOOST = 亮星增强
 option.STAR_MAP_BRIGHT_BOOST.comment = 按亮度为最亮的星星追加亮度，让突出的星星呈现更真实的星等差。
 option.ATM_HORIZON_DIP = 地平线下沉
 option.ATM_HORIZON_DIP.comment = 通过把大气延伸到地面线以下来加浓地平线附近的雾带，让远处地形更自然地融进浓厚的地平线雾霾。
-value.ATM_HORIZON_DIP.0 = 关
-value.ATM_HORIZON_DIP.1 = 开
 option.ATM_HORIZON_DIP_SCALE = 地平线下沉深度（千米）
 option.ATM_HORIZON_DIP_SCALE.comment = 地平线大气向下延伸的深度，单位千米：越高地平线雾霾越厚。
 

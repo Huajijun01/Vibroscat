@@ -10,7 +10,7 @@ out vec2 v_lmcoord;
 out vec4 v_color;
 flat out int v_material_id;
 out vec3 v_world_normal;
-#ifdef RAIN_WETNESS_ACTIVE
+#if defined(RAIN_WETNESS_ACTIVE)
 out vec3 v_rain_scene_pos;
 #endif
 #ifdef HAS_AT_TANGENT
@@ -27,7 +27,7 @@ in vec4 at_tangent;
 
 void SetupGbufferVertex() {
     vec4 view_pos = gl_ModelViewMatrix * gl_Vertex;
-#ifdef RAIN_WETNESS_ACTIVE
+#if defined(RAIN_WETNESS_ACTIVE)
     v_rain_scene_pos = (gbufferModelViewInverse * view_pos).xyz;
 #endif
     gl_Position = gl_ProjectionMatrix * view_pos;

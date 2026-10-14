@@ -301,8 +301,6 @@ option.SHADOW_SSS_FADE_START = Shadow Fade Start
 option.SHADOW_SSS_FADE_START.comment = Shadows ease out toward the edge of the shadow map's coverage; this sets how close to the edge the fading begins (higher = shadows survive farther out). Plant SSS renders at full strength wherever the map still samples and ends at the border.
 option.CONTACT_SHADOW = Screen-Space Contact Shadows
 option.CONTACT_SHADOW.comment = Short-range screen-space shadows: a screen-projected ray is marched against the depth buffer to fill in the detail the shadow map misses, such as objects right at your feet, and it keeps working beyond the shadow map's range. Overworld and End only.
-value.CONTACT_SHADOW.0 = Off
-value.CONTACT_SHADOW.1 = On
 option.CONTACT_SHADOW_STEPS = Contact Shadow Steps
 option.CONTACT_SHADOW_STEPS.comment = Quality of these small shadows: higher = fewer missed or speckled shadows, slower.
 option.CONTACT_SHADOW_MAX_DISTANCE = Contact Shadow Distance
@@ -379,8 +377,6 @@ option.BOUNDARY_FOG_HEIGHT_FADE.comment = How much the edge haze weakens when lo
 #Lighting
 option.OPAQUE_REFLECTION = Solid Surface Reflections
 option.OPAQUE_REFLECTION.comment = Lets shiny solid blocks reflect the actual scene around them. Off = only a generic sky-based sheen remains.
-value.OPAQUE_REFLECTION.0 = Off
-value.OPAQUE_REFLECTION.1 = On
 option.OPAQUE_SSR_STEPS = Opaque Reflection Steps
 option.OPAQUE_SSR_STEPS.comment = Depth samples along the opaque reflection ray. The default keeps the whole trace at 17 depth samples (12 march steps + 4 bisection + 1 correction); higher counts mostly extend how far reflections reach, not how accurately they hit.
 option.SSR_INTERPOLATION = SSR Hit Refinement
@@ -467,8 +463,6 @@ option.STAR_MAP_BRIGHT_BOOST = Bright Star Boost
 option.STAR_MAP_BRIGHT_BOOST.comment = Extra brightness for the brightest stars, scaled by their luminance, so prominent stars stand out with a realistic magnitude spread.
 option.ATM_HORIZON_DIP = Horizon Dip
 option.ATM_HORIZON_DIP.comment = Thickens the haze band at the horizon by extending the atmosphere below the ground line, so distant terrain melts into a denser, more realistic horizon haze.
-value.ATM_HORIZON_DIP.0 = Off
-value.ATM_HORIZON_DIP.1 = On
 option.ATM_HORIZON_DIP_SCALE = Horizon Dip Depth (km)
 option.ATM_HORIZON_DIP_SCALE.comment = How deep that horizon atmosphere reaches, in kilometres: higher = thicker horizon haze.
 

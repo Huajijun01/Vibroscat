@@ -34,7 +34,7 @@
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/material/model.glsl"
-#ifdef RAIN_WETNESS_ACTIVE
+#if defined(RAIN_WETNESS_ACTIVE)
 #include "/lib/material/rain_wetness.glsl"
 #endif
 
@@ -43,7 +43,7 @@ in vec2 v_lmcoord;
 in vec4 v_color;
 flat in int v_material_id;
 in vec3 v_world_normal;
-#ifdef RAIN_WETNESS_ACTIVE
+#if defined(RAIN_WETNESS_ACTIVE)
 in vec3 v_rain_scene_pos;
 #endif
 
@@ -132,7 +132,7 @@ void main() {
     mat.emission = 1.0;
 #endif
 
-#ifdef RAIN_WETNESS_ACTIVE
+#if defined(RAIN_WETNESS_ACTIVE)
     ApplyRainWetness(v_rain_scene_pos.xz, geo_normal_world.y, v_lmcoord.y,
         mat_id, mat, w_normal, albedo);
 #endif

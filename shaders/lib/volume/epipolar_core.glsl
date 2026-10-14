@@ -15,8 +15,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/color/spaces.glsl"
 
-#ifdef AIR_EPIPOLAR_ACTIVE
-
+#if defined(AIR_EPIPOLAR_ACTIVE)
 #ifdef AIR_EPIPOLAR_POLE_VARYING
 flat in vec2 v_epipolar_pole;
 flat in int v_epipolar_pole_in_screen;

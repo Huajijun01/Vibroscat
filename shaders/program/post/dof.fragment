@@ -21,7 +21,7 @@ vec3 DepthOfField(vec2 uv) {
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
 
     float center_depth = centerDepthSmooth;
-#ifdef TAAU_ACTIVE
+#if defined(TAAU_ACTIVE)
     // Iris samples the display center, outside the cropped scene at low scales.
     center_depth = texelFetch(depthtex0, ivec2(u_render_res * 0.5), 0).r;
 #endif

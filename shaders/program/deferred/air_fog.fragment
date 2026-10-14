@@ -83,7 +83,7 @@ void main() {
     float distance_m = length(scene_pos - EyePositionSceneSpace());
     float length_m = AirFogSegmentLength(distance_m, far);
     vec3 visibility = vec3(1.0);
-#ifdef AIR_EPIPOLAR_ACTIVE
+#if defined(AIR_EPIPOLAR_ACTIVE)
     visibility = EpipolarSampleE(uv * 2.0 - 1.0, LinearDepthFromScreenDepth(scene_depth));
 #endif
     AirFogResult fog = AirFogRender(world_dir, length_m, AirFogProfile(), AirFogReferenceMedium(), visibility);

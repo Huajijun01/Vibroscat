@@ -45,7 +45,7 @@ void main() {
     // second stream by the registry's STBN_STREAM_3.
     vec2 stbn_noise = SampleSTBNPair(
         ivec2(vec2(block_origin) * 0.5), frameCounter, STBN_STREAM_3, ivec2(0));
-#ifdef GTAO
+#if defined(GTAO)
     float ao = ComputeGTAO(uv, vec2(block_origin), stbn_noise);
 #elif defined(SSAO)
     float ao = ComputeSSAO(uv, vec2(block_origin), stbn_noise);

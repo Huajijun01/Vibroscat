@@ -10,7 +10,7 @@ layout(local_size_x = 1, local_size_y = 128) in;
 // Literal dispatch required by Iris; excess slices/samples are guarded.
 const ivec3 workGroups = ivec3(2048, 1, 1);
 
-#ifdef AIR_EPIPOLAR_ACTIVE
+#if defined(AIR_EPIPOLAR_ACTIVE)
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
 
 void main() {

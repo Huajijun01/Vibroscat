@@ -13,7 +13,7 @@ vec3 ResolveSurfaceAO(ivec2 texel, vec3 albedo, float vertex_ao, bool is_hand, o
     screen_ao = clamp(texelFetch(colortex8, texel, 0).r, 0.0, 1.0);
     // The strengths are setting literals: at the default 1.0 the pow is an
     // SFU round trip on the identity, so gate it on the constant instead.
-#ifdef SSAO
+#if defined(SSAO)
     if (SSAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, SSAO_STRENGTH);
 #else
     if (GTAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, GTAO_STRENGTH);

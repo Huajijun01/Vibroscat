@@ -2,7 +2,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
-#ifdef AIR_EPIPOLAR_ACTIVE
+#if defined(AIR_EPIPOLAR_ACTIVE)
 flat out vec2 v_epipolar_pole;
 flat out int v_epipolar_pole_in_screen;
 #endif
@@ -10,7 +10,7 @@ flat out int v_epipolar_pole_in_screen;
 void main() {
     gl_Position = vec4(float(gl_VertexID == 1) * 4.0 - 1.0,
         float(gl_VertexID == 2) * 4.0 - 1.0, 0.0, 1.0);
-#ifdef AIR_EPIPOLAR_ACTIVE
+#if defined(AIR_EPIPOLAR_ACTIVE)
     bool pole_in_screen;
     v_epipolar_pole = EpipolarLightNDC(pole_in_screen);
     if (pole_in_screen) v_epipolar_pole = unpackHalf2x16(packHalf2x16(v_epipolar_pole));

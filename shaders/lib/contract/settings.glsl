@@ -7,11 +7,21 @@
 //
 // Sections follow the render pipeline from the sky down to post processing.
 // The settings screen order is a UI choice and lives in shaders.properties.
+//
+// Option forms:
+// - Toggles are bare defines: `#define NAME` (on) or `//#define NAME` (off).
+// - Sliders and enum selectors carry a bracketed value list:
+//   `#define NAME <default> // [v1 v2 ...] description`.
+// - Internal constants carry no value list and never appear on a screen.
+// Consumer code may test a toggle with any preprocessor form; Iris
+// recognition is anchored by the registration block at the end of this
+// file, not by the call sites. Derived internal state and the registration
+// block close the file.
 
 // ==========================================================================
 // 1. SKY - atmosphere and celestial
 // ==========================================================================
-#define ATM_HORIZON_DIP 1 // [0 1] Horizon below-dip; 0 = off
+#define ATM_HORIZON_DIP // Horizon below-dip; off keeps the ellipsoid ground line.
 #define ATM_HORIZON_DIP_SCALE 8.0 // [0.0 2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] below-surface dip depth (km)
 
 // Night star map gain: linear multiplier applied after the LogLuv32
@@ -107,15 +117,6 @@ const float EYE_BRIGHTNESS_SCALE = 240.0;
 #define AIR_EPIPOLAR_SHADOW_STEPS 12 // [8 12 16 24 32 48 64]
 #define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08]
 #define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
-#ifdef WORLD_OVERWORLD
-#ifdef AIR_FOG
-#ifdef AIR_FOG_SHADOWS
-#ifdef EPIPOLAR_VOLUMETRICS
-#define AIR_EPIPOLAR_ACTIVE
-#endif
-#endif
-#endif
-#endif
 
 // Fade near-boundary geometry into the cloud-free sky in composite2.
 // Overworld only; independent of the always-on analytic water fog.
@@ -178,7 +179,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 // upper bound (min) on the shadow-map result, so it fills PCF contact seams
 // and keeps directional occlusion past the shadow map boundary. Overworld and
 // End only (the Nether has no directional light).
-#define CONTACT_SHADOW 1 // [0 1] Screen-space contact shadows; 0 = off.
+#define CONTACT_SHADOW // Screen-space contact shadows alongside the shadow map.
 #define CONTACT_SHADOW_STEPS 12 // [4 6 8 12 16 24] depth samples per receiver pixel.
 #define CONTACT_SHADOW_MAX_DISTANCE 24.0 // [4.0 6.0 8.0 10.0 12.0 16.0 24.0] world-space march reach cap (m); the reach scales with view distance.
 #define CONTACT_SHADOW_THICKNESS 0.02 // [0.02 0.05 0.1 0.25 0.5 1.0] near-field occluder thickness slab (m); it also widens with view distance.
@@ -214,12 +215,6 @@ const float ambientOcclusionLevel = 1.0;
 // hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
 // generator, deferred1 full-res temporal accumulation and deferred2 apply.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
-#if AO_MODE == 1 && GI_MODE != 1
-#define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
-#endif
-#if AO_MODE == 2 && GI_MODE != 1
-#define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
-#endif
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
 #define GTAO_RADIUS 3.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
@@ -234,9 +229,6 @@ const float ambientOcclusionLevel = 1.0;
 // merged colortex8 buffer with reprojection, soft depth rejection and a
 // capped running average (the cloud scheme, CloudAccumulate).
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
-#ifdef AO_TEMPORAL
-#define AO_TEMPORAL_ENABLED
-#endif
 // AO generation is plain half resolution: every half-res texel is evaluated
 // every frame at its full-res block origin and upsampled bilinearly - one
 // sample per pixel per frame at full convergence speed.
@@ -287,21 +279,12 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define RAIN_PUDDLE_SCALE_M 64 // [16 32 64 128 256] world-space wrap of the puddle pattern (m)
 #define RAIN_RIPPLE_STRENGTH 4.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0 3.5 4.0] slope strength on wet ground and water
 
-#ifdef RAIN_WETNESS
-#if defined(WORLD_OVERWORLD) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT) || defined(PROGRAM_GBUFFERS_BLOCK))
-#define RAIN_WETNESS_ACTIVE
-#endif
-#endif
-
 // Opaque recursive screen-space indirect specular. This budget is separate
 // from the forward water/glass SSR path below.
-#define OPAQUE_REFLECTION 1 // [0 1] opaque screen-space reflection toggle; 0 = sky SH only
+#define OPAQUE_REFLECTION // opaque screen-space reflection toggle; off = sky SH only
 #define OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD 0.5 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] roughness at which opaque reflections become SH-only and dielectric reflection fades out
 #define OPAQUE_REFLECTION_ROUGHNESS_TRANSITION 0.1 // [0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.4 0.5] roughness span used to blend SSR into SH
 #define OPAQUE_SSR_DEBUG 0 // hidden debug: opaque SSR stage select; no UI surface
-#if OPAQUE_REFLECTION
-#define OPAQUE_SSR
-#endif
 
 // Opaque SSR march budget: samples along the full reflection path
 // (McGuire & Mara 2014). The default keeps the whole trace at 17 depth
@@ -318,11 +301,6 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define WATER_SSR
 
 #define SSR_QUARTER_DEPTH // trace both SSR paths with width/4, height/4 R16F depth
-#ifdef SSR_QUARTER_DEPTH
-#if defined(WATER_SSR) || defined(OPAQUE_SSR)
-#define SSR_QUARTER_DEPTH_ACTIVE
-#endif
-#endif
 
 // Shared SSR first-crossing refinement: bisect inside the accepted march
 // bracket to localize the depth flip (planar faces and silhouette steps
@@ -420,12 +398,6 @@ const float centerDepthHalflife = 1.0;
 #define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
 #define TAA_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
 
-#ifdef TAAU
-#ifdef TAA
-#define TAAU_ACTIVE
-#endif
-#endif
-
 // ==========================================================================
 // 10. UI-ONLY - display-only pseudo options, never read by shader code
 // ==========================================================================
@@ -438,5 +410,145 @@ const float centerDepthHalflife = 1.0;
 #define INFO_LICENSE 0 //[0]
 #define INFO_PROFILE 0 //[0]
 #define INFO_TOOLTIPS 0 //[0]
+
+// ==========================================================================
+// 11. DERIVED STATE - internal pass toggles computed from the options above
+// ==========================================================================
+
+// These macros never appear on a screen. They are computed in one place so
+// every consumer can test them with `#if defined(...)`. None of them may be
+// referenced by a plain `#ifdef NAME` outside the registration block below,
+// or Iris would register it as a hidden user option (default on).
+
+#if defined(TAAU) && defined(TAA)
+#define TAAU_ACTIVE
+#endif
+
+// Rain wetness tracking runs only in the Overworld opaque terrain and block
+// programs that carry the wet material payload.
+#if defined(RAIN_WETNESS) && defined(WORLD_OVERWORLD) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT) || defined(PROGRAM_GBUFFERS_BLOCK))
+#define RAIN_WETNESS_ACTIVE
+#endif
+
+// Opaque SSR compiles the full recursive trace; off leaves the sky-SH
+// environment reflection only.
+#if defined(OPAQUE_REFLECTION)
+#define OPAQUE_SSR
+#endif
+
+// Quarter-depth SSR workspace exists only while at least one SSR path runs.
+#if defined(SSR_QUARTER_DEPTH) && (defined(WATER_SSR) || defined(OPAQUE_SSR))
+#define SSR_QUARTER_DEPTH_ACTIVE
+#endif
+
+// Epipolar air-fog shadowing is Overworld-only; the Nether has no directional
+// light and the End skips the air-fog shadow pass.
+#if defined(WORLD_OVERWORLD) && defined(AIR_FOG) && defined(AIR_FOG_SHADOWS) && defined(EPIPOLAR_VOLUMETRICS)
+#define AIR_EPIPOLAR_ACTIVE
+#endif
+
+// AO algorithm selection mirrors AO_MODE while a GI source owns the ambient.
+// The guards stay numeric because AO_MODE and GI_MODE are enum options.
+#if AO_MODE == 1 && GI_MODE != 1
+#define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
+#endif
+#if AO_MODE == 2 && GI_MODE != 1
+#define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
+#endif
+
+#if defined(AO_TEMPORAL)
+#define AO_TEMPORAL_ENABLED
+#endif
+
+// ==========================================================================
+// 12. IRIS OPTION REGISTRATION - canonical recognition references
+// ==========================================================================
+
+// A bare boolean define becomes a user option only when its name appears in
+// a plain `#ifdef NAME` / `#ifndef NAME` line - name only, no trailing
+// comment - somewhere in the include component. `#if defined(NAME)` and
+// friends are not counted, and an unconfirmed candidate is silently dropped
+// from the settings screen. Keep the canonical reference for every user
+// toggle here so recognition never depends on how consumer code happens to
+// test the macro. GTAO and SSAO are registered too: shaders.properties
+// evaluates them by name in `program.*.enabled` expressions, which resolve
+// registered option values.
+
+// Post
+#ifdef TAA
+#endif
+#ifdef TAAU
+#endif
+#ifdef DOF
+#endif
+#ifdef MOTION_BLUR
+#endif
+#ifdef BLOOM
+#endif
+#ifdef COLOR_DITHER
+#endif
+#ifdef AE
+#endif
+#ifdef CAS
+#endif
+#ifdef PURKINJE_EFFECT
+#endif
+// Sky
+#ifdef ATM_HORIZON_DIP
+#endif
+// Clouds
+#ifdef VOLUMETRIC_CLOUDS
+#endif
+#ifdef CIRRUS
+#endif
+#ifdef CLOUD_SINGLE_LIGHT
+#endif
+#ifdef CLOUD_HISTORY_GUIDED_MARCH_END
+#endif
+// Fog
+#ifdef AIR_FOG
+#endif
+#ifdef AIR_FOG_SHADOWS
+#endif
+#ifdef EPIPOLAR_VOLUMETRICS
+#endif
+#ifdef BOUNDARY_FOG
+#endif
+// Shadows
+#ifdef SHADOW_PCSS
+#endif
+#ifdef SHADOW_SSS
+#endif
+#ifdef CONTACT_SHADOW
+#endif
+// Ambient occlusion
+#ifdef AO_TEMPORAL
+#endif
+#ifdef GTAO_MULTIBOUNCE
+#endif
+#ifdef GTAO
+#endif
+#ifdef SSAO
+#endif
+// Global illumination
+#ifdef RSM_SKY_OCCLUSION
+#endif
+// Water
+#ifdef OPAQUE_REFLECTION
+#endif
+#ifdef WATER_SSR
+#endif
+#ifdef SSR_QUARTER_DEPTH
+#endif
+#ifdef SSR_INTERPOLATION
+#endif
+#ifdef WATER_POM
+#endif
+#ifdef RAIN_WETNESS
+#endif
+#ifdef RAIN_PUDDLES
+#endif
+#ifdef RAIN_RIPPLES
+#endif
 
 #endif // LIB_CONTRACT_SETTINGS_GLSL

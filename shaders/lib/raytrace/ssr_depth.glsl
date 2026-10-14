@@ -24,7 +24,7 @@ float EncodeSSRDepth(float screen_depth) {
 }
 
 float ReadSSRDepthSample(vec2 uv) {
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float encoded_depth = texture(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25)).r;
     float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
     // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX): the constant leaves the
@@ -36,7 +36,7 @@ float ReadSSRDepthSample(vec2 uv) {
 }
 
 bool SSRDepthSampleIsSky(float depth_sample) {
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
     // Same positive-domain product form as SSRDepthSampleBeforeRay below.
     return depth_sample * inverse_clip_depth >= 1.0;
@@ -46,7 +46,7 @@ bool SSRDepthSampleIsSky(float depth_sample) {
 }
 
 float SSRRayDepthFromScreen(float screen_depth) {
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
     // Reciprocal view depth stays affine even when the jittered final step
     // extends beyond the far plane; linear depth would cross its pole.
     return (screen_depth * 2.0 - 1.0) * gbufferProjectionInverse[2][3]
@@ -57,7 +57,7 @@ float SSRRayDepthFromScreen(float screen_depth) {
 }
 
 bool SSRDepthSampleBeforeRay(float surface_depth, float ray_depth) {
-#ifdef SSR_QUARTER_DEPTH_ACTIVE
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
     // Encoded depths carry a strictly positive floor, so 1/d > r and
     // r*d < 1 select identically in real numbers; the product form trades
     // the per-step divide for a multiply (boundaries may flip within 1 ulp).

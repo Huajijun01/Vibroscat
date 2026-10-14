@@ -322,7 +322,7 @@ measurements. Occlusion integration, multiple scattering and full spectral
 transport are not implemented; this does not claim to reproduce every aspect
 of the measured water color.
 
-## 21. TAAU (extension of the existing TAA)
+## 21. TAA and temporal upscaling
 
 TAAU extends `shaders/program/post/taa.fragment` and reuses its closest-depth
 sampling, reprojection, neighborhood AABB clipping, blend weighting, and HDR
@@ -340,6 +340,16 @@ Temporal reconstruction references Yang, Liu, and Salvi,
 "A Survey of Temporal Antialiasing Techniques" (2020). The extension retains
 the pack's existing RGB bounds and HDRCompress/HDRDecompress round-trip.
 Final sharpening reuses the pack's existing AMD FidelityFX CAS (section 4).
+
+The unified history path introduced in 2026-10 shares settings across native
+and reduced scene resolutions. RGB neighborhood confidence, symmetric color
+scales, and a smooth motion ceiling are independently designed for this pack.
+Concept study compared the general history-limiting ideas in Playdead's public
+TemporalReprojection (MIT, https://github.com/playdeadgames/temporal ) and Unity
+HDRP TemporalAntialiasing (https://github.com/Unity-Technologies/Graphics ).
+No source was copied or closely translated. Variance clipping from Salvi's
+*An Excursion in Temporal Supersampling* (GDC 2016) was an experimental
+comparison only and is not part of the shipped implementation.
 
 ## 22. ACES 2.0 Output Transform (Apache-2.0 / BSD-3-Clause)
 

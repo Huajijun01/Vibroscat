@@ -277,7 +277,7 @@ Beer–Lambert 衰减，漫射天空光以吸收衰减近似角度再分配；�
 该深度和均匀光源不是逐像素水柱测量，未实现遮挡积分、多重散射或完整
 光谱输运；不宣称重现全部实测水色。
 
-## 21. TAAU（现有 TAA 的扩展）
+## 21. TAA 与时域超分辨率
 
 TAAU 扩展 `shaders/program/post/taa.fragment`，复用其中的最近深度采样、
 重投影、邻域 AABB 裁剪、混合权重与 HDR 压缩。三次重建复用现有
@@ -292,6 +292,13 @@ Revelation 采用 Apache-2.0；本次仅研究数据流与通用算法，没有�
 时域重建参考 Yang、Liu、Salvi 的 "A Survey of Temporal Antialiasing
 Techniques"（2020）。扩展沿用本包现有的 RGB 边界与 HDRCompress/HDRDecompress。
 最终锐化复用本包现有 AMD FidelityFX CAS（第 4 节）。
+
+2026-10 的统一历史路径共用原生与低分辨率设置；RGB 邻域越界可信度、
+双侧颜色尺度及平滑运动上限为本包独立设计。对照研究了 Playdead 的公开
+TemporalReprojection（MIT，https://github.com/playdeadgames/temporal ）和 Unity
+HDRP TemporalAntialiasing（https://github.com/Unity-Technologies/Graphics ）的通用
+历史限制思路，未复制或近似翻译其源码。Salvi 的 *An Excursion in Temporal
+Supersampling*（GDC 2016）方差裁剪仅作为实验对照，未并入发布实现。
 
 ## 22. ACES 2.0 Output Transform（Apache-2.0 / BSD-3-Clause）
 

@@ -41,8 +41,9 @@ Vibroscat profile.
   its own temporal denoising and guided upsampling, including with TAA disabled
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
   sharpening, and filmic color
-- Optional temporal upscaling (TAAU), with 50-85% render scale and adjustable
+- Optional temporal upscaling (TAAU), with 50-85% render scale and the same
   reconstruction, history, motion response, color clipping, and sharpening
+  controls as native TAA
 
 ## GPU support
 

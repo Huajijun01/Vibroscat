@@ -12,13 +12,12 @@
 #define TAA
 //#define TAAU
 #define TAAU_RENDER_SCALE 0.75 // [0.50 0.59 0.67 0.75 0.85]
-#define TAAU_RECONSTRUCTION 1 // [0 1] 0=Bilinear 1=Cubic
-#define TAAU_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
-#define TAAU_CLIP_GAMMA 1.00 // [0.75 1.00 1.25 1.50 1.75 2.00]
-#define TAAU_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
-#define TAAU_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
-#define TAAU_SHARPNESS 0.25 // [0.00 0.10 0.20 0.25 0.30 0.40 0.50 0.60 0.70 0.80 0.90 1.00]
-#define TAAU_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
+#define TAA_RECONSTRUCTION 0 // [0 1] 0=Bilinear 1=Cubic
+#define TAA_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
+#define TAA_CLIP_GAMMA 1.25 // [0.75 1.00 1.25 1.50 1.75 2.00]
+#define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
+#define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
+#define TAA_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
 
 #ifdef TAAU
 #ifdef TAA

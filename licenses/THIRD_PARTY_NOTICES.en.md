@@ -549,6 +549,26 @@ Restored epipolar geometry retains the provenance and license in section 5. Heig
 
 The pack independently derives exponential-height clear density and a separate uniform, neutral rain Mie increment. Optical depth and dry-air scattering are closed form; mixed rain/clear source integration is independently derived and numerically evaluated. Rain increases neither Rayleigh scattering nor ozone/aerosol absorption. The pack retains its own four-band medium and phase functions, the dimensionless shadowed/unshadowed scattering ratio E, and uniform stratified shadow marching. Density defaults, reference height and scale height are independently authored.
 
+## 27. Plant wind (concept study and independently generated asset)
+
+Read-only study of Photon v1.3b `shaders/include/vertex/displacement.glsl`
+and `shaders/block.properties` (custom license explicitly permitting examination
+and learning; https://github.com/sixthsurge/photon), and MakeUp UltraFast 9.5c
+`shaders/src/position_vertex.glsl`, `shaders/lib/vector_utils.glsl`,
+`shaders/lib/config.glsl`, and `shaders/block.properties` (LGPL-3.0;
+https://github.com/javiergcim/MakeUpUltraFast). The study informed attachment
+points, double-plant state classes, full leaf cubes and stationary cane.
+No source, close translation, distinctive formula, constant or texture was copied.
+
+`lib/geometry/plant_wind.glsl` and `textures/plant_wind_rgba16f_64.dat` are
+independently implemented/generated: divergence-free Fourier turbulence with
+a von Karman-like spectrum, Taylor frozen advection, quadratic aerodynamic
+drag, frequency-domain forced damped oscillators, and an Euler-Bernoulli
+cantilever bending shape. These are classical physical/mathematical models;
+no third-party solver was ported. Effective frequencies, damping, scales and
+seed are independently authored; no obstacle-aware CFD or measured species
+response is claimed.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

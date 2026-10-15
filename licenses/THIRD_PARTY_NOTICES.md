@@ -450,6 +450,24 @@ Tonescale 可单独覆盖曲线。原始数值全部固定，包含 Contrast Low
 
 本包独立推导晴天指数高度密度和单独的中性雨天米氏常值增益。光学厚度与晴天散射保持闭式解，混合雨雾的独立源项积分经推导后数值求值；雨天不增益瑞利散射、臭氧或有色气溶胶吸收。沿用本包四波段介质及相函数，E 为无量纲的有阴影／无阴影散射比值，采用均匀分层阴影步进。默认密度、参考高度与标高为本包独立调节值。
 
+## 27. 植物风场（概念研究与独立生成资产）
+
+只读研究 Photon v1.3b 的 `shaders/include/vertex/displacement.glsl` 与
+`shaders/block.properties`（自定义许可证，明确允许检视和学习；
+https://github.com/sixthsurge/photon），以及 MakeUp UltraFast 9.5c 的
+`shaders/src/position_vertex.glsl`、`shaders/lib/vector_utils.glsl`、
+`shaders/lib/config.glsl` 与 `shaders/block.properties`（LGPL-3.0；
+https://github.com/javiergcim/MakeUpUltraFast）。借鉴植物附着点、双层植物
+状态分类、完整树叶方块以及静止甘蔗的处理原则；没有复制或近似翻译源码、
+特征公式、常数或贴图。
+
+`lib/geometry/plant_wind.glsl` 和 `textures/plant_wind_rgba16f_64.dat`
+为独立实现及自生成资产：傅里叶无散度湍流与 von Karman 型能谱、Taylor
+冻结湍流平流、二次气动阻力、阻尼振子的频域强迫响应，以及 Euler-Bernoulli
+悬臂梁的静态弯曲形状。上述为经典数学和物理模型；未移植第三方求解器。
+本包的有效频率、阻尼、尺度和随机种子均独立选定，不宣称模拟障碍物绕流
+或实测植物物种。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

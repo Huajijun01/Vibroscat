@@ -68,12 +68,14 @@ uniform sampler2D colortex13;     // quarter-size RG8 scalar fog history (automa
 
 // -- Shadow bindings and transforms --
 uniform mat4 shadowModelView;
+uniform mat4 shadowModelViewInverse;
 uniform mat4 shadowProjection;
 uniform sampler2D shadowtex0;       // raw depth (texelFetch / B-spline)
 uniform sampler2DShadow shadowtex1; // hardware PCF comparison
 uniform sampler2D shadowcolor0;    // RSM: RGB565 diffuse reflectance + oct8 shadow-view normal
 
 // -- Custom textures (customTexture bindings, shaders.properties) --
+uniform sampler2D utex_plant_wind;            // 64x64 RGBA16F: grass/canopy XZ drag response
 uniform sampler2D utex_starmap;               // NASA star map (LogLuv32 RGBA8)
 uniform sampler2D utex_starmap_lowres;        // box-filtered Milky Way glow map (LogLuv32 RGBA8)
 uniform sampler2D utex_tslut;                 // atmosphere transmittance LUT

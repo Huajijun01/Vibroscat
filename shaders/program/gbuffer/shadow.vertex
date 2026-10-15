@@ -1,5 +1,7 @@
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/geometry/plant_wind.glsl"
 
 // ============================================================================
 // Shadow pass - vertex shader
@@ -18,6 +20,9 @@ out vec3 v_normal_shadow;
 
 // -- Inputs --
 in vec4 mc_Entity;
+#if defined(PLANT_WIND_SHADOW_ACTIVE)
+in vec4 at_midBlock;
+#endif
 
 void main() {
     v_texcoord = gl_MultiTexCoord0.xy;
@@ -28,6 +33,14 @@ void main() {
 
     // world -> shadowView -> shadowClip (orthographic, diagonal-only matrix multiply)
     vec3 shadow_view_pos = mat3(gl_ModelViewMatrix) * vec3(gl_Vertex) + gl_ModelViewMatrix[3].xyz;
+#if defined(PLANT_WIND_SHADOW_ACTIVE)
+    int plant_id = int(mc_Entity.x + 0.5);
+    if (plant_id >= 256 && plant_id < 1280) {
+        vec3 scene_pos = (shadowModelViewInverse * vec4(shadow_view_pos, 1.0)).xyz;
+        vec3 offset_world = PlantWindOffset(scene_pos, at_midBlock.xyz / 64.0, plant_id);
+        shadow_view_pos += mat3(shadowModelView) * offset_world;
+    }
+#endif
 
     gl_Position.x = gl_ProjectionMatrix[0].x * shadow_view_pos.x + gl_ProjectionMatrix[3].x;
     gl_Position.y = gl_ProjectionMatrix[1].y * shadow_view_pos.y + gl_ProjectionMatrix[3].y;

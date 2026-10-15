@@ -414,6 +414,14 @@ const float centerDepthHalflife = 1.0;
 #define INFO_TOOLTIPS 0 //[0]
 
 // ==========================================================================
+// Plant wind - precomputed turbulent drag and damped elastic response.
+// ============================================================================
+#define PLANT_WIND
+#define PLANT_WIND_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Wind load multiplier.
+#define PLANT_WIND_GRASS 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Rooted-plant compliance.
+#define PLANT_WIND_LEAVES 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Canopy compliance.
+
+// ==========================================================================
 // 11. DERIVED STATE - internal pass toggles computed from the options above
 // ==========================================================================
 
@@ -421,6 +429,13 @@ const float centerDepthHalflife = 1.0;
 // every consumer can test them with `#if defined(...)`. None of them may be
 // referenced by a plain `#ifdef NAME` outside the registration block below,
 // or Iris would register it as a hidden user option (default on).
+
+#if defined(PLANT_WIND) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT))
+#define PLANT_WIND_TERRAIN_ACTIVE
+#endif
+#if defined(PLANT_WIND) && !defined(PROGRAM_SHADOW_ENTITIES) && !defined(PROGRAM_SHADOW_BLOCK) && !defined(PROGRAM_SHADOW_WATER)
+#define PLANT_WIND_SHADOW_ACTIVE
+#endif
 
 #if defined(TAAU) && defined(TAA)
 #define TAAU_ACTIVE
@@ -496,6 +511,8 @@ const float centerDepthHalflife = 1.0;
 #ifdef PURKINJE_EFFECT
 #endif
 // Sky
+#ifdef PLANT_WIND
+#endif
 #ifdef ATM_HORIZON_DIP
 #endif
 // Clouds

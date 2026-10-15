@@ -37,6 +37,9 @@ Vibroscat profile.
   adjustable raindrop ripples on ground and water, and drying after rain
 - Soft sun shadows, contact detail, ambient shading, and light passing through
   foliage
+- Wind-driven grass, flowers, crops, saplings and leaf blocks with matching
+  shadows; adjustable under Environment / Plants. Connected cane/bamboo and
+  attached or aquatic foliage remain still.
 - Selectable SSGI or reflective shadow map GI, rendered at half resolution with
   its own temporal denoising and guided upsampling, including with TAA disabled
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,

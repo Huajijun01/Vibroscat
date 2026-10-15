@@ -118,6 +118,12 @@ const float EYE_BRIGHTNESS_SCALE = 240.0;
 #define EPIPOLAR_DEPTH_TOLERANCE 0.03 // [0.01 0.02 0.03 0.04 0.06 0.08]
 #define EPIPOLAR_EDGE_EXTEND 16 // [0 4 8 16 32 64]
 
+#define WATER_GODRAYS
+#define WATER_GODRAYS_STRENGTH 3.0 // [0.0 0.5 1.0 1.5 2.0 3.0 4.0 6.0 8.0]
+#define WATER_GODRAYS_STEPS 32 // [8 12 16 24 32]
+#define WATER_GODRAYS_DISTANCE_M 12.0 // [2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0]
+#define WATER_GODRAYS_DEBUG 0 // [0 1]
+
 // Fade near-boundary geometry into the cloud-free sky in composite2.
 // Overworld only; independent of the always-on analytic water fog.
 #define BOUNDARY_FOG
@@ -464,6 +470,13 @@ const float centerDepthHalflife = 1.0;
 #define AIR_EPIPOLAR_ACTIVE
 #endif
 
+#if defined(WORLD_OVERWORLD) && defined(WATER_GODRAYS) && defined(EPIPOLAR_VOLUMETRICS)
+#define WATER_EPIPOLAR_ACTIVE
+#endif
+#if defined(AIR_EPIPOLAR_ACTIVE) || defined(WATER_EPIPOLAR_ACTIVE)
+#define EPIPOLAR_ACTIVE
+#endif
+
 // Standalone AO exists only without GI. RSM selects its local kernel directly
 // by AO_MODE; SSGI owns visibility through its trace.
 // The guards stay numeric because AO_MODE and GI_MODE are enum options.
@@ -526,6 +539,8 @@ const float centerDepthHalflife = 1.0;
 #endif
 // Fog
 #ifdef AIR_FOG
+#endif
+#ifdef WATER_GODRAYS
 #endif
 #ifdef AIR_FOG_SHADOWS
 #endif

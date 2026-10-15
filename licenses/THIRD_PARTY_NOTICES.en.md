@@ -569,6 +569,23 @@ no third-party solver was ported. Effective frequencies, damping, scales and
 seed are independently authored; no obstacle-aware CFD or measured species
 response is claimed.
 
+## 28. Underwater epipolar shafts (concept study and generated asset)
+
+The Intel/Yusov epipolar parameterization in section 5 is retained. Read-only
+architecture study compared Alpha Piscium v1.9.1's `shaders/composite18.csh`
+(GPL-3.0; https://github.com/Luna5ama/Alpha-Piscium) with Photon v1.3b's
+`shaders/include/fog/overworld/raymarched.glsl` and `shaders/program/c0_vl.fsh`
+(custom license allowing examination and learning; https://github.com/sixthsurge/photon).
+No source, constants or textures from either pack were copied or closely translated.
+
+`lib/volume/water_epipolar.glsl` is an independent implementation. The low-frequency
+source `textures/godray_caustics_r16f_64x64x64.dat` is independently generated using
+the same Phillips spectrum, seed, phases, analytic normals and Snell photon tracer
+as this pack's existing caustics, at the 9 m focal layer with periodic spatial and
+temporal low-pass filtering. It is not a third-party texture. Runtime projection
+and integration follow the unrefracted world sun direction and add artistic
+radiance to the scene; this does not claim full underwater volume transport.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

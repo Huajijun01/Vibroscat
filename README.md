@@ -33,6 +33,9 @@ Vibroscat profile.
   denser twilight/night haze, and additional rain density
 - Clear water with waves, reflections, refraction, always-on analytic
   underwater fog, and moving caustics
+- Additive underwater sun shafts driven by a filtered bake of the same caustics,
+  with jittered epipolar sampling; adjustable under Environment / Water,
+  including a maximum march distance of 12 m by default
 - Reflective rain wetness on exposed ground, with optional puddle patterns,
   adjustable raindrop ripples on ground and water, and drying after rain
 - Soft sun shadows, contact detail, ambient shading, and light passing through

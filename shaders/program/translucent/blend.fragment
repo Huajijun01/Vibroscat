@@ -10,6 +10,7 @@
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/material/translucent_surface.glsl"
+#include "/lib/water/caustic_coordinates.glsl"
 #include "/lib/water/fog.glsl"
 
 const float COLOR_JITTER_SEED = 83.0;
@@ -22,15 +23,9 @@ layout(location = 0) out vec3 main_color;
 // cycles per 4 s. Runtime crest phases and position warp are not reproduced.
 // 3928 modes, 4096^2 source, 16384 photons/output pixel; analytic normals.
 // Matrix, carrier and filtered-light reference are generated with the asset.
-const mat2 CAUSTIC_WORLD_TO_UV = mat2(0.125, 0.0, 0.0, 0.125);
-const vec2 CAUSTIC_ADVECTION_MPS = vec2(0.86140636021, 0.23905094417);
-#define CAUSTIC_TIME_SPEED 0.25
 #define CAUSTIC_REFERENCE vec4(0.23626452, 0.05691363, 0.05043673, 0.08803585) // filtered mean light
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
-// Fixed bake reference plane; underwater eyeBrightnessSmooth cannot
-// reconstruct the surface precisely enough for sampling.
-#define CAUSTIC_PLANE_Y 64.0
 // Baked volume edge in all three axes (customTexture.utex_caustics).
 #define CAUSTICS_BAKE_SIZE 256
 

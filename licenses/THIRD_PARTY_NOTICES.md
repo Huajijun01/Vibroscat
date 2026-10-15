@@ -468,6 +468,21 @@ https://github.com/javiergcim/MakeUpUltraFast）。借鉴植物附着点、双�
 本包的有效频率、阻尼、尺度和随机种子均独立选定，不宣称模拟障碍物绕流
 或实测植物物种。
 
+## 28. 水下极线光柱（概念研究与独立生成资产）
+
+沿用第 5 节的 Intel/Yusov 极线参数化。架构只读比较 Alpha Piscium v1.9.1
+的 `shaders/composite18.csh`（GPL-3.0；
+https://github.com/Luna5ama/Alpha-Piscium）与 Photon v1.3b 的
+`shaders/include/fog/overworld/raymarched.glsl` 和 `shaders/program/c0_vl.fsh`
+（自定义许可证，允许检视与学习；https://github.com/sixthsurge/photon）。
+没有复制或近似翻译上述光影包的源码、常数或纹理。
+
+`lib/volume/water_epipolar.glsl` 为独立实现。低频源纹理
+`textures/godray_caustics_r16f_64x64x64.dat` 使用本包现有焦散的相同 Phillips
+频谱、种子、相位、解析法线与 Snell 光子追踪路径独立生成，输出 9 米焦深层，
+再作周期空间与时间低通；它不是第三方贴图。运行时沿未折射的世界太阳方向
+投影并积分，以艺术化亮度直接加到画面，不宣称完整模拟水下体积光输运。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

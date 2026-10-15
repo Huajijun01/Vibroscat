@@ -90,9 +90,9 @@ uniform sampler3D utex_godray_caustics;       // low-res linear caustic irradian
 uniform sampler3D utex_rain_ripples;          // periodic linear XZ slopes (RG8, 256x256x64)
 
 // -- Custom images (image bindings; sampler side only) --
-#if defined(AIR_EPIPOLAR_ACTIVE)
+#if defined(EPIPOLAR_ACTIVE)
 uniform sampler2D usam_epipolar_endpoints; // slice endpoints, composite1 compute -> composite2
-uniform sampler2D usam_epipolar_term; // RGBA16F: normalized visibility E in RGB, linear viewZ in A
+uniform sampler2D usam_epipolar_term; // RGBA16F: air E or underwater additive radiance in RGB, viewZ in A
 #endif
 uniform sampler2D usam_skylut;        // sky view LUT (128x128 RGBA16F)
 uniform sampler2D usam_sky_radiance;  // cloud skybox LUT (256x256 RGBA16F)

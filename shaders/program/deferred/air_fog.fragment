@@ -1,7 +1,7 @@
 
 /* RENDERTARGETS: 0 */
 
-#define AIR_EPIPOLAR_POLE_VARYING
+#define EPIPOLAR_POLE_VARYING
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
@@ -63,6 +63,15 @@ void main() {
     vec3 scene = texelFetch(colortex0, tx, 0).rgb;
 
     if (isEyeInWater == 1) {
+#if defined(WATER_EPIPOLAR_ACTIVE)
+        float water_depth = texelFetch(depthtex0, tx, 0).r;
+        vec3 shafts = EpipolarSample(uv * 2.0 - 1.0,
+            LinearDepthFromScreenDepth(water_depth), vec3(0.0));
+#if WATER_GODRAYS_DEBUG == 1
+        scene = vec3(0.0);
+#endif
+        scene += shafts;
+#endif
         out_color = scene;
         return;
     }
@@ -84,7 +93,7 @@ void main() {
     float length_m = AirFogSegmentLength(distance_m, far);
     vec3 visibility = vec3(1.0);
 #if defined(AIR_EPIPOLAR_ACTIVE)
-    visibility = EpipolarSampleE(uv * 2.0 - 1.0, LinearDepthFromScreenDepth(scene_depth));
+    visibility = EpipolarSample(uv * 2.0 - 1.0, LinearDepthFromScreenDepth(scene_depth), vec3(1.0));
 #endif
     AirFogResult fog = AirFogRender(world_dir, length_m, AirFogProfile(), AirFogReferenceMedium(), visibility);
     // Eye skylight suppresses the outdoor medium inside caves/interiors.

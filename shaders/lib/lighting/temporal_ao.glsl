@@ -5,15 +5,16 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/lighting/ao_history.glsl"
 #include "/lib/raytrace/ssr_depth.glsl"
 
 // ============================================================================
-// AO temporal accumulation helpers (used by deferred1).
+// AO temporal accumulation and missing-surface history helpers.
 // ============================================================================
-// History in the merged colortex8 (R = AO, G = age, B = encoded view depth
+// History in the merged colortex8 (R = EncodeAOHistory(AO), G = age, B = view depth
 // via the EncodeSSRDepth squared curve, A = NaN "not cloud"); this module
-// provides per-pixel math only. Generation
-// is half-res, bilinear upsample, one sample/pixel/frame (full convergence).
+// provides per-pixel math only. Half-res generation accumulates before the
+// depth/normal-guided full-res reconstruction on the current sample lattice.
 // Rejection trusts the history only within the distance limit and the normal
 // dot floor (AOHistoryWeight); both ramp smoothly to zero.
 
@@ -44,14 +45,6 @@ float AOHistoryViewDepth(float encoded) {
     return sqrt(max(encoded, 0.0)) * (SSR_DEPTH_HALF_RCP_SQRT / inverse_clip_depth);
 }
 
-// Linear view depth to previous-frame screen depth: inverts the depth row of
-// PreviousScreenToView (view_depth = P[3].z / (ndc_z + P[2].z)).
-float ViewDepthToPreviousScreenDepth(float view_depth) {
-    float ndc_z = gbufferPreviousProjection[3].z / max(view_depth, 1.0e-6)
-        - gbufferPreviousProjection[2].z;
-    return clamp(ndc_z * 0.5 + 0.5, 0.0, 1.0);
-}
-
 // History trust in [0, 1], product of two checks:
 //  - distance: static geometry = zero displacement (full trust); beyond
 //    AO_HISTORY_DISTANCE_LIMIT -> smooth 0.
@@ -69,8 +62,11 @@ float AOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_u
 #ifdef TAA
     projection_uv -= u_taa_offset_previous * 0.5;
 #endif
-    vec3 previous_view = PreviousScreenToView(vec3(projection_uv,
-        ViewDepthToPreviousScreenDepth(AOHistoryViewDepth(history.b))));
+    // Use the stored linear depth directly: depth -> screen -> view would
+    // introduce two reciprocal operations that cancel algebraically.
+    vec2 previous_ray = (projection_uv * 2.0 - 1.0 + gbufferPreviousProjection[2].xy)
+        / vec2(gbufferPreviousProjection[0].x, gbufferPreviousProjection[1].y);
+    vec3 previous_view = vec3(previous_ray, -1.0) * AOHistoryViewDepth(history.b);
     float displacement = length(previous_view - receiver_prev_view);
     float distance_weight = 1.0 - smoothstep(0.0, AO_HISTORY_DISTANCE_LIMIT, displacement);
 
@@ -90,6 +86,47 @@ float AOHistoryWeight(vec3 receiver_prev_view, vec3 normal_world, vec2 history_u
     return distance_weight * normal_weight;
 }
 
+// R=AO, G=age, B=total trust. Validate individual history texels before
+// interpolation: a blended depth or normal cannot identify a foreign tap.
+vec3 SampleAOHistory(vec3 receiver_prev_view, vec3 normal_world, vec2 history_uv) {
+    vec2 filter_position = history_uv * u_render_res - 0.5;
+    ivec2 base_texel = ivec2(floor(filter_position));
+    vec2 fraction = fract(filter_position);
+    vec2 history_sum = vec2(0.0);
+    float weight_sum = 0.0;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            vec2 weights = mix(vec2(1.0) - fraction, fraction, bvec2(x != 0, y != 0));
+            float weight = weights.x * weights.y;
+            if (weight <= 0.0) continue;
+            ivec2 sample_texel = base_texel + ivec2(x, y);
+            if (any(lessThan(sample_texel, ivec2(0)))
+                    || any(greaterThanEqual(sample_texel, ivec2(u_render_res)))) continue;
+            vec4 history = texelFetch(colortex8, sample_texel, 0);
+            if (!isnan(history.a) || history.g < 1.0 || history.b <= 0.0
+                    || any(isnan(history.rgb)) || any(isinf(history.rgb))) continue;
+            vec2 sample_uv = (vec2(sample_texel) + 0.5) * u_render_pixel_size;
+            weight *= AOHistoryWeight(receiver_prev_view, normal_world, sample_uv, history);
+            history_sum += history.rg * weight;
+            weight_sum += weight;
+        }
+    }
+    return weight_sum > 1.0e-5 ? vec3(DecodeAOHistory(history_sum.x / weight_sum),
+        history_sum.y / weight_sum, weight_sum) : vec3(1.0, 0.0, 0.0);
+}
+
+// Hole filling copies one validated estimate; it does not perform another
+// temporal blend. Keeping this discrete avoids filtering a second neighborhood.
+vec3 SampleAOHistoryNearest(vec3 receiver_prev_view, vec3 normal_world, vec2 history_uv) {
+    ivec2 sample_texel = clamp(ivec2(history_uv * u_render_res), ivec2(0), ivec2(u_render_res) - 1);
+    vec4 history = texelFetch(colortex8, sample_texel, 0);
+    if (!isnan(history.a) || history.g < 1.0 || history.b <= 0.0
+            || any(isnan(history.rgb)) || any(isinf(history.rgb))) return vec3(1.0, 0.0, 0.0);
+    vec2 sample_uv = (vec2(sample_texel) + 0.5) * u_render_pixel_size;
+    float trust = AOHistoryWeight(receiver_prev_view, normal_world, sample_uv, history);
+    return vec3(DecodeAOHistory(history.r), history.g, trust);
+}
+
 // One accumulation per frame (age = sample count). Fresh weight is the
 // capped running average 1/(age+1): it decays with the accumulated age and
 // settles at 1/AO_HISTORY_FRAMES, so that setting owns the denoising depth
@@ -103,6 +140,37 @@ float AOAccumulate(float fresh_ao, float hist_ao, float hist_age,
     float alpha = 1.0 - (1.0 - base_alpha) * rejection;
     next_age = pixel_age + 1.0;
     return mix(hist_ao, fresh_ao, alpha);
+}
+
+// Both AO stages read the previous full-res history, before deferred1 publishes
+// this frame. Missing lattice support reuses this history without aging it.
+vec3 ReprojectAOHistory(ivec2 texel, float scene_depth, vec2 normal_oct, bool interpolate) {
+#if defined(AO_TEMPORAL_ENABLED)
+    if (scene_depth < 1.0 && frameCounter > 0) {
+        vec2 uv = (vec2(texel) + 0.5) * u_render_pixel_size;
+#ifdef TAA
+        uv -= u_taa_offset * 0.5;
+#endif
+        vec3 world_pos = DepthToWorldPos(uv, scene_depth);
+        vec2 history_uv;
+        vec3 receiver_prev_view;
+        if (AOReprojectToPrevious(world_pos, history_uv, receiver_prev_view)) {
+            vec3 normal_world = DecodeOctahedralNormal(normal_oct);
+            return interpolate ? SampleAOHistory(receiver_prev_view, normal_world, history_uv)
+                : SampleAOHistoryNearest(receiver_prev_view, normal_world, history_uv);
+        }
+    }
+#endif
+    return vec3(1.0, 0.0, 0.0);
+}
+
+vec2 ResolveTemporalAO(ivec2 texel, float scene_depth, vec2 normal_oct, float fresh_ao) {
+    float next_age = 1.0;
+#if defined(AO_TEMPORAL_ENABLED)
+    vec3 history = ReprojectAOHistory(texel, scene_depth, normal_oct, true);
+    fresh_ao = AOAccumulate(fresh_ao, history.r, history.g, history.b, next_age);
+#endif
+    return vec2(fresh_ao, next_age);
 }
 
 #endif // LIB_LIGHTING_TEMPORAL_AO_GLSL

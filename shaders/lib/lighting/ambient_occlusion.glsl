@@ -3,6 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/lighting/ao_history.glsl"
 
 // Shared response for standalone AO and RSM's receiver-local estimate.
 // Accumulate the standalone raw field first; RSM filters AO-weighted sky
@@ -35,7 +36,7 @@ vec3 ResolveSurfaceAO(ivec2 texel, vec3 albedo, float vertex_ao, bool is_hand, o
 #else
     if (is_hand) return vec3(1.0);
 #if defined(GTAO) || defined(SSAO)
-    screen_ao = texelFetch(colortex8, texel, 0).r;
+    screen_ao = DecodeAOHistory(texelFetch(colortex8, texel, 0).r);
     return ApplySurfaceAO(screen_ao, albedo);
 #else
     return vec3(vertex_ao);

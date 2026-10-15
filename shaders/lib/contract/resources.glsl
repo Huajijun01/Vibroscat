@@ -13,7 +13,7 @@
 //   colortex0   R11F_G11F_B10F   Scene color (post-processed) / TAA input
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
 //   colortex2   RGBA8            Opaque roughness/selector/emission/AO on main;
-//                                deferred1 borrows alt R for half-res current AO
+//                                deferred1 borrows alt for half-res AO/normal/age
 //                                and flips back to main for SSR/GI/shading; then low
 //                                bytes of translucent RGB UNORM16 surface data;
 //                                colortex1 RGB carries the high bytes while its
@@ -24,7 +24,8 @@
 //   colortex5   R11F_G11F_B10F   TAA history
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
-//                                carry (ao, age, encoded view depth, A=NaN "not cloud")
+//                                carry (AO*1020 integer, age, encoded view depth,
+//                                A=NaN "not cloud") while GI is disabled
 //   shadowcolor0 RGBA8           RSM: RGB565 reflectance (RG), oct8 shadow-view normal (BA)
 //   colortex9   RGB16F           Half-res unblurred temporal GI irradiance,
 //                                including uncovered SH; deferred3 flip history
@@ -63,7 +64,7 @@ const int colortex2Format  = RGBA8;
 const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
-const int colortex8Format  = RGBA16F;  // cloud history frame: sunRad, moonRad, transmittance, distance_km; AO history merged on geometry pixels (ao, age, encoded view depth, A=NaN)
+const int colortex8Format  = RGBA16F;  // sky: cloud radiance/distance; geometry: AO*1020 integer, age, encoded view depth, A=NaN
 const int colortex9Format  = RGB16F; // half-res temporal irradiance (deferred3)
 const int colortex10Format = RGBA16F; // half-res GI geometry/age history (deferred3)
 const int colortex11Format = RGBA8;           // weather texture

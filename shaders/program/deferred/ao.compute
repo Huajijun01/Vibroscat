@@ -1,24 +1,30 @@
 // ============================================================================
-// AO generation (half resolution, full evaluation) - borrows colortex2 alt R.
+// AO generation and accumulation (half resolution) - borrows colortex2 alt.
 // ============================================================================
 // Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/8),
 // local 8x8). Each invocation covers one 2x2 full-res block, evaluates the
-// kernel (ComputeGTAO / ComputeSSAO) at the block origin; the deferred1
-// fragment upsamples bilinearly, one sample/pixel/frame. Every texel is
-// evaluated EVERY frame (no checkerboard phase - full convergence speed).
+// kernel (ComputeGTAO / ComputeSSAO) at a rotating receiver in that block.
+// Every half-res texel is evaluated every frame. deferred1 reconstructs
+// the accumulated field with depth/normal guidance on this exact lattice.
 // Runs with cloud compute in deferred1; the two write distinct textures.
 //
-// Storage: lower-left half-res rectangle of the existing RGBA8 workspace.
+// Storage: lower-left ceil-half-res rectangle of the RGBA8 workspace:
+// R = accumulated raw AO, GB = exact receiver octahedral geometric normal,
+// A = history age / 255. The four-frame lattice covers thin full-res faces.
 // deferred_pre selects alt; deferred1 samples it, then restores the opaque
 // material scalars on main. Raw AO (no multibounce/strength): the nonlinear
-// transforms are applied in deferred2 after the temporal blend (the
+// transforms are applied by the lighting consumer after the temporal blend (the
 // accumulated field stays linear).
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
 #include "/lib/core/noise.glsl"
+#include "/lib/core/packing.glsl"
+#include "/lib/lighting/ao_reconstruction.glsl"
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/lighting/ssao.glsl"
+#include "/lib/lighting/temporal_ao.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
 const vec2 workGroupsRender = vec2(0.5, 0.5);
@@ -27,33 +33,41 @@ layout(rgba8) uniform restrict writeonly image2D colorimg2;
 
 void main() {
     ivec2 half_texel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 half_size = max(ivec2(u_render_res * 0.5), ivec2(1));
+    ivec2 half_size = max((ivec2(u_render_res) + 1) / 2, ivec2(1));
     if (any(greaterThanEqual(half_texel, half_size))) {
         return;
     }
-    // Full-res block origin: depth and normals are sampled at full
-    // resolution at this exact texel, so the evaluation point is that pixel's
-    // center. Position, depth and normal stay one consistent sample for the
-    // plane tests and the ray origin (a 2x2 block has no center texel; the
-    // uniform half-texel bias toward the block origin is preferable to
-    // mixing reference points).
-    ivec2 block_origin = half_texel * 2;
-    vec2 uv = (vec2(block_origin) + vec2(0.5)) * u_render_pixel_size;
+    // Depth, normal and ray origin use the same actual full-res pixel. The
+    // last row/column clamps to the cropped scene when its size is odd.
+    ivec2 sample_pixel = min(half_texel * 2 + AOGridOffset(), ivec2(u_render_res) - 1);
+    vec2 uv = (vec2(sample_pixel) + vec2(0.5)) * u_render_pixel_size;
     // The AO temporal accumulator runs with or without TAA, so the STBN pair
     // keeps advancing with frameCounter (no STBNFrame() pinning here). The
     // evaluation point is half-res: shift nothing spatially, offset the
     // second stream by the registry's STBN_STREAM_3.
     vec2 stbn_noise = SampleSTBNPair(
-        ivec2(vec2(block_origin) * 0.5), frameCounter, STBN_STREAM_3, ivec2(0));
+        half_texel, frameCounter, STBN_STREAM_3, ivec2(0));
 #if defined(GTAO)
-    float ao = ComputeGTAO(uv, vec2(block_origin), stbn_noise);
+    float ao = ComputeGTAO(uv, vec2(sample_pixel), stbn_noise);
 #elif defined(SSAO)
-    float ao = ComputeSSAO(uv, vec2(block_origin), stbn_noise);
+    float ao = ComputeSSAO(uv, vec2(sample_pixel), stbn_noise);
 #else
     // Unreachable while deferred1_a is scheduled (AO_MODE != 0 with
     // GI_MODE == 0 implies GTAO or SSAO); keeps `ao` defined if that gating
     // and these macros ever drift apart.
     float ao = 1.0;
 #endif
-    imageStore(colorimg2, half_texel, vec4(ao, 0.0, 0.0, 1.0));
+    vec2 normal_oct = texelFetch(colortex4, sample_pixel, 0).xy;
+    float scene_depth = texelFetch(depthtex2, sample_pixel, 0).r;
+    vec2 accumulated = ResolveTemporalAO(sample_pixel, scene_depth, normal_oct, ao);
+    ao = accumulated.x;
+#if defined(AO_TEMPORAL_ENABLED)
+    // Unbiased UNORM8 conversion prevents small EMA updates from stalling at
+    // an 8-bit boundary. Independent hash bits avoid correlating with rays.
+    uint rounding_bits = LowBias32Hash(uint(half_texel.x) ^ (uint(half_texel.y) * 0x9e3779b9u)
+        ^ (uint(frameCounter) * 0x85ebca6bu));
+    float rounding_noise = float(rounding_bits >> 8) * (1.0 / 16777216.0);
+    ao = floor(clamp(ao, 0.0, 1.0) * 255.0 + rounding_noise) * (1.0 / 255.0);
+#endif
+    imageStore(colorimg2, half_texel, vec4(ao, normal_oct, accumulated.y * (1.0 / 255.0)));
 }

@@ -213,7 +213,7 @@ const float ambientOcclusionLevel = 1.0;
 // AO_MODE selects the algorithm (settings slider, 0/1/2): GTAO is the
 // horizon-based method (Jimenez et al. 2016), SSAO the Monte-Carlo
 // hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
-// generator and deferred1 full-res temporal accumulation without GI. RSM
+// temporal generator and deferred1 guided reconstruction without GI. RSM
 // evaluates the chosen kernel in deferred3 and filters its AO-weighted sky.
 // SSGI supplies its own visibility and ignores this selector.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
@@ -227,13 +227,13 @@ const float ambientOcclusionLevel = 1.0;
 #define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
 
-// Temporal accumulation (deferred1 fragment): full-resolution history in the
-// merged colortex8 buffer with reprojection, soft depth rejection and a
-// capped running average (the cloud scheme, CloudAccumulate).
+// Temporal accumulation runs in deferred1_a against full-resolution history
+// in colortex8. Each history tap passes depth/normal rejection before filtering.
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
-// AO generation is plain half resolution: every half-res texel is evaluated
-// every frame at its full-res block origin and upsampled bilinearly - one
-// sample per pixel per frame at full convergence speed.
+// Every half-res texel is evaluated each frame. With history enabled, its
+// receiver rotates through all four pixels of the 2x2 block in four frames.
+// deferred1 reconstructs only within matching geometric planes/normals and
+// copies validated history for surfaces absent from the current lattice.
 #define AO_HISTORY_FRAMES 48 // [2 4 6 8 10 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
 // Rejection lifts the fresh-sample weight toward 1, so an untrusted history
 // is replaced quickly instead of lingering (vanished objects' AO does not

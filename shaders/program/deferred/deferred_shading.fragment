@@ -403,13 +403,9 @@ void main() {
     out_color = gi_ambient;
     return;
 #endif
-#if GI_MODE == 2
-    // Retain local AO for occluders missing from RSM's first-surface
-    // shadow map.
-    color += lambert_brdf * gi_ambient * ao_effective;
-#else
+    // SSGI supplies visibility itself; RSM has already multiplied AO into
+    // its sky fallback before denoising. Neither bounce is darkened again.
     color += lambert_brdf * gi_ambient;
-#endif
 #else
     // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor
     // (AmbientLight). Only the no-GI branch consumes it.

@@ -88,11 +88,11 @@ vec3 RSMFallbackSky(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 // (radial jitter in y, golden-angle rotation seed in x).
 // Output includes the uncovered sky fallback, before the receiver BRDF.
 vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
-        vec2 stbn_noise, vec3 sky_fallback, out float sample_sigma) {
+        vec2 stbn_noise, vec3 sky_fallback, vec3 ambient_ao, out float sample_sigma) {
     sample_sigma = 0.0;
     float availability = 1.0 - smoothstep(max(shadowDistance - RSM_RADIUS, 0.0),
         shadowDistance, length(receiver_view));
-    if (availability <= 0.0) return sky_fallback;
+    if (availability <= 0.0) return sky_fallback * ambient_ao;
 
     vec3 receiver_shadow = (shadowModelView * vec4(receiver_world + normal_world * 0.03, 1.0)).xyz;
     vec3 normal_shadow = normalize(mat3(shadowModelView) * normal_world);
@@ -223,6 +223,9 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 #else
     vec3 occluded_sky = sky_fallback;
 #endif
+    // AO belongs to the uncovered environment, not transported RSM bounce.
+    // Apply it after the shadow-only ambient-floor split and before moments.
+    occluded_sky *= ambient_ao;
     // A first-surface RSM only approximates receiver visibility; overlapping
     // solid angles and stochastic overshoot cannot remove more than all SH.
     float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;
@@ -238,7 +241,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     float shadow_variance = mean_shadow_occlusion * (1.0 - mean_shadow_occlusion)
         * sum_squared_shadow_weight / (sum_shadow_weight * sum_shadow_weight);
     float shadow_scale = (1.0 - RSM_SKY_OCCLUSION_FLOOR)
-        * Luminance(sky_fallback - vec3(AMBIENT_FLOOR)) * (1.0 - coverage);
+        * Luminance((sky_fallback - vec3(AMBIENT_FLOOR)) * ambient_ao) * (1.0 - coverage);
     sample_sigma += shadow_scale * sqrt(shadow_variance);
 #endif
     sample_sigma *= availability;

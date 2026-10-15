@@ -14,6 +14,8 @@
 #include "/lib/lighting/gi_sampling.glsl"
 #if GI_MODE == 2
 #include "/lib/lighting/ambient_occlusion.glsl"
+#include "/lib/lighting/gtao.glsl"
+#include "/lib/lighting/ssao.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
 #endif
 
@@ -296,12 +298,25 @@ void main() {
 #if GI_MODE == 2
     vec4 surface_data = texelFetch(colortex2, tx, 0);
     vec3 sky_normal = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
-    float screen_ao;
-    vec3 ambient_ao = ResolveSurfaceAO(tx, ToLinear(material_data.rgb), surface_data.a, false, screen_ao);
+    // Evaluate at the actual GI receiver. Both its AO-weighted sky and RSM
+    // bounce enter the same temporal history and guided reconstruction.
+    vec2 ao_noise = SampleSTBNPair(tx / 2, frameCounter, STBN_STREAM_3, ivec2(0));
+#if AO_MODE == 1
+    float screen_ao = ComputeGTAO(uv, vec2(tx), ao_noise);
+#elif AO_MODE == 2
+    float screen_ao = ComputeSSAO(uv, vec2(tx), ao_noise);
+#else
+    float screen_ao = surface_data.a;
+#endif
+#if AO_MODE != 0
+    vec3 ambient_ao = ApplySurfaceAO(screen_ao, ToLinear(material_data.rgb));
+#else
+    vec3 ambient_ao = vec3(screen_ao);
+#endif
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
     // GI owns its temporal reconstruction, independently of the final TAA.
     raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, gi_noise.xy,
-        fallback, sample_sigma);
+        fallback, ambient_ao, sample_sigma);
 #else
     fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     float coverage;

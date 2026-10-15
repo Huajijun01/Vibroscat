@@ -213,7 +213,9 @@ const float ambientOcclusionLevel = 1.0;
 // AO_MODE selects the algorithm (settings slider, 0/1/2): GTAO is the
 // horizon-based method (Jimenez et al. 2016), SSAO the Monte-Carlo
 // hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
-// generator, deferred1 full-res temporal accumulation and deferred2 apply.
+// generator and deferred1 full-res temporal accumulation without GI. RSM
+// evaluates the chosen kernel in deferred3 and filters its AO-weighted sky.
+// SSGI supplies its own visibility and ignores this selector.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
 #define GTAO_RADIUS 3.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
@@ -447,12 +449,13 @@ const float centerDepthHalflife = 1.0;
 #define AIR_EPIPOLAR_ACTIVE
 #endif
 
-// AO algorithm selection mirrors AO_MODE while a GI source owns the ambient.
+// Standalone AO exists only without GI. RSM selects its local kernel directly
+// by AO_MODE; SSGI owns visibility through its trace.
 // The guards stay numeric because AO_MODE and GI_MODE are enum options.
-#if AO_MODE == 1 && GI_MODE != 1
-#define GTAO // pass toggle: enables program.worldX/deferred1_a and the deferred2 application
+#if AO_MODE == 1 && GI_MODE == 0
+#define GTAO
 #endif
-#if AO_MODE == 2 && GI_MODE != 1
+#if AO_MODE == 2 && GI_MODE == 0
 #define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
 #endif
 
@@ -470,9 +473,8 @@ const float centerDepthHalflife = 1.0;
 // friends are not counted, and an unconfirmed candidate is silently dropped
 // from the settings screen. Keep the canonical reference for every user
 // toggle here so recognition never depends on how consumer code happens to
-// test the macro. GTAO and SSAO are registered too: shaders.properties
-// evaluates them by name in `program.*.enabled` expressions, which resolve
-// registered option values.
+// test the macro. Derived internal state is intentionally not registered;
+// shaders.properties uses the numeric AO_MODE/GI_MODE preprocessor gates.
 
 // Post
 #ifdef TAA
@@ -525,10 +527,6 @@ const float centerDepthHalflife = 1.0;
 #ifdef AO_TEMPORAL
 #endif
 #ifdef GTAO_MULTIBOUNCE
-#endif
-#ifdef GTAO
-#endif
-#ifdef SSAO
 #endif
 // Global illumination
 #ifdef RSM_SKY_OCCLUSION

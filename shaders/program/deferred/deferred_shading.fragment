@@ -399,6 +399,9 @@ void main() {
     vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif
+    // Same torch energy as the forward composition in
+    // lib/lighting/forward_composite.glsl, with the extra screen-space AO
+    // factor this pass owns; forward translucent surfaces have no screen AO.
     color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * screen_ao;
 
     // -- Indirect specular --

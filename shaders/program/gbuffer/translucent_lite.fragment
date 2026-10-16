@@ -4,8 +4,8 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/color/spaces.glsl"
-#include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/forward_composite.glsl"
 
 flat in vec3 v_normal;
 flat in vec3 v_sun_light_col;
@@ -53,9 +53,8 @@ void main() {
 #endif
 
     float s = texture(shadowtex1, v_shadow_proj_pos);
-    float torch_light = BlockLightFromLm(v_texcoord.z);
-    vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
-             + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
+    vec3 lit = ComposeForwardLitSurface(direct_lighting, lambert_brdf, diffuse_reflectance,
+        s, v_sun_light_col, v_ambient_col, v_texcoord.z);
 
     // Premultiplied translucent layer: color * alpha + alpha.
     out_layer_color = vec4(lit * alpha, alpha);

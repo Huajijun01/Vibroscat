@@ -77,7 +77,7 @@ void SetupGbufferVertex() {
 void main() {
     SetupGbufferVertex();
 
-#if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
+#if defined(TERRAIN_GEOMETRY_PROGRAM)
     v_material_id = int(mc_Entity.x + 0.5) & 255;
 #elif defined(PROGRAM_GBUFFERS_BLOCK)
     v_material_id = int(mc_Entity.x + 0.5);

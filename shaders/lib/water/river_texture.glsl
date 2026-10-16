@@ -40,8 +40,8 @@ const vec2 RIVER_SLOPE_RANGE_UV = vec2(52.728907765, 29.079023962);
 // the same offset. The R8 map supplies one scalar along a fixed direction;
 // the maximum displacement is 3 m over a 2048 m repeating noise domain.
 vec2 RiverTextureWarpPosition(vec2 xz) {
-    float noise = textureLod(utex_cloud_distribution_tex, xz * (1.0 / 2048.0), 0.0).r;
-    return xz + (noise - 0.5) * vec2(0.6, 0.8) * 10.0;
+    float noise = textureLod(utex_cloud_distribution_tex, xz * (1.0 / 1024.0), 0.0).r;
+    return xz + (noise - 0.5) * vec2(0.6, 0.8) * 8.0;
 }
 
 // Height of layer j at world XZ: one bilinear fetch, hardware wrap.

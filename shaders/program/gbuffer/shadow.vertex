@@ -35,7 +35,7 @@ void main() {
     vec3 shadow_view_pos = mat3(gl_ModelViewMatrix) * vec3(gl_Vertex) + gl_ModelViewMatrix[3].xyz;
 #if defined(PLANT_WIND_SHADOW_ACTIVE)
     int plant_id = int(mc_Entity.x + 0.5);
-    if (plant_id >= 256 && plant_id < 1280) {
+    if (plant_id >= PLANT_WIND_BLOCK_ID_MIN && plant_id < PLANT_WIND_BLOCK_ID_MAX) {
         vec3 scene_pos = (shadowModelViewInverse * vec4(shadow_view_pos, 1.0)).xyz;
         vec3 offset_world = PlantWindOffset(scene_pos, at_midBlock.xyz / 64.0, plant_id);
         shadow_view_pos += mat3(shadowModelView) * offset_world;

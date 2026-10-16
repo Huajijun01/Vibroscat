@@ -1,3 +1,4 @@
+#include "/lib/contract/material_ids.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
@@ -34,7 +35,7 @@ void SetupGbufferVertex() {
     vec4 view_pos = gl_ModelViewMatrix * gl_Vertex;
 #if defined(PLANT_WIND_TERRAIN_ACTIVE)
     int block_id = int(mc_Entity.x + 0.5);
-    if (block_id >= 256 && block_id < 1280) {
+    if (block_id >= PLANT_WIND_BLOCK_ID_MIN && block_id < PLANT_WIND_BLOCK_ID_MAX) {
         vec3 scene_pos = (gbufferModelViewInverse * view_pos).xyz;
         vec3 offset_world = PlantWindOffset(scene_pos, at_midBlock.xyz / 64.0, block_id);
         view_pos.xyz += mat3(gbufferModelView) * offset_world;
@@ -82,16 +83,16 @@ void main() {
 #elif defined(PROGRAM_GBUFFERS_BLOCK)
     v_material_id = int(mc_Entity.x + 0.5);
 #elif defined(PROGRAM_GBUFFERS_ENTITIES)
-    v_material_id = entityId - 10000;
+    v_material_id = entityId - MATERIAL_ID_ENTITY_BASE;
 #elif defined(PROGRAM_GBUFFERS_HAND)
-    v_material_id = 64;
+    v_material_id = MATERIAL_ID_HAND;
 #elif defined(PROGRAM_GBUFFERS_BEACONBEAM)
-    v_material_id = 112;
+    v_material_id = MATERIAL_ID_EMISSIVE;
 #elif defined(PROGRAM_GBUFFERS_SPIDEREYES)
-    v_material_id = 112;
+    v_material_id = MATERIAL_ID_EMISSIVE;
 #else
     // basic, line, textured, textured_lit and particles share the generic
     // opaque class: no SSS, wetness, metal or emissive classification.
-    v_material_id = 0;
+    v_material_id = MATERIAL_ID_GENERIC;
 #endif
 }

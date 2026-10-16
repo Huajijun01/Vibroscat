@@ -4,6 +4,11 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
+// block.properties packs the plant motion class (1-4) into the upper byte of
+// mc_Entity.x, so the wind-bearing block IDs are [MIN, MAX); MAX is exclusive.
+const int PLANT_WIND_BLOCK_ID_MIN = 256;
+const int PLANT_WIND_BLOCK_ID_MAX = 1280;
+
 // block.properties: low byte retains the existing material; upper byte owns
 // geometry only (1 rooted, 2 tall lower, 3 tall upper, 4 continuous canopy).
 // Both terrain and shadow call this in feet-player space before projection.

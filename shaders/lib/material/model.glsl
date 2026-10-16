@@ -74,6 +74,8 @@ PBRMaterial ResolveOpaquePBR(vec3 albedo, float roughness, float selector,
 
 // Plant subsurface-scattering amount by materialID (see block.properties for
 // the 128-134 assignments). 0 = no transmission, 1 = strong translucency.
+// These classification IDs belong to the material-ID protocol owned by
+// lib/contract/material_ids.glsl, which names only the class anchors.
 float SSSAmountForId(int id) {
     if (id == 128) return 0.55;  // grass, ferns, dry grass, seagrass, nether sprouts/roots
     if (id == 129) return 1.0;   // leaves

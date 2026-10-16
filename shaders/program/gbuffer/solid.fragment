@@ -16,7 +16,7 @@
 //
 // GBuffer layout:
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
-//   gbuf1.a   = v_material_id / 255.0  (see lib/material/model.glsl for ranges)
+//   gbuf1.a   = v_material_id / 255.0  (material-ID protocol: lib/contract/material_ids.glsl)
 //   gbuf2 (RGBA8) = roughness / raw specular selector / emission / combined AO
 //   colortex12.rg = octahedral-encoded shading world normal (FP16 workspace)
 //   gbuf4.rg = octahedral-encoded geometric world normal
@@ -87,19 +87,15 @@ void main() {
     int mat_id = v_material_id;
 
     // -- program-specific overrides --
+    // solid.vertex already assigns the identical material ID for the hand,
+    // beaconbeam and spidereyes programs under these same macros; only the
+    // entity tint and the beaconbeam alpha test are fragment-side work.
 #ifdef PROGRAM_GBUFFERS_ENTITIES
     // entityColor is a tint overlay (e.g. sheep wool, dyed leather armor)
     albedo = mix(albedo, entityColor.rgb, entityColor.a);
 #endif
-#ifdef PROGRAM_GBUFFERS_HAND
-    mat_id = 64;  // player hand / held item
-#endif
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
     if (alpha < 0.5) discard;
-    mat_id = 112; // emissive class
-#endif
-#ifdef PROGRAM_GBUFFERS_SPIDEREYES
-    mat_id = 112; // emissive class
 #endif
 
     // -- Surface normal and material inputs --

@@ -1,5 +1,6 @@
 /* RENDERTARGETS: 0,5 */
 
+#include "/lib/contract/material_ids.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
@@ -76,7 +77,7 @@ void main() {
     vec3 closest_to_camera = GetClosestToCamera(depthtex0, tx);
     // Current depth is jittered on the scene grid; history UVs cover the display.
     ivec2 closest_texel = ClampTexel(ivec2(closest_to_camera.xy * u_render_res), ivec2(u_render_res));
-    bool hand = int(texelFetch(colortex1, closest_texel, 0).a * 255.0 + 0.5) == 64
+    bool hand = int(texelFetch(colortex1, closest_texel, 0).a * 255.0 + 0.5) == MATERIAL_ID_HAND
         && closest_to_camera.z < 1.0;
     closest_to_camera.xy -= 0.5 * u_taa_offset;
     // Hand motion is zeroed below, so its unused reprojection need not wait on

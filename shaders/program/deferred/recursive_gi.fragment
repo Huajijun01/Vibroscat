@@ -1,3 +1,4 @@
+#include "/lib/contract/material_ids.glsl"
 #include "/lib/contract/settings.glsl"
 /* RENDERTARGETS: 9,10 */
 
@@ -272,7 +273,7 @@ void main() {
         ivec2 sample_texel = ivec2(GISampleUV(gi_texel, i) * u_render_res);
         float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         int sample_material = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
-        if (sample_material == 64 || sample_depth >= scene_depth) continue;
+        if (sample_material == MATERIAL_ID_HAND || sample_depth >= scene_depth) continue;
         scene_depth = sample_depth;
         tx = sample_texel;
         offset_code = i;

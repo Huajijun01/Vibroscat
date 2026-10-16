@@ -55,6 +55,29 @@ layout(location = 1) out vec4 out_gbuf_clear;
 layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shadow for underwater caustics (colortex5)
 layout(location = 3) out vec4 out_translucent_clear;
 
+#if GI_MODE != 0
+// Resolves the GI ambient for a surface pixel: the hand keeps the full-res SH
+// path, and a failed reconstruction falls back to sky ambient. The RSM variant
+// multiplies that fallback by the shadow-map sky occlusion. Compiled only with
+// GI on, which is also when gi_denoise.glsl and its ReconstructGI exist.
+vec3 ResolveSurfaceGIAmbient(ivec2 tx, vec3 view_pos, vec3 world_pos,
+        vec3 geo_normal, vec3 normal_world, vec3 ao_effective, vec2 lm,
+        bool is_opaque_hand) {
+    if (is_opaque_hand) return AmbientLight(geo_normal, vec3(1.0), lm.g);
+    vec3 gi_ambient;
+    if (ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) return gi_ambient;
+#if GI_MODE == 2
+    gi_ambient = AmbientLight(normal_world, ao_effective, lm.g);
+#ifdef RSM_SKY_OCCLUSION
+    gi_ambient = RSMFallbackSky(world_pos, view_pos, geo_normal, gi_ambient);
+#endif
+#else
+    gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
+#endif
+    return gi_ambient;
+}
+#endif
+
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     out_direct_brdf = vec3(0.0);
@@ -198,15 +221,8 @@ void main() {
 #if GI_MODE == 2
     // Resolve GI before direct-light BRDF/shadow temporaries become live.
     // The unblurred history is read-only throughout this lighting pass.
-    vec3 gi_ambient;
-    if (is_opaque_hand) {
-        gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
-    } else if (!ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) {
-        gi_ambient = AmbientLight(normal_world, ao_effective, lm.g);
-#ifdef RSM_SKY_OCCLUSION
-        gi_ambient = RSMFallbackSky(world_pos, view_pos, geo_normal, gi_ambient);
-#endif
-    }
+    vec3 gi_ambient = ResolveSurfaceGIAmbient(tx, view_pos, world_pos, geo_normal,
+        normal_world, ao_effective, lm, is_opaque_hand);
 #endif
     // Eye-space receiver position: distance responses and the view vector
     // use the eye, not the feet-space origin.
@@ -379,12 +395,8 @@ void main() {
 #if GI_MODE == 1
     // Keep SSGI's existing evaluation order; moving this work earlier adds
     // cost on the measured driver even without the RSM fallback gather.
-    vec3 gi_ambient;
-    if (is_opaque_hand) {
-        gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
-    } else if (!ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) {
-        gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
-    }
+    vec3 gi_ambient = ResolveSurfaceGIAmbient(tx, view_pos, world_pos, geo_normal,
+        normal_world, ao_effective, lm, is_opaque_hand);
 #endif
 #if GI_MODE == 2 && RSM_DEBUG > 0
     out_color = gi_ambient;

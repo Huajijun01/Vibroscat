@@ -48,7 +48,16 @@ void SetupGbufferVertex() {
 #endif
     gl_Position = ScaleSceneClipPosition(gl_Position);
 
-    vec3 normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
+    // Particles are camera-facing billboards: their mesh normal points at the
+    // eye, which would flip sky/ground ambient with camera pitch and store a
+    // meaningless geometric normal. Both their geometric and shading normal
+    // are world up, so the gbuffer and the deferred lighting agree.
+    vec3 normal_world;
+#ifdef PROGRAM_GBUFFERS_PARTICLES
+    normal_world = vec3(0.0, 1.0, 0.0);
+#else
+    normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
+#endif
     v_world_normal = normal_world;
 
 #ifdef HAS_AT_TANGENT
@@ -80,6 +89,8 @@ void main() {
 #elif defined(PROGRAM_GBUFFERS_SPIDEREYES)
     v_material_id = 112;
 #else
+    // basic, line, textured, textured_lit and particles share the generic
+    // opaque class: no SSS, wetness, metal or emissive classification.
     v_material_id = 0;
 #endif
 }

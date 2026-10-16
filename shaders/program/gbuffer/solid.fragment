@@ -8,7 +8,9 @@
 //   PROGRAM_GBUFFERS_HAND          hand
 //   PROGRAM_GBUFFERS_BEACONBEAM    beaconbeam
 //   PROGRAM_GBUFFERS_SPIDEREYES    spidereyes
-//   (none of the above)           basic, line, textured, textured_lit, particles
+//   PROGRAM_GBUFFERS_PARTICLES     particles (opaque quad particles; world-up
+//                                  dielectric surface, no PBR atlas)
+//   (none of the above)           basic, line, textured, textured_lit
 //
 // GBuffer layout:
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
@@ -93,11 +95,12 @@ void main() {
     mat_id = 112; // emissive class
 #endif
 
-    // -- TBN: tangent -> world-space normal --
-    // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
-    // Programs without at_tangent cannot interpret tangent-space normal maps.
+    // -- Surface normal and material inputs --
     vec3 geo_normal_world = normalize(v_world_normal);
     vec3 w_normal = geo_normal_world;
+#ifndef PROGRAM_GBUFFERS_PARTICLES
+    // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
+    // Programs without at_tangent cannot interpret tangent-space normal maps.
     vec3 normal_tex = vec3(0.5, 0.5, 1.0);
     bool has_normal_texture = any(notEqual(textureSize(normals, 0), ivec2(1)));
     if (has_normal_texture) normal_tex = texture(normals, v_texcoord).rgb;
@@ -114,15 +117,22 @@ void main() {
     material_ao = normal_tex.b;
 #endif
     float combined_ao = min(v_color.a, material_ao);
-
-#ifdef PROGRAM_GBUFFERS_PARTICLES
-    w_normal = vec3(0.0, 1.0, 0.0);
+#else
+    // Particles are camera-facing sprites from a dedicated atlas: the block
+    // normal and specular atlases say nothing about them, and their shading
+    // normal is already world up (solid.vertex). Shade them as rough,
+    // non-metallic, non-emissive opaque surfaces with no material AO and no
+    // wetness layer, so only the albedo, lightmap and world-up normal carry
+    // real data and neither atlas is sampled at the sprite UV.
+    float combined_ao = 1.0;
 #endif
 
     // -- Material from specular map --
     // The explicit zero default is rough, non-metallic and non-emissive.
     vec4 spec_tex = vec4(0.0);
+#ifndef PROGRAM_GBUFFERS_PARTICLES
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord);
+#endif
     OpaqueMaterial mat = DecodeOpaqueMaterial(spec_tex);
 
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
@@ -132,7 +142,7 @@ void main() {
     mat.emission = 1.0;
 #endif
 
-#if defined(RAIN_WETNESS_ACTIVE)
+#if defined(RAIN_WETNESS_ACTIVE) && !defined(PROGRAM_GBUFFERS_PARTICLES)
     ApplyRainWetness(v_rain_scene_pos.xz, geo_normal_world.y, v_lmcoord.y,
         mat_id, mat, w_normal, albedo);
 #endif

@@ -21,7 +21,7 @@ float BlockLightFromLm(float lm_block) {
 
 // Sky light: quadratic falloff - outdoor areas ramp quickly with sky access.
 float SkyLightFromLm(float lm_sky) {
-    return FastAdjust(lm_sky, -0.9);
+    return FastAdjust(lm_sky, -0.85);
 }
 
 #endif // LIB_LIGHTING_LIGHTMAP_GLSL

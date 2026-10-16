@@ -1,7 +1,17 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
+#include "/lib/color/spaces.glsl"
 
 /* RENDERTARGETS: 11 */
+
+// Rain streaks keep this fraction of their authored coverage; snow keeps all of
+// it. Which one is being drawn comes from u_rain_biome, the smoothed
+// camera-biome precipitation weight (1 in a rain biome, 0 in a snow or dry
+// one), so a biome edge fades the opacity over that uniform's half-life instead
+// of popping. The pass writes with the SRC_ALPHA blend, which premultiplies the
+// stored RGB by this alpha, so scaling coverage here fades the sheet's
+// radiance, its occlusion, and its accumulation together.
+const float RAIN_PARTICLE_OPACITY_SCALE = 0.4;
 
 in vec2 v_texcoord;
 in vec4 v_color;
@@ -13,6 +23,12 @@ void main() {
     vec4 tex = texture(gtexture, v_texcoord);
     float alpha = tex.a * v_color.a;
     if (alpha < 0.0001) discard;
-    out_weather = vec4(tex.rgb * v_color.rgb, alpha);
+    alpha *= mix(1.0, RAIN_PARTICLE_OPACITY_SCALE, u_rain_biome);
+    // Decode before the blend. The attachment holds one value per pixel and the
+    // fixed-function blend accumulates into it, so the sheet must enter that
+    // blend already linear: premultiplying in sRGB and decoding afterwards (what
+    // air fog used to do) pushes coverage through an sRGB curve and darkens the
+    // sheet far more than the coverage itself.
+    out_weather = vec4(ToLinear(tex.rgb * v_color.rgb), alpha);
     // out_weather = vec4(0.0, 1.0, 0.0, 1.0);
 }

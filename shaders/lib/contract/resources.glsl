@@ -32,10 +32,11 @@
 //   colortex10  RGBA16F          Half-res GI history: oct6 normal/change count,
 //                                luminance second moment, view depth,
 //                                packed real age/receiver selector/source
-//   colortex11  RGBA8            Weather sheet: coverage (A) and radiance premultiplied
-//                                by coverage (RGB; the gbuffers SRC_ALPHA blend applies
-//                                it on write); written by gbuffers_weather, composited
-//                                by air fog
+//   colortex11  RGBA8            Weather sheet: coverage (A) and linear radiance
+//                                premultiplied by coverage (RGB; gbuffers_weather decodes
+//                                before writing and the SRC_ALPHA blend applies the
+//                                coverage on write); written by gbuffers_weather,
+//                                composited by air fog
 //   colortex12  RGBA16F          Sequential workspace:
 //                                opaque main RG = oct shading world normal;
 //                                deferred1 alt = low-res cloud current frame;

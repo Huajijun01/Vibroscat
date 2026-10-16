@@ -12,7 +12,6 @@
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/sky_lut.glsl"
-#include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/scattering/phase.glsl"
 #include "/lib/volume/epipolar_core.glsl"
@@ -46,14 +45,14 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float scene_de
     return scene;
 }
 
-// Effective optical depth of the weather sheet. colortex11 carries the weather
-// texture colour in RGB and the coverage in A, and the weather pass writes
-// neither depth nor the G-buffer, so the sheet owns no normal, material, or
-// depth of its own and is lit as a thin scattering layer instead of a surface.
-// This constant folds its path length into the texture colour: at 4.0 a
-// daytime sheet under an open sky reads at about the radiance of the sky it is
-// seen against, so streaks stay translucent instead of turning into dark
-// scratches or a flat grey wash.
+// Effective optical depth of the weather sheet. colortex11 carries the linear
+// sheet colour premultiplied by coverage in RGB, and the coverage in A; the
+// weather pass writes neither depth nor the G-buffer, so the sheet owns no
+// normal, material, or depth of its own and is lit as a thin scattering layer
+// instead of a surface. This constant folds its path length into that colour.
+// The value predates both the linear premultiplied sheet write and
+// RAIN_PARTICLE_OPACITY_SCALE, so treat it as a starting point rather than a
+// calibrated level and re-fit it against the sky if streaks read too bright.
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
@@ -131,12 +130,13 @@ void main() {
                 vec3(0.0))
                 * SkyLightFromLm(weather_lm_sky) * PHASE_ISOTROPIC
             + ground_light.rgb * PhaseHenyeyGreenstein(weather_cos_theta, 0.5);
-        vec3 weather_radiance = ToLinear(weather.rgb) * weather_scattering
+        vec3 weather_radiance = weather.rgb * weather_scattering
             * WEATHER_SHEET_OPTICAL_DEPTH;
-        // colortex11 stores the premultiplied sheet color: the gbuffers
-        // SRC_ALPHA blend already scaled RGB by coverage on write. Composite
-        // premultiplied-over; multiplying by weather.a again would scale the
-        // contribution by coverage squared.
+        // colortex11 stores the premultiplied sheet color in linear space: the
+        // gbuffers SRC_ALPHA blend already scaled RGB by coverage on write, and
+        // gbuffers_weather decoded before writing so that blend stays linear.
+        // Composite premultiplied-over; multiplying by weather.a again would
+        // scale the contribution by coverage squared.
         out_color = out_color * (1.0 - weather.a) + weather_radiance;
     }
 }

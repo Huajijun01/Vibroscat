@@ -4,8 +4,6 @@
 //
 // Program dispatch via #define (set in world*/ stub .fsh files):
 //   PROGRAM_GBUFFERS_TERRAIN       terrain, terrain_solid, terrain_cutout, block
-//                                  (those three also derive
-//                                  TERRAIN_GEOMETRY_PROGRAM in settings.glsl)
 //   PROGRAM_GBUFFERS_ENTITIES      entities
 //   PROGRAM_GBUFFERS_HAND          hand
 //   PROGRAM_GBUFFERS_BEACONBEAM    beaconbeam
@@ -16,7 +14,7 @@
 //
 // GBuffer layout:
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
-//   gbuf1.a   = v_material_id / 255.0  (material-ID protocol: lib/contract/material_ids.glsl)
+//   gbuf1.a   = v_material_id / 255.0  (see lib/material/model.glsl for ranges)
 //   gbuf2 (RGBA8) = roughness / raw specular selector / emission / combined AO
 //   colortex12.rg = octahedral-encoded shading world normal (FP16 workspace)
 //   gbuf4.rg = octahedral-encoded geometric world normal
@@ -61,15 +59,10 @@ layout(location = 1) out vec4 gbuf2;
 layout(location = 2) out vec4 gbuf4;
 layout(location = 3) out vec4 out_shading_normal;
 
-// Terrain and terrain_solid do not alpha test, so they can run early depth
-// tests; terrain_cutout does (USE_DISCARD) and is deliberately not in this
-// predicate, which is not the terrain-family test.
+// Terrain programs do not alpha test, so they can run early depth tests.
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID)
 layout(early_fragment_tests) in;
 #endif
-
-// Vanilla alpha test threshold (the block/item model's alphaTest value).
-const float VANILLA_ALPHA_TEST = 0.1;
 
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
@@ -78,7 +71,7 @@ void main() {
 
     // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
 #ifdef USE_DISCARD
-    if (alpha < VANILLA_ALPHA_TEST) discard;
+    if (alpha < 0.1) discard;
 #endif
 
     // -- albedo = texture x vertex color --
@@ -87,15 +80,19 @@ void main() {
     int mat_id = v_material_id;
 
     // -- program-specific overrides --
-    // solid.vertex already assigns the identical material ID for the hand,
-    // beaconbeam and spidereyes programs under these same macros; only the
-    // entity tint and the beaconbeam alpha test are fragment-side work.
 #ifdef PROGRAM_GBUFFERS_ENTITIES
     // entityColor is a tint overlay (e.g. sheep wool, dyed leather armor)
     albedo = mix(albedo, entityColor.rgb, entityColor.a);
 #endif
+#ifdef PROGRAM_GBUFFERS_HAND
+    mat_id = 64;  // player hand / held item
+#endif
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
     if (alpha < 0.5) discard;
+    mat_id = 112; // emissive class
+#endif
+#ifdef PROGRAM_GBUFFERS_SPIDEREYES
+    mat_id = 112; // emissive class
 #endif
 
     // -- Surface normal and material inputs --

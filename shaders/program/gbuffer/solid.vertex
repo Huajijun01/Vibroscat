@@ -1,9 +1,7 @@
-#include "/lib/contract/material_ids.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/geometry/plant_wind.glsl"
-#include "/lib/lighting/lightmap.glsl"
 
 // GBuffer vertex interface and the shared setup for this pass. Stage plumbing
 // is not a reusable library (docs/shader-style-guide.md placement table), and
@@ -35,7 +33,7 @@ void SetupGbufferVertex() {
     vec4 view_pos = gl_ModelViewMatrix * gl_Vertex;
 #if defined(PLANT_WIND_TERRAIN_ACTIVE)
     int block_id = int(mc_Entity.x + 0.5);
-    if (block_id >= PLANT_WIND_BLOCK_ID_MIN && block_id < PLANT_WIND_BLOCK_ID_MAX) {
+    if (block_id >= 256 && block_id < 1280) {
         vec3 scene_pos = (gbufferModelViewInverse * view_pos).xyz;
         vec3 offset_world = PlantWindOffset(scene_pos, at_midBlock.xyz / 64.0, block_id);
         view_pos.xyz += mat3(gbufferModelView) * offset_world;
@@ -71,28 +69,28 @@ void SetupGbufferVertex() {
 
     v_texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
     v_lmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
-    v_lmcoord = RemapVanillaLightmap(v_lmcoord);
+    v_lmcoord = clamp(v_lmcoord * 1.103449 - 0.0689656, 0.0, 1.0);
     v_color = gl_Color;
 }
 
 void main() {
     SetupGbufferVertex();
 
-#if defined(TERRAIN_GEOMETRY_PROGRAM)
+#if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
     v_material_id = int(mc_Entity.x + 0.5) & 255;
 #elif defined(PROGRAM_GBUFFERS_BLOCK)
     v_material_id = int(mc_Entity.x + 0.5);
 #elif defined(PROGRAM_GBUFFERS_ENTITIES)
-    v_material_id = entityId - MATERIAL_ID_ENTITY_BASE;
+    v_material_id = entityId - 10000;
 #elif defined(PROGRAM_GBUFFERS_HAND)
-    v_material_id = MATERIAL_ID_HAND;
+    v_material_id = 64;
 #elif defined(PROGRAM_GBUFFERS_BEACONBEAM)
-    v_material_id = MATERIAL_ID_EMISSIVE;
+    v_material_id = 112;
 #elif defined(PROGRAM_GBUFFERS_SPIDEREYES)
-    v_material_id = MATERIAL_ID_EMISSIVE;
+    v_material_id = 112;
 #else
     // basic, line, textured, textured_lit and particles share the generic
     // opaque class: no SSS, wetness, metal or emissive classification.
-    v_material_id = MATERIAL_ID_GENERIC;
+    v_material_id = 0;
 #endif
 }

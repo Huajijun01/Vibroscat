@@ -64,6 +64,7 @@ uniform sampler2D colortex9;      // half-res unblurred temporal GI irradiance
 uniform sampler2D colortex10;     // half-res GI receiver geometry and age
 uniform sampler2D colortex11;    // weather
 uniform sampler2D colortex12;     // sequential post workspace
+uniform sampler2D colortex13;     // quarter-size RG8 scalar fog history (automatic flip)
 
 // -- Shadow bindings and transforms --
 uniform mat4 shadowModelView;
@@ -121,8 +122,6 @@ uniform float rainStrength;
 uniform float wetness;
 uniform float u_fast_wetness;
 uniform float u_rain_biome; // smoothed rain eligibility of the camera biome, [0, 1]
-// Reserved for future snow effects; intentionally no GLSL consumer yet
-// (the CHANGELOG alpha v0.3.0 entry documents the reservation).
 uniform float u_snow_biome; // smoothed snow eligibility of the camera biome, [0, 1]
 
 #endif // LIB_CONTRACT_UNIFORMS_GLSL

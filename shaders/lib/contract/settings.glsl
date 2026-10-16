@@ -436,14 +436,7 @@ const float centerDepthHalflife = 1.0;
 // referenced by a plain `#ifdef NAME` outside the registration block below,
 // or Iris would register it as a hidden user option (default on).
 
-// The three terrain wrappers define exactly one of these program macros, and
-// nothing else does; consumers below and in the gbuffer programs test the
-// derived name instead of repeating the triple.
-#if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
-#define TERRAIN_GEOMETRY_PROGRAM
-#endif
-
-#if defined(PLANT_WIND) && defined(TERRAIN_GEOMETRY_PROGRAM)
+#if defined(PLANT_WIND) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT))
 #define PLANT_WIND_TERRAIN_ACTIVE
 #endif
 #if defined(PLANT_WIND) && !defined(PROGRAM_SHADOW_ENTITIES) && !defined(PROGRAM_SHADOW_BLOCK) && !defined(PROGRAM_SHADOW_WATER)
@@ -456,7 +449,7 @@ const float centerDepthHalflife = 1.0;
 
 // Rain wetness tracking runs only in the Overworld opaque terrain and block
 // programs that carry the wet material payload.
-#if defined(RAIN_WETNESS) && defined(WORLD_OVERWORLD) && (defined(TERRAIN_GEOMETRY_PROGRAM) || defined(PROGRAM_GBUFFERS_BLOCK))
+#if defined(RAIN_WETNESS) && defined(WORLD_OVERWORLD) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT) || defined(PROGRAM_GBUFFERS_BLOCK))
 #define RAIN_WETNESS_ACTIVE
 #endif
 

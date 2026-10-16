@@ -30,4 +30,5 @@ void main() {
     // air fog used to do) pushes coverage through an sRGB curve and darkens the
     // sheet far more than the coverage itself.
     out_weather = vec4(ToLinear(tex.rgb * v_color.rgb), alpha);
+    // out_weather = vec4(0.0, 1.0, 0.0, 1.0);
 }

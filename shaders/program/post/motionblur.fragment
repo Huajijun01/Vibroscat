@@ -1,6 +1,5 @@
 /* RENDERTARGETS: 0 */
 
-#include "/lib/contract/material_ids.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/noise.glsl"
@@ -15,7 +14,7 @@ bool IsOpaqueHand(ivec2 texel) {
         ivec2(0), ivec2(u_render_res) - 1);
     float scene_depth = texelFetch(depthtex0, sample_texel, 0).r;
     int material_id = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
-    return scene_depth < 1.0 && material_id == MATERIAL_ID_HAND;
+    return scene_depth < 1.0 && material_id == 64;
 }
 
 vec3 PassthroughColor() {

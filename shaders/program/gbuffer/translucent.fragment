@@ -16,7 +16,6 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
-#include "/lib/lighting/forward_composite.glsl"
 #include "/lib/material/translucent_surface.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/shadow/filter.glsl"
@@ -71,8 +70,9 @@ void main() {
         EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
         float s = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
-        vec3 lit = ComposeForwardLitSurface(direct_lighting, lambert_brdf, diffuse_reflectance,
-            s, v_sun_light_col, v_ambient_col, v_texcoord.z);
+        float torch_light = BlockLightFromLm(v_texcoord.z);
+        vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
+                 + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
         out_layer_color = vec4(lit * diffuse.a, diffuse.a);
         PackTranslucentSurface(v_normal * 0.5 + 0.5, 0.0, out_surface_data, out_surface_high);
         return;

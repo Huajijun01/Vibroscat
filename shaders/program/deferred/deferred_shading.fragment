@@ -157,19 +157,9 @@ void main() {
     PBRMaterial material = ResolveOpaquePBR(
         albedo, g2.r, g2.g, g2.b, 0.0);
 
-#if OPAQUE_SSR_DEBUG == 1
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 2
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 3
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 4
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 5
+// Views 1-5 all show the opaque reflection incident radiance; only their
+// surrounding exploration context differed when they were added.
+#if OPAQUE_SSR_DEBUG >= 1 && OPAQUE_SSR_DEBUG <= 5
     out_color = texelFetch(colortex3, tx, 0).rgb;
     return;
 #elif OPAQUE_SSR_DEBUG == 6

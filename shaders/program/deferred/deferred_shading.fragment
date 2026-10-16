@@ -175,10 +175,6 @@ void main() {
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // colortex4 carries the world-space geometric normal (octahedral RG).
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
-#if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-    // Contact shadows work in view space. The transform is compile-time
-    // gated and computed inside the shadow_needed gate at its only consumer.
-#endif
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
 #ifdef SHADOW_SSS

@@ -64,6 +64,9 @@ layout(location = 3) out vec4 out_shading_normal;
 layout(early_fragment_tests) in;
 #endif
 
+// Vanilla alpha test threshold (the block/item model's alphaTest value).
+const float VANILLA_ALPHA_TEST = 0.1;
+
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     vec4 albedo_tex = texture(gtexture, v_texcoord);
@@ -71,7 +74,7 @@ void main() {
 
     // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
 #ifdef USE_DISCARD
-    if (alpha < 0.1) discard;
+    if (alpha < VANILLA_ALPHA_TEST) discard;
 #endif
 
     // -- albedo = texture x vertex color --

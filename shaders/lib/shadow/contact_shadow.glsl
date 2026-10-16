@@ -14,15 +14,15 @@
 // depth-buffer march toward the active directional light (sun or moon, world
 // space), re-projected to the depth buffer per sample. Occluders are
 // surfaces that sit in front of the ray point within a thickness slab; the
-// first hit removes the direct light outright, so a contact hit fills a
-// shadow-map seam to full black. The result is an
-// upper bound (min) on the shadow-map result, so it only darkens what the
-// map left lit.
+// first hit removes opaque direct light. Plant receivers retain partial
+// visibility instead, using only the receiver material (no per-hit material
+// fetch). Their partial visibility constrains transmission at every distance.
+// Opaque visibility bounds map visibility; plant visibility multiplies it.
 //
 // False-shadow guards:
-//   - the ray starts offset along the receiver normal by a pixel-scaled,
+//   - opaque rays start offset along the receiver normal by a pixel-scaled,
 //     1/NdotL-weighted bias, so the receiver's own surface plane cannot
-//     self-occlude at grazing light angles;
+//     self-occlude at grazing light angles; plants instead skip a light stride;
 //   - the thickness slab grows with view distance to track depth precision
 //     while staying tight near the receiver;
 //   - each sample is projected exactly (perspective divide per step) instead
@@ -36,6 +36,10 @@
 // long grazing path near the camera and manufacture false hits.
 const float CONTACT_SHADOW_REACH_FRACTION = 0.07;
 const float CONTACT_SHADOW_REACH_MIN_METERS = 0.12;
+// A wider plant footprint spreads partial occupancy across blade clusters.
+// Use the full depth budget: sparse, heavily weighted hits make bands on grass.
+const float CONTACT_SHADOW_PLANT_REACH_FRACTION = 0.12;
+const float CONTACT_SHADOW_PLANT_REACH_MIN_METERS = 0.2;
 // Receiver normal offset: pixel world size times this scale, divided by the
 // light-facing cosine, keeps the start off the surface plane (grazing light
 // needs the largest push-out).
@@ -43,6 +47,11 @@ const float CONTACT_SHADOW_NORMAL_BIAS_SCALE = 0.75;
 // Thickness growth per meter of view distance (m/m): depth precision
 // coarsens with distance, so the slab widens accordingly.
 const float CONTACT_SHADOW_THICKNESS_GROWTH_PER_METER = 0.0125;
+// Optical path represented by one fully occupied march. Depth increases the
+// footprint/subpixel foliage density, so distant hits absorb more. The budget
+// is divided by the step count once, preserving the effect across quality tiers.
+const float CONTACT_SHADOW_PLANT_PATH_BASE = 2.0;
+const float CONTACT_SHADOW_PLANT_PATH_DEPTH_SCALE = 0.5;
 
 // March from a view-space receiver along the world light direction.
 //   receiver_view - camera-relative view-space receiver position
@@ -50,18 +59,27 @@ const float CONTACT_SHADOW_THICKNESS_GROWTH_PER_METER = 0.0125;
 //   ndotl         - geometric normal dot light direction
 //   stbn_dither   - STBN dither sampled by the pass main (STBNFrame():
 //                   static without TAA)
-// Returns 0.0 when an occluder sits inside the thickness slab, else 1.0.
+// sss_amount is the receiver's translucency; zero keeps first-hit opaque shadows.
+// Returns visibility in [0,1]. Receiver attenuation cannot identify solid
+// blockers: the map and skylight retain large-scale sheltering for plants.
 float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
-    float stbn_dither) {
+    float stbn_dither, float sss_amount) {
     vec3 light_view = normalize(mat3(gbufferModelView) * u_world_light_dir);
     float receiver_distance = -receiver_view.z;
 
-    // Push the ray start off the receiver's surface plane. The offset is one
-    // screen pixel of world size at this depth, amplified for grazing light.
+    // Opaque normal bias uses one pixel of world size at this depth,
+    // amplified for grazing light. Plants use their initial light stride.
     float pixel_world_size = receiver_distance
         / max(gbufferProjection[1][1] * u_render_res.y, 1.0);
-    vec3 ray_origin = receiver_view + normal_view
-        * (CONTACT_SHADOW_NORMAL_BIAS_SCALE * pixel_world_size / max(ndotl, 0.1));
+    bool plant_receiver = sss_amount > 0.01;
+    // Crossed blades have no unique solid surface normal. Their initial light
+    // stride below guards self-hits without a lateral normal-dependent offset.
+    vec3 ray_origin = receiver_view;
+    if (!plant_receiver) {
+        ray_origin += normal_view
+            * (CONTACT_SHADOW_NORMAL_BIAS_SCALE * pixel_world_size / max(ndotl, 0.1));
+    }
+    float minimum_gap = plant_receiver ? 0.001 : CONTACT_SHADOW_GAP_MIN_METERS;
 
     // Thickness widens with distance, tracking depth quantization.
     float thickness = CONTACT_SHADOW_THICKNESS
@@ -70,60 +88,91 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     // Distance-scaled reach: short near the camera, growing toward the
     // shadow-map boundary, capped by the user option.
     float march_distance = min(CONTACT_SHADOW_MAX_DISTANCE,
-        max(CONTACT_SHADOW_REACH_MIN_METERS,
-            CONTACT_SHADOW_REACH_FRACTION * receiver_distance));
+        max(plant_receiver ? CONTACT_SHADOW_PLANT_REACH_MIN_METERS : CONTACT_SHADOW_REACH_MIN_METERS,
+            (plant_receiver ? CONTACT_SHADOW_PLANT_REACH_FRACTION : CONTACT_SHADOW_REACH_FRACTION)
+                * receiver_distance));
 
-    float step_count = float(CONTACT_SHADOW_STEPS);
+    int march_steps = CONTACT_SHADOW_STEPS;
+    float step_count = float(march_steps);
 
-    // Step pattern: linear strides that grow by 0.3 per
-    // step, each sample dithered inside its stride. The first sample starts
-    // one full stride out, so the receiver's own surface neighborhood is
-    // skipped entirely instead of being probed by dense near-field samples.
+    // Step pattern: linear strides that grow by 0.3 per step, each sample
+    // dithered inside its stride. The normal bias and minimum gap guard the
+    // receiver's surface. Thin plants skip one base stride toward the light
+    // so the first sample does not repeatedly probe their own crossed quads.
     float stride = 1.0;
-    float travelled = 0.0;
-    float total_travel = step_count + 0.15 * step_count * (step_count - 1.0);
+    float travelled = plant_receiver ? 1.0 : 0.0;
+    float total_travel = travelled + step_count + 0.15 * step_count * (step_count - 1.0);
     // Loop-invariant sample scaling: the per-step distance is linear in the
     // travelled parameter, so fold march_distance/total_travel once.
     float step_scale = march_distance / total_travel;
+    // Compute extinction once for this receiver. Every accepted depth hit
+    // multiplies this factor; no sampled-pixel classification or per-hit exp.
+    float step_visibility = 0.0;
+    if (plant_receiver) {
+        float plant_path = (CONTACT_SHADOW_PLANT_PATH_BASE
+            + CONTACT_SHADOW_PLANT_PATH_DEPTH_SCALE * sqrt(receiver_distance))
+            * (SHADOW_SSS_DENSITY / 3.0) / max(sss_amount, 0.35);
+        step_visibility = exp(-plant_path / step_count);
+    }
+    // Opaque hits have full confidence and zero retention, so the same loop
+    // returns black immediately. No receiver/material branch inside a hit.
+    float edge_confidence_floor = plant_receiver ? 0.0 : 1.0;
+    float visibility = 1.0;
 
-    for (int i = 0; i < CONTACT_SHADOW_STEPS; ++i) {
+    // Projection is linear before the perspective divide. Project the origin
+    // and world-space stride once, then reconstruct exact clip XY per sample.
+    // The per-sample divide still preserves perspective depth and ray shape.
+    vec4 clip_row_x = vec4(gbufferProjection[0][0], gbufferProjection[1][0],
+        gbufferProjection[2][0], gbufferProjection[3][0]);
+    vec4 clip_row_y = vec4(gbufferProjection[0][1], gbufferProjection[1][1],
+        gbufferProjection[2][1], gbufferProjection[3][1]);
+    vec3 ray_step = light_view * step_scale;
+    vec2 clip_origin = vec2(dot(clip_row_x, vec4(ray_origin, 1.0)),
+        dot(clip_row_y, vec4(ray_origin, 1.0)));
+    vec2 clip_step = vec2(dot(clip_row_x, vec4(ray_step, 0.0)),
+        dot(clip_row_y, vec4(ray_step, 0.0)));
+    vec2 depth_jitter = vec2(0.0);
+#ifdef TAA
+    // The receiver was reconstructed without jitter; sample the jittered
+    // depth lattice again for plants. Decide once, outside the sample loop.
+    if (plant_receiver) depth_jitter = u_taa_offset * 0.5;
+#endif
+
+    for (int i = 0; i < march_steps; ++i) {
         float sample_t = travelled + stbn_dither * stride;
-        vec3 sample_view = ray_origin + light_view * (step_scale * sample_t);
+        float sample_view_z = ray_origin.z + ray_step.z * sample_t;
         travelled += stride;
         stride += 0.3;
-        if (sample_view.z > -0.05) {
+        if (sample_view_z > -0.05) {
             break;  // crossed the camera near plane
         }
-        // Exact perspective projection per sample (no screen-depth lerp).
-        // Only the XY clip rows are read, so the projection reduces to two
-        // row dot products instead of a full mat4*vec4.
-        vec4 sample_view4 = vec4(sample_view, 1.0);
-        vec2 clip_xy = vec2(
-            dot(vec4(gbufferProjection[0][0], gbufferProjection[1][0],
-                     gbufferProjection[2][0], gbufferProjection[3][0]), sample_view4),
-            dot(vec4(gbufferProjection[0][1], gbufferProjection[1][1],
-                     gbufferProjection[2][1], gbufferProjection[3][1]), sample_view4));
-        vec2 sample_uv = clip_xy / -sample_view.z * 0.5 + 0.5;
+        vec2 clip_xy = clip_origin + clip_step * sample_t;
+        vec2 sample_uv = clip_xy / -sample_view_z * 0.5 + 0.5 + depth_jitter;
         if (any(lessThan(sample_uv, vec2(0.0)))
                 || any(greaterThan(sample_uv, vec2(1.0)))) {
             break;  // left the screen
         }
-        float sample_z = texture(depthtex1, SceneTextureUV(sample_uv)).r;
+        float sample_z = textureLod(depthtex1, SceneTextureUV(sample_uv), 0.0).r;
         // Occluder distance in view-space meters via the sparse inverse
         // projection (the same |view z| metric NDCToView reconstructs, and
         // the SSR helpers' canonical linearization). Sky falls out on its
         // own: the far-plane distance makes the gap negative.
         float sample_linear = LinearDepthFromScreenDepth(sample_z);
-        float gap = -sample_view.z - sample_linear;
+        float gap = -sample_view_z - sample_linear;
         // Strict inequalities: with both bounds at zero the window is empty.
         // The closed form would admit gap == 0.0, which still occurs when a
         // sample lands bit-exactly on a surface depth.
-        if (gap > CONTACT_SHADOW_GAP_MIN_METERS && gap < thickness) {
-            // First occluder inside the slab: remove the direct light.
-            return 0.0;
+        if (gap > minimum_gap && gap < thickness) {
+            // Screen-border evidence fades to the skylight fallback rather
+            // than popping as the ray leaves the image. No sampled-pixel ID.
+            vec2 edge_uv = min(sample_uv, 1.0 - sample_uv);
+            float confidence = max(edge_confidence_floor,
+                clamp(min(edge_uv.x, edge_uv.y) * 16.0, 0.0, 1.0));
+            visibility *= mix(1.0, step_visibility, confidence);
+            if (visibility < 0.015) return 0.0;
         }
     }
-    return 1.0;
+    return visibility;
 }
 
 #endif // LIB_SHADOW_CONTACT_SHADOW_GLSL

@@ -14,7 +14,6 @@
 // Samples: base-2 radical inverse (Hammersley) on a disk (Shirley & Chiu
 // concentric square-to-disk), rotated by the shared STBN volume.
 
-
 // ---- Low-discrepancy disk sampling ----
 
 // Stratified disk point via polar Hammersley (radius from index, angle
@@ -64,9 +63,8 @@ vec2 ShadowFilterTexelScale(vec3 clip_pos) {
 // Step 1: blocker search. Averages the depths of shadow-map samples that
 // occlude the receiver (depth <= receiver depth). Returns false when no
 // blocker is found in the search disk, so the pixel can be treated as lit.
-bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec2 rot_y, int blocker_steps, out float blocker_depth,
-    out float sss_thickness_world
-) {
+bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec2 rot_y,
+    int blocker_steps, out float blocker_depth) {
     // Convex corners project small false depth deltas; require a
     // world-space gap before counting a blocker (no corner darkening).
     float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_M);
@@ -74,7 +72,6 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec
 
     float depth_sum = 0.0;
     float weight_sum = 0.0;
-    float depth_gap_sum = 0.0;
     ivec2 shadow_size = ivec2(shadowMapResolution);
     // The texel-to-UV scale is loop-invariant; carry it as a float vector so
     // each tap trades an int->float conversion of the resolution for a mul.
@@ -85,65 +82,38 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 rot_x, vec
         vec2 uv = DistortShadowClip(clip_pos.xy + offset);
         ivec2 sample_texel = clamp(ivec2(uv * shadow_size_f), ivec2(0), shadow_size - 1);
         float shadow_depth = texelFetch(shadowtex0, sample_texel, 0).x;
-        float gap = max(sp.z - shadow_depth, 0.0);
         float w = step(shadow_depth, sp.z - blocker_bias);
         depth_sum += w * shadow_depth;
         weight_sum += w;
-        // Every sample contributes its gap (non-occluders add zero);
-        // averaged over the disk = foliage thickness along the light.
-        depth_gap_sum += w * gap;
     }
 
     if (weight_sum < 0.5) {
         blocker_depth = 0.0;
-        sss_thickness_world = 0.0;
         return false;
     }
     blocker_depth = depth_sum / weight_sum;
-    sss_thickness_world = ShadowDepthGapToWorld(depth_gap_sum / float(blocker_steps));
     return true;
 }
 
 // LOW-tier filter (SHADOW_PCSS off): single hardware-bilinear PCF lookup,
-// no penumbra estimation, no radius PCF. The blocker search still runs so
-// the plant-SSS thickness estimate keeps working without the PCSS cost.
-//   sp        - shadow NDC [0,1]^3 with depth bias (projectToShadowWithBias)
-//   clipPos   - undistorted shadow clip space [-1,1]^3 (projectToShadowClip)
-//   stbn_dither - STBN dither sampled by the pass main (ShadowDiskPoint
-//               rotation; static without TAA)
-//   sssAmount - plant translucency (0 = none); gates the blocker search
-//   sssThicknessWorld - out: foliage thickness along the light in meters
-float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, float stbn_dither, float sss_amount,
-                              out float sss_thickness_world) {
+// no penumbra estimation or blocker search. Plant transmission shares this
+// visibility and retains its depth-only screen attenuation.
+// sp is protected shadow UV/depth in [0,1]^3, including receiver bias.
+float ShadowFilterHardwarePCF(vec3 sp) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
-    sss_thickness_world = 0.0;
-    // Keep the blocker search only for SSS materials (thickness estimate);
-    // opaque surfaces skip it entirely in this tier.
-    if (sss_amount > 1e-3) {
-        float angle = stbn_dither * TAU;
-        vec2 rot_x = vec2(cos(angle), -sin(angle));
-        vec2 rot_y = vec2(sin(angle), cos(angle));
-        float blocker_depth;
-        ShadowFindBlocker(sp, clip_pos, ShadowFilterTexelScale(clip_pos),
-            rot_x, rot_y, SHADOW_SSS_STEPS, blocker_depth, sss_thickness_world);
-    }
     return texture(shadowtex1, sp);
 }
 
 // Full PCSS filter.
-//   sp        - shadow NDC [0,1]^3 with depth bias (projectToShadowWithBias)
-//   clipPos   - undistorted shadow clip space [-1,1]^3 (projectToShadowClip)
+//   sp        - protected shadow UV/depth [0,1]^3, including receiver bias
+//   clip_pos  - undistorted shadow clip space [-1,1]^3
 //   stbn_dither - STBN dither sampled by the pass main (serves the blocker
 //               search and the PCF pass with one coherent rotation)
-//   sssAmount - plant translucency (0 = none); widens the blocker search so
-//               the thickness estimate is stable across sparse foliage
-//   NdotL       - surface dot(light); back faces return early with thickness
-//   sssThicknessWorld - out: foliage thickness along the light in meters
+//   sss_amount  - receiver translucency; controls plant softness/sample budget
+//   ndotl       - clamped surface dot(light); only opaque backfaces exit early
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
-                       float sss_amount, float ndotl, out float sss_thickness_world) {
+    float sss_amount, float ndotl) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
-    sss_thickness_world = 0.0;
-
     // One dither value + rotation basis serves both passes (coherent dither);
     // one texel scale serves the blocker search and the PCF pass below.
     float angle = stbn_dither * TAU;
@@ -152,14 +122,13 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     vec2 texel_scale = ShadowFilterTexelScale(clip_pos);
 
     float blocker_depth;
-    int blocker_steps = sss_amount > 1e-3 ? SHADOW_SSS_STEPS : SHADOW_BLOCKER_SAMPLES;
-    if (!ShadowFindBlocker(sp, clip_pos, texel_scale, rot_x, rot_y, blocker_steps, blocker_depth, sss_thickness_world
-    )) {
+    int blocker_steps = SHADOW_BLOCKER_SAMPLES;
+    if (!ShadowFindBlocker(sp, clip_pos, texel_scale, rot_x, rot_y, blocker_steps, blocker_depth)) {
         return 1.0;
     }
 
-    // Back faces have no direct light: skip PCF (thickness already computed).
-    if (ndotl < 1.0e-3) {
+    // Thin foliage can transmit from the back side and needs real visibility.
+    if (ndotl < 1.0e-3 && sss_amount <= 0.01) {
         return 0.0;
     }
 
@@ -173,6 +142,10 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     float penumbra_texels = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS / texel_world_size;
     // SSS foliage scatters through a wider penumbra.
     penumbra_texels *= 1.0 + SHADOW_SSS_PENUMBRA_BOOST * sss_amount;
+    // A small material diffusion radius preserves a soft foliage terminator
+    // even at a local blocker. It does not create visibility in a shadow core.
+    float plant_radius_m = 0.06 * sss_amount * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
+    penumbra_texels = max(penumbra_texels, plant_radius_m / texel_world_size);
 
     // Filter capped inside the blocker search disk: a fixed multiplier, not
     // a sun-height term, so the cap is the same at noon and at sunset.
@@ -187,6 +160,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels),
         min(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES),
         max(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES));
+    if (sss_amount > 0.01) step_count = SHADOW_SSS_STEPS;
     float filter_radius = max(penumbra_texels, 1.0);
     vec2 filter_offset_scale = filter_radius * texel_scale;
 
@@ -199,13 +173,13 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
         vec2 uv = clamp(DistortShadowClip(clip_pos.xy + offset), vec2(0.0), vec2(1.0));
         shadow += texture(shadowtex1, vec3(uv, sp.z));
     }
-    // First 4 taps classify lit/shadowed early-exit (saves samples on large
-    // penumbras).
+    // Opaque receivers retain the first-four classification. Plants complete
+    // their smaller budget so partial visibility is not rounded to black/white.
     if (step_count > 4) {
-        if (shadow < 0.5) {
+        if (sss_amount <= 0.01 && shadow < 0.5) {
             return 0.0;
         }
-        if (shadow > 3.5) {
+        if (sss_amount <= 0.01 && shadow > 3.5) {
             return 1.0;
         }
         for (int i = 4; i < step_count; ++i) {

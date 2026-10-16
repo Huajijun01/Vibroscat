@@ -35,12 +35,12 @@
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/ambient_occlusion.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/plant_subsurface.glsl"
 #if GI_MODE != 0
 #include "/lib/lighting/gi_denoise.glsl"
 #endif
 #include "/lib/material/model.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
-#include "/lib/scattering/phase.glsl"
 #include "/lib/shadow/contact_shadow.glsl"
 #include "/lib/shadow/pcss.glsl"
 #if GI_MODE == 2 && defined(RSM_SKY_OCCLUSION)
@@ -67,7 +67,7 @@ void main() {
     // -- Sky (far plane) --
     // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
     if (scene_depth >= 1.0) {
-#if SHADOW_SSS_DEBUG == 1 || OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
+#if SHADOW_SSS_DEBUG > 0 || OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
         out_color = vec3(0.0);
         return;
 #else
@@ -185,17 +185,18 @@ void main() {
     vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
     // colortex4 carries the world-space geometric normal (octahedral RG).
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
-#if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-    // Contact shadows work in view space. The transform is compile-time
-    // gated and computed inside the shadow_needed gate at its only consumer.
-#endif
     vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
     // Plant translucency from the materialID stored in colortex1.a.
-#ifdef SHADOW_SSS
+#if defined(SHADOW_SSS) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     float sss_amount = SSSAmountForId(material_id);
 #else
     // Compile-time off: the literal zero folds every SSS branch below out.
     float sss_amount = 0.0;
+#endif
+    float sss_skylight = lm.g;
+#if defined(WORLD_END)
+    // The End has directional light but no vanilla sky-light channel.
+    sss_skylight = 1.0;
 #endif
 
     // -- World position (for shadow) --
@@ -230,153 +231,146 @@ void main() {
 
     // -- Directional light (sun or moon) --
     vec3 light_direction = (u_world_light_dir);
-    vec3 half_vector = view_to_eye + light_direction;
-    vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
-    // N, V and L are unit and H is their guarded unit sum, so each cosine is
-    // at most 1: the [0,1] clamp is exact here, and saturate() folds into the
-    // producing dot as .SAT where max(x, 0.0) costs a separate instruction.
+    // Unit normal/view/light inputs bound these cosines to [0,1].
     float ndotl = saturate(dot(normal_world, light_direction));
     float ndotv = saturate(dot(normal_world, view_to_eye));
-    float ndoth = saturate(dot(normal_world, half_direction));
-    float vdoth = saturate(dot(view_to_eye, half_direction));
-    // Unit view and light directions with H = normalize(V+L) give V·H == L·H,
-    // so both half-vector cosines share the one dot above.
-    float ldoth = vdoth;
     float geo_ndotl = dot(geo_normal, light_direction);
+
+    // Thin foliage broadens diffuse lighting toward a two-sided response.
+    // Reflection and its enhancement share directional visibility, so shelter
+    // removes both completely. The bent blade normal affects diffuse only.
+    bool plant_receiver = sss_amount > 0.01;
+    vec2 plant_response = vec2(0.0);
+    float plant_sky_access = 1.0;
+    if (plant_receiver) {
+        vec3 plant_normal = PlantShadingNormal(normal_world, view_to_eye, material_id);
+        plant_response = PlantDiffuseResponse(plant_normal, light_direction,
+            view_to_eye, material_id, sss_amount);
+        plant_sky_access = smoothstep(0.02, 0.35, sss_skylight);
+    }
 
     // -- Shadow --
     float shadow_occlusion = 1.0;
-    float sss_thickness_world = 0.0;
-    bool shadow_needed = ndotl > 1.0e-3 || sss_amount > 0.01;
-    // One STBN read feeds both the shadow filter and the contact shadow:
-    // same texel and time slice, so both consumers share the dither.
+    float plant_map_visibility = 1.0;
+    float sss_map_coverage = 0.0;
+    bool shadow_needed = plant_receiver
+        ? (plant_response.x + plant_response.y) * plant_sky_access > 1.0e-4
+        : ndotl > 1.0e-3;
+    // One STBN read feeds map filtering and the depth-only contact ray.
     float stbn_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
-    // Shadow-map coverage confidence, shared by the direct-shadow fade-out
-    // and the plant-SSS presence gate. Evaluated in raw undistorted shadow
-    // clip space, where the extent maps linearly to world distance: the fade
-    // starts at SHADOW_SSS_FADE_START of the XY/depth extent and reaches
-    // zero exactly at the coverage border, so the shadow eases out on one
-    // curve and plant SSS renders exactly where the filter still samples.
-    float shadow_coverage = 1.0;
     if (shadow_needed) {
-        // Both consumers of the biased projection live behind this gate, and
-        // one shared sweep replaces the two separate projections (bit-identical
-        // outputs, half the view/clip transform work).
         vec3 shadow_proj;
         vec3 shadow_clip;
-        ProjectToShadowPair(world_pos, geo_ndotl, shadow_proj, shadow_clip);
+        float bias_cosine = plant_receiver ? max(abs(geo_ndotl), 0.3) : geo_ndotl;
+        ProjectToShadowPair(world_pos, bias_cosine, shadow_proj, shadow_clip);
+        if (plant_receiver) {
+            // Thin surfaces need less offset than solid blocks. A light-facing
+            // bias avoids backface acne without erasing a canopy's shadow core.
+            float raw_depth = ProtectShadowDepth(shadow_clip.z * 0.5 + 0.5);
+            shadow_proj.z = mix(raw_depth, shadow_proj.z, material_id == 129 ? 0.3 : 0.55);
+        }
         float clip_edge = max(abs(shadow_clip.x), abs(shadow_clip.y));
         float xy_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, clip_edge);
         float z_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, abs(shadow_clip.z));
-        shadow_coverage = xy_coverage * z_coverage;
+        float shadow_coverage = xy_coverage * z_coverage;
+        // The nominal-radius fade is confidence in the map, not a statement
+        // about Iris's geometry culling. Screen attenuation runs on both sides.
+        sss_map_coverage = shadow_coverage * (1.0 - smoothstep(
+            SHADOW_SSS_FADE_START, 1.0, length(world_pos) / shadowDistance));
+        float map_confidence = plant_receiver ? sss_map_coverage : shadow_coverage;
         float shadow_filtered = 1.0;
-        if (shadow_coverage > 1.0e-3) {
+        if (map_confidence > 1.0e-3) {
 #ifdef SHADOW_PCSS
             shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither,
-                sss_amount, ndotl, sss_thickness_world);
+                sss_amount, ndotl);
 #else
-            // LOW tier: hardware-bilinear PCF; the blocker search stays on
-            // so the plant-SSS thickness estimate keeps working (see
-            // ShadowFilterHardwarePCF).
-            shadow_filtered = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, stbn_dither,
-                sss_amount, sss_thickness_world);
+            shadow_filtered = ShadowFilterHardwarePCF(shadow_proj);
 #endif
         }
-        // Ease the shadow-map result into the unshadowed out-of-coverage
-        // response on the same curve; no hard switch at the map border.
-        shadow_occlusion = mix(1.0, shadow_filtered, shadow_coverage);
+        plant_map_visibility = shadow_filtered;
+        if (plant_receiver) {
+            float distant_visibility = PlantDistantVisibility(sss_skylight, ao, material_id);
+            shadow_occlusion = mix(distant_visibility, shadow_filtered, map_confidence)
+                * plant_sky_access;
+        } else {
+            shadow_occlusion = mix(1.0, shadow_filtered, shadow_coverage);
+        }
+    } else {
+        shadow_occlusion = 0.0;
     }
+    float sss_contact_visibility = 1.0;
+    // Leaf cubes rely on reliable map shelter nearby; increasing screen weight
+    // continuously as map confidence fades avoids double-darkening the canopy.
+    // Grass uses full screen attenuation at every distance.
+    float plant_contact_weight = material_id == 129 && plant_receiver ? 1.0 - sss_map_coverage : 1.0;
 #if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-#if CONTACT_SHADOW_DEBUG > 0
+#if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG == 3
     if (shadow_needed) {
 #else
-    // Contact visibility cannot change exact-zero direct light; SSS keeps
-    // the shadow-map thickness measured above independently of this gate.
-    if (shadow_needed && shadow_occlusion > 0.0 && ndotl > 0.0) {
+    // No direct light survives a fully sheltered receiver: skip its screen ray.
+    if (shadow_needed && shadow_occlusion > 0.0 && plant_contact_weight > 0.0) {
 #endif
-        // Contact shadows work in view space; this is the transform's only
-        // consumer, so it stays behind the same gate.
-        vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
-        // Screen-space contact shadows, evaluated inline on the receiver: an
-        // upper bound on the shadow-map result. The march fills PCF seam
-        // leaks along contact lines and keeps directional occlusion past the
-        // shadow-map boundary.
+        vec3 geo_view_normal = plant_receiver ? vec3(0.0) : normalize(mat3(gbufferModelView) * geo_normal);
         float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal, geo_ndotl,
-            stbn_dither);
-        shadow_occlusion = min(shadow_occlusion, contact_shadow);
+            stbn_dither, sss_amount);
+        // Plant hits represent partial occupancy; compound it with map shelter.
+        // Opaque receivers retain the existing first-hit/min visibility rule.
+        shadow_occlusion = plant_receiver
+            ? shadow_occlusion * mix(1.0, contact_shadow, plant_contact_weight)
+            : min(shadow_occlusion, contact_shadow);
+        sss_contact_visibility = contact_shadow;
 #if CONTACT_SHADOW_DEBUG > 0
-        // Debug view: raw visibility factor or boosted darkness. Pixels that
-        // skip the march (back faces, weak direct light) keep scene color.
         out_color = vec3(CONTACT_SHADOW_DEBUG == 1
-            ? contact_shadow
-            : min((1.0 - contact_shadow) * 4.0, 1.0));
+            ? contact_shadow : min((1.0 - contact_shadow) * 4.0, 1.0));
         return;
 #endif
     }
 #endif
-    // Direct BRDF. Two exact-zero gates skip the evaluation where the result
-    // is +0 anyway: a fully occluded receiver multiplies by
-    // shadow_occlusion == 0 (shadow map or contact shadow), and a back face
-    // multiplies by ndotl == 0. Every BRDF term is finite and non-negative,
-    // so both products are exactly zero. The plant-SSS branch can consume the
-    // exported diffuse component, so SSS receivers always evaluate.
-    vec3 shared_diffuse_brdf = vec3(0.0);
-    vec3 direct_lighting = vec3(0.0);
-    if (shadow_occlusion > 0.0 && (ndotl > 0.0 || sss_amount > 0.01)) {
-        vec3 direct_brdf = EvaluateDirectBRDF(
-            albedo, material.f0, material.diffuse_weight,
-            material.perceptual_roughness,
-            ndotv, ndotl, ndoth, vdoth, ldoth, shared_diffuse_brdf);
-        direct_lighting = direct_brdf * ndotl;
-    }
-    // -- Composite --
-    // All terms below are BRDF * incident visibility until the final light
-    // color multiplication. SSS redistributes only the diffuse light budget.
-    vec3 direct_visibility = direct_lighting * shadow_occlusion;
-    out_direct_brdf = direct_visibility;
-    // -- Light color sources (same colors as the gbuffer translucent passes) --
-    vec3 sun_color   = ground_light.rgb;  // direct sun/moon irradiance at ground (SSBO)
-    vec3 sss_lighting = vec3(0.0);
-    // Same-argument reflectance as the torch term below; evaluated once.
+
+    // Reuse diffuse reflectance for direct plants, ambient and block light.
     vec3 diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
-
-    if (sss_amount > 0.01 && shadow_coverage > 1.0e-3) {
-        // Plant SSS is a byproduct of the shadow-map measurement and has no
-        // transition of its own: inside the coverage border it renders at
-        // full strength from the measured thickness, and past the border
-        // (the same gate the shadow filter uses) the term is absent
-        // outright - no lightmap handoff, no distance blend. The surface
-        // out there is simply unshadowed.
-        float ldotv = dot(light_direction, view_to_eye);
-        float sss_phase = PhaseHenyeyGreensteinSurfaceNormalized(-ldotv, SHADOW_SSS_PHASE_G);
-        float average_albedo = Luminance(albedo);
-        float absorption = (1.0 - 0.75 * saturate(average_albedo))
-            * SHADOW_SSS_DENSITY / sss_amount;
-        float transmission = exp(-absorption * sss_thickness_world);
-        // Clamp the material budget first so ENERGY remains proportional
-        // throughout 0..1, including when the legacy SCALE exceeds one.
-        float material_share = saturate(sss_amount * SHADOW_SSS_SCALE);
-        float sss_energy = material_share * saturate(SHADOW_SSS_ENERGY);
-        // The shared diffuse component from the direct BRDF above; the
-        // multiplication order keeps this identical to the previous inline
-        // recompute (albedo * (1 - fresnel) * weight * Burley * ndotl * shadow).
-        vec3 direct_diffuse = shared_diffuse_brdf * ndotl * shadow_occlusion;
-        // Thickness already attenuates incoming light. A second (1-shadow)
-        // gate would remove transmission from unobstructed thin foliage.
-        sss_lighting = diffuse_reflectance * sss_phase * transmission * sss_energy;
-        // Hand the diffuse budget over only where the transmission lobe can
-        // return it: phase * PI matches the (1/PI) diffuse response, so
-        // weak-phase directions keep plain diffuse shading and back-lit
-        // directions pay the full ENERGY share.
-        float removal_share = sss_energy * saturate(sss_phase * PI);
-        direct_visibility = max(direct_visibility - direct_diffuse * removal_share,
-            vec3(0.0));
+    vec3 direct_visibility = vec3(0.0);
+    vec3 sss_lighting = vec3(0.0);
+    if (shadow_occlusion > 0.0) {
+        if (plant_receiver) {
+            vec2 visible_response = plant_response * shadow_occlusion;
+            direct_visibility = diffuse_reflectance * visible_response.x;
+            sss_lighting = diffuse_reflectance * visible_response.y;
+        }
+        // Half-vector work belongs after visibility, outside the screen ray's
+        // live state. Dry rough plants need no direct GGX; wet/smooth plants
+        // retain their original lobe on the real surface normal.
+        if (ndotl > 0.0 && (!plant_receiver || material.perceptual_roughness < 0.5)) {
+            vec3 half_vector = view_to_eye + light_direction;
+            vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
+            // Unit N,V,L and guarded unit H bound both cosines. V.H == L.H.
+            float ndoth = saturate(dot(normal_world, half_direction));
+            float vdoth = saturate(dot(view_to_eye, half_direction));
+            vec3 diffuse_brdf;
+            vec3 direct_brdf = EvaluateDirectBRDF(
+                albedo, material.f0, material.diffuse_weight,
+                material.perceptual_roughness,
+                ndotv, ndotl, ndoth, vdoth, vdoth, diffuse_brdf);
+            if (plant_receiver) direct_brdf = max(direct_brdf - diffuse_brdf, vec3(0.0));
+            direct_visibility += direct_brdf * ndotl * shadow_occlusion;
+        }
     }
+    // colortex5 feeds underwater caustics; exclude transmitted diffuse light.
+    out_direct_brdf = direct_visibility;
+    vec3 sun_color = ground_light.rgb;
     vec3 color = (direct_visibility + sss_lighting) * sun_color;
 #if SHADOW_SSS_DEBUG == 1
-    // Isolate the actual term; fog and post-processing still follow this pass.
     out_color = sss_lighting * sun_color;
+    return;
+#elif SHADOW_SSS_DEBUG == 2
+    out_color = plant_receiver ? vec3(1.0 - sss_map_coverage, sss_map_coverage, 0.0) : vec3(0.0);
+    return;
+#elif SHADOW_SSS_DEBUG == 3
+    out_color = plant_receiver ? vec3(sss_contact_visibility) : vec3(0.0);
+    return;
+#elif SHADOW_SSS_DEBUG == 4
+    out_color = plant_receiver ? vec3(plant_map_visibility) : vec3(0.0);
     return;
 #endif
 

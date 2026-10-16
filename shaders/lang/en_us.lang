@@ -52,7 +52,7 @@ screen.PCSS.comment = Contact-hardening soft shadows: the blocker search budget,
 screen.SHADOW_DEPTH = Shadow Depth
 screen.SHADOW_DEPTH.comment = Depth tolerance, plus the two boosts that set how wide the soft-shadow blur may grow.
 screen.PLANT_SSS = Plant Translucency
-screen.PLANT_SSS.comment = Sunlight shining through leaves and thin plants, with its own step budget, thickness and direction controls. SSS stands for subsurface scattering.
+screen.PLANT_SSS.comment = Bright exposed leaves and grass tips, soft partial shadows and shaded interiors. SSS stands for subsurface scattering.
 screen.CONTACT = Contact Shadows
 screen.CONTACT.comment = Short-range screen-space shadows that fill the seam where objects meet the ground or a wall. Overworld and End only.
 screen.AO = Ambient Occlusion
@@ -280,27 +280,30 @@ option.SHADOW_PCF_GAIN.comment = How fast the sample count grows as shadows get 
 option.SHADOW_PENUMBRA_CAP_BOOST = Penumbra Cap Boost
 option.SHADOW_PENUMBRA_CAP_BOOST.comment = Raises the ceiling on how wide the soft-shadow blur may grow. It is a fixed multiplier and carries no sun-height term, so noon and sunset behave exactly the same. Higher = the widest soft shadows may spread further, slower.
 option.SHADOW_SSS = Plant Translucency (SSS)
-option.SHADOW_SSS.comment = Lets dense foliage glow when backlit, using a shadow-map thickness estimate. Off removes the effect and its extra shadow-map sampling; the SSS sliders only apply while it is on.
-option.SHADOW_SSS_STEPS = SSS Steps
-option.SHADOW_SSS_STEPS.comment = Quality of the light-through-leaves effect (how precisely the light path inside foliage is traced): higher = smoother glow, slower.
-option.SHADOW_SSS_DENSITY = SSS Density
-option.SHADOW_SSS_DENSITY.comment = How strongly leaves absorb light: higher = less light passes through thick foliage; lower = leaves glow more.
-option.SHADOW_SSS_SCALE = SSS Material Share
-option.SHADOW_SSS_SCALE.comment = How much of a plant surface's diffuse budget may be handed over to the through-leaf glow. The material's own transmission share is multiplied by this and then clamped, so once the product reaches 1.0 higher values change nothing. Energy Share caps the result on top of it.
-option.SHADOW_SSS_PENUMBRA_BOOST = SSS Edge Spread
-option.SHADOW_SSS_PENUMBRA_BOOST.comment = Widens the soft edges of the through-leaf glow.
-option.SHADOW_SSS_ENERGY = SSS Share Cap
-option.SHADOW_SSS_ENERGY.comment = The maximum share of direct sunlight that can be turned into through-leaf glow: higher = foliage lit from behind glows more strongly.
+option.SHADOW_SSS.comment = Broadens thin-plant lighting while retaining deep occlusion. Grass uses partial screen shadows near and far. Leaves rely on the nearby shadow map and gradually add screen shadows at distance.
+option.SHADOW_SSS_STEPS = Plant Soft Shadow Samples
+option.SHADOW_SSS_STEPS.comment = Shadow-map filter samples for plants when PCSS is enabled. Higher = smoother soft edges, slower. Screen shadows use Contact Shadow Steps.
+option.SHADOW_SSS_DENSITY = Plant Shadow Absorption
+option.SHADOW_SSS_DENSITY.comment = Absorption along plant screen-shadow rays. Higher = darker overlaps and shorter partial shadows; lower = gentler, longer partial shadows. Requires Contact Shadows.
+option.SHADOW_SSS_SCALE = Plant Response Strength
+option.SHADOW_SSS_SCALE.comment = Strength of the broad thin-plant response. Exposed tips approach directly lit brightness; fully occluded plants stay shaded. Material response saturates at high values.
+option.SHADOW_SSS_PENUMBRA_BOOST = Plant Shadow Softness
+option.SHADOW_SSS_PENUMBRA_BOOST.comment = Widens the shadow-map penumbra on plants. Fully sheltered regions remain dark. Requires PCSS.
+option.SHADOW_SSS_ENERGY = Plant Light Compensation
+option.SHADOW_SSS_ENERGY.comment = How far exposed thin plants approach a fully lit diffuse surface. Raises back and side lighting without reducing the directly lit side. Occlusion applies to the entire response.
 option.SHADOW_SSS_DEBUG = SSS Debug View
-option.SHADOW_SSS_DEBUG.comment = Troubleshooting view that shows only the through-leaf light. Needs Plant Translucency (SSS) on, otherwise the screen is black. Leave Off while playing.
+option.SHADOW_SSS_DEBUG.comment = Isolates the thin-plant lighting enhancement, map confidence (green = map, red = fallback), raw plant screen visibility, or raw map visibility. Needs Plant Translucency. Fog and post effects still apply.
 value.SHADOW_SSS_DEBUG.0 = Off
-value.SHADOW_SSS_DEBUG.1 = On
+value.SHADOW_SSS_DEBUG.1 = Lighting Enhancement
+value.SHADOW_SSS_DEBUG.2 = Map Confidence
+value.SHADOW_SSS_DEBUG.3 = Plant Contact Visibility
+value.SHADOW_SSS_DEBUG.4 = Map Visibility
 option.SHADOW_SSS_PHASE_G = SSS Directionality
-option.SHADOW_SSS_PHASE_G.comment = Direction of the through-leaf glow: higher = brightest when you look toward the sun through the plant, like real backlit leaves.
+option.SHADOW_SSS_PHASE_G.comment = Focus of the grass sunward highlight. Side views keep the broad response; leaf cubes retain broad compensation. Highlight brightness is capped.
 option.SHADOW_SSS_FADE_START = Shadow Fade Start
-option.SHADOW_SSS_FADE_START.comment = Shadows ease out toward the edge of the shadow map's coverage; this sets how close to the edge the fading begins (higher = shadows survive farther out). Plant SSS renders at full strength wherever the map still samples and ends at the border.
+option.SHADOW_SSS_FADE_START.comment = Start of the smooth shadow-map handoff. Plants blend map visibility into a skylight shelter estimate. Grass keeps screen shadows throughout; leaves gradually add them as map confidence falls.
 option.CONTACT_SHADOW = Screen-Space Contact Shadows
-option.CONTACT_SHADOW.comment = Short-range screen-space shadows: a screen-projected ray is marched against the depth buffer to fill in the detail the shadow map misses, such as objects right at your feet, and it keeps working beyond the shadow map's range. Overworld and End only.
+option.CONTACT_SHADOW.comment = A short depth-buffer ray fills shadow-map contact gaps and works beyond the map. With plant SSS enabled, grass uses partial attenuation at every distance; leaves add screen attenuation as map confidence fades. Overworld and End only.
 option.CONTACT_SHADOW_STEPS = Contact Shadow Steps
 option.CONTACT_SHADOW_STEPS.comment = Quality of these small shadows: higher = fewer missed or speckled shadows, slower.
 option.CONTACT_SHADOW_MAX_DISTANCE = Contact Shadow Distance

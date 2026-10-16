@@ -154,8 +154,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 
 // PCSS shadows (Fernando 2005 framework, custom implementation). The LOW
 // profile disables the penumbra estimation + radius PCF and falls back to
-// hardware bilinear shadow filtering; the blocker search stays on (while
-// SHADOW_SSS is on) so the plant-SSS thickness estimate keeps working.
+// one hardware-PCF lookup; plant screen attenuation remains available.
 #define SHADOW_PCSS
 #define SHADOW_BLOCKER_SAMPLES 4 // [2 3 4 5 6 8 10 12]
 #define SHADOW_BLOCKER_SEARCH_TEXELS 12.0 // [4.0 6.0 8.0 10.0 12.0 16.0 20.0 24.0]
@@ -167,17 +166,17 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_BLOCKER_DEPTH_TOLERANCE_M 0.0 // [0.0 0.05 0.1 0.15 0.2 0.3 0.5]
 
 // Plant subsurface scattering settings.
-#define SHADOW_SSS // Plant translucency transmission; off compiles the SSS lighting and thickness estimate out.
+#define SHADOW_SSS // Thin-plant diffuse response, soft visibility and screen attenuation.
 #define SHADOW_SSS_STEPS 8 // [4 6 8 10 12 16]
 #define SHADOW_SSS_DENSITY 3.0 // [1.0 2.0 3.0 4.0 6.0 8.0]
 #define SHADOW_SSS_SCALE 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 4.0]
 #define SHADOW_SSS_PENUMBRA_BOOST 7.0 // [0.0 1.0 2.0 3.0 5.0 7.0 10.0]
 #define SHADOW_SSS_PHASE_G 0.4 // [0.0 0.3 0.4 0.5 0.6 0.7 0.8 0.9]
 // Shadow-map coverage fade start (fraction of the XY/depth extent). One
-// curve drives the direct-shadow fade-out and the plant-SSS presence gate.
+// curve drives direct-shadow fade-out and plant transmission confidence.
 #define SHADOW_SSS_FADE_START 0.75 // [0.0 0.5 0.6 0.7 0.75 0.8 0.9 0.95]
 #define SHADOW_SSS_ENERGY 0.85 // [0.1 0.2 0.3 0.35 0.4 0.5 0.6 0.8 0.85 1.0]
-#define SHADOW_SSS_DEBUG 0 // [0 1] Isolate plant transmission in deferred shading.
+#define SHADOW_SSS_DEBUG 0 // [0 1 2 3 4] Scene / transmission / map confidence / plant contact visibility / map visibility.
 
 // Screen-space contact shadows (short-range, alongside the shadow map):
 // deferred4 marches a screen-projected ray toward the active directional
@@ -228,7 +227,7 @@ const float ambientOcclusionLevel = 1.0;
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
 #define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
 #define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
-//#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
+// #define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
 #define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
 #define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)

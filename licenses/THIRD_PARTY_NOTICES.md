@@ -483,6 +483,25 @@ https://github.com/Luna5ama/Alpha-Piscium）与 Photon v1.3b 的
 再作周期空间与时间低通；它不是第三方贴图。运行时沿未折射的世界太阳方向
 投影并积分，以艺术化亮度直接加到画面，不宣称完整模拟水下体积光输运。
 
+## 29. 植物透光与屏幕空间衰减（概念研究）
+
+只读比较 iterationT 3.2.0 的 `shaders/Lib/BasicFounctions/Sunlight_Shadow.glsl`
+与 `shaders/composite.fsh`（未发现包级许可证，按保留权利处理；
+https://minegraph.cn/shaderpacks/12），以及 Photon v1.3b 的
+`shaders/include/lighting/diffuse_lighting.glsl` 与
+`shaders/include/lighting/shadows/ssrt.glsl`（自定义许可允许检视和学习；
+https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的吸收、
+植物接收面的屏幕空间衰减以及阴影贴图范围外的近似处理。
+没有复制或近似翻译其源码、特有表达式、常数或资产。
+
+`lib/lighting/plant_subsurface.glsl` 与现有阴影路径的修改为独立实现：
+复用本包的表面归一化 HG 函数、植物分类、漫反射率与深度步进。
+薄片植物角度补偿、贴图柔化与偏移、接收面吸收和连续的贴图到屏幕可信度
+均独立选定。草始终使用屏幕衰减，近处树叶方块依靠贴图遮蔽，随贴图
+可信度降低再加入屏幕衰减。普通漫反射和植物受光增强量共同接受方向遮挡。
+屏幕步进只读取深度，不逐采样判别遮挡物材质；贴图、天空光和顶点 AO
+近似约束屏幕无法提供的遮挡，不宣称恢复真实叶片厚度或完整光输运。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

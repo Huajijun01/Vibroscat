@@ -586,6 +586,31 @@ temporal low-pass filtering. It is not a third-party texture. Runtime projection
 and integration follow the unrefracted world sun direction and add artistic
 radiance to the scene; this does not claim full underwater volume transport.
 
+## 29. Plant transmission and screen-space attenuation (concept study)
+
+Read-only comparison studied iterationT 3.2.0's
+`shaders/Lib/BasicFounctions/Sunlight_Shadow.glsl` and `shaders/composite.fsh`
+(no package license found; treated as reserved rights;
+https://minegraph.cn/shaderpacks/12), and Photon v1.3b's
+`shaders/include/lighting/diffuse_lighting.glsl` and
+`shaders/include/lighting/shadows/ssrt.glsl` (custom license permitting
+examination and learning; https://github.com/sixthsurge/photon). Concepts
+studied include broad transmission, colored absorption, receiver-based plant
+screen shadows, and estimates beyond shadow-map coverage. No source,
+distinctive expressions, constants or assets were copied or closely translated.
+
+`lib/lighting/plant_subsurface.glsl` and the changes to the existing shadow
+paths are independent implementations using this pack's surface-normalized
+HG helper, plant classes, diffuse reflectance and depth march. Thin-plant
+angular compensation, map softness/bias, receiver extinction and continuous
+map-to-screen confidence are independently chosen. Grass uses screen
+attenuation at all distances; nearby leaf cubes trust map shelter and add
+screen attenuation as map confidence falls. Both ordinary diffuse light and
+its foliage enhancement share directional occlusion. The screen march reads
+depth only, without classifying sampled blocker materials. Map, skylight and
+vertex AO constrain missing screen evidence approximately; this does not
+reconstruct physical leaf thickness or full light transport.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

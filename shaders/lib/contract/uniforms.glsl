@@ -121,6 +121,8 @@ uniform float rainStrength;
 uniform float wetness;
 uniform float u_fast_wetness;
 uniform float u_rain_biome; // smoothed rain eligibility of the camera biome, [0, 1]
+// Reserved for future snow effects; intentionally no GLSL consumer yet
+// (the CHANGELOG alpha v0.3.0 entry documents the reservation).
 uniform float u_snow_biome; // smoothed snow eligibility of the camera biome, [0, 1]
 
 #endif // LIB_CONTRACT_UNIFORMS_GLSL

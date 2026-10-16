@@ -50,7 +50,7 @@ void main() {
     // Rows are shared because every lane visits its own stripe's rows. The
     // column basis is lane-local because lane x is column x.
     if (tid < uint(SKY_RADIANCE_LUT_SIZE)) {
-        row_sin[tid] = 2.0 * (float(tid) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
+        row_sin[tid] = SKY_RADIANCE_LUT_ROW_CENTER(tid);
         row_cos[tid] = sqrt(max(1.0 - row_sin[tid] * row_sin[tid], 0.0));
     }
     float col_angle = (float(col) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
@@ -68,12 +68,40 @@ void main() {
     vec4 sh_b2 = vec4(0.0);
     float sh_b24 = 0.0;
 
+    // Horizon mask. thetaH is the sky LUT's horizon elevation,
+    // asin(ATM_PLANET_R / (ATM_PLANET_R + altitude)) - PI/2 (SkyLUTUV and
+    // sky.compute). Its sine is the whole test: with u = R / (R + h),
+    // sin(asin(u) - PI/2) = -cos(asin(u)) = -sqrt(1 - u*u) = -h / (R + h), so
+    // the row predicate "dir.y >= sin(thetaH)" reduces to one comparison on the
+    // row's dir.y, which the equal-area v axis makes constant along the row.
+    //
+    // The divisor is hoisted because it is one uniform for the whole workgroup,
+    // so the mask costs that single compare per row and is evaluated exactly on
+    // the row center. Solving for a row bound instead is no cheaper and its one
+    // half-row offset is not representable in float, which lets the bound land
+    // on either side of the horizon.
+    float horizon_rcp_r = 1.0 / (ATM_PLANET_R + u_cam_altitude);
+    float sin_theta_h = -u_cam_altitude * horizon_rcp_r;
+
     uint row_begin = stripe * uint(SH_ROWS_PER_STRIPE);
     uint row_end = row_begin + uint(SH_ROWS_PER_STRIPE);
     for (uint y = row_begin; y < row_end; y += uint(SH_ROW_SAMPLE_STRIDE)) {
+        // A row below the horizon is not part of the irradiance this probe
+        // describes, so it contributes zero rather than the horizon haze band
+        // and the clouds a downward ray still intersects. Those rows stay in
+        // uimg_sky_radiance because the reflection skybox samples them; only
+        // the probe drops them. Skipping the load, the basis and the nine
+        // accumulations is what makes the mask free. Every surviving row is
+        // still visited exactly once at its full SH_SAMPLE_WEIGHT, so the
+        // quadrature itself is unchanged.
+        // float sy = row_sin[y];
+        // if (sy < sin_theta_h) continue;
+
         vec3 color = imageLoad(uimg_sky_radiance, ivec2(int(col), int(y))).rgb;
 
         float sy = row_sin[y];
+        if (sy < sin_theta_h) color *= 0.2;
+
         float cy = row_cos[y];
         float dx = cy * col_cos;
         float dz = cy * col_sin;

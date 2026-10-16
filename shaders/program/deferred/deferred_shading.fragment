@@ -78,98 +78,96 @@ vec3 ResolveSurfaceGIAmbient(ivec2 tx, vec3 view_pos, vec3 world_pos,
 }
 #endif
 
-void main() {
-    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
-    out_direct_brdf = vec3(0.0);
-    ivec2 tx = ivec2(gl_FragCoord.xy);
-    float scene_depth = texelFetch(depthtex0, tx, 0).r;
-    // Last opaque-gbuffer consumer: clear the next sides before translucency.
-    // The colortex12 input side still contains the shading normals read below.
-    out_gbuf_clear = vec4(0.0);
-    out_translucent_clear = vec4(0.0);
-
-    // -- Sky (far plane) --
-    // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
-    if (scene_depth >= 1.0) {
+// Sky pixel (scene_depth == 1.0): the Sky View LUT plus the cloud layer, the
+// celestial bodies and the star field. Returns the sky colour; the hidden sky
+// debug view writes out_color itself and reports it through out_color_written.
+vec3 ComputeSkyPixel(ivec2 tx, vec2 uv, out bool out_color_written) {
+    out_color_written = false;
 #if SHADOW_SSS_DEBUG == 1 || OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
-        out_color = vec3(0.0);
-        return;
+    out_color = vec3(0.0);
+    out_color_written = true;
+    return vec3(0.0);
 #else
-        vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
-        vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
-            * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
-        vec3 sun_dir = u_world_sun_dir;
-        vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
-        vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
-        // Discs stay out of the LUT so clouds attenuate them by real
-        // transmittance. view_transmittance is computed at its two consumers
-        // below: behind an opaque cloud column it is never read.
-        vec3 celestial = vec3(0.0);
+    vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
+    vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
+        * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
+    vec3 sun_dir = u_world_sun_dir;
+    vec2 sky_uv = SkyLUTUV(view_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
+    vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
+    // Discs stay out of the LUT so clouds attenuate them by real
+    // transmittance. view_transmittance is computed at its two consumers
+    // below: behind an opaque cloud column it is never read.
+    vec3 celestial = vec3(0.0);
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
-        vec3 cloud_transmittance = vec3(1.0);
-        vec3 volumetric_radiance = vec3(0.0, 0.0, 1.0);
-        vec3 volumetric_surface_pos = vec3(0.0);
-        float volumetric_entry = 1.0e9;
-        vec4 view_transmittance = vec4(1.0);
-        bool view_transmittance_cached = false;
+    vec3 cloud_transmittance = vec3(1.0);
+    vec3 volumetric_radiance = vec3(0.0, 0.0, 1.0);
+    vec3 volumetric_surface_pos = vec3(0.0);
+    float volumetric_entry = 1.0e9;
+    vec4 view_transmittance = vec4(1.0);
+    bool view_transmittance_cached = false;
 #ifdef VOLUMETRIC_CLOUDS
-        vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
-        float cloud_entry;
-        float cloud_exit;
-        bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, cloud_entry, cloud_exit);
-        if (cloud_visible
-                && length(camera_atmosphere_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
-            // Only render when the ray rises into the layer (not skimming beneath).
-            cloud_visible = cloud_entry > 0.0;
-        }
-        if (cloud_visible) {
-            // Cloud history (radiance.rgb + distance.a) via the deferred1
-            // colortex8 flip. Distance is never EMA-mixed; feeds relight and
-            // the distance fade.
-            vec4 accumulated = texelFetch(colortex8, tx, 0);
-            volumetric_surface_pos = camera_atmosphere_pos + view_dir * accumulated.a;
-            accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
-            volumetric_radiance = accumulated.rgb;
-            volumetric_entry = cloud_entry;
-        }
+    vec3 camera_atmosphere_pos = AtmosphereCameraPosition();
+    float cloud_entry;
+    float cloud_exit;
+    bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, cloud_entry, cloud_exit);
+    if (cloud_visible
+            && length(camera_atmosphere_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
+        // Only render when the ray rises into the layer (not skimming beneath).
+        cloud_visible = cloud_entry > 0.0;
+    }
+    if (cloud_visible) {
+        // Cloud history (radiance.rgb + distance.a) via the deferred1
+        // colortex8 flip. Distance is never EMA-mixed; feeds relight and
+        // the distance fade.
+        vec4 accumulated = texelFetch(colortex8, tx, 0);
+        volumetric_surface_pos = camera_atmosphere_pos + view_dir * accumulated.a;
+        accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
+        volumetric_radiance = accumulated.rgb;
+        volumetric_entry = cloud_entry;
+    }
 #endif
-        sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_radiance,
-            volumetric_surface_pos, volumetric_entry,
-            cloud_transmittance, view_transmittance, view_transmittance_cached);
-        // Sun/moon occluded by real cloud transmittance. An opaque column
-        // leaves nothing of either term, so the star field and the discs are
-        // skipped there rather than computed and multiplied by zero.
-        if (!all(equal(cloud_transmittance, vec3(0.0)))) {
-            if (!view_transmittance_cached) {
-                vec3 camera_pos = AtmosphereCameraPosition();
-                float camera_r = length(camera_pos);
-                view_transmittance = SampleTransmittance(
-                    utex_tslut, camera_r, camera_r * camera_r,
-                    dot(camera_pos, view_dir) / camera_r);
-            }
-            CelestialContext celestial_context = CelestialContextFor(view_dir);
-            celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
-            celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
-                celestial_context);
+    sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_radiance,
+        volumetric_surface_pos, volumetric_entry,
+        cloud_transmittance, view_transmittance, view_transmittance_cached);
+    // Sun/moon occluded by real cloud transmittance. An opaque column
+    // leaves nothing of either term, so the star field and the discs are
+    // skipped there rather than computed and multiplied by zero.
+    if (!all(equal(cloud_transmittance, vec3(0.0)))) {
+        if (!view_transmittance_cached) {
+            vec3 camera_pos = AtmosphereCameraPosition();
+            float camera_r = length(camera_pos);
+            view_transmittance = SampleTransmittance(
+                utex_tslut, camera_r, camera_r * camera_r,
+                dot(camera_pos, view_dir) / camera_r);
         }
-        sky_color += celestial * cloud_transmittance;
-#else
-        vec3 camera_pos = AtmosphereCameraPosition();
-        float camera_r = length(camera_pos);
-        vec4 view_transmittance = SampleTransmittance(
-            utex_tslut, camera_r, camera_r * camera_r,
-            dot(camera_pos, view_dir) / camera_r);
         CelestialContext celestial_context = CelestialContextFor(view_dir);
         celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
         celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
             celestial_context);
-        sky_color += celestial;
-#endif
-        out_color = JitterR11G11B10F(sky_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
-        return;
-#endif
     }
+    sky_color += celestial * cloud_transmittance;
+#else
+    vec3 camera_pos = AtmosphereCameraPosition();
+    float camera_r = length(camera_pos);
+    vec4 view_transmittance = SampleTransmittance(
+        utex_tslut, camera_r, camera_r * camera_r,
+        dot(camera_pos, view_dir) / camera_r);
+    CelestialContext celestial_context = CelestialContextFor(view_dir);
+    celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);
+    celestial += RenderCelestialDiscs(view_dir, vec3(0.0), view_transmittance,
+        celestial_context);
+    sky_color += celestial;
+#endif
+    return sky_color;
+#endif
+}
 
+// Surface pixel: decode the GBuffer and evaluate the direct, ambient, torch
+// and indirect terms. Writes out_direct_brdf for the underwater caustics pass,
+// and writes out_color only for the hidden debug views, reporting that through
+// out_color_written.
+vec3 ComputeSurfaceColor(ivec2 tx, float scene_depth, out bool out_color_written) {
+    out_color_written = false;
     // -- GBuffer decode --
     vec4 g1 = texelFetch(colortex1, tx, 0);
     vec4 g2 = texelFetch(colortex2, tx, 0);
@@ -185,13 +183,16 @@ void main() {
 // surrounding exploration context differed when they were added.
 #if OPAQUE_SSR_DEBUG >= 1 && OPAQUE_SSR_DEBUG <= 5
     out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
+    out_color_written = true;
+    return vec3(0.0);
 #elif OPAQUE_SSR_DEBUG == 6
     out_color = material.f0;
-    return;
+    out_color_written = true;
+    return vec3(0.0);
 #elif OPAQUE_SSR_DEBUG == 7
     out_color = vec3(material.perceptual_roughness);
-    return;
+    out_color_written = true;
+    return vec3(0.0);
 #endif
     vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
     float ao = g2.a; // vanilla/material ambient occlusion (screen-AO-off fallback)
@@ -313,7 +314,8 @@ void main() {
         out_color = vec3(CONTACT_SHADOW_DEBUG == 1
             ? contact_shadow
             : min((1.0 - contact_shadow) * 4.0, 1.0));
-        return;
+        out_color_written = true;
+        return vec3(0.0);
 #endif
     }
 #endif
@@ -380,7 +382,8 @@ void main() {
 #if SHADOW_SSS_DEBUG == 1
     // Isolate the actual term; fog and post-processing still follow this pass.
     out_color = sss_lighting * sun_color;
-    return;
+    out_color_written = true;
+    return vec3(0.0);
 #endif
 
     // Lambertian (no incident direction from SH/lightmap); metals have no
@@ -400,7 +403,8 @@ void main() {
 #endif
 #if GI_MODE == 2 && RSM_DEBUG > 0
     out_color = gi_ambient;
-    return;
+    out_color_written = true;
+    return vec3(0.0);
 #endif
     // SSGI supplies visibility itself; RSM has already multiplied AO into
     // its sky fallback before denoising. Neither bounce is darkened again.
@@ -510,5 +514,27 @@ void main() {
     // -- Emissive --
     color += albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 
-    out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+    return color;
+}
+
+void main() {
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+    out_direct_brdf = vec3(0.0);
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
+    // Last opaque-gbuffer consumer: clear the next sides before translucency.
+    // The colortex12 input side still contains the shading normals read below.
+    out_gbuf_clear = vec4(0.0);
+    out_translucent_clear = vec4(0.0);
+
+    // Both paths return their colour, and a hidden debug view inside them
+    // writes out_color directly and reports it through this flag, so the
+    // scene dither never lands on a debug frame.
+    bool out_color_written = false;
+    vec3 color = scene_depth >= 1.0
+        ? ComputeSkyPixel(tx, (vec2(tx) + 0.5) * u_render_pixel_size, out_color_written)
+        : ComputeSurfaceColor(tx, scene_depth, out_color_written);
+    if (!out_color_written) {
+        out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+    }
 }

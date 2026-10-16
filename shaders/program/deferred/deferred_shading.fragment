@@ -88,7 +88,6 @@ vec3 ComputeSkyPixel(ivec2 tx, vec2 uv, out bool out_color_written) {
     out_color_written = true;
     return vec3(0.0);
 #else
-    vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
     vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
         * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
     vec3 sun_dir = u_world_sun_dir;

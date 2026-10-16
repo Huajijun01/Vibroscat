@@ -5,6 +5,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/lighting/ambient_light.glsl"
+#include "/lib/lighting/lightmap.glsl"
 
 flat out vec3 v_normal;
 flat out vec3 v_sun_light_col;
@@ -33,10 +34,9 @@ void main() {
     v_color = gl_Color;
     v_texcoord.xy = gl_MultiTexCoord0.xy;
     v_texcoord.zw = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
-    // Same vanilla lightmap normalization as solid.vertex: the shared
-    // lighting curves (AmbientLight, BlockLightFromLm) are anchored on a
-    // [0, 1] domain, not the raw [1/32, 31/32] matrix output.
-    v_texcoord.zw = clamp(v_texcoord.zw * 1.103449 - 0.0689656, 0.0, 1.0);
+    // Same vanilla lightmap normalization as solid.vertex: the shared lighting
+    // curves are anchored on [0, 1] (see lib/lighting/lightmap.glsl).
+    v_texcoord.zw = RemapVanillaLightmap(v_texcoord.zw);
 
     vec3 view_normal = gl_NormalMatrix * gl_Normal;
     // Squared-length test and inversesqrt normalize: one square-root-family

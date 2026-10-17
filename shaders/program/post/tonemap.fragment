@@ -7,8 +7,29 @@
 #include "/lib/color/tonemap.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/color/purkinje.glsl"
+#include "/lib/post/bloom.glsl"
 
 const float COLOR_JITTER_SEED = 97.0;
+
+// Cubic B-spline basis for the four texels around f in [0, 1). The weights
+// sum to one, so reconstruction neither adds nor removes energy.
+vec4 BloomBSplineWeights(float f) {
+    float f2 = f * f;
+    float f3 = f2 * f;
+    return vec4(
+        (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0,
+        (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0,
+        (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0,
+        f3 / 6.0
+    );
+}
+
+// Sample mip 2 at a continuous local coordinate (integers are texel centres).
+// Clamping keeps the atlas's neighbouring mip tiles out of the reconstruction.
+vec3 SampleBloomMip2(vec2 local, vec2 origin, vec2 size, vec2 inv_size) {
+    vec2 texel = clamp(local, vec2(0.0), size - 1.0);
+    return textureLod(colortex12, (origin + texel + 0.5) * inv_size, 0.0).rgb;
+}
 
 layout(location = 0) out vec4 out_color;
 
@@ -18,14 +39,41 @@ void main() {
     vec3 hdr = texture(colortex0, uv).rgb;
 
 #ifdef BLOOM
-    // Final half-res -> full-res step: bilinear sample of the mip1 tile with
-    // a half-texel center offset (screen texel i reads tile i/2, pixel-center
-    // aligned). The atlas packs mip2/mip3 right/below mip1 (uv 0.5); edge
-    // texels would otherwise blend 50% of the neighbour tile - clamp to
-    // mip1's texel-centre range so edges read the tile edge, not the seam.
-    vec2 bloom_uv = uv * 0.5 + 0.5 * u_view_pixel_size;
-    bloom_uv = clamp(bloom_uv, 0.5 * u_view_pixel_size, vec2(0.5) - 0.5 * u_view_pixel_size);
-    vec3 bloom = texture(colortex12, bloom_uv).rgb * BLOOM_STRENGTH * (1.0 / 7.0);
+    // The prefilter's scene origin is 0.5, so screen pixel i reads (i-0.5)/4.
+    // gl_FragCoord is i + 0.5, so gl_FragCoord * 0.25 - 0.25 is the local
+    // mip 2 coordinate with integers on texel centres. Clamp to the actual
+    // tile, including floor rounding at odd render resolutions.
+    ivec2 bloom_full_size = textureSize(colortex12, 0);
+    vec2 bloom_origin = vec2(GetBloomMipOrigin(bloom_full_size, 2));
+    vec2 bloom_size = vec2(GetBloomMipSize(bloom_full_size, 2));
+    vec2 bloom_inv_size = 1.0 / vec2(bloom_full_size);
+    vec2 bloom_local = clamp(gl_FragCoord.xy * 0.25 - 0.25, vec2(0.0), bloom_size - 1.0);
+    vec2 bloom_base = floor(bloom_local);
+    vec4 bloom_x = BloomBSplineWeights(bloom_local.x - bloom_base.x);
+    vec4 bloom_y = BloomBSplineWeights(bloom_local.y - bloom_base.y);
+
+    // One cubic B-spline reconstruction. The basis is separable and sums to
+    // one, so it adds no energy; its four-texel support is C2, unlike the
+    // tent this replaces, which only widened the bilinear footprint and left
+    // the mip 2 grid visible on narrow highlights. Folding each adjacent pair
+    // into one bilinear fetch keeps the exact weights with four fetches total.
+    float bloom_ax0 = bloom_x.x + bloom_x.y;
+    float bloom_ax1 = bloom_x.z + bloom_x.w;
+    float bloom_ay0 = bloom_y.x + bloom_y.y;
+    float bloom_ay1 = bloom_y.z + bloom_y.w;
+    vec2 bloom_px = vec2(bloom_base.x - 1.0 + bloom_x.y / bloom_ax0,
+                         bloom_base.x + 1.0 + bloom_x.w / bloom_ax1);
+    vec2 bloom_py = vec2(bloom_base.y - 1.0 + bloom_y.y / bloom_ay0,
+                         bloom_base.y + 1.0 + bloom_y.w / bloom_ay1);
+
+    vec3 bloom_00 = SampleBloomMip2(vec2(bloom_px.x, bloom_py.x), bloom_origin, bloom_size, bloom_inv_size);
+    vec3 bloom_01 = SampleBloomMip2(vec2(bloom_px.x, bloom_py.y), bloom_origin, bloom_size, bloom_inv_size);
+    vec3 bloom_10 = SampleBloomMip2(vec2(bloom_px.y, bloom_py.x), bloom_origin, bloom_size, bloom_inv_size);
+    vec3 bloom_11 = SampleBloomMip2(vec2(bloom_px.y, bloom_py.y), bloom_origin, bloom_size, bloom_inv_size);
+    vec3 bloom = bloom_00 * (bloom_ax0 * bloom_ay0) + bloom_01 * (bloom_ax0 * bloom_ay1)
+               + bloom_10 * (bloom_ax1 * bloom_ay0) + bloom_11 * (bloom_ax1 * bloom_ay1);
+    // The weights already sum to one, so the scale normalisation stays 1/7.
+    bloom *= BLOOM_STRENGTH * (1.0 / 7.0);
     hdr += bloom;
 #endif
     hdr *= exp2(TONEMAP_EXPOSURE);

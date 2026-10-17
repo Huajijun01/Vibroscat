@@ -2,11 +2,11 @@
 #define LIB_POST_BLOOM_GLSL
 
 // ============================================================================
-// Bloom mip-map tile layout - 7 mip levels packed into a single atlas texture
+// Bloom atlas layout - scales 1/4 through 1/128 in a single texture
 // ============================================================================
 //
 // Mip layout (each level is half the resolution of the previous):
-//   mip1: top-left quarter                  (full/2  x full/2)
+//   mip1: virtual half-res prefilter (shared memory only; not stored)
 //   mip2: top-right quarter                 (full/4  x full/4)
 //   mip3: bottom-left quarter               (full/8  x full/8)
 //   mip4: bottom-left, right of mip3        (full/16 x full/16)

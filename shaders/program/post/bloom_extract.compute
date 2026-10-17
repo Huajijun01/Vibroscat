@@ -1,96 +1,88 @@
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/post/bloom.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg0;
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
-shared vec4 tile[33][33];
+// Each group produces 8x8 quarter-resolution texels. Its 17x17 half-res
+// intermediate stays in shared memory; workGroupsRender=0.5 supplies one
+// 16x16 group per 32x32 scene pixels.
+shared vec3 half_tile[17][17];
+
+vec3 ReadBloomPrefilter(vec2 texel, vec2 full_size) {
+    return textureLod(colortex0, clamp(texel, vec2(0.5), full_size - 0.5) / full_size, 0.0).rgb;
+}
+
+vec4 WeightBloomGroup(vec3 color, float spatial_weight) {
+    float weight = spatial_weight / (1.0 + Luminance(color));
+    return vec4(color * weight, weight);
+}
+
+vec3 FilterBloomHighlight(ivec2 half_coord, ivec2 full_size) {
+    // Thirteen bilinear samples cover 6x6 scene texels. Form five overlapping
+    // local averages before Karis weighting, preserving moving small lights
+    // instead of suppressing each bright texel individually.
+    vec2 center = vec2(half_coord * 2 + 1);
+    vec2 size = vec2(full_size);
+    vec3 top_left = ReadBloomPrefilter(center + vec2(-2, -2), size);
+    vec3 top = ReadBloomPrefilter(center + vec2(0, -2), size);
+    vec3 top_right = ReadBloomPrefilter(center + vec2(2, -2), size);
+    vec3 left = ReadBloomPrefilter(center + vec2(-2, 0), size);
+    vec3 middle = ReadBloomPrefilter(center, size);
+    vec3 right = ReadBloomPrefilter(center + vec2(2, 0), size);
+    vec3 bottom_left = ReadBloomPrefilter(center + vec2(-2, 2), size);
+    vec3 bottom = ReadBloomPrefilter(center + vec2(0, 2), size);
+    vec3 bottom_right = ReadBloomPrefilter(center + vec2(2, 2), size);
+    vec3 inner = ReadBloomPrefilter(center + vec2(-1, -1), size)
+               + ReadBloomPrefilter(center + vec2(1, -1), size)
+               + ReadBloomPrefilter(center + vec2(-1, 1), size)
+               + ReadBloomPrefilter(center + vec2(1, 1), size);
+
+    vec4 filtered = WeightBloomGroup((top_left + top + left + middle) * 0.25, 0.125);
+    filtered += WeightBloomGroup((top + top_right + middle + right) * 0.25, 0.125);
+    filtered += WeightBloomGroup((left + middle + bottom_left + bottom) * 0.25, 0.125);
+    filtered += WeightBloomGroup((middle + right + bottom + bottom_right) * 0.25, 0.125);
+    filtered += WeightBloomGroup(inner * 0.25, 0.5);
+    return filtered.rgb / max(filtered.a, 1e-6);
+}
 
 void main() {
 #ifndef BLOOM
-    // The pass runs whenever AE or BLOOM needs it; the letter entries share
-    // one enable condition, so this kernel must not touch colortex12 when
-    // only AE is on. The body is compiled out, not skipped after a return,
-    // because barrier() may not follow a return statement.
+    // The AE sweep shares this program's enable condition. Keep every
+    // invocation on the same side of the barriers when bloom is disabled.
     return;
 #else
-    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 full_size = imageSize(colorimg0);
-    ivec2 dst_size = GetBloomMipSize(full_size, 1);
-    bool valid = all(lessThan(gid, dst_size));
-
-    ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 16;
-    ivec2 input_base = group_base * 2 - 1;
-
+    ivec2 full_size = textureSize(colortex0, 0);
+    ivec2 half_size = GetBloomMipSize(full_size, 1);
+    ivec2 dst_size = GetBloomMipSize(full_size, 2);
+    ivec2 dst_origin = GetBloomMipOrigin(full_size, 2);
+    ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 8;
     uint idx = gl_LocalInvocationIndex;
-    for (uint i = idx; i < 1089u; i += 256u) {
-        uint ty = i / 33u;
-        uint tx = i % 33u;
-        ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), full_size - 1);
-        tile[ty][tx] = imageLoad(colorimg0, coord);
-    }
 
+    const float TENT[3] = float[3](0.25, 0.5, 0.25);
+    for (uint i = idx; i < 289u; i += 256u) {
+        ivec2 local_texel = ivec2(i % 17u, i / 17u);
+        // Clamp the half-res lattice before accessing the scene footprint.
+        ivec2 half_coord = clamp(group_base * 2 + local_texel - 1, ivec2(0), half_size - 1);
+        half_tile[local_texel.y][local_texel.x] = FilterBloomHighlight(half_coord, full_size);
+    }
     barrier();
 
-    ivec2 tile_center = ivec2(gl_LocalInvocationID.xy) * 2 + 1;
-
-    // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block centre.
-    vec4 s_center = tile[tile_center.y + 0][tile_center.x + 0];
-    vec4 s_left   = tile[tile_center.y + 0][tile_center.x - 1];
-    vec4 s_right  = tile[tile_center.y + 0][tile_center.x + 1];
-    vec4 s_up     = tile[tile_center.y - 1][tile_center.x + 0];
-    vec4 s_down   = tile[tile_center.y + 1][tile_center.x + 0];
-    vec4 s_tl     = tile[tile_center.y - 1][tile_center.x - 1];
-    vec4 s_tr     = tile[tile_center.y - 1][tile_center.x + 1];
-    vec4 s_bl     = tile[tile_center.y + 1][tile_center.x - 1];
-    vec4 s_br     = tile[tile_center.y + 1][tile_center.x + 1];
-
-    vec4 result = vec4(0.0);
-    float total_weight = 0.0;
-    float tap_weight;
-
-    // The tap weight folds into the luminance weight so each tap costs one
-    // scalar divide and one vector multiply.
-    tap_weight = 0.25 / (1.0 + Luminance(s_center.rgb));
-    result += s_center * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.125 / (1.0 + Luminance(s_left.rgb));
-    result += s_left * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.125 / (1.0 + Luminance(s_right.rgb));
-    result += s_right * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.125 / (1.0 + Luminance(s_up.rgb));
-    result += s_up * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.125 / (1.0 + Luminance(s_down.rgb));
-    result += s_down * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.0625 / (1.0 + Luminance(s_tl.rgb));
-    result += s_tl * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.0625 / (1.0 + Luminance(s_tr.rgb));
-    result += s_tr * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.0625 / (1.0 + Luminance(s_bl.rgb));
-    result += s_bl * tap_weight;
-    total_weight += tap_weight;
-
-    tap_weight = 0.0625 / (1.0 + Luminance(s_br.rgb));
-    result += s_br * tap_weight;
-    total_weight += tap_weight;
-
-    result /= max(total_weight, 1e-6);
-
-    if (valid) imageStore(colorimg12, gid, result);
+    if (idx < 64u) {
+        ivec2 local_texel = ivec2(idx % 8u, idx / 8u);
+        ivec2 gid = group_base + local_texel;
+        ivec2 center = local_texel * 2 + 1;
+        vec3 result = vec3(0.0);
+        for (int y = 0; y < 3; y++) {
+            for (int x = 0; x < 3; x++) {
+                result += half_tile[center.y + y - 1][center.x + x - 1] * (TENT[y] * TENT[x]);
+            }
+        }
+        if (all(lessThan(gid, dst_size))) {
+            imageStore(colorimg12, dst_origin + gid, vec4(result, 0.0));
+        }
+    }
 #endif
 }

@@ -6,6 +6,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/third_party/fidelityfx/cas.glsl"
+#include "/lib/post/tonemap_stage.glsl"
 
 const float COLOR_JITTER_SEED = 127.0;
 
@@ -17,7 +18,10 @@ void main() {
 #ifdef CAS
     vec3 ldr = CASSharpen(colortex12, uv, u_view_pixel_size, CAS_SHARPNESS);
 #else
-    vec3 ldr = texture(colortex12, uv).rgb;
+    // composite21 is scheduled away in this configuration, so the tonemap runs
+    // here on scene colour; the quantisation keeps the value bit-identical to
+    // the workspace round trip it replaces.
+    vec3 ldr = QuantizeToHalf(TonemapStage(gl_FragCoord.xy));
 #endif
 
     vec3 srgb = FromLinear(ldr);

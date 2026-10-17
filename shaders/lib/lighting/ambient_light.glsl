@@ -17,10 +17,10 @@ vec3 SkyAmbientColor(vec3 normal_world, vec3 ao) {
 // Final ambient light for a surface: the AO-blended sky irradiance scaled by
 // the remapped sky light and the global SKY_AMBIENT_STRENGTH, plus the global
 // AMBIENT_FLOOR floor so caves and deep shadows never render fully black. Only
-// the SH term takes the strength, because the floor is an absolute minimum and
-// RSMOccludedSky splits the two the same way. Keeping the scale here makes this
-// function its single owner, so the no-GI ambient and the SH fallback both GI
-// sources leave in their uncovered directions cannot drift apart. ao:
+// the SH term takes the strength, because the floor is an absolute minimum
+// outside the sky's control. Keeping the scale here makes this function its
+// single owner, so the no-GI ambient and the SH fallback both GI sources leave
+// in their uncovered directions cannot drift apart. ao:
 // screen-space AO (1.0 where unavailable, e.g. gbuffer translucent). Shared by
 // the deferred shading pass and the forward translucent passes; the
 // Lambert/diffuse BRDF multiplies the result.

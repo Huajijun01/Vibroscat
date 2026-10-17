@@ -43,9 +43,6 @@
 #include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/shadow/contact_shadow.glsl"
 #include "/lib/shadow/pcss.glsl"
-#if GI_MODE == 2 && defined(RSM_SKY_OCCLUSION)
-#include "/lib/shadow/reflective_shadow_map.glsl"
-#endif
 
 const float COLOR_JITTER_SEED = 11.0;
 
@@ -217,9 +214,6 @@ void main() {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
     } else if (!ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) {
         gi_ambient = AmbientLight(normal_world, ao_effective, lm.g);
-#ifdef RSM_SKY_OCCLUSION
-        gi_ambient = RSMFallbackSky(world_pos, view_pos, geo_normal, gi_ambient);
-#endif
     }
 #endif
     // Eye-space receiver position: distance responses and the view vector
@@ -386,7 +380,7 @@ void main() {
     // local to this pass; only deferred3's unblurred temporal result persists.
 #if GI_MODE == 1
     // Keep SSGI's existing evaluation order; moving this work earlier adds
-    // cost on the measured driver even without the RSM fallback gather.
+    // cost on the measured driver even in the SSGI-only branch.
     vec3 gi_ambient;
     if (is_opaque_hand) {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);

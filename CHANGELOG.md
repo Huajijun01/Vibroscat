@@ -26,7 +26,6 @@
 - **GI 调试视图**：`RSM_DEBUG` 0–1（正常 / 重建辐照度）。
 - **GI 历史偏移修正**：历史重投影与空间权重均使用实际代表像素的位置；坐标完全对应时直接保留自身历史，修正以网格中心插值导致静止表面噪声随时间迁移的问题。
 - **GI 移动历史插值修正**：按实际代表点包围目标，并修正奇数分辨率的取整边界；正权重三角插值保持线性光照梯度，减少连续移动中的历史漂移。冲刺动态 FOV 不再触发全屏历史拒绝。
-- **RSM 草边缘回退修正**：薄草没有匹配的半分辨率 GI 代表点时，环境光回退仍计算天空遮蔽，避免阴影内出现未衰减天空光的亮点。仅在重建失败处使用固定的八点阴影深度采样，保留环境光下限和距离渐退；不依赖 TAA。
 - **屏幕空间接触阴影**：`deferred4` 内联向当前方向光对深度缓冲做短程行进，结果作为阴影贴图结果的上界（取 `min`），补全 PCF 接触缝隙并在阴影贴图范围外保持方向光遮蔽。`CONTACT_SHADOW` 默认开启，`CONTACT_SHADOW_STEPS` 12、`CONTACT_SHADOW_MAX_DISTANCE` 24 m（行进距离视距的 7%，下限 0.12 m）、`CONTACT_SHADOW_THICKNESS` 0.02 m（按距离增长 0.0125 m/m）；主世界与末地可用（下界无方向光），附 `CONTACT_SHADOW_DEBUG` 原始遮罩 / 加暗视图。
 - **色调映射列表整体更换**（`TONEMAP_MODE`，**默认改为 0 = AgX**）：列表重排为 0=AgX、1=ACES 2.0、2=Blender AgX、3=OpenDRT、4=AMD LPM、5=GT7，并删除 OKLAB（Ottosson DRT）、ACES 1.0（Narkowicz 拟合曲线）、Reinhard-Gamut、Reinhard-AgX 与短暂存在过的 Khronos PBR Neutral：算子文件（`tonemap_drt_oklab.glsl`、`tonemap_aces.glsl`、`tonemap_reinhard.glsl`、`tonemap_pbr_neutral.glsl`）、设置项、界面页、语言条目与溯源章节一并移除；`spaces.glsl` 中因此失去唯一消费者的 `RGBToOKLAB`/`OKLABToRGB` 也删除。旧存档里的数值含义随之改变，首次进入需要重新选择模式。
 - **AgX 换成 AgX-HSV**（`TONEMAP_MODE = 0`，**新默认**）：`tonemap_agx.glsl` 由 linlin 的 AgX-S2O3 曲线改为 DRT Bench 的 `agx_hsv.wgsl` 与它的 `AgxParameters::hsv_default()`（GPL-3.0）：对数范围仍为 −10…+6.5 EV，输出枢轴改为 sRGB OETF(0.18) = 0.46135613，pivot slope 2.4606366、toe/shoulder 幂 1.55/5.2、色域压缩 0.05，末段新增 HSV 色相修复。曲线系数与 DRT Bench 的测试值一致（toe_a = 11.2194730786、shoulder_a = 2568.7503334098）；输出域为 sRGB OETF，末端用本包 `ToLinear` 精确解码，锚点仍是场景 18% 灰 → 18% 显示线性、无需预缩放。中灰以上比被替换的 S2O3 曲线更亮（场景 0.5 / 1.0 / 4.0：0.421 / 0.641 / 0.944，旧曲线 0.378 / 0.547 / 0.847），与 GT7 的差距（场景 1.0 时为其 0.805）来自 AgX 自身的肩部。新增设置 `TONEMAP_AGX_HIGHLIGHT_HUE`（默认 0.5；0 = 交给曲线，1 = 完全保留场景色相）。
@@ -112,7 +111,7 @@
 
 **整段编译移除 / 逐帧开销**
 
-- `GI_MODE == 1`（SSGI）时 AO 生成 pass `deferred1_a` 整体禁用；RSM 的载荷写入与采样只在 `GI_MODE == 2` 存在（默认 0 不付成本）；`SHADOW_SSS`、`CIRRUS`、`RSM_SKY_OCCLUSION`、`COLOR_DITHER` 关闭时对应采样与分支整体编译移除。
+- `GI_MODE == 1`（SSGI）时 AO 生成 pass `deferred1_a` 整体禁用；RSM 的载荷写入与采样只在 `GI_MODE == 2` 存在（默认 0 不付成本）；`SHADOW_SSS`、`CIRRUS`、`COLOR_DITHER` 关闭时对应采样与分支整体编译移除。
 - 不透明粒子回到普通不透明 G-buffer 路径：每个粒子写 1/2/4/12 四个目标（先前的轻量粒子路径为 12/2），但跳过 TBN、法线/镜面贴图采样与打湿计算，材质直接取固定介电默认值。
 - 移除 10 条由 Iris 逐帧平滑求值的派生 uniform（6 条 `u_time_*`、`u_eye_blocklight`、`u_eye_skylight`、`u_rain_strength`、`u_wetness`），改读内置 `rainStrength`/`wetness`。
 - 曝光统计的共享内存与树形归约按 512 线程重排；SH 归约首步同时配对两条带。

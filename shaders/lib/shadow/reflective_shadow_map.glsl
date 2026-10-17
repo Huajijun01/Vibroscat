@@ -10,20 +10,6 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/shadow/rsm_data.glsl"
 
-vec3 RSMOccludedSky(vec3 sky_fallback, float shadow_occlusion) {
-    float sky_factor = mix(1.0, RSM_SKY_OCCLUSION_FLOOR, clamp(shadow_occlusion, 0.0, 1.0));
-    return (sky_fallback - vec3(AMBIENT_FLOOR)) * sky_factor + vec3(AMBIENT_FLOOR);
-}
-
-// In shadow view, larger z is nearer the light. Reject the receiver's own
-// plane (including tilted planes) without depending on a VPL's facing or flux.
-float RSMShadowSampleOcclusion(vec3 delta_shadow, vec3 normal_shadow,
-        float texel_footprint, float delta_length_m) {
-    float depth_bias = 0.05 + texel_footprint * 0.5;
-    float plane_bias = depth_bias + 0.02 * delta_length_m;
-    return float(delta_shadow.z > depth_bias && abs(dot(normal_shadow, delta_shadow)) > plane_bias);
-}
-
 // Reconstruct the sampled texel center, undoing both axial distortion and
 // protected depth. All distances used in the VPL integral are in meters.
 vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
@@ -34,50 +20,6 @@ vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
     return (vec3(clip_xy, clip_z) - shadowProjection[3].xyz)
         / vec3(shadowProjection[0].x, shadowProjection[1].y, shadowProjection[2].z);
 }
-
-#ifdef RSM_SKY_OCCLUSION
-// A thin receiver can have no geometry-matched half-resolution GI sample.
-// Keep its own sky, but estimate the same light-plane sky occlusion as RSM.
-// Equal-area, symmetric disk quadrature is deterministic: the fallback has
-// no temporal accumulator and must not introduce frame-random sky flicker.
-// Only depth is needed; no VPL flux, bounce or coverage gather runs here.
-vec3 RSMFallbackSky(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
-        vec3 sky_fallback) {
-    float availability = 1.0 - smoothstep(max(shadowDistance - RSM_RADIUS, 0.0),
-        shadowDistance, length(receiver_view));
-    if (availability <= 0.0) return sky_fallback;
-    vec3 receiver_shadow = (shadowModelView * vec4(receiver_world + normal_world * 0.03, 1.0)).xyz;
-    vec3 normal_shadow = normalize(mat3(shadowModelView) * normal_world);
-    vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);
-    ivec2 shadow_size = ivec2(shadowMapResolution);
-    vec2 texel_extent_scale = 2.0
-        / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
-    const vec2 DISK[8] = vec2[8](
-        vec2(0.5, 0.0), vec2(0.0, 0.5), vec2(-0.5, 0.0), vec2(0.0, -0.5),
-        vec2(0.612372436, 0.612372436), vec2(-0.612372436, 0.612372436),
-        vec2(-0.612372436, -0.612372436), vec2(0.612372436, -0.612372436));
-    float occlusion_sum = 0.0;
-    for (int i = 0; i < 8; ++i) {
-        vec2 sample_clip = projection_xy * (receiver_shadow.xy + DISK[i] * RSM_RADIUS)
-            + shadowProjection[3].xy;
-        if (any(greaterThanEqual(abs(sample_clip), vec2(1.0)))) continue;
-        vec2 distortion = GetDistortFactor(sample_clip);
-        vec2 sample_uv = sample_clip / distortion * 0.5 + 0.5;
-        ivec2 sample_texel = ivec2(sample_uv * vec2(shadow_size));
-        if (any(lessThan(sample_texel, ivec2(0))) || any(greaterThanEqual(sample_texel, shadow_size))) continue;
-        float sample_depth = texelFetch(shadowtex0, sample_texel, 0).r;
-        if (sample_depth <= 0.0 || sample_depth >= 1.0) continue;
-        vec2 texel_uv = (vec2(sample_texel) + 0.5) / vec2(shadow_size);
-        vec3 delta_shadow = RSMShadowViewPosition(texel_uv, sample_depth) - receiver_shadow;
-        float texel_footprint = length(distortion * distortion * texel_extent_scale);
-        occlusion_sum += RSMShadowSampleOcclusion(delta_shadow, normal_shadow,
-            texel_footprint, length(delta_shadow));
-    }
-    // Out-of-map samples count as unoccluded, as in GatherRSM. The shared
-    // split attenuates sky only, retaining the absolute ambient floor.
-    return RSMOccludedSky(sky_fallback, occlusion_sum * (0.125 * availability));
-}
-#endif
 
 // Dachsbacher & Stamminger, "Reflective Shadow Maps", I3D 2005.
 // A directional-light texel reflects Phi = rho * E_light * A_projected.
@@ -107,11 +49,6 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
     vec3 transport_moments = vec3(0.0);
-#ifdef RSM_SKY_OCCLUSION
-    float sum_shadow_occlusion = 0.0;
-    float sum_shadow_weight = 0.0;
-    float sum_squared_shadow_weight = 0.0;
-#endif
     // Loop-invariant SSBO payload: the gather never writes sky_light_data,
     // so hoist the ground light out of the sample loop. The strength stays at
     // the use site to keep the original multiplication order bit-identical.
@@ -130,13 +67,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     for (int sample_index = 0; sample_index < RSM_SAMPLES; ++sample_index) {
         float radial_distance = RSM_RADIUS * (float(sample_index) + stbn_noise.y)
             * rsm_inv_sample_count;
-        // Inverse disk-area PDF, with its common constant cancelled. Invalid
-        // shadow-map samples retain their weight and count as unoccluded.
-#ifdef RSM_SKY_OCCLUSION
-        float shadow_weight = radial_distance / RSM_RADIUS;
-        sum_shadow_weight += shadow_weight;
-        sum_squared_shadow_weight += shadow_weight * shadow_weight;
-#endif
+        // Inverse disk-area PDF, with its common constant cancelled.
         vec2 sample_shadow_xy = receiver_shadow.xy
             + radial_distance * vec2(sample_azimuth_c, sample_azimuth_s);
         // Advance the azimuth by one golden angle; every later sample reads the
@@ -155,35 +86,19 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         vec2 texel_uv = (vec2(sample_texel) + 0.5) / shadow_size_f;
         vec3 emitter_shadow = RSMShadowViewPosition(texel_uv, sample_depth);
         vec3 delta_shadow = emitter_shadow - receiver_shadow;
-        vec2 texel_extent_m;
-        // Reuse the sampled first-surface depth for sky occlusion: a
-        // directional test against the receiver plane; transparent depth
-        // is valid here.
-#ifdef RSM_SKY_OCCLUSION
-        texel_extent_m = 2.0 * distort_factor * distort_factor
-            * texel_extent_inv_denom;
-        float texel_footprint = length(texel_extent_m);
-        // dot(d,d) needs no root of its own; the plain length is derived from
-        // it below. Writing length(d) first and squaring it back added one
-        // sqrt and one multiply per tap for the same value (a round trip
-        // through sqrt loses rounding on denormal-sized deltas).
-        float distance_squared = dot(delta_shadow, delta_shadow);
-        float delta_length_m = sqrt(distance_squared);
-        sum_shadow_occlusion += shadow_weight
-            * RSMShadowSampleOcclusion(delta_shadow, normal_shadow, texel_footprint, delta_length_m);
-#endif
         vec4 source_data = texelFetch(shadowcolor0, sample_texel, 0);
-        // Only the reserved translucent payload is absent. Black emitters
-        // still occupy directions and must attenuate the sky fallback.
+        // All-zero is the reserved absent/translucent payload: no emitter here.
         if (all(equal(source_data, vec4(0.0)))) continue;
         vec3 reflectance = DecodeRSMSource(source_data);
 
-#ifndef RSM_SKY_OCCLUSION
-        texel_extent_m = 2.0 * distort_factor * distort_factor
+        vec2 texel_extent_m = 2.0 * distort_factor * distort_factor
             * texel_extent_inv_denom;
+        // dot(d,d) needs no root of its own; the angles below derive the plain
+        // length from it. Writing length(d) first and squaring it back added
+        // one sqrt and one multiply per tap for the same value (a round trip
+        // through sqrt loses rounding on denormal-sized deltas).
         float distance_squared = dot(delta_shadow, delta_shadow);
         float delta_length_m = sqrt(distance_squared);
-#endif
         if (distance_squared < 0.0025) continue;
         vec3 emitter_normal = DecodeOctahedralNormal(source_data.ba);
         float receiver_cosine_distance = max(dot(normal_shadow, delta_shadow), 0.0);
@@ -216,36 +131,22 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 
     vec3 irradiance = sum_irradiance / rsm_sample_count;
     float mean_coverage = sum_coverage / rsm_sample_count;
-#ifdef RSM_SKY_OCCLUSION
-    float mean_shadow_occlusion = clamp(sum_shadow_occlusion / sum_shadow_weight, 0.0, 1.0);
-    float shadow_occlusion = mean_shadow_occlusion * availability;
-    vec3 occluded_sky = RSMOccludedSky(sky_fallback, shadow_occlusion);
-#else
-    vec3 occluded_sky = sky_fallback;
-#endif
     // AO belongs to the uncovered environment, not transported RSM bounce.
-    // Apply it after the shadow-only ambient-floor split and before moments.
-    occluded_sky *= ambient_ao;
+    // Apply it before the moments so their fallback matches what is returned.
+    vec3 uncovered_sky = sky_fallback * ambient_ao;
     // A first-surface RSM only approximates receiver visibility; overlapping
     // solid angles and stochastic overshoot cannot remove more than all SH.
     float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;
     // The SH term depends on the same coverage samples as bounce radiance.
     // Include their covariance rather than treating them as independent noise.
     vec3 moments = transport_moments * rsm_inv_sample_count;
-    float sky_luminance = Luminance(occluded_sky);
+    float sky_luminance = Luminance(uncovered_sky);
     float mean_transport = Luminance(irradiance) - sky_luminance * mean_coverage;
     float transport_variance = max(moments.x + sky_luminance * sky_luminance * moments.y
         - 2.0 * sky_luminance * moments.z - mean_transport * mean_transport, 0.0);
     sample_sigma = sqrt(transport_variance * rsm_inv_sample_count);
-#ifdef RSM_SKY_OCCLUSION
-    float shadow_variance = mean_shadow_occlusion * (1.0 - mean_shadow_occlusion)
-        * sum_squared_shadow_weight / (sum_shadow_weight * sum_shadow_weight);
-    float shadow_scale = (1.0 - RSM_SKY_OCCLUSION_FLOOR)
-        * Luminance((sky_fallback - vec3(AMBIENT_FLOOR)) * ambient_ao) * (1.0 - coverage);
-    sample_sigma += shadow_scale * sqrt(shadow_variance);
-#endif
     sample_sigma *= availability;
-    return max(irradiance, vec3(0.0)) * availability + occluded_sky * (1.0 - coverage);
+    return max(irradiance, vec3(0.0)) * availability + uncovered_sky * (1.0 - coverage);
 }
 
 #endif // LIB_SHADOW_REFLECTIVE_SHADOW_MAP_GLSL

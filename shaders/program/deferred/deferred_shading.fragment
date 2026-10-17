@@ -282,7 +282,7 @@ void main() {
         if (map_confidence > 1.0e-3) {
 #ifdef SHADOW_PCSS
             shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither,
-                sss_amount, ndotl);
+                sss_amount, ndotl, plant_receiver && material_id == 129);
 #else
             shadow_filtered = ShadowFilterHardwarePCF(shadow_proj);
 #endif

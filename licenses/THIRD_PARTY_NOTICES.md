@@ -492,6 +492,8 @@ https://minegraph.cn/shaderpacks/12），以及 Photon v1.3b 的
 `shaders/include/lighting/shadows/ssrt.glsl`（自定义许可允许检视和学习；
 https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的吸收、
 植物接收面的屏幕空间衰减以及阴影贴图范围外的近似处理。
+近景树叶软影另对照 Photon 的 `shaders/include/lighting/shadows/pcss.glsl`，
+独立实现按世界距离约束的树叶最小扩散范围，并保留搜索未命中时的叶片滤波。
 没有复制或近似翻译其源码、特有表达式、常数或资产。
 
 `lib/lighting/plant_subsurface.glsl` 与现有阴影路径的修改为独立实现：

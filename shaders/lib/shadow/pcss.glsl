@@ -111,8 +111,9 @@ float ShadowFilterHardwarePCF(vec3 sp) {
 //               search and the PCF pass with one coherent rotation)
 //   sss_amount  - receiver translucency; controls plant softness/sample budget
 //   ndotl       - clamped surface dot(light); only opaque backfaces exit early
+//   leaf_receiver - leaf cubes need a world-space diffusion footprint
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
-    float sss_amount, float ndotl) {
+    float sss_amount, float ndotl, bool leaf_receiver) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     // One dither value + rotation basis serves both passes (coherent dither);
     // one texel scale serves the blocker search and the PCF pass below.
@@ -123,7 +124,9 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
 
     float blocker_depth;
     int blocker_steps = SHADOW_BLOCKER_SAMPLES;
-    if (!ShadowFindBlocker(sp, clip_pos, texel_scale, rot_x, rot_y, blocker_steps, blocker_depth)) {
+    bool blocker_found = ShadowFindBlocker(sp, clip_pos, texel_scale, rot_x, rot_y,
+        blocker_steps, blocker_depth);
+    if (!blocker_found && !leaf_receiver) {
         return 1.0;
     }
 
@@ -135,7 +138,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     // Step 2: penumbra. width = gap * tan(angular radius); gap from the NDC
     // delta + ortho z scale -> texels (blur tracks shadow length, not the
     // absolute blocker depth).
-    float depth_delta = max(sp.z - blocker_depth, 0.0);
+    float depth_delta = blocker_found ? max(sp.z - blocker_depth, 0.0) : 0.0;
     float ortho_width_scale = abs(shadowProjection[0].x);
     float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
     float texel_world_size = 2.0 / (max(ortho_width_scale, 1e-6) * real_shadow_map_resolution);
@@ -147,8 +150,8 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     float plant_radius_m = 0.06 * sss_amount * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
     penumbra_texels = max(penumbra_texels, plant_radius_m / texel_world_size);
 
-    // Filter capped inside the blocker search disk: a fixed multiplier, not
-    // a sun-height term, so the cap is the same at noon and at sunset.
+    // Cap the variable texel footprint independently of sun height. Leaf
+    // diffusion has its own world-space minimum below, even without blockers.
     float max_penumbra_texels = SHADOW_BLOCKER_SEARCH_TEXELS
         * (1.0 + SHADOW_PENUMBRA_CAP_BOOST);
     penumbra_texels = min(penumbra_texels, max_penumbra_texels);
@@ -163,6 +166,19 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     if (sss_amount > 0.01) step_count = SHADOW_SSS_STEPS;
     float filter_radius = max(penumbra_texels, 1.0);
     vec2 filter_offset_scale = filter_radius * texel_scale;
+    if (leaf_receiver) {
+        // Independently tuned to span several 1/16 m cutout cells while
+        // retaining canopy shadow cores. Convert meters directly to clip XY:
+        // the texel Jacobian would shrink this footprint near the map center.
+        // The minimum also applies after an empty blocker search, otherwise
+        // sparse cutouts turn the soft transition back into all-or-nothing.
+        const float LEAF_DIFFUSION_RADIUS_M = 0.08;
+        float leaf_radius_m = LEAF_DIFFUSION_RADIUS_M * sss_amount
+            * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
+        vec2 leaf_radius_clip = leaf_radius_m
+            * abs(vec2(shadowProjection[0].x, shadowProjection[1].y));
+        filter_offset_scale = max(filter_offset_scale, leaf_radius_clip);
+    }
 
     float shadow = 0.0;
     int early_samples = min(4, step_count);

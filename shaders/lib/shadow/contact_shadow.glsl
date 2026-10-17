@@ -3,7 +3,6 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/core/coordinates.glsl"
 #include "/lib/core/render_scale.glsl"
 
 // ============================================================================
@@ -114,8 +113,8 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             * (SHADOW_SSS_DENSITY / 3.0) / max(sss_amount, 0.35);
         step_visibility = exp(-plant_path / step_count);
     }
-    // Opaque hits have full confidence and zero retention, so the same loop
-    // returns black immediately. No receiver/material branch inside a hit.
+    // Opaque hits have full confidence and zero retention. Each batch keeps
+    // the same first-hit result without a receiver/material branch per hit.
     float edge_confidence_floor = plant_receiver ? 0.0 : 1.0;
     float visibility = 1.0;
 
@@ -138,39 +137,77 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     if (plant_receiver) depth_jitter = u_taa_offset * 0.5;
 #endif
 
-    for (int i = 0; i < march_steps; ++i) {
-        float sample_t = travelled + stbn_dither * stride;
-        float sample_view_z = ray_origin.z + ray_step.z * sample_t;
+    // Batch four consecutive original steps to expose independent depth reads
+    // before consuming any hit. This reduces deferred4 GPU time on the tested
+    // RTX 5070 Ti; larger batches regressed. Keep scalar stride updates and hit
+    // products ordered to preserve sample positions and plant accumulation.
+    for (int i = 0; i < march_steps; i += 4) {
+        vec4 sample_t;
+        sample_t.x = travelled + stbn_dither * stride;
         travelled += stride;
         stride += 0.3;
-        if (sample_view_z > -0.05) {
-            break;  // crossed the camera near plane
+        sample_t.y = travelled + stbn_dither * stride;
+        travelled += stride;
+        stride += 0.3;
+        sample_t.z = travelled + stbn_dither * stride;
+        travelled += stride;
+        stride += 0.3;
+        sample_t.w = travelled + stbn_dither * stride;
+        travelled += stride;
+        stride += 0.3;
+        vec4 ray_depth = -(ray_origin.z + ray_step.z * sample_t);
+        vec4 sample_u = (clip_origin.x + clip_step.x * sample_t)
+            / max(ray_depth, vec4(0.05)) * 0.5 + 0.5 + depth_jitter.x;
+        vec4 sample_v = (clip_origin.y + clip_step.y * sample_t)
+            / max(ray_depth, vec4(0.05)) * 0.5 + 0.5 + depth_jitter.y;
+        // One signed border distance serves both bounds rejection and plant
+        // edge fading; four independent UV comparisons duplicate this work.
+        vec4 edge_distance = min(min(sample_u, 1.0 - sample_u),
+            min(sample_v, 1.0 - sample_v));
+        bvec4 valid;
+        for (int j = 0; j < 4; ++j) {
+            valid[j] = i + j < march_steps && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
         }
-        vec2 clip_xy = clip_origin + clip_step * sample_t;
-        vec2 sample_uv = clip_xy / -sample_view_z * 0.5 + 0.5 + depth_jitter;
-        if (any(lessThan(sample_uv, vec2(0.0)))
-                || any(greaterThan(sample_uv, vec2(1.0)))) {
-            break;  // left the screen
+        // Stop at the first invalid sample, including a partial final batch.
+        valid.y = valid.x && valid.y;
+        valid.z = valid.y && valid.z;
+        valid.w = valid.z && valid.w;
+        if (!valid.x) break;
+        // deferred4 precedes translucent geometry: depthtex0 and depthtex1
+        // contain the same opaque/hand depth here. Reuse the receiver's
+        // depthtex0 resource instead of sampling a second depth texture.
+#if CONTACT_SHADOW_STEPS % 4 == 0
+        vec4 sample_z = vec4(
+            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.x, sample_v.x)), 0.0).r,
+            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.y, sample_v.y)), 0.0).r,
+            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.z, sample_v.z)), 0.0).r,
+            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.w, sample_v.w)), 0.0).r);
+#else
+        // The six-step option has only two samples in its final batch.
+        vec4 sample_z = vec4(
+            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.x, sample_v.x)), 0.0).r,
+            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.y, sample_v.y)), 0.0).r,
+            1.0, 1.0);
+        if (i + 2 < march_steps) {
+            sample_z.z = textureLod(depthtex0, SceneTextureUV(vec2(sample_u.z, sample_v.z)), 0.0).r;
+            sample_z.w = textureLod(depthtex0, SceneTextureUV(vec2(sample_u.w, sample_v.w)), 0.0).r;
         }
-        float sample_z = textureLod(depthtex1, SceneTextureUV(sample_uv), 0.0).r;
-        // Occluder distance in view-space meters via the sparse inverse
-        // projection (the same |view z| metric NDCToView reconstructs, and
-        // the SSR helpers' canonical linearization). Sky falls out on its
-        // own: the far-plane distance makes the gap negative.
-        float sample_linear = LinearDepthFromScreenDepth(sample_z);
-        float gap = -sample_view_z - sample_linear;
-        // Strict inequalities: with both bounds at zero the window is empty.
-        // The closed form would admit gap == 0.0, which still occurs when a
-        // sample lands bit-exactly on a surface depth.
-        if (gap > minimum_gap && gap < thickness) {
-            // Screen-border evidence fades to the skylight fallback rather
-            // than popping as the ray leaves the image. No sampled-pixel ID.
-            vec2 edge_uv = min(sample_uv, 1.0 - sample_uv);
-            float confidence = max(edge_confidence_floor,
-                clamp(min(edge_uv.x, edge_uv.y) * 16.0, 0.0, 1.0));
-            visibility *= mix(1.0, step_visibility, confidence);
-            if (visibility < 0.015) return 0.0;
+#endif
+        // Keep the original view-depth subtraction and strict slab bounds.
+        // Reconstruct the independent depths without reassociating the
+        // precision-sensitive comparison against the thickness slab.
+        vec4 sample_linear = 1.0 / ((sample_z * 2.0 - 1.0) * gbufferProjectionInverse[2][3]
+            + gbufferProjectionInverse[3][3]);
+        vec4 gap = ray_depth - sample_linear;
+        vec4 confidence = max(vec4(edge_confidence_floor),
+            clamp(edge_distance * 16.0, 0.0, 1.0));
+        vec4 retention = mix(vec4(1.0), vec4(step_visibility), confidence);
+        for (int j = 0; j < 4; ++j) {
+            bool hit = valid[j] && gap[j] > minimum_gap && gap[j] < thickness;
+            visibility *= hit ? retention[j] : 1.0;
         }
+        if (visibility < 0.015) return 0.0;
+        if (!valid.w) break;
     }
     return visibility;
 }

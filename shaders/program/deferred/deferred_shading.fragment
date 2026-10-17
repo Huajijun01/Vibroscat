@@ -256,9 +256,10 @@ void main() {
     bool shadow_needed = plant_receiver
         ? (plant_response.x + plant_response.y) * plant_sky_access > 1.0e-4
         : ndotl > 1.0e-3;
-    // One STBN read feeds map filtering and the depth-only contact ray.
-    float stbn_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
+    // Lit receivers share one STBN read between map filtering and contact.
+    float stbn_dither = 0.0;
     if (shadow_needed) {
+        stbn_dither = SampleSTBN(tx, STBNFrame());
         vec3 shadow_proj;
         vec3 shadow_clip;
         float bias_cosine = plant_receiver ? max(abs(geo_ndotl), 0.3) : geo_ndotl;

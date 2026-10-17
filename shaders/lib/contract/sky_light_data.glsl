@@ -6,8 +6,12 @@
 //   sky_sh_*0 = (L0, L1y, L1z, L1x)
 //   sky_sh_*1 = (L20, L2yz, L2xz, L2xy)
 //   sky_sh_*2 = (L2(x^2-z^2), unused, unused, unused)
-// The full-sphere cloud skybox breaks sun-azimuth mirror symmetry, so the
-// L1x and xz/xy L2 terms stay nonzero.
+// Upper-sky radiance plus a uniform Lambertian lower-hemisphere ground
+// (20% neutral reflectance, illuminated by upper-sky irradiance). These stay
+// raw radiance coefficients: diffuse, rough-reflection and fog consumers
+// apply their own kernels. Clouds break sun-azimuth mirror symmetry, so the
+// L1x and xz/xy L2 terms stay nonzero. ground_light is direct sun/moon light,
+// not the diffuse ground closure already included in the SH coefficients.
 layout(std430, binding = 1) buffer SkyLightData {
     vec4 sky_sh_r0;
     vec4 sky_sh_r1;

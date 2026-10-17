@@ -8,172 +8,96 @@
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 
-// Row stripes. workGroups must stay a literal ivec3(1, 1, 1) because Iris
-// parses that token with Integer.parseInt, so the whole reduction lives in one
-// workgroup and therefore on one SM. local_size_y exists only to put more
-// warps on that SM: lane x stays one LUT column (so the column basis stays
-// lane-local), and lane y owns one contiguous block of rows. Every
-// (column, row) pair is still visited exactly once.
+// Each workgroup owns one RGB SH coefficient, with no cross-group reads.
+// Project the upper sky and analytically close the lower hemisphere with a
+// uniform Lambertian ground, retaining the existing 20% fill reflectance.
 #define SH_ROW_STRIPES 2
 #define SH_WORKGROUP_THREADS (SKY_RADIANCE_LUT_SIZE * SH_ROW_STRIPES)
-#define SH_ROWS_PER_STRIPE (SKY_RADIANCE_LUT_SIZE / SH_ROW_STRIPES)
-#define SH_REDUCE_START (SH_WORKGROUP_THREADS / 2)
-
-// Row sampling stride. The LUT's vertical axis is v = sin(elevation) sampled at
-// the midpoint of 256 equal cells, so keeping every other row and doubling the
-// weight is the same midpoint rule on 128 double-width cells. SH_SAMPLE_WEIGHT
-// carries the reciprocal of the retained fraction.
+#define SH_SKY_ROWS (SKY_RADIANCE_LUT_SIZE / 2)
+#define SH_ROWS_PER_STRIPE (SH_SKY_ROWS / SH_ROW_STRIPES)
 #define SH_ROW_SAMPLE_STRIDE 2
-#define SH_SAMPLE_SCALE SH_ROW_SAMPLE_STRIDE
-#define SH_SAMPLE_WEIGHT (SH_SOLID_ANGLE * SH_SAMPLE_SCALE)
-
+const float SKY_GROUND_REFLECTANCE = 0.2;
+// Keep the existing even-row quadrature and solid angle per retained texel.
+const float SH_SAMPLE_WEIGHT = 8.0 * PI
+    / (float(SKY_RADIANCE_LUT_SIZE) * float(SKY_RADIANCE_LUT_SIZE));
 layout(local_size_x = SKY_RADIANCE_LUT_SIZE, local_size_y = SH_ROW_STRIPES) in;
-const ivec3 workGroups = ivec3(1, 1, 1);
-
+const ivec3 workGroups = ivec3(9, 1, 1);
 layout(rgba16f) uniform readonly image2D uimg_sky_radiance;
-
-shared float row_sin[SKY_RADIANCE_LUT_SIZE];
-shared float row_cos[SKY_RADIANCE_LUT_SIZE];
-shared vec4 reduce_01[SH_WORKGROUP_THREADS];
-shared vec4 reduce_2[SH_WORKGROUP_THREADS];
-shared float reduce_24[SH_WORKGROUP_THREADS];
-
-// Equal-area texture: d(phi) * d(sin(theta)) = (2pi/N) * (2/N) = 4pi/N^2
-// for every texel, so the SH integral is a plain sum with one constant
-// weight. No per-pixel Jacobian is needed.
-const float SH_SOLID_ANGLE = 4.0 * PI / (float(SKY_RADIANCE_LUT_SIZE) * float(SKY_RADIANCE_LUT_SIZE));
+shared float row_weight[SH_SKY_ROWS];
+shared vec4 reduce_sh[SH_WORKGROUP_THREADS];
 
 void main() {
     uint tid = gl_LocalInvocationIndex;
-    uint col = uint(gl_LocalInvocationID.x);
-    uint stripe = uint(gl_LocalInvocationID.y);
-    // Rows are shared because every lane visits its own stripe's rows. The
-    // column basis is lane-local because lane x is column x.
-    if (tid < uint(SKY_RADIANCE_LUT_SIZE)) {
-        row_sin[tid] = SKY_RADIANCE_LUT_ROW_CENTER(tid);
-        row_cos[tid] = sqrt(max(1.0 - row_sin[tid] * row_sin[tid], 0.0));
+    uint col = gl_LocalInvocationID.x;
+    uint stripe = gl_LocalInvocationID.y;
+    uint term = gl_WorkGroupID.x;
+    if (tid < uint(SH_SKY_ROWS)) {
+        float sy = SKY_RADIANCE_LUT_ROW_CENTER(tid + uint(SH_SKY_ROWS));
+        float cy = sqrt(max(1.0 - sy * sy, 0.0));
+        float weight;
+        // E_up = integral(L_sky * sy); L_ground = rho * E_up / PI.
+        // Its raw SH increments are 2*PI*Y0*L_ground and -PI*Y1*L_ground.
+        // Linearity folds both into these sky weights, without reading other
+        // groups' results or sampling the synthetic ground hemisphere.
+        if (term == 0u) weight = SH_Y0 * (1.0 + 2.0 * SKY_GROUND_REFLECTANCE * sy);
+        else if (term == 1u) weight = SH_Y1 * sy * (1.0 - SKY_GROUND_REFLECTANCE);
+        else if (term == 2u || term == 3u) weight = SH_Y1 * cy;
+        else if (term == 4u) weight = SH_Y20 * (3.0 * sy * sy - 1.0);
+        else if (term == 5u || term == 7u) weight = SH_Y21 * sy * cy;
+        else if (term == 6u) weight = SH_Y21 * cy * cy;
+        else weight = SH_Y22 * cy * cy;
+        row_weight[tid] = weight;
     }
-    float col_angle = (float(col) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
-    float col_cos = cos(col_angle);
-    float col_sin = sin(col_angle);
+    float phi = (float(col) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
+    float cs = cos(phi);
+    float sn = sin(phi);
+    float col_weight = 1.0;
+    if (term == 2u || term == 5u) col_weight = sn;
+    else if (term == 3u || term == 7u) col_weight = cs;
+    else if (term == 6u) col_weight = cs * sn;
+    else if (term == 8u) col_weight = cs * cs - sn * sn;
     barrier();
-
-    vec4 sh_r01 = vec4(0.0);
-    vec4 sh_r2 = vec4(0.0);
-    float sh_r24 = 0.0;
-    vec4 sh_g01 = vec4(0.0);
-    vec4 sh_g2 = vec4(0.0);
-    float sh_g24 = 0.0;
-    vec4 sh_b01 = vec4(0.0);
-    vec4 sh_b2 = vec4(0.0);
-    float sh_b24 = 0.0;
-
-    // Horizon mask. thetaH is the sky LUT's horizon elevation,
-    // asin(ATM_PLANET_R / (ATM_PLANET_R + altitude)) - PI/2 (SkyLUTUV and
-    // sky.compute). Its sine is the whole test: with u = R / (R + h),
-    // sin(asin(u) - PI/2) = -cos(asin(u)) = -sqrt(1 - u*u) = -h / (R + h), so
-    // the row predicate "dir.y >= sin(thetaH)" reduces to one comparison on the
-    // row's dir.y, which the equal-area v axis makes constant along the row.
-    //
-    // The divisor is hoisted because it is one uniform for the whole workgroup,
-    // so the mask costs that single compare per row and is evaluated exactly on
-    // the row center. Solving for a row bound instead is no cheaper and its one
-    // half-row offset is not representable in float, which lets the bound land
-    // on either side of the horizon.
-    float horizon_rcp_r = 1.0 / (ATM_PLANET_R + u_cam_altitude);
-    float sin_theta_h = -u_cam_altitude * horizon_rcp_r;
-
+    vec3 sum_sh = vec3(0.0);
     uint row_begin = stripe * uint(SH_ROWS_PER_STRIPE);
     uint row_end = row_begin + uint(SH_ROWS_PER_STRIPE);
     for (uint y = row_begin; y < row_end; y += uint(SH_ROW_SAMPLE_STRIDE)) {
-        // A row below the horizon is not part of the irradiance this probe
-        // describes, so it contributes zero rather than the horizon haze band
-        // and the clouds a downward ray still intersects. Those rows stay in
-        // uimg_sky_radiance because the reflection skybox samples them; only
-        // the probe drops them. Skipping the load, the basis and the nine
-        // accumulations is what makes the mask free. Every surviving row is
-        // still visited exactly once at its full SH_SAMPLE_WEIGHT, so the
-        // quadrature itself is unchanged.
-        // float sy = row_sin[y];
-        // if (sy < sin_theta_h) continue;
-
-        vec3 color = imageLoad(uimg_sky_radiance, ivec2(int(col), int(y))).rgb;
-
-        float sy = row_sin[y];
-        if (sy < sin_theta_h) color *= 0.2;
-
-        float cy = row_cos[y];
-        float dx = cy * col_cos;
-        float dz = cy * col_sin;
-
-        // World-space orthonormal SH basis, L = 0..2, 9 terms.
-        float basis_y0 = SH_Y0;
-        float basis_y1 = SH_Y1 * sy;
-        float basis_y2 = SH_Y1 * dz;
-        float basis_y3 = SH_Y1 * dx;
-        float basis_y20 = SH_Y20 * (3.0 * sy * sy - 1.0);
-        float y2yz = SH_Y21 * sy * dz;
-        float y2xz = SH_Y21 * dx * dz;
-        float y2xy = SH_Y21 * dx * sy;
-        float y2x2z2 = SH_Y22 * (dx * dx - dz * dz);
-
-        // Per-channel accumulators: XX01 = L0+L1 terms (vec4), XX2 = the
-        // Y20+Y21 terms (vec4), XX24 = the Y22 diagonal term (scalar); each
-        // reduce slot feeds the matching sky_sh_* output.
-        sh_r01 += color.r * vec4(basis_y0, basis_y1, basis_y2, basis_y3);
-        sh_r2 += color.r * vec4(basis_y20, y2yz, y2xz, y2xy);
-        sh_r24 += color.r * y2x2z2;
-        sh_g01 += color.g * vec4(basis_y0, basis_y1, basis_y2, basis_y3);
-        sh_g2 += color.g * vec4(basis_y20, y2yz, y2xz, y2xy);
-        sh_g24 += color.g * y2x2z2;
-        sh_b01 += color.b * vec4(basis_y0, basis_y1, basis_y2, basis_y3);
-        sh_b2 += color.b * vec4(basis_y20, y2yz, y2xz, y2xy);
-        sh_b24 += color.b * y2x2z2;
+        vec3 color = imageLoad(uimg_sky_radiance,
+            ivec2(int(col), int(y) + SH_SKY_ROWS)).rgb;
+        sum_sh += color * row_weight[y];
     }
-
-    // Reduce one color channel at a time. gl_LocalInvocationIndex is
-    // col + LUT_SIZE * stripe, so the first tree step pairs the two stripes of
-    // the same column and the remaining steps are the column tree. The pairing
-    // order differs from the pre-stripe version (which summed all 256 rows
-    // before combining columns); the value is the same sum reassociated, so the
-    // result moves only by float rounding.
-    #define REDUCE_COLOR(field01, field2, field24, out0, out1, out24) \
-        reduce_01[tid] = field01; \
-        reduce_2[tid] = field2; \
-        reduce_24[tid] = field24; \
-        barrier(); \
-        for (uint s = SH_REDUCE_START; s > 0u; s >>= 1u) { \
-            if (tid < s) { \
-                reduce_01[tid] += reduce_01[tid + s]; \
-                reduce_2[tid] += reduce_2[tid + s]; \
-                reduce_24[tid] += reduce_24[tid + s]; \
-            } \
-            barrier(); \
-        } \
-        if (tid == 0u) { \
-            out0 = reduce_01[0] * SH_SAMPLE_WEIGHT; \
-            out1 = reduce_2[0] * SH_SAMPLE_WEIGHT; \
-            out24 = reduce_24[0] * SH_SAMPLE_WEIGHT; \
-        }
-
-    REDUCE_COLOR(sh_r01, sh_r2, sh_r24, sky_sh_r0, sky_sh_r1, sky_sh_r2.x)
-    REDUCE_COLOR(sh_g01, sh_g2, sh_g24, sky_sh_g0, sky_sh_g1, sky_sh_g2.x)
-    REDUCE_COLOR(sh_b01, sh_b2, sh_b24, sky_sh_b0, sky_sh_b1, sky_sh_b2.x)
-
+    reduce_sh[tid] = vec4(sum_sh * col_weight, 0.0);
+    barrier();
+    for (uint stride = uint(SH_WORKGROUP_THREADS / 2); stride > 0u; stride >>= 1u) {
+        if (tid < stride) reduce_sh[tid] += reduce_sh[tid + stride];
+        barrier();
+    }
     if (tid == 0u) {
-        // Ground light = direct sun/moon color via transmittance LUT.
-        float ground_r  = ATM_PLANET_R + 0.2;
+        vec3 sh = reduce_sh[0].rgb * SH_SAMPLE_WEIGHT;
+        if (term < 4u) {
+            sky_sh_r0[term] = sh.r;
+            sky_sh_g0[term] = sh.g;
+            sky_sh_b0[term] = sh.b;
+        } else if (term < 8u) {
+            sky_sh_r1[term - 4u] = sh.r;
+            sky_sh_g1[term - 4u] = sh.g;
+            sky_sh_b1[term - 4u] = sh.b;
+        } else {
+            sky_sh_r2.x = sh.r;
+            sky_sh_g2.x = sh.g;
+            sky_sh_b2.x = sh.b;
+        }
+    }
+    if (tid == 0u && term == 0u) {
+        float ground_r = ATM_PLANET_R + 0.2;
         float ground_r2 = ground_r * ground_r;
         float mu_light = u_world_sun_dir.y;
-        float mu_abs = abs(mu_light);
-        vec4 trans = SampleTransmittance(utex_tslut, ground_r, ground_r2, mu_abs);
+        vec4 trans = SampleTransmittance(utex_tslut, ground_r, ground_r2, abs(mu_light));
         vec3 ground_color;
         if (mu_light > 0.0) {
             ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_SOLAR)) * ATM_EXPOSURE;
         } else {
             ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_MOON_IRR)) * ATM_EXPOSURE;
         }
-
         ground_light.rgb = ground_color * (1.0 - rainStrength * 0.9);
         ground_light.a = 0.0;
     }

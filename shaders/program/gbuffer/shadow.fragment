@@ -30,7 +30,15 @@ layout(early_fragment_tests) in;
 #endif
 
 void main() {
+    // shadowcolor0 carries the RSM payload, and its only reader
+    // (lib/shadow/reflective_shadow_map.glsl) compiles in only when
+    // GI_MODE == 2. Every other configuration needs the atlas fetch for the
+    // cutout alpha test alone, so solid and water casters skip both the fetch
+    // and the RGBA8 write; shadow.vertex still owns the depth that
+    // shadowtex0/shadowtex1 store, and no consumer input changes.
+#if GI_MODE == 2 || defined(USE_DISCARD)
     vec4 albedo = texture(gtexture, v_texcoord);
+#endif
 
 #ifdef USE_DISCARD
     if (albedo.a < 0.5) discard;
@@ -57,7 +65,7 @@ void main() {
     out_color = EncodeRSMSource(reflectance, normal_shadow);
 #endif
 #else
-    out_color = vec4(albedo.rgb, albedo.a);
+    // GI_MODE != 2: nothing samples shadowcolor0, so the payload stays unwritten.
 #endif
 
     // Depth protection lives in shadow.vertex (clip-z scale); no fragment

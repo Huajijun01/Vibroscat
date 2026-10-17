@@ -85,6 +85,12 @@ const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO h
 const bool colortex9Clear  = false;   // unblurred temporal GI history
 const bool colortex10Clear = false;   // actual previous GI receiver geometry/age
 const bool colortex11Clear = true;   // weather texture
-const bool colortex12Clear = true;   // normal/cloud current, translucent, bloom, and tonemap workspace
+// colortex12 hands one buffer forward through the frame: solid writes the
+// shading normal, deferred4 zero-fills the active scene before translucency,
+// bloom rewrites each atlas tile before sampling it, and tonemap rewrites the
+// whole display rect. TAAU's inactive margin is never read, and Iris still
+// clears on allocation and resize, so the recurring clear only re-zeroes
+// regions that every reader overwrites first.
+const bool colortex12Clear = false;  // sequential workspace
 
 #endif // LIB_CONTRACT_RESOURCES_GLSL

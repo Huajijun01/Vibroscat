@@ -502,6 +502,17 @@ https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的�
 屏幕步进只读取深度，不逐采样判别遮挡物材质；贴图、天空光和顶点 AO
 近似约束屏幕无法提供的遮挡，不宣称恢复真实叶片厚度或完整光输运。
 
+## 30. 双档水面母基函数（概念与独立生成资产）
+
+水面质量的低档保留原有小波；高档的
+`textures/mother_medium_large_r8_128.dat` 与
+`textures/mother_medium_large_slope_rg8_128.dat` 是本项目独立烘焙的高度与 UV 斜率，
+分别为 128×128 R8 / RG8，不是第三方贴图。算法概念参考 Jerry Tessendorf，
+《Simulating Ocean Water》(SIGGRAPH 2001)：Phillips 频谱、Fourier 合成与深水色散。
+本项目独立实现连续可逆摆线压缩、解析导数、双线性最小二乘投影及单母图分层拟合，
+没有移植第三方生成器、代码或资产。高档复用同一份母图采样 5 层法线和 3 层 POM 高度；
+按层平移仅近似色散，不是逐模式 FFT 动画。独立生成资产按本包 GPL-3.0 使用。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

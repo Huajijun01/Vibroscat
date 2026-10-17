@@ -34,13 +34,12 @@ vec3 SoftClampWaterNormal(vec3 normal, vec3 to_camera) {
 }
 
 // ---- parallax occlusion mapping ----
-// Bounded height chase on the two largest-energy layers of the river
-// texture (2 fetches per height sample); the final normal uses the full
-// three-layer field. Linear crossing by default; POM_BISECTION_ENABLED
-// refines with bisection.
+// Chase the selected mode's largest-energy height layers: 2 fetches per
+// sample for small waves, 3 for medium-large waves. The final normal uses
+// all 3 or 5 layers. POM_BISECTION_ENABLED refines the coarse crossing.
 const int OCEAN_POM_STEPS = 8;
-// Bound both extrema of the two-layer field at every supported wave gain.
-const float OCEAN_POM_MAX_DEPTH = (RIVER_TEX_AMP[0] + RIVER_TEX_AMP[1]) * WATER_RIVER_GAIN
+// Bound both extrema of the selected POM field at every supported gain.
+const float OCEAN_POM_MAX_DEPTH = RIVER_TEX_POM_AMPLITUDE * RIVER_TEX_POM_GAIN
                               * max(RIVER_TEX_CENTER, 1.0 - RIVER_TEX_CENTER);
 const float OCEAN_POM_MAX_OFFSET = 2.0; // m, clamp grazing offsets
 const float OCEAN_POM_MIN_SHIFT = 0.05; // m, skip invisible shifts

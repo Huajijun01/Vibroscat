@@ -80,7 +80,7 @@ screen.CLOUD_QUALITY.comment = 采样预算、时域上采样与历史长度，�
 screen.WATER = 水体
 screen.WATER.comment = 水面反射、波浪细节与水下光效。
 screen.WATER_SURFACE = 水面
-screen.WATER_SURFACE.comment = 两项水面效果的采样预算：反射光线步进与波浪视差搜索。
+screen.WATER_SURFACE.comment = 调整波幅、大波视差高度，以及反射和视差搜索的精度。
 screen.FOG = 雾
 screen.FOG.comment = 用边界雾遮住已加载世界的边缘。仅主世界生效。
 screen.INFORMATION = 信息
@@ -354,6 +354,10 @@ option.SSAO_STRENGTH = SSAO 对比度
 option.SSAO_STRENGTH.comment = 边角被压暗的程度：遮蔽值按本项取幂。SSAO 观感比 GTAO 淡，所以默认值刻意更陡。1.0 为线性。
 
 #Water
+option.WATER_SURFACE_QUALITY = 水面质量
+option.WATER_SURFACE_QUALITY.comment = 低：细小平缓的波纹。高：更大的浪形和更细腻的表面细节，渲染开销更高。
+value.WATER_SURFACE_QUALITY.0 = 低
+value.WATER_SURFACE_QUALITY.1 = 高
 option.WATER_SSR = 水面反射
 option.WATER_SSR.comment = 让水面反射眼前真实的世界——山、建筑、树木——而不只是天空。
 option.WATER_SSR_STEPS = 水面反射步数
@@ -364,8 +368,11 @@ option.WATER_POM_COARSE_STEPS = 视差粗搜索步数
 option.WATER_POM_COARSE_STEPS.comment = 波浪深度搜索的精度：越高浪形越准确，速度越慢。
 option.WATER_POM_BISECT_STEPS = 视差二分细化次数
 option.WATER_POM_BISECT_STEPS.comment = 粗搜索之后细化浪形的迭代次数：越高波峰越锐利，速度越慢。
-option.WATER_RIVER_GAIN = 河流波高
-option.WATER_RIVER_GAIN.comment = 河流各波浪层的整体幅度：越高波浪越明显。
+option.WATER_RIVER_GAIN = 水面波高
+option.WATER_RIVER_GAIN.comment = 控制两档水面的法线波幅，以及低档的视差波高。高档视差波高单独调整。
+option.WATER_LARGE_POM_HEIGHT = 大波视差高度
+option.WATER_LARGE_POM_HEIGHT.comment = 仅高档生效：独立调整视差起伏，1.0 为烘焙波高，0 为无视差起伏；不改变法线波幅。
+suffix.WATER_LARGE_POM_HEIGHT = 倍
 
 #Fog
 option.BOUNDARY_FOG = 边界雾

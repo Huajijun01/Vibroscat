@@ -611,6 +611,21 @@ depth only, without classifying sampled blocker materials. Map, skylight and
 vertex AO constrain missing screen evidence approximately; this does not
 reconstruct physical leaf thickness or full light transport.
 
+## 30. Two water surface modes (concepts and independently generated assets)
+
+Low water surface quality preserves the original small waves. High quality's
+`textures/mother_medium_large_r8_128.dat` and
+`textures/mother_medium_large_slope_rg8_128.dat` are independently baked
+128x128 R8 height and RG8 UV slope assets, not third-party textures. The
+Phillips spectrum, Fourier synthesis and deep-water dispersion concepts
+reference Jerry Tessendorf, *Simulating Ocean Water* (SIGGRAPH 2001).
+The continuous invertible trochoidal compression, analytic derivatives,
+bilinear least-squares projection and shared mother-basis fit are independent
+project implementations; no third-party generator, code or asset was ported.
+High quality reuses the same mother texels for five normal layers and three
+POM height layers. Per-layer translations approximate dispersion rather than
+providing per-mode FFT animation. Generated assets use the pack's GPL-3.0 license.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

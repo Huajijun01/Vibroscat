@@ -331,9 +331,17 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define WATER_POM
 
 
-// River height and slope gain: scales all three short-wave layers.
-// 1.0 uses the baked small-wave sea state (height sigma ~1.9 cm).
+// Water surface quality: 0 = small waves (3 normal / 2 POM layers),
+// 1 = medium-large waves (5 normal / 3 POM layers). Independent of profiles.
+#define WATER_SURFACE_QUALITY 0 // [0 1]
+
+// Normal gain for both sea states; also controls small-wave POM height.
+// At 1.0 height sigma is ~1.9 cm (small) or ~18 cm (medium-large).
 #define WATER_RIVER_GAIN 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 3.69 5.0]
+
+// Independent medium-large POM height scale. 1.0 uses the baked height;
+// normal strength and the small-wave mode do not change with this option.
+#define WATER_LARGE_POM_HEIGHT 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 
 // Water parallax search budget: coarse fixed-step height-chase samples and
 // bisection refinement iterations (mode selected by POM_BISECTION_ENABLED in

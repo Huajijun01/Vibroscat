@@ -80,7 +80,7 @@ screen.CLOUD_QUALITY.comment = Sampling budget, temporal upscaling and history a
 screen.WATER = Water
 screen.WATER.comment = Water reflections, wave detail and underwater light.
 screen.WATER_SURFACE = Water Surface
-screen.WATER_SURFACE.comment = Sample budgets for the two surface effects: the reflection ray march and the wave parallax search.
+screen.WATER_SURFACE.comment = Adjust wave strength, large-wave parallax height, and reflection and parallax search quality.
 screen.FOG = Fog
 screen.FOG.comment = Hides the edge of the loaded world with boundary fog. Overworld only.
 screen.INFORMATION = Information
@@ -354,6 +354,10 @@ option.SSAO_STRENGTH = SSAO Contrast
 option.SSAO_STRENGTH.comment = How dark corners become: the occlusion value is raised to this power. SSAO reads lighter than GTAO, so its default is intentionally steeper. 1.0 is linear.
 
 #Water
+option.WATER_SURFACE_QUALITY = Water Surface Quality
+option.WATER_SURFACE_QUALITY.comment = Low keeps small, gentle waves. High adds larger waves and finer surface detail at a higher rendering cost.
+value.WATER_SURFACE_QUALITY.0 = Low
+value.WATER_SURFACE_QUALITY.1 = High
 option.WATER_SSR = Water Reflections
 option.WATER_SSR.comment = Lets water reflect the actual world in front of it - mountains, buildings, trees - instead of only the sky.
 option.WATER_SSR_STEPS = Water Reflection Steps
@@ -364,8 +368,11 @@ option.WATER_POM_COARSE_STEPS = POM Coarse Steps
 option.WATER_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate wave relief, slower.
 option.WATER_POM_BISECT_STEPS = POM Bisection Steps
 option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
-option.WATER_RIVER_GAIN = River Wave Height
-option.WATER_RIVER_GAIN.comment = Overall amplitude of the river wave layers: higher = more pronounced waves.
+option.WATER_RIVER_GAIN = Water Wave Height
+option.WATER_RIVER_GAIN.comment = Normal strength for both modes and parallax height for Low. High has a separate parallax height control.
+option.WATER_LARGE_POM_HEIGHT = Large Wave Parallax Height
+option.WATER_LARGE_POM_HEIGHT.comment = High only: scales parallax relief independently. 1.0 uses the baked height; 0 removes relief. Does not change normal strength.
+suffix.WATER_LARGE_POM_HEIGHT = x
 
 #Fog
 option.BOUNDARY_FOG = Boundary Fog

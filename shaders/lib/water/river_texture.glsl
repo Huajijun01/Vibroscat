@@ -4,6 +4,40 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
+#if WATER_SURFACE_QUALITY == 1
+// Medium-large sea state: the same R8 height and RG8 continuous-slope
+// mother basis is reused by 5 normal layers and the 3 POM body layers.
+// Offline Phillips fit, height sigma ~0.18 m at gain 1. Fixed per-layer
+// phases decorrelate the sampling frames; bound crest harmonics advect
+// with their parent waves. Texture translations approximate dispersion.
+const int RIVER_TEX_LAYER_COUNT = 5;
+const int RIVER_TEX_POM_LAYER_COUNT = 3;
+const float RIVER_TEX_FREQ[5] = float[](0.013255621305, 0.029946960090, 0.066835916798, 0.128822849201, 0.234602063648);
+const vec2 RIVER_TEX_VEL[5] = vec2[](vec2(0.052675630718, 0.014954379110),
+    vec2(0.079174635396, 0.022477329601),
+    vec2(0.118280909432, 0.033579428229),
+    vec2(0.164212476339, 0.046619197384),
+    vec2(0.221602989153, 0.062912110715));
+const vec2 RIVER_TEX_ROT[5] = vec2[](vec2(1.000000000000, 0.000000000000),
+    vec2(0.999825697382, 0.018670159444),
+    vec2(0.998252386321, 0.059094612321),
+    vec2(0.998313359606, 0.058055456519),
+    vec2(0.998816676703, 0.048633798335));
+const vec2 RIVER_TEX_PHASE[5] = vec2[](vec2(0.869876998442, 0.133983279604),
+    vec2(0.215115153409, 0.025895432751),
+    vec2(0.142706711576, 0.002183496120),
+    vec2(0.315397575392, 0.596563910699),
+    vec2(0.758387072897, 0.491125316131));
+const float RIVER_TEX_AMP[5] = float[](1.175320385206, 0.494370417196, 0.209815698999, 0.091604803343, 0.041068472115);
+const float RIVER_TEX_CENTER = 0.445920458027;
+const int RIVER_TEX_POM_LAYERS[3] = int[](0, 1, 2);
+const float RIVER_TEX_POM_AMPLITUDE = RIVER_TEX_AMP[0] + RIVER_TEX_AMP[1] + RIVER_TEX_AMP[2];
+const float RIVER_TEX_POM_GAIN = WATER_LARGE_POM_HEIGHT;
+const vec2 RIVER_SLOPE_MIN_UV = vec2(-22.704304827758, -13.275997465604);
+const vec2 RIVER_SLOPE_RANGE_UV = vec2(44.459864590068, 24.353513033894);
+#else
+const int RIVER_TEX_LAYER_COUNT = 3;
+const int RIVER_TEX_POM_LAYER_COUNT = 2;
 // Three affine frames reuse ONE periodic 128x128 R8 Phillips height basis.
 // POM uses layers 0 and 1; all three normal layers reuse ONE 128x128 RG8
 // slope basis. The continuous trochoidal inverse map sharpens crests without
@@ -34,39 +68,49 @@ const int RIVER_TEX_POM_LAYERS[2] = int[](0, 1);
 // Each channel independently remaps its full fitted slope range to [0, 1].
 const vec2 RIVER_SLOPE_MIN_UV = vec2(-22.964086615, -14.789986130);
 const vec2 RIVER_SLOPE_RANGE_UV = vec2(52.728907765, 29.079023962);
+const float RIVER_TEX_POM_AMPLITUDE = RIVER_TEX_AMP[0] + RIVER_TEX_AMP[1];
+const float RIVER_TEX_POM_GAIN = WATER_RIVER_GAIN;
+#endif
 
-// One static, low-frequency cloud-map fetch offsets all wave layers together.
+// Small waves only: one cloud-map fetch offsets all wave layers together.
 // Cache the result before POM so its whole search and the final normal share
 // the same offset. The R8 map supplies one scalar along a fixed direction;
-// the maximum displacement is 3 m over a 2048 m repeating noise domain.
+// the maximum displacement is 4 m over a 1024 m repeating noise domain.
 vec2 RiverTextureWarpPosition(vec2 xz) {
+#if WATER_SURFACE_QUALITY == 1
+    return xz;
+#else
     float noise = textureLod(utex_cloud_distribution_tex, xz * (1.0 / 1024.0), 0.0).r;
     return xz + (noise - 0.5) * vec2(0.6, 0.8) * 8.0;
+#endif
 }
 
 // Height of layer j at world XZ: one bilinear fetch, hardware wrap.
-float RiverTextureLayerHeight(vec2 xz, float time, int j) {
+float RiverTextureLayerHeight(vec2 xz, float time, int j, float gain) {
     vec2 uv = vec2(dot(RIVER_TEX_ROT[j], xz), -RIVER_TEX_ROT[j].y * xz.x
                    + RIVER_TEX_ROT[j].x * xz.y);
     uv = uv * RIVER_TEX_FREQ[j] - RIVER_TEX_VEL[j] * time;
-    return RIVER_TEX_AMP[j] * WATER_RIVER_GAIN
+#if WATER_SURFACE_QUALITY == 1
+    uv += RIVER_TEX_PHASE[j];
+#endif
+    return RIVER_TEX_AMP[j] * gain
          * (texture(utex_mother_river, uv).r - RIVER_TEX_CENTER);
 }
 
-// Full water height: all three layers.
+// Full water height: every layer in the selected mode.
 float RiverTextureHeight(vec2 xz, float time) {
     float h = 0.0;
-    for (int j = 0; j < 3; ++j) {
-        h += RiverTextureLayerHeight(xz, time, j);
+    for (int j = 0; j < RIVER_TEX_LAYER_COUNT; ++j) {
+        h += RiverTextureLayerHeight(xz, time, j, WATER_RIVER_GAIN);
     }
     return h;
 }
 
-// POM height: the two largest-energy layers only (2 fetches per sample).
+// POM height: the selected mode's 2 or 3 largest-energy layers.
 float RiverTexturePOMHeight(vec2 xz, float time) {
     float h = 0.0;
-    for (int j = 0; j < 2; ++j) {
-        h += RiverTextureLayerHeight(xz, time, RIVER_TEX_POM_LAYERS[j]);
+    for (int j = 0; j < RIVER_TEX_POM_LAYER_COUNT; ++j) {
+        h += RiverTextureLayerHeight(xz, time, RIVER_TEX_POM_LAYERS[j], RIVER_TEX_POM_GAIN);
     }
     return h;
 }
@@ -75,10 +119,13 @@ float RiverTexturePOMHeight(vec2 xz, float time) {
 // Sum slopes before normalization, preserving the shared POM-adjusted position.
 void RiverTextureNormal(vec2 xz, float time, out vec3 normal) {
     vec2 grad = vec2(0.0);
-    for (int j = 0; j < 3; ++j) {
+    for (int j = 0; j < RIVER_TEX_LAYER_COUNT; ++j) {
         vec2 rot = RIVER_TEX_ROT[j];
         vec2 uv = vec2(dot(rot, xz), -rot.y * xz.x + rot.x * xz.y);
         uv = uv * RIVER_TEX_FREQ[j] - RIVER_TEX_VEL[j] * time;
+#if WATER_SURFACE_QUALITY == 1
+        uv += RIVER_TEX_PHASE[j];
+#endif
         vec2 slope = texture(utex_mother_river_slope, uv).rg
                    * RIVER_SLOPE_RANGE_UV + RIVER_SLOPE_MIN_UV;
         slope = vec2(rot.x * slope.x - rot.y * slope.y,

@@ -300,8 +300,8 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Bisection iterations refining the accepted crossing; each halves the
 // march-step bracket, so 4 steps keep the hit within step/16 of the flip.
 #define OPAQUE_SSR_BISECT_STEPS 4
-#define OPAQUE_SSR_RECURSION_DECAY 0.92
-#define OPAQUE_PBR_EMISSION_SCALE 10.0
+#define OPAQUE_SSR_RECURSION_DECAY 1.0
+#define OPAQUE_PBR_EMISSION_SCALE 1.0
 
 #define WATER_SSR
 

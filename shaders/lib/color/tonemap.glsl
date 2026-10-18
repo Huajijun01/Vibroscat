@@ -8,9 +8,12 @@
 #include "/lib/color/tonemap_gt7.glsl"
 #include "/lib/color/tonemap_lpm.glsl"
 #include "/lib/color/tonemap_opendrt.glsl"
+#include "/lib/color/tonemap_reinhard_agx.glsl"
+#include "/lib/color/tonemap_calibration.glsl"
 
 
-vec3 Tonemap(vec3 linear_rgb) {
+// Keep reference evaluation available for validation, without pack grading.
+vec3 TonemapReference(vec3 linear_rgb) {
 #if TONEMAP_MODE == 0
     return TonemapAGX(linear_rgb);
 #elif TONEMAP_MODE == 1
@@ -21,9 +24,15 @@ vec3 Tonemap(vec3 linear_rgb) {
     return TonemapOpenDRT(linear_rgb);
 #elif TONEMAP_MODE == 4
     return TonemapLPM(linear_rgb);
+#elif TONEMAP_MODE == 6
+    return TonemapReinhardAGX(linear_rgb);
 #else
     return TonemapGT7(linear_rgb);
 #endif
+}
+
+vec3 Tonemap(vec3 linear_rgb) {
+    return CalibrateTonemapOutput(TonemapReference(linear_rgb));
 }
 
 // Rational compression for temporal HDR history; this is not a display DRT.

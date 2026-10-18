@@ -72,12 +72,11 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float r_mid   = sqrt(r2_mid);
         float h_mid   = r_mid - ATM_PLANET_R;
 
-        // Density altitude: DensityRay / DensityOzone clamp below the surface
-        // and GetSigmaSMie (a plain exp) grows there, so the below-surface Mie
-        // term thickens the horizon without NaN. The transmittance and
-        // multiscatter LUTs are parameterised on r >= planet radius
-        // (sqrt(r^2 - R^2) is undefined below the surface), so clamp the radius
-        // used for the LUT lookups.
+        // Density altitude: the media functions take the real signed altitude,
+        // so the below-surface dip thickens the horizon. Only the transmittance
+        // LUT is parameterised on r >= planet radius (sqrt(r^2 - R^2) is
+        // undefined below the surface); the multiscatter LUT spans the baked
+        // signed range and is sampled at the real radius.
         float r_lut   = max(r_mid, ATM_PLANET_R);
         float r2_lut  = r_lut * r_lut;
 
@@ -104,7 +103,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec2 tslut_uv_moon;
         GetTransmittanceLUTUVPair(r_lut, r2_lut, mu_mid, tslut_uv, tslut_uv_moon);
         vec4 trans_mid = textureLod(utex_tslut, tslut_uv, 0.0);
-        vec4 ms_mid = SampleMultiScatter(utex_mslut, r_lut, mu_mid);
+        vec4 ms_mid = SampleMultiScatter(utex_mslut, r_mid, mu_mid);
         // moonlight: opposite direction, shared extinction
         vec4 ts_moon_mid = textureLod(utex_tslut, tslut_uv_moon, 0.0);
 

@@ -53,13 +53,16 @@ void GetTransmittanceLUTUVPair(float r, float r2, float mu, out vec2 uv_pos, out
 // MS bake contract: q = mu * (0.5 + 4 / (1 + 7*abs(mu))),
 // u = 0.5 + (31/64)*q. The 32 knots include mu = +/-1 at the edge texel
 // centers; no additional half-texel remap. The normalized denominator stays
-// in [1/8, 1] for mu in [-1, 1]. Keep this paired with sky-baker pack finalize.
+// in [1/8, 1] for mu in [-1, 1]. V spans the bake's signed altitude range
+// [-8, 120] km, so the 32 row centers sit at -6, -2, ..., 118 km; the real
+// radius is passed in, including below the ground line. Keep this paired with
+// sky-baker pack finalize.
 vec2 GetMultiScatterLUTUV(float r, float mu) {
     float den = saturate(0.875 * abs(mu) + 0.125);
     float inv_den = 1.0 / den;
     float gain = 0.2421875 * inv_den + 0.2421875;
     float u = mu * gain + 0.5;
-    return vec2(u, (r - ATM_PLANET_R) * ATM_RCP_ATMO_MINUS_P);
+    return vec2(u, (r - ATM_PLANET_R + ATM_MS_BAKE_DIP_KM) * ATM_MS_RCP_SPAN);
 }
 
 // ===============================================================

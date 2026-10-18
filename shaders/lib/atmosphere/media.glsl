@@ -10,7 +10,9 @@
 // Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 6),
 // fitted closed-form profiles kept from the 410-630 nm constants; only the
 // per-band coefficients follow sky-tracer's OPAC/libRadtran tables. The
-// offline iterative-MS LUT bake (sky-baker pack) evaluates these same forms.
+// offline iterative-MS LUT bake (sky-baker pack) evaluates these same forms
+// for the multiscatter solve; the transmittance LUT integrates the profile
+// tables directly.
 // Provenance: licenses/THIRD_PARTY_NOTICES.md section 14.
 // ===============================================================
 
@@ -19,9 +21,12 @@
 // ===============================================================
 
 
-// -- Rayleigh density: exp(-A * h^B) --
-const float ATM_RAY_EXP_A = 0.07771971;
-const float ATM_RAY_EXP_B = 1.16364243;
+// -- Rayleigh density: exp(-h / H), signed altitude --
+// H = 7.50 km is the best tested single-exponential fit to the unclamped
+// exp(-A * sign(h) * |h|^B) reference over the pack's full training target
+// (research/atmosphere-unclamped-2026-10-18). It removes the per-sample pow
+// and is defined below sea level, where it reaches 2.906x sea level at -8 km.
+const float ATM_RAY_SCALE_H_KM = 7.5;
 
 // -- Rayleigh scattering base (km-^1 at sea level, per wavelength) --
 const vec4 ATM_SIGMA_S_RAY = vec4(0.03295005, 0.01997218, 0.01193972, 0.00756925);
@@ -151,14 +156,17 @@ const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)
 // ===============================================================
 
-// Density profiles in altitude above the planet surface. Callers hold the
-// altitude directly (the sky march carries h_mid), so the folds clamp h
-// instead of paying an (R+h)-R float round trip per sample; the below-surface
-// clamps keep the radius-domain semantics.
+// Density profiles in altitude above the planet surface. Callers hold the real
+// signed altitude (the sky march carries h_mid), so negative values below the
+// ground line thicken the horizon dip instead of folding back to sea level.
+// The transmittance and multiscatter LUT radii stay clamped separately at
+// their call sites; that addressing protection must not truncate density.
 float DensityRayH(float h) {
-    return exp(-ATM_RAY_EXP_A * pow(max(h, 0.0), ATM_RAY_EXP_B));
+    return exp(-h * (1.0 / ATM_RAY_SCALE_H_KM));
 }
 
+// Ozone is a tent/lognormal over its own support band, so its density is zero
+// at negative altitude by shape, not by clamping altitude to sea level.
 float DensityOzoneH(float h) {
     float h_clamped = max(h, 1.0e-5);
     float t = log(h_clamped) - ATM_OZONE_CENTER_LOG;

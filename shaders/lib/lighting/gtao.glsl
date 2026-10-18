@@ -13,19 +13,20 @@
 //
 // Math contract. The AO integral
 //   A(P) = (1/pi) integral_Omegan V(P,omega) <omega,n> domega
-// is decomposed per azimuthal slice (Fubini). In the slice plane, directions
-// are parametrized by the angle theta from the toward-camera axis v, the normal
-// projects to thetan = atan2(<n,t>, <n,v>), and the visible arc is bounded by
-// the horizon angles h1,h2 found by marching the projected radius through
-// the depth buffer. Clamping to the cosine-positive hemisphere of n and
-// integrating exactly gives, per slice,
-//   I(phi) = sin(thetahi - thetan) - sin(thetalo - thetan),
-//   thetalo = max(h1, thetan - pi/2),   thetahi = min(h2, thetan + pi/2),
-// and A(P) = (1/2S) Sigma_s I(phi_s) (open space: I = 2, A = 1; fully occluded:
-// thetahi <= thetalo, I = 0).
+// is decomposed into azimuthal slices phi in [0,pi). On each half-slice,
+// theta in [0,pi] measures the angle from the toward-camera axis v.
+// The projected normal is a*cos(theta)+b*sin(theta), where a=<n,v>, b=<n,t>;
+// retain its magnitude and the spherical Jacobian sin(theta). The primitive is
+//   F(theta) = a*sin(theta)^2/2 + b*(theta/2 - sin(2*theta)/4).
+// Integrate the blocked arc [h,pi], clipped to the positive normal hemisphere.
+// Using the known open-hemisphere integral as a control variate gives
+//   A = 1 - sum(blocked_positive + blocked_negative)/GTAO_SLICES.
+// Open surfaces remain exactly one even with few slices; for n=v and equal
+// horizon angles h on both sides, A=sin(h)^2. Normalizing the projected normal
+// or dropping sin(theta) would change the spherical cosine integral.
 //
 // Horizon search conventions (validated against the height-field case that
-// dominates Minecraft): the search inits fully open at +/-pi and skips sky and
+// dominates Minecraft): the search inits fully open (cosine -1) and skips sky and
 // same-surface samples, so open surfaces read exactly 1.0 for every normal
 // tilt, while walls in front clamp the arc and produce contact darkening.
 // Samples beyond the radius fade toward the open state (paper section4.3).
@@ -53,54 +54,97 @@ vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out flo
     return delta / radius_px;
 }
 
-// March one horizon direction; returns the horizon angle in [0, pi] (acos of
-// the max sample cosine; init pi = fully open). Steps dense near the pixel,
-// quadratic spread, per-pixel dither.
-float GTAOSearchHorizon(vec2 center_uv, vec3 center_view, vec2 screen_dir,
+// Update one side with the original depth rejection and radius falloff.
+float GTAOUpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
+                        float center_depth, vec3 view_axis, float horizon_cos) {
+    if (sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7) {
+        // Same surface: the height field below the pixel is its horizon,
+        // not an occluder (else far blocky terrain reads grid-like steps).
+        return horizon_cos;
+    }
+    vec3 sample_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
+    vec3 offset = sample_view - center_view;
+    float offset_len_sq = dot(offset, offset);
+    if (offset_len_sq < 1.0e-6) {
+        return horizon_cos;
+    }
+    float inv_offset_len = inversesqrt(offset_len_sq);
+    float offset_len = offset_len_sq * inv_offset_len;
+    // Near-field fade (Jimenez section4.3): linear band [FALLOFF_START*R, R]
+    // applied to the sample cosine (no hard cut at the radius).
+    float fade = clamp(
+        (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
+            / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4),
+        0.0, 1.0);
+    float sample_cos = dot(view_axis, offset) * inv_offset_len * (1.0 - fade) - fade;
+    return max(horizon_cos, sample_cos);
+}
+
+// March both sides at the same distance in one loop. Each side keeps its
+// original screen-edge termination; leaving one edge never stops the other.
+// Issue the independent depth reads together before consuming either result.
+// Returns positive-side / negative-side cosines in [-1,1] (-1 = fully open).
+vec2 GTAOSearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
                         float radius_px, float center_depth, vec3 view_axis,
                         float step_noise) {
     if (radius_px <= 2.0) {
-        return PI;  // sub-2px radius: nothing resolvable
+        return vec2(-1.0);  // sub-2px radius: nothing resolvable
     }
     // The per-step uv delta is screen_dir scaled by a loop-invariant pixel
     // size; premultiply once and keep the loop on one vector multiply.
     vec2 screen_dir_px = screen_dir * u_render_pixel_size;
-    float horizon_cos = -1.0;
+    vec2 horizon_cos = vec2(-1.0);
+    bool active_pos = true;
+    bool active_neg = true;
     for (int i = 0; i < GTAO_HORIZON_STEPS; ++i) {
         float u = (float(i) + step_noise) / float(GTAO_HORIZON_STEPS);
         float dist_px = 1.0 + u * u * (radius_px - 1.0);
-        vec2 sample_uv = center_uv + screen_dir_px * dist_px;
-        if (any(lessThan(sample_uv, vec2(0.0)))
-                || any(greaterThan(sample_uv, vec2(1.0)))) {
+        vec2 sample_offset = screen_dir_px * dist_px;
+        vec2 sample_uv_pos = center_uv + sample_offset;
+        vec2 sample_uv_neg = center_uv - sample_offset;
+        active_pos = active_pos && !any(lessThan(sample_uv_pos, vec2(0.0)))
+            && !any(greaterThan(sample_uv_pos, vec2(1.0)));
+        active_neg = active_neg && !any(lessThan(sample_uv_neg, vec2(0.0)))
+            && !any(greaterThan(sample_uv_neg, vec2(1.0)));
+        if (!active_pos && !active_neg) {
             break;
         }
-        // Clamp the 1.0 edge (the integer texel would be out of bounds).
-        // ivec2 sample_texel = ivec2(clamp(sample_uv, vec2(0.0), vec2(1.0) - 1.0e-5)
-        //     * u_render_res);
-        float sample_depth = texture(depthtex2, SceneTextureUV(sample_uv)).r;
-        if (sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7) {
-            // Same surface: the height field below the pixel is its horizon,
-            // not an occluder (else far blocky terrain reads grid-like steps).
-            continue;
+        float sample_depth_pos = 1.0;
+        float sample_depth_neg = 1.0;
+        if (active_pos) {
+            sample_depth_pos = texture(depthtex2, SceneTextureUV(sample_uv_pos)).r;
         }
-        vec3 sample_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
-        vec3 offset = sample_view - center_view;
-        float offset_len_sq = dot(offset, offset);
-        if (offset_len_sq < 1.0e-6) {
-            continue;
+        if (active_neg) {
+            sample_depth_neg = texture(depthtex2, SceneTextureUV(sample_uv_neg)).r;
         }
-        float inv_offset_len = inversesqrt(offset_len_sq);
-        float offset_len = offset_len_sq * inv_offset_len;
-        // Near-field fade (Jimenez section4.3): linear band [FALLOFF_START*R, R]
-        // applied to the sample cosine (no hard cut at the radius).
-        float fade = clamp(
-            (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
-                / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4),
-            0.0, 1.0);
-        float sample_cos = dot(view_axis, offset) * inv_offset_len * (1.0 - fade) - fade;
-        horizon_cos = max(horizon_cos, sample_cos);
+        horizon_cos.x = GTAOUpdateHorizon(sample_uv_pos, sample_depth_pos,
+            center_view, center_depth, view_axis, horizon_cos.x);
+        horizon_cos.y = GTAOUpdateHorizon(sample_uv_neg, sample_depth_neg,
+            center_view, center_depth, view_axis, horizon_cos.y);
     }
-    return acos(clamp(horizon_cos, -1.0, 1.0));
+    return clamp(horizon_cos, vec2(-1.0), vec2(1.0));
+}
+
+// Integral of max(a*cos(theta)+b*sin(theta),0)*sin(theta) on [acos(c),pi].
+// a,b keep the projected normal's magnitude. The back-facing branch handles
+// two-sided geometry whose positive normal interval wraps past pi.
+float GTAOBlockedArc(float a, float b, float normal_angle, float inv_normal_length, float c) {
+    if (a >= 0.0) {
+        if (c <= -b * inv_normal_length) return 0.0;
+        float h = acos(c);
+        float s = sqrt(max(1.0 - c * c, 0.0));
+        return max(0.5 * (a * c * c
+            + b * (normal_angle + PI * 0.5 - h + s * c)), 0.0);
+    }
+    float h = acos(c);
+    if (normal_angle < -PI * 0.5) normal_angle += TAU;
+    float lo = max(h, max(normal_angle - PI * 0.5, 0.0));
+    float hi = min(normal_angle + PI * 0.5, PI);
+    if (hi <= lo) return 0.0;
+    float sin_lo = sin(lo);
+    float sin_hi = sin(hi);
+    return max(0.5 * a * (sin_hi * sin_hi - sin_lo * sin_lo)
+        + b * (0.5 * (hi - lo) - 0.25 * (sin(2.0 * hi) - sin(2.0 * lo))), 0.0);
 }
 
 // Screen-space GTAO at one pixel (full-res UV and texel). stbn_noise is the
@@ -139,7 +183,7 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     float slice_sin = sin(slice_angle_base);
     const float slice_step_c = cos(PI / float(GTAO_SLICES));
     const float slice_step_s = sin(PI / float(GTAO_SLICES));
-    float visibility = 0.0;
+    float occlusion = 0.0;
     for (int s = 0; s < GTAO_SLICES; ++s) {
         // tangent = slice_t*cos + slice_b*sin is already a unit vector
         // orthogonal to view_axis up to ~1e-7 (slice_t/slice_b are an exact
@@ -157,30 +201,18 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
             continue;  // slice perpendicular to the normal_view: zero contribution
         }
         float theta_n = atan(ndott, ndotv);
+        float inv_normal_length = inversesqrt(ndott * ndott + ndotv * ndotv);
 
         vec2 screen_dir;
         float radius_px;
         screen_dir = GTAOScreenDir(tangent, center_view, center_ndc, radius_px);
 
-        float h_pos = GTAOSearchHorizon(uv, center_view, screen_dir, radius_px,
+        vec2 horizons = GTAOSearchHorizons(uv, center_view, screen_dir, radius_px,
             center_depth, view_axis, stbn_noise.y);
-        float h_neg = -GTAOSearchHorizon(uv, center_view, -screen_dir, radius_px,
-            center_depth, view_axis, stbn_noise.y);
-
-        // Clamp the visible arc to the cosine-positive hemisphere of n and
-        // integrate exactly.
-        float theta_lo = max(h_neg, theta_n - PI * 0.5);
-        float theta_hi = min(h_pos, theta_n + PI * 0.5);
-        if (theta_hi > theta_lo) {
-            #if 1
-            visibility += sin(theta_hi - theta_n) - sin(theta_lo - theta_n);
-            #else
-            // agressive approximation
-            visibility += cos((theta_hi + theta_lo) * 0.5 - theta_n) * (theta_hi - theta_lo);
-            #endif
-        }
+        occlusion += GTAOBlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
+            + GTAOBlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
     }
-    return clamp(visibility / (2.0 * float(GTAO_SLICES)), 0.0, 1.0);
+    return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
 }
 
 #endif // LIB_LIGHTING_GTAO_GLSL

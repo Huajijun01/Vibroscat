@@ -1,59 +1,34 @@
-// Phase 2: robust log-domain metering, DRT-aware highlight protection and
-// temporal adaptation. All added statistics run once per frame in this
-// existing reduction; the pixel sweep and SSBO layout stay independent of
-// the selected display transform.
+// Phase 2: combine log statistics and percentiles, then update the adapted
+// exposure. A geometric mean models the retina's approximately logarithmic
+// response; the median rejects small bright/dark outliers and P90 preserves
+// highlight headroom. The log-average/key-value approach follows Reinhard et
+// al., "Photographic Tone Reproduction for Digital Images" (SIGGRAPH 2002).
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/color/tonemap_calibration.glsl"
 
 layout(local_size_x = 64) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
 
 const float AE_REFERENCE_LUMINANCE = 0.18;
+const float AE_HIGHLIGHT_HEADROOM = 0.80;
 const float AE_MIN_EXPOSURE = 1.0 / 32.0;
 const float AE_MAX_EXPOSURE = 32.0;
-const float AE_HISTOGRAM_BIN_EV = 20.0 / 64.0;
 
-shared vec2 cache[64];
+shared float cache[64];
 shared uint histogram_cache[64];
 
-float MeteredKeyEV(float log_average_ev, float total_weight, out float highlight_ev) {
-    float cumulative = 0.0;
-    float full_sum = 0.0;
-    float trimmed_sum = 0.0;
-    highlight_ev = 0.0;
-    // Trim only the extreme tails: small emissives and deep black corners
-    // should not steer the whole image. Partial bins avoid threshold steps.
-    float lower = total_weight * 0.05;
-    float upper = total_weight * 0.95;
-    float highlight_rank = total_weight * 0.98;
+float HistogramPercentile(float fraction, uint total_weight) {
+    uint threshold = uint(float(total_weight) * fraction);
+    uint cumulative = 0u;
     for (uint i = 0u; i < 64u; ++i) {
-        float count = float(histogram_cache[i]);
-        float next_count = cumulative + count;
-        float left_ev = -12.0 + float(i) * AE_HISTOGRAM_BIN_EV;
-        float center_ev = left_ev + 0.5 * AE_HISTOGRAM_BIN_EV;
-        full_sum += count * center_ev;
-        float trimmed_count = max(min(next_count, upper) - max(cumulative, lower), 0.0);
-        trimmed_sum += trimmed_count * center_ev;
-        if (count > 0.0) {
-            if (cumulative <= highlight_rank && highlight_rank < next_count) {
-                highlight_ev = left_ev + (highlight_rank - cumulative) / count * AE_HISTOGRAM_BIN_EV;
-            }
+        cumulative += histogram_cache[i];
+        if (cumulative >= threshold) {
+            return -12.0 + (float(i) + 0.5) * (20.0 / 64.0);
         }
-        cumulative = next_count;
     }
-    // Recover sub-bin precision from the exact log sum. A uniform image
-    // meters exactly even between histogram centers; clamping prevents
-    // clipped out-of-range tails from re-entering the robust estimate.
-    float residual_ev = clamp(log_average_ev - full_sum / total_weight,
-        -0.5 * AE_HISTOGRAM_BIN_EV, 0.5 * AE_HISTOGRAM_BIN_EV);
-    float trimmed_ev = trimmed_sum / max(upper - lower, 1.0) + residual_ev;
-    highlight_ev += residual_ev;
-    // A median can jump across an empty histogram gap when two populations
-    // each cover half the screen. The trimmed mean has no such discontinuity.
-    return trimmed_ev;
+    return 8.0;
 }
 
 void main() {
@@ -66,7 +41,7 @@ void main() {
 #else
     uint tid = gl_LocalInvocationIndex;
 
-    cache[tid] = vec2(log_lum_sums[tid], weight_sums[tid]);
+    cache[tid] = log_lum_sums[tid];
     uint histogram_sum = 0u;
     for (uint group = 0u; group < 64u; ++group) {
         histogram_sum += luminance_histogram[group * 64u + tid];
@@ -80,30 +55,30 @@ void main() {
     }
 
     if (tid == 0u) {
-        float total_weight = max(cache[0].y, 1.0);
-        float log_average_ev = cache[0].x / total_weight - log2(AE_REFERENCE_LUMINANCE);
+        float total_weight = 0.0;
+        for (uint i = 0u; i < 64u; ++i) total_weight += weight_sums[i];
+        total_weight = max(total_weight, 1.0);
+        float log_average = cache[0] / total_weight;
         uint histogram_weight = 0u;
         for (uint i = 0u; i < 64u; ++i) histogram_weight += histogram_cache[i];
         histogram_weight = max(histogram_weight, 1u);
 
-        float highlight_ev;
-        float key_ev = MeteredKeyEV(log_average_ev, float(histogram_weight), highlight_ev);
+        float median_ev = HistogramPercentile(0.50, histogram_weight);
+        float p90_ev = HistogramPercentile(0.90, histogram_weight);
+        float key_ev = mix(log_average - log2(AE_REFERENCE_LUMINANCE), median_ev, 0.35);
+        // log2(max(exp2(key_ev) * L, floor) / L) == max(key_ev, log2(floor/L)):
+        // the exp2/log2 round trip collapses to the saturation max.
         float scene_ev = max(key_ev, log2(1.0e-4 / AE_REFERENCE_LUMINANCE));
-        float target_exposure_ev = log2(AE_TARGET_LUMINANCE / AE_REFERENCE_LUMINANCE)
-            - AE_ADAPTATION_STRENGTH * scene_ev;
-        // P98 protects broad highlights, not isolated sun/specular pixels.
-        // Each default DRT's calibrated input reaches 95% display white at
-        // this point. The 0.5-EV knee is C1 and strength=0 is truly fixed.
-        float highlight_limit_ev = log2(TONEMAP_HIGHLIGHT_INPUT / AE_REFERENCE_LUMINANCE) - highlight_ev;
-        float pressure = target_exposure_ev - highlight_limit_ev;
-        float protection = pressure > 0.5 ? pressure
-            : pow(max(pressure + 0.5, 0.0), 2.0) * 0.5;
-        target_exposure_ev -= AE_ADAPTATION_STRENGTH * protection;
-        target_exposure_ev = clamp(target_exposure_ev, log2(AE_MIN_EXPOSURE), log2(AE_MAX_EXPOSURE));
+        float target_exposure = (AE_TARGET_LUMINANCE / AE_REFERENCE_LUMINANCE)
+            * exp2(-AE_ADAPTATION_STRENGTH * scene_ev);
+        float p90_lum = AE_REFERENCE_LUMINANCE * exp2(p90_ev);
+        target_exposure = min(target_exposure, AE_HIGHLIGHT_HEADROOM / max(p90_lum, 1.0e-4));
+        target_exposure = clamp(target_exposure, AE_MIN_EXPOSURE, AE_MAX_EXPOSURE);
+        float target_exposure_ev = log2(target_exposure);
 
         // Bright adaptation is quick; dark adaptation is deliberately slower,
         // matching the asymmetric cone/rod response of the human eye.
-        if (frameCounter < 2 || isnan(adapted_exposure_ev) || isinf(adapted_exposure_ev)) {
+        if (frameCounter < 2) {
             adapted_exposure_ev = target_exposure_ev;
         } else {
             float rate_per_sec = target_exposure_ev < adapted_exposure_ev ? 4.0 : 0.8;
@@ -111,11 +86,7 @@ void main() {
             // keeps one hitch from snapping the exposure in a single step.
             float step_seconds = clamp(frameTime, 0.0, 0.1);
             float w = 1.0 - exp(-step_seconds * rate_per_sec);
-            // Ignore sub-0.01-EV meter noise without quantizing exposure or
-            // pausing a larger lighting transition.
-            if (abs(target_exposure_ev - adapted_exposure_ev) > 0.01) {
-                adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, clamp(w, 0.0, 1.0));
-            }
+            adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, clamp(w, 0.0, 1.0));
         }
         exposure = exp2(adapted_exposure_ev);
     }

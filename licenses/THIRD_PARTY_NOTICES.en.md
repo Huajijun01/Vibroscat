@@ -34,9 +34,7 @@ the pack's display-linear post-processing. No artistic preset is supplied
 for this HSV variant by the reference; Blender AgX's official looks belong
 to mode 2, below.
 
-`TonemapReinhardAGX` (`TONEMAP_MODE == 6`) is ported from the same repository's `shaders/reinhard_agx.wgsl`, at that tool's `ReinhardAgxParameters::default()`: 0.04 virtual-gamut expansion, an 18% compression start, 8 EV highlight reach, the 5th-power AgX shoulder and 0.5 hue retention. The tool solves the curve and the shoulder coefficient on the CPU for the output headroom; this pack is SDR only (display peak 1.0), so both fold into constants: linear slope 1, shoulder extent 0.82 and shoulder coefficient 0.9990738451 (= 1 - ln(1 + 55.9756097561)^-5). The reference takes an AP0 scene-linear input and converts it to Rec.709; this pack's scene color is already Rec.709 linear, so that matrix is not carried over. The reference's sRGB encode, HSV hue repair and display-signal clamp all run in the encoded domain; the port decodes back to the pack's display-linear output at the end.
-
-History: between 2026-08 and 2026-10 the pack also carried ports of this tool's Oklab DRT, Reinhard-Gamut and Reinhard-AgX (used at the time with the author's direct permission, before the repository chose a license). All three were removed in the 2026-10 tone-mapper list change; Reinhard-AgX was ported again as mode 6 in the same month, now under the repository's `GPL-3.0-only` license, while Oklab DRT and Reinhard-Gamut remain undistributed.
+History: between 2026-08 and 2026-10 the pack also carried ports of this tool's Oklab DRT, Reinhard-Gamut and Reinhard-AgX (used at the time with the author's direct permission, before the repository chose a license). All three were removed in the 2026-10 tone-mapper list change and are no longer distributed.
 
 ## 4. AMD FidelityFX CAS (MIT)
 

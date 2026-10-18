@@ -104,14 +104,13 @@ value.INFO_TOOLTIPS.0 = Hover any setting
 
 #Post: tonemapping
 option.TONEMAP_MODE = Tone Mapping Mode
-option.TONEMAP_MODE.comment = AgX-HSV, ACES 2.0, Blender AgX, OpenDRT, AMD LPM, GT7 (default) or Reinhard-AgX. Default looks share shadow, middle-gray and bright-white levels; each operator keeps its color and highlight rendering. Creative looks add their own grading.
+option.TONEMAP_MODE.comment = AgX-HSV, ACES 2.0, Blender AgX, OpenDRT, AMD LPM or GT7 (default). GT7 uses the pack's calibrated SDR curve. Numeric operator parameters are fixed.
 value.TONEMAP_MODE.0 = AgX-HSV
 value.TONEMAP_MODE.1 = ACES 2.0
 value.TONEMAP_MODE.2 = Blender AgX
 value.TONEMAP_MODE.3 = OpenDRT
 value.TONEMAP_MODE.4 = AMD LPM
 value.TONEMAP_MODE.5 = GT7
-value.TONEMAP_MODE.6 = Reinhard-AgX
 option.TONEMAP_EXPOSURE = Manual Exposure
 option.TONEMAP_EXPOSURE.comment = A fixed brightness offset applied before auto exposure, measured in stops: +1.0 makes everything twice as bright, -1.0 half as bright. Use it if you consistently find the game too dark or too bright.
 option.PURKINJE_EFFECT = Purkinje Effect
@@ -133,7 +132,7 @@ option.BLOOM_STRENGTH.comment = Strength of the glow.
 option.AE = Auto Exposure
 option.AE.comment = Automatic eye adaptation, like a phone camera's auto brightness: walk into a cave and the image gradually brightens; step into sunlight and it dims. Off = one fixed manual brightness.
 option.AE_TARGET_LUMINANCE = Auto Exposure Target Luminance
-option.AE_TARGET_LUMINANCE.comment = The scene metering key: lower = darker, higher = brighter. At 0.18 the calibrated default tonemaps share middle gray. Robust metering ignores extreme dark/bright tails; this is not a target for the arithmetic screen average.
+option.AE_TARGET_LUMINANCE.comment = The average brightness auto exposure aims for: lower = the whole game renders darker and moodier, higher = brighter. 0.18 is the standard neutral value.
 option.AE_ADAPTATION_STRENGTH = Auto Exposure Adaptation Gain
 option.AE_ADAPTATION_STRENGTH.comment = How strongly the exposure follows the scene. 0 = never react (fixed brightness everywhere); 1 = nearly every scene gets equalized to the same average brightness, which flattens natural contrast. In between keeps some of the game's own light differences.
 

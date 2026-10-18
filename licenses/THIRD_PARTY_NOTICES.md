@@ -31,9 +31,7 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 以供本包显示线性后处理使用。此 HSV 变体的参考实现不提供艺术风格预设；Blender AgX 官方
 look 属于下文的模式 2。
 
-`TonemapReinhardAGX`（`TONEMAP_MODE == 6`）移植自同一仓库的 `shaders/reinhard_agx.wgsl`，采用 `ReinhardAgxParameters::default()`：0.04 的虚拟色域扩张、18% 的压缩起点、8 EV 的高光触及、5 次的 AgX 肩部幂与 0.5 的色相保留。该工具在 CPU 上按输出峰值求解曲线与肩部系数；本包只有 SDR（显示峰值 1.0），两者因此折成常量：线性斜率 1、肩部范围 0.82、肩部系数 0.9990738451（= 1 − ln(1 + 55.9756097561)^−5）。参考实现的输入是 AP0 场景线性并经其矩阵转到 Rec.709；本包场景颜色已是 Rec.709 线性，故不含该矩阵。参考实现的 sRGB 编码、HSV 色相修复与显示信号钳制都在编码域完成，移植末端再解码回本包的显示线性。
-
-历史：2026-08 至 2026-10 期间本包还移植过该工具的 Oklab DRT、Reinhard-Gamut 与 Reinhard-AgX（当时该仓库尚未选择许可证，按作者直接授权使用）。三者在 2026-10 的模式列表更换中全部移除；Reinhard-AgX 已于同月以模式 6 重新移植（此时仓库为 GPL-3.0-only），Oklab DRT 与 Reinhard-Gamut 仍未随包分发。
+历史：2026-08 至 2026-10 期间本包还移植过该工具的 Oklab DRT、Reinhard-Gamut 与 Reinhard-AgX（当时该仓库尚未选择许可证，按作者直接授权使用）。三者在 2026-10 的模式列表更换中全部移除，不再随包分发。
 
 ## 4. AMD FidelityFX CAS（MIT）
 

@@ -1,8 +1,8 @@
 #ifndef BLOOM_SRC_MIP
-#define BLOOM_SRC_MIP 3
+#define BLOOM_SRC_MIP 2
 #endif
 #ifndef BLOOM_DST_MIP
-#define BLOOM_DST_MIP 2
+#define BLOOM_DST_MIP 1
 #endif
 
 #include "/lib/post/bloom.glsl"
@@ -11,10 +11,6 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba16f) uniform restrict image2D colorimg12;
 
 shared vec3 tile[21][21];
-
-// The finest stored level represents both the old half and quarter scales.
-// Keep the other five scale weights and the final normalization unchanged.
-const float BLOOM_LOCAL_WEIGHT = BLOOM_DST_MIP == 2 ? 2.0 : 1.0;
 
 // 5x5 Gaussian bloom upsample, pixel-center aligned: separable Gaussian
 // (sigma ~0.866, [1,4,6,4,1]/16) on the output's source position. Even axis
@@ -79,11 +75,11 @@ void main() {
     }
 
     if (all(lessThan(out_base, dst_size)))
-        imageStore(colorimg12, dst_origin + out_base, vec4(imageLoad(colorimg12, dst_origin + out_base).rgb * BLOOM_LOCAL_WEIGHT + c00, 0.0));
+        imageStore(colorimg12, dst_origin + out_base, vec4(imageLoad(colorimg12, dst_origin + out_base).rgb + c00, 0.0));
     if (all(lessThan(out_base + ivec2(1, 0), dst_size)))
-        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 0), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 0)).rgb * BLOOM_LOCAL_WEIGHT + c10, 0.0));
+        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 0), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 0)).rgb + c10, 0.0));
     if (all(lessThan(out_base + ivec2(0, 1), dst_size)))
-        imageStore(colorimg12, dst_origin + out_base + ivec2(0, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(0, 1)).rgb * BLOOM_LOCAL_WEIGHT + c01, 0.0));
+        imageStore(colorimg12, dst_origin + out_base + ivec2(0, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(0, 1)).rgb + c01, 0.0));
     if (all(lessThan(out_base + ivec2(1, 1), dst_size)))
-        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 1)).rgb * BLOOM_LOCAL_WEIGHT + c11, 0.0));
+        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 1)).rgb + c11, 0.0));
 }

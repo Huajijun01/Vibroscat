@@ -1,8 +1,8 @@
 #ifndef BLOOM_SRC_MIP
-#define BLOOM_SRC_MIP 2
+#define BLOOM_SRC_MIP 1
 #endif
 #ifndef BLOOM_DST_MIP
-#define BLOOM_DST_MIP 3
+#define BLOOM_DST_MIP 2
 #endif
 
 #include "/lib/contract/settings.glsl"
@@ -15,6 +15,10 @@ shared vec3 tile[33][33];
 
 void main() {
 #ifndef BLOOM
+    // The first down runs beside the AE reduction, whose letter entries share
+    // one AE || BLOOM enable condition; it must not touch colortex12 when
+    // only AE is on. The body is compiled out, not skipped after a return,
+    // because barrier() may not follow a return statement.
     return;
 #else
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);

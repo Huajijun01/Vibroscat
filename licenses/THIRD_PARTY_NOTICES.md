@@ -517,21 +517,6 @@ https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的�
 没有移植第三方生成器、代码或资产。高档复用同一份母图采样 5 层法线和 3 层 POM 高度；
 按层平移仅近似色散，不是逐模式 FFT 动画。独立生成资产按本包 GPL-3.0 使用。
 
-## 31. Bloom 分组预滤波（概念研究）
-
-概念参考 Jorge Jimenez 的 SIGGRAPH 2014 讲稿《Next Generation Post
-Processing in Call of Duty: Advanced Warfare》中的十三次双线性采样、
-五组局部平均与 partial Karis weighting：
-https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/ 。
-本包按公开算法独立实现，并围绕现有图集融合前两次缩小、保留到 1/128
-的尺度和四分之一分辨率重建，没有移植第三方着色器源码。
-
-架构只读比较 Revelation 的 `shaders/program/post/bloom/Downsample.comp`
-与 `Upsample.comp`（Apache-2.0；https://github.com/HaringPro/Revelation），
-以及 MakeUp UltraFast 9.5c 的 `shaders/lib/bloom.glsl` 与
-`shaders/common/composite1_fragment.glsl`（LGPL-3.0；
-https://github.com/javiergcim/MakeUpUltraFast）。两者均仅用于概念与代价比较。
-
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

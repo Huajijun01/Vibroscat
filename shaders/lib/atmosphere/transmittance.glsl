@@ -1,6 +1,7 @@
 #ifndef LIB_ATMOSPHERE_TRANSMITTANCE_GLSL
 #define LIB_ATMOSPHERE_TRANSMITTANCE_GLSL
 
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 
 // -- Custom Texture bindings (registered in shaders.properties) --
@@ -49,14 +50,16 @@ void GetTransmittanceLUTUVPair(float r, float r2, float mu, out vec2 uv_pos, out
     uv_neg = vec2(x_mu_neg * x_mu_neg, x_r);
 }
 
-// The MS LUT's u axis is the bake's sign(s)*s^3 sun-elevation ladder: the 32
-// knots are horizon-dense instead of uniform in mu. Addressing works in the
-// elevation fraction g = 2*asin(mu)/pi and inverts the cube. Keep this map in
-// lockstep with the finalize pass of the sky-tracer pack bake.
+// MS bake contract: q = mu * (0.5 + 4 / (1 + 7*abs(mu))),
+// u = 0.5 + (31/64)*q. The 32 knots include mu = +/-1 at the edge texel
+// centers; no additional half-texel remap. The normalized denominator stays
+// in [1/8, 1] for mu in [-1, 1]. Keep this paired with sky-baker pack finalize.
 vec2 GetMultiScatterLUTUV(float r, float mu) {
-    float g = asin(clamp(mu, -1.0, 1.0)) * 0.6366197723675814;
-    float s = sign(g) * pow(abs(g), 1.0 / 3.0);
-    return vec2(s * 0.5 + 0.5, (r - ATM_PLANET_R) * ATM_RCP_ATMO_MINUS_P);
+    float den = saturate(0.875 * abs(mu) + 0.125);
+    float inv_den = 1.0 / den;
+    float gain = 0.2421875 * inv_den + 0.2421875;
+    float u = mu * gain + 0.5;
+    return vec2(u, (r - ATM_PLANET_R) * ATM_RCP_ATMO_MINUS_P);
 }
 
 // ===============================================================

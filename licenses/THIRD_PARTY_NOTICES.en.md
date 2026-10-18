@@ -110,7 +110,9 @@ The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage
 
 ## 14. Atmosphere model provenance note
 
-The 4-wave spectral atmosphere model (410/480/560/630 nm) in `lib/atmosphere/core.glsl` is the pack author's offline-fit implementation (the HSPEAtmosCreator tool is not shipped), with density/phase functions referencing Hillaire 2020 (see section 6). A previous "sky-tracer" comment pointing to an undocumented reference renderer has been removed from the code comments; if the author confirms the specific source and license, it will be appended to this section.
+Since October 2026, the four-wave atmosphere model in `lib/atmosphere/` uses OPAC/libRadtran input tables from the pack author's sky-tracer research project (Rust/wgpu, GPL-3.0): 450/510/580/650 nm, US-standard air and ozone, and piecewise-linear profiles for inso/waso/soot/suso aerosols. Density/phase models reference Hillaire 2020 (section 6). The GPU `sky-baker pack` mode bakes transmittance and iterative multiple-scattering LUTs with the 8 km below-horizon geometry, replacing the earlier HSPEAtmosCreator fixed-point bake. Runtime direct single scattering retains the author's tuned triple-lobe HG Mie phase; the bake uses sky-tracer's per-species 1024-bin Mie phase tables. The research tool is not distributed with the pack.
+
+The 2026-10-18 MS rebake changes only the final solar-direction output nodes. Its independently derived rational map is `q = mu*(0.5 + 4/(1 + 7*abs(mu)))`, with 32 columns including mu = -1 and +1, and runtime `u = 0.5 + (31/64)*q`. The internal cubic elevation grid and physical inputs are unchanged. This addressing formula does not transplant code from another shader pack.
 
 ## 15. GT-VBGI / ReferenceGI (CC0 1.0)
 

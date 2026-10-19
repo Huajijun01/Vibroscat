@@ -21,7 +21,9 @@
 //   colortex3   R11F_G11F_B10F   Opaque reflection incident radiance transient
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
 //                                lightmap (BA) (solid -> deferred4)
-//   colortex5   R11F_G11F_B10F   TAA history
+//   colortex5   R11F_G11F_B10F   TAA history; optional history-side color mips
+//                                generated before deferred2 only. Other readers
+//                                explicitly select mip 0 after later writes.
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (AO*1020 integer, age, encoded view depth,

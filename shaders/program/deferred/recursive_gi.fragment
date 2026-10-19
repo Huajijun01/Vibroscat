@@ -243,7 +243,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred4
                 // consumes it with the same unit as AmbientLight().
-                vec3 incident_irradiance = texture(colortex5, previous_uv).rgb * PI;
+                vec3 incident_irradiance = textureLod(colortex5, previous_uv, 0.0).rgb * PI;
                 gi += incident_irradiance * visible_weight;
                 float sample_luminance = Luminance(incident_irradiance);
                 second_moment += sample_luminance * sample_luminance * visible_weight;

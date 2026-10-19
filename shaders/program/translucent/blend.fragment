@@ -172,7 +172,7 @@ void main() {
             float refract_d = texture(depthtex1, SceneTextureUV(refract_coord)).x;
             vec3 view_pos_refr = NDCToView(vec3(refract_coord * 2.0 - 1.0, refract_d * 2.0 - 1.0));
             vec3 caustic_world_pos = ViewToSceneSpace(view_pos_refr) + cameraPosition;
-            vec3 caustic_brdf = texture(colortex5, SceneTextureUV(refract_coord)).rgb;
+            vec3 caustic_brdf = textureLod(colortex5, SceneTextureUV(refract_coord), 0.0).rgb;
             vec3 caustic_surface_world = ViewToSceneSpace(view_pos0) + cameraPosition;
             float caustic_fade_surface_y;
             float caustic_sample_y;

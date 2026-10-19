@@ -64,7 +64,7 @@ void main() {
 
     vec3 blurred = vec3(0.0);
     for (float i = 0.0; i < sample_count; i += 1.0) {
-        blurred += texture(colortex5, sample_coord).rgb;
+        blurred += textureLod(colortex5, sample_coord, 0.0).rgb;
         sample_coord += step_size;
     }
     blurred /= sample_count;

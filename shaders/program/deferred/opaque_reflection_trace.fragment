@@ -8,6 +8,11 @@
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 
+#if OPAQUE_SSR_COLOR_MIPS > 0
+// Generate only the physical history side read by this pass, before tracing.
+const bool colortex5MipmapEnabled = true;
+#endif
+
 layout(location = 0) out vec3 out_reflection_radiance;
 
 void main() {
@@ -61,7 +66,9 @@ void main() {
     // the environment fetch only runs when no history was accepted.
     vec3 reflection_radiance;
     vec3 history;
-    if (shared_hit.valid && SampleOpaqueHistory(shared_hit, history)) {
+    bool history_accepted = shared_hit.valid && SampleOpaqueHistory(
+        shared_hit, trace_origin, roughness, history);
+    if (history_accepted) {
         float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
         reflection_radiance = recursion_decay * history;
     } else {
@@ -72,6 +79,13 @@ void main() {
 #if OPAQUE_SSR_DEBUG == 4
     out_reflection_radiance = shared_hit.valid
         ? vec3(shared_hit.sky ? 1.0 : 0.0)
+        : vec3(0.0);
+#elif OPAQUE_SSR_DEBUG == 9
+    // Direct dump: R = selected floating LOD, G = accepted history mask,
+    // B = receiver roughness. Reuses the reflection target only for diagnosis.
+    out_reflection_radiance = history_accepted
+        ? vec3(OpaqueHistoryLod(shared_hit, ToPrevious(shared_hit.screen),
+            trace_origin, roughness), 1.0, roughness)
         : vec3(0.0);
 #else
     out_reflection_radiance = reflection_radiance;

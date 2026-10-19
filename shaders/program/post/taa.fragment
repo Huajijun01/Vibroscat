@@ -103,7 +103,7 @@ void main() {
     // branches. Invalid reprojection samples a safe UV and contributes zero.
     history_uv = valid ? clamp(history_uv, 2.0 * u_view_pixel_size, 1.0 - 2.0 * u_view_pixel_size) : texcoord;
     // History sharpening is independent of the current-frame reconstruction option.
-    history = FastCatmullRom5Tap(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
+    history = FastCatmullRom5TapLod0(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
     // Exact zero is legitimate black history. Sanitize nonfinite data before
     // compression even when its eventual contribution will be zero.
     bool finite_history = !any(isnan(history)) && !any(isinf(history));

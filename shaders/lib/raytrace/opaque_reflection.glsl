@@ -1,6 +1,7 @@
 #ifndef LIB_RAYTRACE_OPAQUE_REFLECTION_GLSL
 #define LIB_RAYTRACE_OPAQUE_REFLECTION_GLSL
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -61,7 +62,36 @@ vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
         * texture(usam_sky_radiance, SkyRadianceUV(direction)).rgb;
 }
 
-bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {
+// Projected footprint heuristic for extra filtering of a GGX/VNDF ray.
+// Widening its color sample is biased; this is not a GGX convolution.
+// Full-display history dimensions remain correct under TAAU; the scene render
+// scale must not enter this footprint.
+float OpaqueHistoryLod(SSRHit hit, vec3 previous_hit, vec3 trace_origin,
+        float roughness) {
+#if OPAQUE_SSR_COLOR_MIPS == 2
+    if (hit.sky) return 0.0;
+    vec3 hit_view = NDCToView(hit.screen * 2.0 - 1.0);
+    float ray_length = length(hit_view - trace_origin);
+    float previous_depth = -PreviousScreenToView(previous_hit).z;
+    vec2 history_size = vec2(textureSize(colortex5, 0));
+    vec2 focal_pixels = 0.5 * history_size
+        * abs(vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1]));
+    float diameter = 2.0 * OPAQUE_SSR_COLOR_MIP_SCALE * roughness * roughness * ray_length
+        * max(focal_pixels.x, focal_pixels.y) / max(previous_depth, 1e-3);
+    float max_lod = min(float(OPAQUE_SSR_COLOR_MIP_MAX),
+        floor(log2(max(history_size.x, history_size.y))));
+    // Keep the support inside the history rectangle near the viewport edge.
+    vec2 edge_pixels = min(previous_hit.xy, 1.0 - previous_hit.xy) * history_size;
+    max_lod = min(max_lod, log2(max(min(edge_pixels.x, edge_pixels.y), 1.0)));
+    return smoothstep(0.04, 0.12, roughness)
+        * clamp(log2(max(diameter, 1.0)), 0.0, max_lod);
+#else
+    return 0.0;
+#endif
+}
+
+bool SampleOpaqueHistory(SSRHit hit, vec3 trace_origin, float roughness,
+        out vec3 history) {
     history = vec3(0.0);
     if (!hit.valid || frameCounter < 1) return false;
     if (!SSRScreenInside(hit.screen.xy)) return false;
@@ -69,7 +99,8 @@ bool SampleOpaqueHistory(SSRHit hit, out vec3 history) {
     vec3 previous_hit = ToPrevious(hit.screen);
     if (!SSRScreenInside(previous_hit.xy)) return false;
 
-    history = texture(colortex5, previous_hit.xy).rgb;
+    float lod = OpaqueHistoryLod(hit, previous_hit, trace_origin, roughness);
+    history = textureLod(colortex5, previous_hit.xy, lod).rgb;
     if (!IsFinite(history) || any(lessThan(history, vec3(0.0)))) {
         history = vec3(0.0);
         return false;

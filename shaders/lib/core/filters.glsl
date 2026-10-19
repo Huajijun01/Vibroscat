@@ -1,13 +1,17 @@
 #ifndef LIB_CORE_FILTERS_GLSL
 #define LIB_CORE_FILTERS_GLSL
 
-// Fast 5-tap Catmull-Rom bicubic (sharpness=0.5 typical). Uses texture() and
+vec4 CatmullRomTap(sampler2D tex, vec2 uv, bool base_level) {
+    return base_level ? textureLod(tex, uv, 0.0) : texture(tex, uv);
+}
+
+// Fast 5-tap Catmull-Rom bicubic (sharpness=0.5 typical). Uses bilinear taps and
 // explicit weight-sum normalization. Optional bounds clamp each tap to an
 // active texture rectangle, allowing cropped scene inputs to reuse this filter.
 // texel_size is the reciprocal texture resolution; every caller derives it
 // from uniforms or constants, so the resolution itself is never queried.
 vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness,
-        vec2 uv_min, vec2 uv_max) {
+        vec2 uv_min, vec2 uv_max, bool base_level) {
     vec2 res = 1.0 / texel_size;
     vec2 texel = uv * res;
     vec2 center = floor(texel - 0.5) + 0.5;
@@ -30,20 +34,31 @@ vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness
     float weight;
     weight = h0.x * w0.y;
     float weight_sum = weight;
-    col += texture(tex, clamp(vec2(p0.x, p1.y), uv_min, uv_max)) * weight;
+    col += CatmullRomTap(tex, clamp(vec2(p0.x, p1.y), uv_min, uv_max), base_level) * weight;
     weight = w0.x * h0.y;
     weight_sum += weight;
-    col += texture(tex, clamp(vec2(p1.x, p0.y), uv_min, uv_max)) * weight;
+    col += CatmullRomTap(tex, clamp(vec2(p1.x, p0.y), uv_min, uv_max), base_level) * weight;
     weight = h0.x * h0.y;
     weight_sum += weight;
-    col += texture(tex, clamp(p0, uv_min, uv_max)) * weight;
+    col += CatmullRomTap(tex, clamp(p0, uv_min, uv_max), base_level) * weight;
     weight = w3.x * h0.y;
     weight_sum += weight;
-    col += texture(tex, clamp(vec2(p2.x, p0.y), uv_min, uv_max)) * weight;
+    col += CatmullRomTap(tex, clamp(vec2(p2.x, p0.y), uv_min, uv_max), base_level) * weight;
     weight = h0.x * w3.y;
     weight_sum += weight;
-    col += texture(tex, clamp(vec2(p0.x, p2.y), uv_min, uv_max)) * weight;
+    col += CatmullRomTap(tex, clamp(vec2(p0.x, p2.y), uv_min, uv_max), base_level) * weight;
     return col / weight_sum;
+}
+
+vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness,
+        vec2 uv_min, vec2 uv_max) {
+    return FastCatmullRom5Tap(tex, uv, texel_size, sharpness, uv_min, uv_max, false);
+}
+
+// History mip levels can be stale after another pass writes mip 0.
+vec4 FastCatmullRom5TapLod0(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness) {
+    return FastCatmullRom5Tap(tex, uv, texel_size, sharpness,
+        vec2(-1.0e30), vec2(1.0e30), true);
 }
 
 // Existing callers retain their original sampler wrap/clamp behavior.

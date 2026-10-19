@@ -199,7 +199,7 @@ void main() {
 
     vec3 reflect_color = vec3(0.0);
     if(history_hit) {
-        reflect_color = texture(colortex5, prev_coord.xy).rgb;
+        reflect_color = textureLod(colortex5, prev_coord.xy, 0.0).rgb;
     } else {
         if(isEyeInWater == 1) {
             reflect_color = WaterFogCol();

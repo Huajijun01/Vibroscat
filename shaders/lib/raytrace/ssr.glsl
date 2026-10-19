@@ -36,6 +36,7 @@ struct SSRBracket {
     vec3 previous_pos;
     vec3 sample_pos;
     float previous_ray_depth;
+    float previous_surface_sample;
     float ray_depth;
     float surface_sample;
     bool hit_found;
@@ -97,19 +98,22 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_direction, bool toward_eye)
     return chord;
 }
 
-// March the chord with fixed steps until the first depth crossing. Each path
-// passes its own crossing rule through toward_eye: opaque reflections may
-// point back toward the eye and cross surfaces in either direction, while
-// translucent reflections always travel away from the eye and only accept a
-// surface sitting in front of the ray point.
+// Opaque rays need a front-to-behind bracket relative to the sampled surface,
+// independently of their view-space z direction. Initial occlusion is skipped
+// until the ray becomes visible, preventing an origin self-hit. Translucent
+// rays retain their segment/thickness test and away-from-eye policy.
 SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
-        int step_budget, bool toward_eye) {
+        int step_budget, bool opaque_trace) {
     SSRBracket bracket;
     vec3 march_step = chord.span / float(step_budget - 1);
     vec3 sample_pos = chord.start_pos + march_step * jitter;
     float ray_start_depth = -view_origin.z;
     bracket.previous_pos = chord.start_pos;
     bracket.previous_ray_depth = SSRRayDepthFromScreen(chord.start_pos.z);
+    bracket.previous_surface_sample = opaque_trace
+        ? ReadSSRDepthSample(chord.start_pos.xy) : 0.0;
+    bool previous_behind = opaque_trace && SSRDepthSampleBeforeRay(
+        bracket.previous_surface_sample, bracket.previous_ray_depth);
     bracket.surface_sample = 0.0;
     bracket.ray_depth = bracket.previous_ray_depth;
     bracket.hit_found = false;
@@ -119,15 +123,19 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
 
         bracket.surface_sample = ReadSSRDepthSample(sample_pos.xy);
         bracket.ray_depth = SSRRayDepthFromScreen(sample_pos.z);
-        // Toward-eye crossings require the previous point behind this surface.
         bool behind_surface = SSRDepthSampleBeforeRay(bracket.surface_sample,
             bracket.ray_depth);
-        bool depth_crossing = toward_eye
-            ? !behind_surface
-                && SSRDepthSampleBeforeRay(bracket.surface_sample,
-                    bracket.previous_ray_depth)
+        bool depth_crossing = opaque_trace
+            ? behind_surface && !previous_behind
             : behind_surface;
         if (depth_crossing) {
+            // A coarse endpoint may sit far behind a sloping surface even
+            // when the bracket contains an exact hit. Validate opaque
+            // thickness at the refined intersection instead.
+            if (opaque_trace) {
+                bracket.hit_found = true;
+                break;
+            }
             float surface_view_depth = bracket.surface_sample;
 #if !defined(SSR_QUARTER_DEPTH_ACTIVE)
             surface_view_depth = LinearDepthFromScreenDepth(surface_view_depth);
@@ -151,10 +159,69 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
 
         bracket.previous_pos = sample_pos;
         bracket.previous_ray_depth = bracket.ray_depth;
+        bracket.previous_surface_sample = bracket.surface_sample;
+        previous_behind = behind_surface;
         sample_pos += march_step;
     }
     bracket.sample_pos = sample_pos;
     return bracket;
+}
+
+// Positive behind the surface in both depth encodings. Reciprocal view depth
+// and raw screen depth are affine along the projected ray and a planar face,
+// allowing a secant inside the narrowed bracket without projecting onto the
+// depth of an unrelated UV (which fails on slopes and constant-depth rays).
+float SSRDepthResidual(float surface_sample, float ray_depth) {
+#if defined(SSR_QUARTER_DEPTH_ACTIVE)
+    return 1.0 / surface_sample - ray_depth;
+#else
+    return ray_depth - surface_sample;
+#endif
+}
+
+SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
+    vec3 front_pos = bracket.previous_pos;
+    vec3 behind_pos = bracket.sample_pos;
+    float front_delta = SSRDepthResidual(bracket.previous_surface_sample,
+        bracket.previous_ray_depth);
+    float behind_delta = SSRDepthResidual(bracket.surface_sample,
+        bracket.ray_depth);
+#ifdef SSR_INTERPOLATION
+    for (int j = 0; j < OPAQUE_SSR_BISECT_STEPS; ++j) {
+        vec3 mid_pos = 0.5 * (front_pos + behind_pos);
+        float mid_delta = SSRDepthResidual(ReadSSRDepthSample(mid_pos.xy),
+            SSRRayDepthFromScreen(mid_pos.z));
+        if (mid_delta > 0.0) {
+            behind_pos = mid_pos;
+            behind_delta = mid_delta;
+        } else {
+            front_pos = mid_pos;
+            front_delta = mid_delta;
+        }
+    }
+    float hit_fraction = clamp(-front_delta
+        / max(behind_delta - front_delta, 1e-20), 0.0, 1.0);
+    vec3 hit_pos = mix(front_pos, behind_pos, hit_fraction);
+#else
+    vec3 hit_pos = behind_pos;
+#endif
+    float hit_surface = ReadSSRDepthSample(hit_pos.xy);
+    bool hit_sky = SSRDepthSampleIsSky(hit_surface);
+    if (hit_sky && hit_pos.z < 1.0) return SSRMiss();
+    float surface_view_depth = hit_surface;
+#if !defined(SSR_QUARTER_DEPTH_ACTIVE)
+    surface_view_depth = LinearDepthFromScreenDepth(hit_surface);
+#endif
+    float hit_view_depth = LinearDepthFromScreenDepth(clamp(hit_pos.z, 0.0, 1.0));
+    float travelled = abs(hit_view_depth - ray_start_depth);
+    if (abs(hit_view_depth - surface_view_depth)
+            > SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) return SSRMiss();
+
+    SSRHit hit;
+    hit.screen = vec3(hit_pos.xy, hit_sky ? 1.0 : hit_pos.z);
+    hit.valid = true;
+    hit.sky = hit_sky;
+    return hit;
 }
 
 // Refine the accepted crossing: unconditional bisection localizes the depth
@@ -220,14 +287,14 @@ SSRHit SSRClassifyScreenHit(vec3 screen_pos) {
 }
 
 // Opaque SSR (deferred2): reflected rays may point back toward the eye, so
-// the chord can leave through the near plane and both crossing directions
-// are accepted. The march budget is owned by OPAQUE_SSR_STEPS; the shared
+// the chord can leave through the near plane. Surface crossings use their
+// actual depth bracket. The march budget is owned by OPAQUE_SSR_STEPS; the shared
 // SSR_INTERPOLATION toggle owns first-crossing refinement.
 SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
     bool toward_eye = view_direction.z > 0.0;
     SSRChord chord = ComputeSSRChord(view_origin, view_direction, toward_eye);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
-        OPAQUE_SSR_STEPS, toward_eye);
+        OPAQUE_SSR_STEPS, true);
     // The ray end is the chord's clipped exit unless a geometry crossing was
     // accepted; a sky surface_sample at the final step is the ray passing the
     // far plane, not geometry. The exit pixel owns the sky decision (the last
@@ -242,15 +309,7 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
         if (!bracket.hit_found) return SSRMiss();
     }
 
-#ifdef SSR_INTERPOLATION
-    vec3 hit_pos = RefineSSRBisection(bracket.previous_pos,
-        bracket.sample_pos, bracket.previous_ray_depth, bracket.ray_depth,
-        toward_eye, OPAQUE_SSR_BISECT_STEPS);
-#else
-    // Raw trace: report the accepted march sample without refinement.
-    vec3 hit_pos = bracket.sample_pos;
-#endif
-    return SSRClassifyScreenHit(hit_pos);
+    return RefineOpaqueSSR(bracket, -view_origin.z);
 }
 
 // Translucent SSR (water and glass gbuffers): reflections always travel away

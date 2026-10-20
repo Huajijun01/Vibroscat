@@ -172,5 +172,7 @@ uniform float wetness;
 uniform float u_fast_wetness;
 uniform float u_rain_biome; // smoothed rain eligibility of the camera biome, [0, 1]
 uniform float u_snow_biome; // smoothed snow eligibility of the camera biome, [0, 1]
+uniform float u_rain_ripple_time_uv; // CPU-corrected volume Z, including half-texel alignment
+uniform float u_rain_ripple_gain; // CPU-fitted subframe slope gain, [1, 1.534]
 
 #endif // LIB_CONTRACT_UNIFORMS_GLSL

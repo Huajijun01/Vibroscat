@@ -31,15 +31,13 @@ struct AirFogMedium {
 };
 
 AirFogDensityProfile AirFogProfile() {
-    float sun_height = u_world_sun_dir.y;
-    float day_weight = smoothstep(0.0, 0.25, sun_height);
-    float twilight_weight = smoothstep(-0.25, 0.0, sun_height);
+    float day_weight = u_airfog_day_weight;
+    float twilight_weight = u_airfog_twilight_weight;
     float dark_density = mix(AIR_FOG_DENSITY_NIGHT, AIR_FOG_DENSITY_DUSK, twilight_weight);
     float clear_density = mix(dark_density, AIR_FOG_DENSITY_DAY, day_weight);
     // Absolute camera coordinates avoid the wrapped cameraPosition altitude.
     // World space offsets feet-player space by cameraPosition (Iris contract).
-    float eye_height_m = float(cameraPositionInt.y) + cameraPositionFract.y
-        + gbufferModelViewInverse[3].y;
+    float eye_height_m = u_eye_height_m;
     return AirFogDensityProfile(clear_density,
         AIR_FOG_DENSITY_RAIN * clamp(rainStrength * u_rain_biome, 0.0, 1.0), eye_height_m);
 }

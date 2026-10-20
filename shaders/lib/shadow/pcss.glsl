@@ -139,7 +139,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     // delta + ortho z scale -> texels (blur tracks shadow length, not the
     // absolute blocker depth).
     float depth_delta = blocker_found ? max(sp.z - blocker_depth, 0.0) : 0.0;
-    float ortho_width_scale = abs(shadowProjection[0].x);
+    float ortho_width_scale = abs(u_shadow_projection_xy.x);
     float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
     float texel_world_size = 2.0 / (max(ortho_width_scale, 1e-6) * real_shadow_map_resolution);
     float penumbra_texels = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS / texel_world_size;
@@ -175,8 +175,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
         const float LEAF_DIFFUSION_RADIUS_M = 0.08;
         float leaf_radius_m = LEAF_DIFFUSION_RADIUS_M * sss_amount
             * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
-        vec2 leaf_radius_clip = leaf_radius_m
-            * abs(vec2(shadowProjection[0].x, shadowProjection[1].y));
+        vec2 leaf_radius_clip = leaf_radius_m * abs(u_shadow_projection_xy);
         filter_offset_scale = max(filter_offset_scale, leaf_radius_clip);
     }
 

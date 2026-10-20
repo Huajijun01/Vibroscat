@@ -1,6 +1,7 @@
 #ifndef LIB_ATMOSPHERE_SKY_LUT_GLSL
 #define LIB_ATMOSPHERE_SKY_LUT_GLSL
 
+#include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 
 #define SKY_LUT_W  128
@@ -13,7 +14,9 @@
 
 // -- Sampling: view_dir + sun_dir -> LUT UV --
 vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir, float planet_r, float altitude) {
-    float theta_h = asin(planet_r / (planet_r + altitude)) - PI * 0.5;
+    // Precondition: every caller passes ATM_PLANET_R and the camera altitude,
+    // so the CPU derives this horizon angle once per frame.
+    float theta_h = u_sky_lut_horizon_theta;
     float theta = asin(view_dir.y);
     float v = 0.0;
     if (theta >= theta_h) {

@@ -175,8 +175,8 @@ CelestialContext CelestialContextFor(vec3 view_dir) {
     context.sun_dir = u_world_sun_dir;
     context.camera_pos = AtmosphereCameraPosition();
     // Same +y pin as AtmosphereCameraPosition: the radius is R + altitude.
-    float camera_r = ATM_PLANET_R + u_cam_altitude;
-    context.camera_r2 = camera_r * camera_r;
+    float camera_r = u_camera_radius_km;
+    context.camera_r2 = u_camera_radius_sq;
     context.horizon_occluded = PlanetHorizonOccluded(context.camera_pos,
         context.camera_r2, view_dir, ATM_PLANET_R2);
     return context;
@@ -188,8 +188,8 @@ CelestialContext CelestialContextFor(vec3 view_dir) {
 vec3 StarMapDirection(vec3 view_dir, vec3 sun_dir) {
     const float path_cos = cos(radians(sunPathRotation));
     const float path_sin = sin(radians(sunPathRotation));
-    float cos_theta = sun_dir.y * path_cos - sun_dir.z * path_sin;
-    float sin_theta = -sun_dir.x;
+    float cos_theta = u_star_cos_theta;
+    float sin_theta = u_star_sin_theta;
 
     // World -> celestial frame: R_z(-T) * R_y(+90).
     vec3 d = vec3(view_dir.z * path_cos + view_dir.y * path_sin,
@@ -230,7 +230,7 @@ vec3 StarMapGrade(vec3 star_color) {
 // cloud transmittance.
 vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext context) {
     // Day/night fade based on sun elevation (smoothstep transition).
-    float night_fade = 1.0 - smoothstep(STAR_FADE_SUNRISE, STAR_FADE_SUNSET, context.sun_dir.y);
+    float night_fade = u_star_night_fade;
     if (night_fade <= 0.0) return vec3(0.0);
 
     if (context.horizon_occluded) return vec3(0.0);
@@ -260,7 +260,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext cont
 // pass vec4(1.0) transmittance when the consumer handles atmospheric
 // propagation through its own fades.
 vec3 RenderMilkyWayGlow(vec3 view_dir, vec4 view_transmittance, CelestialContext context) {
-    float night_fade = 1.0 - smoothstep(STAR_FADE_SUNRISE, STAR_FADE_SUNSET, context.sun_dir.y);
+    float night_fade = u_star_night_fade;
     if (night_fade <= 0.0) return vec3(0.0);
 
     if (context.horizon_occluded) return vec3(0.0);
@@ -282,7 +282,7 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     if (context.horizon_occluded) return sky_color;
 
     vec3 sun_dir = context.sun_dir;
-    vec3 moon_dir = -sun_dir;
+    vec3 moon_dir = u_world_moon_dir;
 
     vec3 contribution = vec3(0.0);
 

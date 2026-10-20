@@ -17,8 +17,7 @@ const float SSR_DEPTH_HALF_RCP_SQRT = 0.0039072041399776936;  // inversesqrt(655
 float EncodeSSRDepth(float screen_depth) {
     // Iris 'far' is render distance, not the clipping plane. Use the inverse
     // projection at screen depth 1 so visible geometry is never truncated.
-    float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
-    float normalized_depth = min(LinearDepthFromScreenDepth(screen_depth) * inverse_clip_depth, 1.0);
+    float normalized_depth = min(LinearDepthFromScreenDepth(screen_depth) * u_inv_clip_depth, 1.0);
     return max(SSR_DEPTH_HALF_MIN,
         SSR_DEPTH_HALF_MAX * normalized_depth * normalized_depth);
 }
@@ -26,10 +25,10 @@ float EncodeSSRDepth(float screen_depth) {
 float ReadSSRDepthSample(vec2 uv) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float encoded_depth = texture(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25)).r;
-    float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
     // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX): the constant leaves the
-    // square root as one multiply, leaving a single division per sample.
-    return sqrt(encoded_depth) * (SSR_DEPTH_HALF_RCP_SQRT / inverse_clip_depth);
+    // square root as one multiply, and the CPU folds its divide by the
+    // inverse-depth row sum.
+    return sqrt(encoded_depth) * u_ssr_depth_decode;
 #else
     return textureLod(depthtex1, SceneTextureUV(uv), 0.0).r;
 #endif
@@ -37,9 +36,8 @@ float ReadSSRDepthSample(vec2 uv) {
 
 bool SSRDepthSampleIsSky(float depth_sample) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
-    float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
     // Same positive-domain product form as SSRDepthSampleBeforeRay below.
-    return depth_sample * inverse_clip_depth >= 1.0;
+    return depth_sample * u_inv_clip_depth >= 1.0;
 #else
     return depth_sample >= 1.0;
 #endif

@@ -79,10 +79,8 @@ uint LowBias32Hash(uint x) {
 // the cell center; subsequent frames cover the cell without a finite phase
 // table.
 vec2 R2Offset(int frame) {
-    return fract(vec2(0.5) + float(frame) * vec2(
-        1.0 / 1.3247179572,
-        1.0 / 1.7548776662
-    ));
+    // Frame-uniform: shaders.properties derives it from frameCounter.
+    return u_r2_offset;
 }
 
 #endif // LIB_CORE_NOISE_GLSL

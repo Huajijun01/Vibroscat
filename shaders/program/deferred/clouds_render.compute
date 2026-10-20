@@ -26,8 +26,8 @@ void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, in
 ) {
     if (frameCounter <= 0) return;
 
-    vec3 camera_delta = cameraPosition - previousCameraPosition;
-    if (length(camera_delta) > 64.0) return;
+    vec3 camera_delta = u_camera_delta;
+    if (u_camera_delta_sq > 4096.0) return;
 
     vec2 history_size = u_render_res;
     ivec2 history_max = ivec2(history_size) - ivec2(1);

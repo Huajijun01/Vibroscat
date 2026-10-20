@@ -78,7 +78,7 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_direction, bool toward_eye)
     // roughly far * 4.0 (ShaderDoc, uniform far). The no-crossing fallback
     // must exceed the oblique distance to the true far plane, or chords stop
     // short of it and their sky end never classifies.
-    float clip_far_distance = LinearDepthFromScreenDepth(1.0);
+    float clip_far_distance = u_clip_far_distance;
     vec2 edge_near_t = ClipRayScreenCoordT(origin_clip, direction_clip,
         1.0, clip_far_distance * 4.0);
     vec2 edge_far_t = ClipRayScreenCoordT(origin_clip, direction_clip,

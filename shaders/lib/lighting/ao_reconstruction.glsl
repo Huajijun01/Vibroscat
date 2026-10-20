@@ -21,7 +21,7 @@ ivec2 AOGridOffset() {
 // Guide normals share the RGBA8 AO workspace; depth stays in depthtex2.
 // Reject other planes/faces before interpolation, including sky samples.
 vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
-    ivec2 half_size = max((ivec2(u_render_res) + 1) / 2, ivec2(1));
+    ivec2 half_size = ivec2(u_ao_half_res);
     ivec2 grid_offset = AOGridOffset();
     ivec2 full_max = ivec2(u_render_res) - 1;
     ivec2 base_texel = clamp(ivec2(floor(vec2(texel - grid_offset) * 0.5)), ivec2(0), half_size - 1);

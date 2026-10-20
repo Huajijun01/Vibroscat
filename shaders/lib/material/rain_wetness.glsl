@@ -12,7 +12,7 @@ void ApplyRainWetness(vec2 scene_xz, float geo_normal_y, float sky_light,
     // Reject before either lookup. Plants, emissive blocks and translucent
     // classes cannot hold a puddle; geometry, rather than the normal map,
     // decides which faces are upward-facing.
-    float wetness_weight = u_fast_wetness * u_rain_biome;
+    float wetness_weight = u_wetness_weight;
     if (wetness_weight <= 0.001 || isEyeInWater != 0 ||
         geo_normal_y <= 0.95 || sky_light <= 15.0 / 16.0 ||
         material_id >= 112 || (material_id >= 80 && material_id < 96)) return;
@@ -45,7 +45,7 @@ void ApplyRainWetness(vec2 scene_xz, float geo_normal_y, float sky_light,
     // deferred lighting and its existing SSR gate consume this single layer.
     vec3 puddle_normal = vec3(0.0, 1.0, 0.0);
 #ifdef RAIN_RIPPLES
-    float ripple_weight = rainStrength * u_rain_biome * RAIN_RIPPLE_STRENGTH * rain_exposure;
+    float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH * rain_exposure;
     if (ripple_weight > 0.001) {
         vec2 slope = SampleRainRippleSlope(scene_xz) * ripple_weight;
         puddle_normal = vec3(slope.x, 1.0, slope.y);

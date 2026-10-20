@@ -59,11 +59,10 @@ float EpipolarShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, flo
 // clip.w ~ 0 it is at infinity (lines become parallel). poleInScreen =
 // inside the rect.
 vec2 EpipolarLightNDC(out bool pole_in_screen) {
-    vec3 light_dir = normalize(u_world_light_dir);
+    vec3 view_dir = u_view_light_dir;
 #if defined(WATER_EPIPOLAR_ACTIVE)
-    if (isEyeInWater == 1) light_dir = u_world_sun_dir;
+    if (isEyeInWater == 1) view_dir = u_sun_dir_view;
 #endif
-    vec3 view_dir = mat3(gbufferModelView) * light_dir;
     vec4 clip = gbufferProjection * vec4(view_dir, 0.0);
     float side = clip.w >= 0.0 ? 1.0 : -1.0;
     pole_in_screen = clip.w > 1e-6 && abs(clip.x) <= clip.w && abs(clip.y) <= clip.w;

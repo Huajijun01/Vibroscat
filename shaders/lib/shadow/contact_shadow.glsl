@@ -63,13 +63,12 @@ const float CONTACT_SHADOW_PLANT_PATH_DEPTH_SCALE = 0.5;
 // blockers: the map and skylight retain large-scale sheltering for plants.
 float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float stbn_dither, float sss_amount) {
-    vec3 light_view = normalize(mat3(gbufferModelView) * u_world_light_dir);
+    vec3 light_view = u_view_light_dir;
     float receiver_distance = -receiver_view.z;
 
     // Opaque normal bias uses one pixel of world size at this depth,
     // amplified for grazing light. Plants use their initial light stride.
-    float pixel_world_size = receiver_distance
-        / max(gbufferProjection[1][1] * u_render_res.y, 1.0);
+    float pixel_world_size = receiver_distance / u_pixel_world_scale;
     bool plant_receiver = sss_amount > 0.01;
     // Crossed blades have no unique solid surface normal. Their initial light
     // stride below guards self-hits without a lateral normal-dependent offset.

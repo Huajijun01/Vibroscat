@@ -15,8 +15,8 @@ layout(rgba16f) uniform writeonly image2D uimg_skylut;
 void main() {
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
 
-    vec3 sun_dir = vec3(0.0, u_world_sun_dir.y, sqrt(1.0 - u_world_sun_dir.y * u_world_sun_dir.y));
-    float theta_h = asin(ATM_PLANET_R / (ATM_PLANET_R + u_cam_altitude)) - PI * 0.5;
+    vec3 sun_dir = u_sky_lut_sun_dir;
+    float theta_h = u_sky_lut_horizon_theta;
 
     float phi = (float(id.x) / float(SKY_LUT_W - 1) - 0.5) * PI;
     float y   = float(id.y) + 0.5;

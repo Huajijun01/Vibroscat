@@ -133,7 +133,7 @@ GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
     ivec2 history_size = GIActiveSize();
     ivec2 base_texel = ivec2(floor(previous_uv * vec2(history_size) - 0.5));
     float plane_tolerance_m = 0.015 + abs(previous_view.z) * 0.0015;
-    float footprint_m = abs(previous_view.z) * 6.0 / (abs(gbufferPreviousProjection[1].y) * u_render_res.y);
+    float footprint_m = abs(previous_view.z) * 6.0 / u_pixel_world_scale_prev;
     float support_radius_m = min(0.10 + 4.0 * footprint_m, 1.0);
     float weight_sum = 0.0;
     for (int i = 0; i < 24; ++i) {
@@ -180,7 +180,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     result.weight = 0.0;
     result.change_count = 0.0;
     result.second_moment = 0.0;
-    vec3 camera_delta = cameraPosition - previousCameraPosition;
+    vec3 camera_delta = u_camera_delta;
     if (frameCounter < 2 || dot(camera_delta, camera_delta) > 64.0) return result;
     // Sprint/flight FOV changes do not invalidate world-space history. Use
     // the actual previous projection and validate each previous surface;
@@ -213,7 +213,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     vec3 plane_normal_world = dot(axis_normal, axis_normal) > 0.5 ? axis_normal : normal_world;
     vec3 normal_previous_view = normalize(mat3(gbufferPreviousModelView) * plane_normal_world);
     float plane_tolerance_m = 0.015 + abs(previous_view.z) * 0.0015;
-    float footprint_m = abs(previous_view.z) * 6.0 / (abs(gbufferPreviousProjection[1].y) * u_render_res.y);
+    float footprint_m = abs(previous_view.z) * 6.0 / u_pixel_world_scale_prev;
     float reject_radius_m = 0.05 + footprint_m;
     // A stationary receiver needs no quad search or interpolation. This also
     // covers the two block endpoints when their normalized boundary is exact.

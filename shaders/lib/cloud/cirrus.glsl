@@ -166,7 +166,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color,
     cirrus_entry_km = 1.0e9;
     cirrus_transmittance = vec3(1.0);
     vec3 ray_start = AtmosphereCameraPosition();
-    float ci_height_diff = CIRRUS_RADIUS_KM - abs(ray_start.y);
+    float ci_height_diff = u_cirrus_height_diff;
     if (sign(ci_height_diff) != sign(view_dir.y)) return sky_color;
 
     float t_near;

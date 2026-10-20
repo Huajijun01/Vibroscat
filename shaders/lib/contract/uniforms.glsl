@@ -30,6 +30,56 @@ uniform vec2 u_render_res;         // active pre-TAA scene rectangle, integer pi
 uniform vec2 u_render_pixel_size;  // 1 / u_render_res (projection UVs)
 uniform vec2 u_render_scale;       // u_render_res / display allocation size
 uniform float u_cam_altitude;      // camera altitude in km (cloud shell / sky LUT)
+
+// -- Frame-constant derives (shaders.properties) --
+uniform vec3 u_camera_delta;      // cameraPosition - previousCameraPosition
+uniform float u_camera_delta_sq;  // |u_camera_delta|^2
+uniform vec3 u_eye_scene_pos;     // gbufferModelViewInverse[3].xyz
+uniform float u_inv_clip_depth;   // gbufferProjectionInverse[2][3] + [3][3]
+uniform float u_ssr_depth_decode; // SSR_DEPTH_HALF_RCP_SQRT / u_inv_clip_depth
+uniform float u_clip_far_distance; // 1 / u_inv_clip_depth
+uniform float u_camera_radius_km;   // 6360.0 + u_cam_altitude
+uniform float u_camera_radius_sq;   // u_camera_radius_km^2
+uniform vec3 u_atmosphere_camera_pos; // (0, u_camera_radius_km, 0)
+uniform float u_sky_lut_horizon_theta; // asin(R / (R + alt)) - pi/2
+uniform vec3 u_sky_lut_sun_dir;      // (0, sun.y, sqrt(1 - sun.y^2))
+uniform float u_cam_sun_dot;        // u_camera_radius_km * u_world_sun_dir.y
+uniform vec2 u_cloud_world_km_offset; // cameraPosition.xz * 0.001
+uniform vec2 u_r2_offset;             // R2 sub-pixel offset for frameCounter
+uniform float u_water_skylight;       // clamp(eyeBrightness.y / 240, 0, 1)
+uniform float u_water_column_depth;   // max((1 - skylight) * 15, 1)
+uniform float u_water_light_path;     // 1 / max(refracted.y, 1e-3)
+uniform vec3 u_water_ambient_transmittance;
+uniform vec3 u_water_direct_transmittance;
+uniform float u_water_wetness_gain;   // 1 - wetness * 0.6
+uniform float u_eye_sky_access;       // SkyLightFromLm(eyeBrightness.y / 240)
+uniform vec3 u_view_light_dir;        // gbufferModelView * u_world_light_dir
+uniform vec3 u_sun_dir_view;          // gbufferModelView * u_world_sun_dir
+uniform vec3 u_shadow_light_dir;      // shadowModelView * u_world_light_dir
+uniform vec3 u_world_moon_dir;        // -u_world_sun_dir
+uniform float u_light_disc_radius;    // sun or moon disc radius
+uniform float u_star_night_fade;
+uniform float u_wetness_weight;       // u_fast_wetness * u_rain_biome
+uniform float u_rain_weight;          // rainStrength * u_rain_biome
+uniform float u_rain_particle_opacity;// mix(1, 0.4, u_rain_biome)
+uniform float u_plant_weather_gain;   // 1 + 0.65 * rainStrength
+uniform vec2 u_plant_wind_time;       // frameTimeCounter * (3.2, 2.4)
+uniform float u_caustic_time;         // fract(frameTimeCounter * 0.25)
+uniform float u_caustic_source_time;  // u_caustic_time + 0.5/64
+uniform vec2 u_caustic_advection;     // CAUSTIC_ADVECTION_MPS * frameTimeCounter
+uniform vec2 u_sun_slope;             // sun.xz / max(sun.y, 0.02)
+uniform float u_water_sun_height;     // smoothstep(0.02, 0.12, sun.y)
+uniform float u_eye_height_m;         // absolute eye height (m)
+uniform float u_airfog_day_weight;    // smoothstep(0, 0.25, sun.y)
+uniform float u_airfog_twilight_weight; // smoothstep(-0.25, 0, sun.y)
+uniform vec2 u_shadow_projection_xy;  // (SP[0].x, SP[1].y)
+uniform float u_shadow_projection_z;  // SP[2].z
+uniform float u_pixel_world_scale;    // max(P[1][1] * resY, 1)
+uniform float u_pixel_world_scale_prev;// abs(Pprev[1][1]) * resY
+uniform vec2 u_ao_half_res;           // ceil(res / 2)
+uniform float u_star_cos_theta;       // star-map rotation cosine term
+uniform float u_star_sin_theta;       // -sun.x
+uniform float u_cirrus_height_diff;   // 6367 - abs(camera radius)
 uniform float centerDepthSmooth;   // DOF focus distance
 uniform ivec2 eyeBrightnessSmooth; // eye adaptation (block/sky brightness, /240)
 

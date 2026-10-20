@@ -33,7 +33,7 @@ layout(rgba8) uniform restrict writeonly image2D colorimg2;
 
 void main() {
     ivec2 half_texel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 half_size = max((ivec2(u_render_res) + 1) / 2, ivec2(1));
+    ivec2 half_size = ivec2(u_ao_half_res);
     if (any(greaterThanEqual(half_texel, half_size))) {
         return;
     }

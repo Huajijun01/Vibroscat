@@ -15,19 +15,19 @@
 // second attenuation is applied to scene color. The source is constant along
 // the unrefracted world sun direction, including its projection to the pole.
 vec3 EpipolarWaterRadiance(vec3 start_scene, vec3 direction_world, float distance_m, float ray_jitter) {
-    float sun_height = smoothstep(0.02, 0.12, u_world_sun_dir.y);
-    float sky_access = clamp(float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE, 0.0, 1.0);
+    float sun_height = u_water_sun_height;
+    float sky_access = u_water_skylight;
     if (sun_height <= 0.0 || sky_access <= 0.0) return vec3(0.0);
 
     float length_m = min(distance_m, WATER_GODRAYS_DISTANCE_M);
     vec3 ray_delta = direction_world * length_m;
     vec3 start_world = start_scene + cameraPosition;
     // No refraction. This projection has zero derivative along worldSunDir.
-    vec2 sun_slope = u_world_sun_dir.xz / max(u_world_sun_dir.y, 0.02);
+    vec2 sun_slope = u_sun_slope;
     vec2 entry_xz = start_world.xz + sun_slope * (CAUSTIC_PLANE_Y - start_world.y);
-    vec2 source_uv = CAUSTIC_WORLD_TO_UV * (entry_xz - CAUSTIC_ADVECTION_MPS * frameTimeCounter);
+    vec2 source_uv = CAUSTIC_WORLD_TO_UV * (entry_xz - u_caustic_advection);
     vec2 source_delta = CAUSTIC_WORLD_TO_UV * (ray_delta.xz - sun_slope * ray_delta.y);
-    float source_time = fract(frameTimeCounter * CAUSTIC_TIME_SPEED) + 0.5 / 64.0;
+    float source_time = u_caustic_source_time;
 
     vec3 shadow_start = ProjectToShadowClip(start_scene);
     vec3 shadow_end = ProjectToShadowClip(start_scene + ray_delta);
@@ -53,11 +53,10 @@ vec3 EpipolarWaterRadiance(vec3 start_scene, vec3 direction_world, float distanc
         integral += weight * (source * visibility);
         transmittance = next_transmittance;
     }
-    float column_depth_m = max((1.0 - sky_access) * 15.0, 1.0);
-    vec3 incident = ground_light.rgb * exp(-FAST_WATERFOG_EXTINCTION * column_depth_m);
+    vec3 incident = ground_light.rgb * u_water_ambient_transmittance;
     float phase = PhaseCornetteShanks(dot(direction_world, u_world_sun_dir), 0.35);
     return integral * (FAST_WATERFOG_SCATTERING / FAST_WATERFOG_EXTINCTION) * incident
-        * (phase * sky_access * sky_access * sun_height * (1.0 - wetness * 0.6) * WATER_GODRAYS_STRENGTH);
+        * (phase * sky_access * sky_access * sun_height * u_water_wetness_gain * WATER_GODRAYS_STRENGTH);
 }
 #endif // WATER_EPIPOLAR_ACTIVE
 

@@ -58,7 +58,7 @@ void main() {
     PBRMaterial material = ResolveOpaquePBR(linear_albedo, encoded_material.perceptual_roughness,
         encoded_material.specular_selector, encoded_material.emission, encoded_material.auxiliary);
     vec3 normal_shadow = normalize(v_normal_shadow);
-    vec3 light_shadow = normalize(mat3(shadowModelView) * u_world_light_dir);
+    vec3 light_shadow = u_shadow_light_dir;
     vec3 reflectance = EvaluateDiffuseReflectance(linear_albedo, material.f0, material.diffuse_weight);
     // Back-facing surfaces do not reflect the directional source toward a VPL.
     reflectance *= float(dot(normal_shadow, light_shadow) > 0.0);

@@ -23,7 +23,7 @@
 // AOHistoryWeight (the forward push the reprojection already computed).
 // Returns false when the point is behind the previous camera or off-screen.
 bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiver_prev_view) {
-    vec3 camera_delta = cameraPosition - previousCameraPosition;
+    vec3 camera_delta = u_camera_delta;
     vec4 previous_view = gbufferPreviousModelView * vec4(world_pos + camera_delta, 1.0);
     receiver_prev_view = previous_view.xyz;
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
@@ -41,8 +41,7 @@ bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiv
 // and therefore FOV-independent; it only moves when near/far change, which
 // reloads the world and reseeds the history anyway.
 float AOHistoryViewDepth(float encoded) {
-    float inverse_clip_depth = gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3];
-    return sqrt(max(encoded, 0.0)) * (SSR_DEPTH_HALF_RCP_SQRT / inverse_clip_depth);
+    return sqrt(max(encoded, 0.0)) * u_ssr_depth_decode;
 }
 
 // History trust in [0, 1], product of two checks:

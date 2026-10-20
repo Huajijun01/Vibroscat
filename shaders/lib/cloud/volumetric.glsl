@@ -126,7 +126,7 @@ float CloudDistanceToShellExit(vec3 position, vec3 dir) {
 // compute pass and the temporal compositor).
 bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 previous_uv) {
     vec3 scene_pos = view_dir_world * (distance_km * 1000.0);
-    vec3 camera_delta = cameraPosition - previousCameraPosition;
+    vec3 camera_delta = u_camera_delta;
     vec4 previous_view = gbufferPreviousModelView
         * vec4(scene_pos + camera_delta, 1.0);
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
@@ -220,7 +220,7 @@ CloudLayerFrame CloudLayerFrameForRay() {
     frame.coverage = CLOUD_COVERAGE * (1.0 - rainStrength) + rainStrength;
     frame.distribution_floor = 1.0 - frame.coverage;
     frame.inv_coverage = 1.0 / max(frame.coverage, 1.0e-5);
-    frame.world_km_offset = cameraPosition.xz * 0.001;
+    frame.world_km_offset = u_cloud_world_km_offset;
     frame.distribution_offset = frame.world_km_offset * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM)
         + vec2(frameTimeCounter * (CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM), 0.0);
     return frame;
@@ -368,7 +368,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     // Moon sits opposite the sun (no separate uniform); its view cosine is the
     // exact negation of the sun's. Each light keeps its own march and its own
     // earth-occlusion gate.
-    vec3 moon_dir = -sun_dir;
+    vec3 moon_dir = u_world_moon_dir;
     float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
     float sun_phase_weight[CLOUD_MS_OCTAVES];
     float moon_phase_weight[CLOUD_MS_OCTAVES];

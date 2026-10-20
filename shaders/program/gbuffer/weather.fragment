@@ -23,7 +23,7 @@ void main() {
     vec4 tex = texture(gtexture, v_texcoord);
     float alpha = tex.a * v_color.a;
     if (alpha < 0.0001) discard;
-    alpha *= mix(1.0, RAIN_PARTICLE_OPACITY_SCALE, u_rain_biome);
+    alpha *= u_rain_particle_opacity;
     // Decode before the blend. The attachment holds one value per pixel and the
     // fixed-function blend accumulates into it, so the sheet must enter that
     // blend already linear: premultiplying in sRGB and decoding afterwards (what

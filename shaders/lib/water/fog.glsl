@@ -15,26 +15,24 @@ const float FAST_WATERFOG_PHASE_G = 0.15;
 // In-water sunlight path per metre of vertical drop (flat-surface
 // refraction, air->water IOR 1.333 inlined - no IOR config needed).
 float WaterLightPathPerMetre() {
-    vec3 light_dir = normalize(u_world_light_dir);
-    vec3 refracted = refract(-light_dir, vec3(0.0, 1.0, 0.0), 1.0 / 1.333);
-    return 1.0 / max(-refracted.y, 1.0e-3);
+    // Frame-uniform refraction path (CPU): identical geometry, one sqrt.
+    return u_water_light_path;
 }
 
 // Uniform source approximation at a representative water-column depth.
 // The lightmap proxy matches caustics; 1 m represents near-surface lighting.
 // Shared with the underwater reflection fallback.
 vec3 FastWaterFogRadiance(vec3 light_color, vec3 ambient_color, float light_view_cosine) {
-    float skylight = clamp(float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE, 0.0, 1.0);
-    float column_depth_m = max((1.0 - skylight) * 15.0, 1.0);
+    float skylight = u_water_skylight;
     // A collimated beam loses both absorption and out-scattering. Diffuse
     // sky light uses an absorption-only approximation for angular redistribution.
-    vec3 direct_transmittance = exp(-FAST_WATERFOG_EXTINCTION * column_depth_m * WaterLightPathPerMetre());
-    vec3 ambient_transmittance = exp(-FAST_WATERFOG_EXTINCTION * column_depth_m);
+    vec3 direct_transmittance = u_water_direct_transmittance;
+    vec3 ambient_transmittance = u_water_ambient_transmittance;
     float phase = PhaseCornetteShanks(light_view_cosine, FAST_WATERFOG_PHASE_G);
     vec3 illumination = ambient_color * ambient_transmittance * (PHASE_ISOTROPIC * skylight)
         + light_color * direct_transmittance * (phase * skylight * skylight);
     return FAST_WATERFOG_SCATTERING / FAST_WATERFOG_EXTINCTION
-        * illumination * ((1.0 - wetness * 0.6));
+        * illumination * u_water_wetness_gain;
 }
 
 // Closed-form Beer-Lambert integration of the uniform source: no shadow

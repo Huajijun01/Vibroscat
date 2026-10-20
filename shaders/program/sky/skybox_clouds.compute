@@ -82,12 +82,12 @@ void main() {
         // below attenuates it behind clouds through the real transmittance.
         vec4 cloud_view_transmittance = vec4(1.0);
         bool cloud_view_transmittance_cached = false;
-        if (sun_dir.y < STAR_FADE_SUNSET) {
+        if (u_star_night_fade > 0.0) {
             CelestialContext celestial_context = CelestialContextFor(view_dir);
             if (!celestial_context.horizon_occluded) {
-                float camera_r = ATM_PLANET_R + u_cam_altitude;
+                float camera_r = u_camera_radius_km;
                 cloud_view_transmittance = SampleTransmittance(utex_tslut,
-                    camera_r, camera_r * camera_r, view_dir.y);
+                    camera_r, u_camera_radius_sq, view_dir.y);
                 cloud_view_transmittance_cached = true;
                 sky_color += RenderMilkyWayGlow(view_dir, cloud_view_transmittance,
                     celestial_context);

@@ -18,7 +18,7 @@ vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
         / max(vec2(1.0) - DISTORT_FACTOR * abs(distorted_clip), vec2(1.0e-5));
     float clip_z = (protected_depth * 2.0 - 1.0) / SHADOW_DEPTH_SCALE;
     return (vec3(clip_xy, clip_z) - shadowProjection[3].xyz)
-        / vec3(shadowProjection[0].x, shadowProjection[1].y, shadowProjection[2].z);
+        / vec3(u_shadow_projection_xy, u_shadow_projection_z);
 }
 
 // Dachsbacher & Stamminger, "Reflective Shadow Maps", I3D 2005.
@@ -41,7 +41,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     ivec2 shadow_size = ivec2(shadowMapResolution);
     vec2 shadow_size_f = vec2(shadow_size);
     float rsm_sample_count = float(RSM_SAMPLES);
-    vec2 projection_xy = vec2(shadowProjection[0].x, shadowProjection[1].y);
+    vec2 projection_xy = u_shadow_projection_xy;
     // The texel-extent denominator is loop-invariant; carry its reciprocal
     // so each sample trades the division for a multiply.
     vec2 texel_extent_inv_denom = 1.0

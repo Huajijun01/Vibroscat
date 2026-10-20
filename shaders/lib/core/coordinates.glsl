@@ -16,7 +16,7 @@ vec3 ViewToSceneSpace(vec3 view_pos) {
 // standing, bobbing/swimming included). Close-range direction and distance
 // math must subtract this offset.
 vec3 EyePositionSceneSpace() {
-    return gbufferModelViewInverse[3].xyz;
+    return u_eye_scene_pos;
 }
 
 vec3 SceneToViewSpace(vec3 sp) {
@@ -76,7 +76,7 @@ vec3 ToPrevious(vec3 closest_to_camera, bool apply_camera_delta) {
     vec3 view_pos = NDCToViewSparse(closest_to_camera.xy * 2.0 - 1.0, closest_to_camera.z * 2.0 - 1.0);
     vec4 pos = vec4((gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz, 1.0);
     if (apply_camera_delta) {
-        pos.xyz += cameraPosition - previousCameraPosition;
+        pos.xyz += u_camera_delta;
     }
     pos = gbufferPreviousModelView * pos;
     pos = gbufferPreviousProjection * pos;

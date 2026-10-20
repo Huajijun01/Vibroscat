@@ -43,7 +43,9 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 
     // -- phase (loop-invariant) --
     float cos_vs = dot(view_dir, sun_dir);
-    float cam_dot_sun = dot(camera_pos, sun_dir);
+    // Precondition: the only caller passes AtmosphereCameraPosition() and the
+    // LUT sun direction, so this dot is r * sun.y on the CPU.
+    float cam_dot_sun = u_cam_sun_dot;
     float phase_rayleigh   = PhaseRayleigh(cos_vs);
     float phase_mie   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
     float phase_mie_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even

@@ -96,7 +96,7 @@ void main() {
 #endif
     AirFogResult fog = AirFogRender(world_dir, length_m, AirFogProfile(), AirFogReferenceMedium(), visibility);
     // Eye skylight suppresses the outdoor medium inside caves/interiors.
-    float sky_access = SkyLightFromLm(float(eyeBrightnessSmooth.y) / EYE_BRIGHTNESS_SCALE);
+    float sky_access = u_eye_sky_access;
     scene = scene * mix(vec3(1.0), fog.transmittance, sky_access) + fog.in_scattering * sky_access;
 #endif
 

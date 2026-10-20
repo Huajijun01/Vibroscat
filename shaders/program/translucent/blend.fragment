@@ -83,8 +83,8 @@ vec3 CausticLightContribution(vec3 caustic_world_pos, vec3 caustic_brdf, vec3 tr
     float caustic_reach = (caustic_sample_y - caustic_world_pos.y) / max(light_dir.y, 1.0e-3);
     vec3 caustic_entry = caustic_world_pos + light_dir * max(caustic_reach, 0.0);
     vec2 caustic_uv = CAUSTIC_WORLD_TO_UV
-        * (caustic_entry.xz - CAUSTIC_ADVECTION_MPS * frameTimeCounter);
-    float caustic_time = fract(frameTimeCounter * CAUSTIC_TIME_SPEED);
+        * (caustic_entry.xz - u_caustic_advection);
+    float caustic_time = u_caustic_time;
     // Refraction bends the path toward vertical: path = vertical drop * path
     // per metre of drop.
     float caustic_path = max(caustic_surface_y - caustic_world_pos.y, 0.0) * path_per_metre;

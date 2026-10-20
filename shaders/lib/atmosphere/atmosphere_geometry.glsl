@@ -27,7 +27,7 @@ const float ATM_MS_RCP_SPAN = 1.0 / ATM_MS_SPAN_KM;
 // Camera position in atmosphere kilometer space (planet-centered, +Y up):
 // the camera sits at ATM_PLANET_R + camera altitude above the planet center.
 vec3 AtmosphereCameraPosition() {
-    return vec3(0.0, ATM_PLANET_R + u_cam_altitude, 0.0);
+    return u_atmosphere_camera_pos;
 }
 
 // Half-discriminant quadratic form: b = dot(o,d), disc = b*b - c, roots

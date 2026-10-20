@@ -63,7 +63,7 @@ void main() {
         // Same BRDF configuration as deferred2 (shared BRDF helper).
         vec3 surface_normal_view = normalize(v_normal);
         vec3 view_to_eye = -normalize(v_view_pos);
-        vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
+        vec3 light_direction = u_view_light_dir;
         vec3 direct_lighting;
         vec3 lambert_brdf;
         vec3 diffuse_reflectance;
@@ -112,7 +112,7 @@ void main() {
 #if defined(WORLD_OVERWORLD) && defined(RAIN_WETNESS) && defined(RAIN_RIPPLES)
         // Add world-space slopes before the existing underwater inversion,
         // grazing clamp, SSR, glint and refraction all consume the normal.
-        float rain_weight = rainStrength * u_rain_biome;
+        float rain_weight = u_rain_weight;
         if (rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
             // v_texcoord.w arrives normalized from the vertex stage; this
@@ -218,7 +218,7 @@ void main() {
 
     vec3 view_to_eye = -view_dir;
     vec3 surface_normal_view = current_normal;
-    vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
+    vec3 light_direction = u_view_light_dir;
 
     float ndotv = saturate(dot(surface_normal_view, view_to_eye));
     float ndotl = saturate(dot(surface_normal_view, light_direction));
@@ -244,7 +244,7 @@ void main() {
     // come from contract/settings.glsl (same constants as the rendered sky
     // discs); the active light is the sun when it is above the horizon (world
     // light direction y > 0), otherwise the moon.
-    float light_radius = u_world_light_dir.y > 0.0 ? SUN_DISC_RADIUS : MOON_DISC_RADIUS;
+    float light_radius = u_light_disc_radius;
 
     float sun_f0 = v_id == 1 ? water_f0 : f0;
     vec3 sun_fresnel = FresnelSchlick(ldoth, vec3(sun_f0));

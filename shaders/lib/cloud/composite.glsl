@@ -50,7 +50,7 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float sur
 // const float MOON_DARKEN = 0.4;
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
     vec3 sun_dir = u_world_sun_dir;
-    vec3 moon_dir = -sun_dir;
+    vec3 moon_dir = u_world_moon_dir;
     float surface_r2 = surface_r * surface_r;
     float sun_mu = dot(surface_position, sun_dir) / surface_r;
     // moon_dir is the exact IEEE negation of sun_dir, so the second dot is
@@ -135,7 +135,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     // this term as for the rest of the composite.
     bool volumetric_glow = volumetric_hit && CLOUD_MILKYWAY_TRANSMISSION > 0.0;
     bool cirrus_glow = cirrus_hit && CIRRUS_MILKYWAY_TRANSMISSION > 0.0;
-    if (u_world_sun_dir.y < STAR_FADE_SUNSET && (volumetric_glow || cirrus_glow)) {
+    if (u_star_night_fade > 0.0 && (volumetric_glow || cirrus_glow)) {
         vec3 milkyway_glow = RenderMilkyWayGlow(view_dir, vec4(1.0),
             CelestialContextFor(view_dir));
         if (volumetric_glow) {
@@ -148,9 +148,9 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
         }
     }
 
-    float camera_r = ATM_PLANET_R + u_cam_altitude;
+    float camera_r = u_camera_radius_km;
     bool ground_hit = PlanetHorizonOccluded(AtmosphereCameraPosition(),
-        camera_r * camera_r, view_dir, ATM_PLANET_R2);
+        u_camera_radius_sq, view_dir, ATM_PLANET_R2);
     vec4 camera_transmittance = view_transmittance;
     if (ground_hit || !view_transmittance_cached) {
         camera_transmittance = SampleTransmittance(utex_tslut,

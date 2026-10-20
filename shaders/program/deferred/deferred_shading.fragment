@@ -115,9 +115,9 @@ void main() {
         if (!all(equal(cloud_transmittance, vec3(0.0)))) {
             if (!view_transmittance_cached) {
                 vec3 camera_pos = AtmosphereCameraPosition();
-                float camera_r = length(camera_pos);
+                float camera_r = u_camera_radius_km;
                 view_transmittance = SampleTransmittance(
-                    utex_tslut, camera_r, camera_r * camera_r,
+                    utex_tslut, camera_r, u_camera_radius_sq,
                     dot(camera_pos, view_dir) / camera_r);
             }
             CelestialContext celestial_context = CelestialContextFor(view_dir);
@@ -128,9 +128,9 @@ void main() {
         sky_color += celestial * cloud_transmittance;
 #else
         vec3 camera_pos = AtmosphereCameraPosition();
-        float camera_r = length(camera_pos);
+        float camera_r = u_camera_radius_km;
         vec4 view_transmittance = SampleTransmittance(
-            utex_tslut, camera_r, camera_r * camera_r,
+            utex_tslut, camera_r, u_camera_radius_sq,
             dot(camera_pos, view_dir) / camera_r);
         CelestialContext celestial_context = CelestialContextFor(view_dir);
         celestial = RenderStarMap(view_dir, view_transmittance, celestial_context);

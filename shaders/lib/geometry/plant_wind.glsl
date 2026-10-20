@@ -30,11 +30,11 @@ vec3 PlantWindOffset(vec3 scene_pos, vec3 to_block_center, int block_id) {
     // The field and both mechanical responses were solved offline. Exactly
     // ONE bilinear LOD-0 fetch per moving vertex, zero for roots/static blocks.
     // 3600 s clock wrap is seamless: U*3600/32 = (360,270) whole periods.
-    vec2 wind_uv = (field_m - frameTimeCounter * vec2(3.2, 2.4)) / 32.0;
+    vec2 wind_uv = (field_m - u_plant_wind_time) / 32.0;
     vec4 response = textureLod(utex_plant_wind, wind_uv, 0.0);
     float weather_gain = 1.0;
 #if defined(WORLD_OVERWORLD)
-    weather_gain += 0.65 * rainStrength;
+    weather_gain = u_plant_weather_gain;
 #endif
     float strength = PLANT_WIND_STRENGTH * weather_gain;
     if (canopy) {

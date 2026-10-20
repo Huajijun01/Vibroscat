@@ -40,7 +40,7 @@ void main() {
 #endif
 
     vec3 view_to_eye = -normalize(v_view_pos);
-    vec3 light_direction = mat3(gbufferModelView) * normalize(u_world_light_dir);
+    vec3 light_direction = u_view_light_dir;
     vec3 direct_lighting;
     vec3 lambert_brdf;
     vec3 diffuse_reflectance;

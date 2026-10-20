@@ -413,6 +413,7 @@ const float centerDepthHalflife = 1.0;
 //#define TAAU
 #define TAAU_RENDER_SCALE 0.75 // [0.50 0.59 0.67 0.75 0.85]
 #define TAA_RECONSTRUCTION 0 // [0 1] 0=Bilinear 1=Cubic
+#define TAA_JITTER 0 // [0 1] 0=Halton8 1=R2
 #define TAA_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
 #define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
 #define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]

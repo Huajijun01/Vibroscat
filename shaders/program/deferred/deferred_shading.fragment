@@ -198,14 +198,17 @@ void main() {
 
     // -- World position (for shadow) --
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
-    // Reconstruction yields the view-space position directly; deriving it by
-    // SceneToViewSpace(world_pos) would pay the forward matrix round trip.
-    vec3 view_pos;
 #ifdef TAA
-    vec3 world_pos = DepthToWorldPosView(uv - u_taa_offset * 0.5, scene_depth, view_pos);
-#else
-    vec3 world_pos = DepthToWorldPosView(uv, scene_depth, view_pos);
+    uv -= u_taa_offset * 0.5;
 #endif
+    // Iris scales hand clip Z by MC_HAND_DEPTH through gl_ProjectionMatrix;
+    // gbufferProjectionInverse is the world inverse. Undo the scale in NDC
+    // before reconstructing the receiver used by lighting and both shadows.
+    // See Iris ShaderDoc: Reference/Macros/MC_HAND_DEPTH.
+    float ndc_depth = scene_depth * 2.0 - 1.0;
+    if (is_opaque_hand) ndc_depth /= MC_HAND_DEPTH;
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
+    vec3 world_pos = ViewToSceneSpace(view_pos);
 #if GI_MODE == 2
     // Resolve GI before direct-light BRDF/shadow temporaries become live.
     // The unblurred history is read-only throughout this lighting pass.

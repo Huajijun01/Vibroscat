@@ -96,9 +96,9 @@ void main() {
         vec4 trans = SampleTransmittance(utex_tslut, camera_r, camera_r2, abs(mu_light));
         vec3 ground_color;
         if (mu_light > 0.0) {
-            ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_SOLAR)) * ATM_EXPOSURE;
+            ground_color = SpectralToLinearSRGBWhiteBalanced(trans * ATM_SOLAR) * ATM_EXPOSURE;
         } else {
-            ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_MOON_IRR)) * ATM_EXPOSURE;
+            ground_color = SpectralToLinearSRGBWhiteBalanced(trans * ATM_MOON_IRR) * ATM_EXPOSURE;
         }
         ground_light.rgb = ground_color * (1.0 - rainStrength * 0.9);
         ground_light.a = 0.0;

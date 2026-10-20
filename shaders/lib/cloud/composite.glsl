@@ -45,7 +45,7 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float sur
 
 // Re-light unlit cloud radiance with the current sun/moon; the consumer
 // adds skyColor * cloudData.z afterwards. Light colors use the sky's
-// solar->D65 white-balanced conversion (same pair as the sky LUT), so cloud
+// sRGB-domain white balance (the same conversion as the sky LUT), so cloud
 // and sky hues stay locked as transmittance changes through the day.
 // const float MOON_DARKEN = 0.4;
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
@@ -56,10 +56,10 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
     // moon_dir is the exact IEEE negation of sun_dir, so the second dot is
     // bit-identical to -sun_mu (negation distributes exactly through dot).
     float moon_mu = -sun_mu;
-    vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-        SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu) * ATM_SOLAR)) * ATM_EXPOSURE;
-    vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
-        SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR)) * ATM_EXPOSURE;
+    vec3 sun_color = SpectralToLinearSRGBWhiteBalanced(
+        SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu) * ATM_SOLAR) * ATM_EXPOSURE;
+    vec3 moon_color = SpectralToLinearSRGBWhiteBalanced(
+        SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE;
     // Ambient evaluated once at the shared surface position, scaled by the
     // absorbed fraction (1 - T).
     vec3 ambient_cloud_radiance = GetAmbientColorAt(surface_r, sun_mu)

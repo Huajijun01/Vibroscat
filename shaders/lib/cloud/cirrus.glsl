@@ -135,18 +135,18 @@ vec3 CirrusPhaseScattering(vec3 sample_position, vec3 view_dir, float sample_den
         reference_optical_depth, CIRRUS_MS_SAT_ALBEDO, CIRRUS_MS_ISOTROPIC);
     vec3 in_scattering = vec3(0.0);
     if (sun_visible > 0.0) {
-        vec3 sun_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+        vec3 sun_color = SpectralToLinearSRGBWhiteBalanced(
             SampleTransmittance(utex_tslut, CIRRUS_RADIUS_KM, CIRRUS_RADIUS_KM * CIRRUS_RADIUS_KM, sun_mu)
-            * ATM_SOLAR)) * ATM_EXPOSURE;
+            * ATM_SOLAR) * ATM_EXPOSURE;
         float sun_phase = PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE);
         in_scattering += sun_color * (direct_gain * sun_visible * (sun_phase + isotropic_orders));
     }
     // Keep the moon lookup after the sun branch: mirrored straight-line
     // lookups of this LUT have been merged incorrectly by the driver.
     if (moon_visible > 0.0) {
-        vec3 moon_color = Rec2020ToSRGB(SpectralToLinearRec2020(
+        vec3 moon_color = SpectralToLinearSRGBWhiteBalanced(
             SampleTransmittance(utex_tslut, CIRRUS_RADIUS_KM, CIRRUS_RADIUS_KM * CIRRUS_RADIUS_KM, -sun_mu)
-            * ATM_MOON_IRR)) * ATM_EXPOSURE;
+            * ATM_MOON_IRR) * ATM_EXPOSURE;
         float moon_phase = PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE);
         in_scattering += moon_color * (direct_gain * moon_visible * (moon_phase + isotropic_orders));
     }

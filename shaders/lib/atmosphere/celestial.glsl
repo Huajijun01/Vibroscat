@@ -288,8 +288,10 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
 
     float cos_sun = dot(view_dir, sun_dir);
     if (cos_sun > cos(SUN_GLOW_RADIUS)) {
-        vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_SOLAR);
-        vec3 sun_radiance = SpectralToLinearRec2020(ATM_SOLAR)
+        // The raw sRGB ratio is clamped in the display space, then the scene
+        // white balance is applied to the summed disc contribution below.
+        vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, ATM_SOLAR);
+        vec3 sun_radiance = SpectralToLinearSRGB(ATM_SOLAR)
             / (PI * SUN_DISC_RADIUS * SUN_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
         contribution += sun_radiance * transmittance
             * CelestialAngularMask(cos_sun, SUN_DISC_RADIUS, SUN_GLOW_RADIUS);
@@ -300,14 +302,14 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     // to dot(view_dir, moon_dir).
     float cos_moon = -cos_sun;
     if (cos_moon > cos(MOON_GLOW_RADIUS)) {
-        vec3 transmittance = TransmittanceToLinearRec2020(view_transmittance, ATM_MOON_IRR);
-        vec3 moon_radiance = SpectralToLinearRec2020(ATM_MOON_IRR)
+        vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, ATM_MOON_IRR);
+        vec3 moon_radiance = SpectralToLinearSRGB(ATM_MOON_IRR)
             / (PI * MOON_DISC_RADIUS * MOON_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
         contribution += moon_radiance * transmittance
             * CelestialAngularMask(cos_moon, MOON_DISC_RADIUS, MOON_GLOW_RADIUS);
     }
 
-    return sky_color + Rec2020ToSRGB(contribution);
+    return sky_color + contribution * SRGB_WHITE_BALANCE;
 }
 
 #endif // LIB_ATMOSPHERE_CELESTIAL_GLSL

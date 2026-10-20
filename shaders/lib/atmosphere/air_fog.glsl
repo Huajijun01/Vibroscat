@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/spectral.glsl"
@@ -47,7 +48,7 @@ AirFogMedium AirFogReferenceMedium() {
     // Rain is a separate neutral,
     // conservative droplet medium: it adds only Mie scattering/extinction.
     // Its reference coefficient is fixed, independent of world/camera height.
-    AtmosphereMedia reference = AtmosphereMediaAt(0.2 + AIR_FOG_REFERENCE_HEIGHT_M * 0.001);
+    AtmosphereMedia reference = AtmosphereMediaAt(ATM_PLANET_R + 0.2 + AIR_FOG_REFERENCE_HEIGHT_M * 0.001);
     // The compositor transports RGB radiance by channel. Convert reference
     // COEFFICIENTS once, before Beer-Lambert; fitting exp(-tau) with a signed
     // radiance matrix is not a multiplicative RGB transmission operator.

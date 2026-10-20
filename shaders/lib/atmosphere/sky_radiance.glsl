@@ -72,13 +72,13 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         vec3 p_mid    = camera_pos + view_dir * t_mid;
         float r2_mid  = dot(p_mid, p_mid);
         float r_mid   = sqrt(r2_mid);
-        float h_mid   = r_mid - ATM_PLANET_R;
 
-        // Density altitude: the media functions take the real signed altitude,
-        // so the below-surface dip thickens the horizon. Only the transmittance
-        // LUT is parameterised on r >= planet radius (sqrt(r^2 - R^2) is
-        // undefined below the surface); the multiscatter LUT spans the baked
-        // signed range and is sampled at the real radius.
+        // Density radius: the media functions take the real signed radius and
+        // fold altitude into their fma constants, so the march never forms
+        // h = r - R. The below-surface dip still thickens the horizon. Only the
+        // transmittance LUT is parameterised on r >= planet radius
+        // (sqrt(r^2 - R^2) is undefined below the surface); the multiscatter
+        // LUT spans the baked signed range and is sampled at the real radius.
         float r_lut   = max(r_mid, ATM_PLANET_R);
         float r2_lut  = r_lut * r_lut;
 
@@ -89,7 +89,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // ms is the multi-scatter LUT sample, xs their product. One call now
         // builds all four terms: sr/sm/se used to run the same aerosol
         // vertical profile and the same suso profile twice per step.
-        AtmosphereMedia media = AtmosphereMediaAt(h_mid);
+        AtmosphereMedia media = AtmosphereMediaAt(r_mid);
         vec4 sr_mid = media.sigma_s_ray;
         vec4 sm_mid = media.sigma_s_mie;
         vec4 sigma_t_mid = media.sigma_t;
@@ -143,7 +143,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
 // ===============================================================
 
 vec3 GetAmbientColorAt(float r, float mu) {
-    vec4 ss = GetScattering(r - ATM_PLANET_R);
+    vec4 ss = GetScattering(r);
     vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
     return SpectralToLinearSRGBWhiteBalanced(ss * ms * ATM_SOLAR) * ATM_EXPOSURE;
 }

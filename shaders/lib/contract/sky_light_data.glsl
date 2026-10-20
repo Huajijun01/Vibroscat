@@ -10,8 +10,9 @@
 // (20% neutral reflectance, illuminated by upper-sky irradiance). These stay
 // raw radiance coefficients: diffuse, rough-reflection and fog consumers
 // apply their own kernels. Clouds break sun-azimuth mirror symmetry, so the
-// L1x and xz/xy L2 terms stay nonzero. ground_light is direct sun/moon light,
-// not the diffuse ground closure already included in the SH coefficients.
+// L1x and xz/xy L2 terms stay nonzero. ground_light is direct sun/moon light
+// sampled at the camera altitude, not the diffuse ground closure already
+// included in the SH coefficients.
 layout(std430, binding = 1) buffer SkyLightData {
     vec4 sky_sh_r0;
     vec4 sky_sh_r1;

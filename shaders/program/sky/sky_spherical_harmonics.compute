@@ -1,7 +1,6 @@
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/atmosphere/skybox_uv.glsl"
@@ -88,10 +87,13 @@ void main() {
         }
     }
     if (tid == 0u && term == 0u) {
-        float ground_r = ATM_PLANET_R + 0.2;
-        float ground_r2 = ground_r * ground_r;
+        // Direct sun/moon light arrives at the camera, not at a fixed sea-level
+        // plane: use the actual camera altitude, so the air mass above the eye
+        // shrinks as the player climbs and the direct color reddens less.
+        float camera_r = u_camera_radius_km;
+        float camera_r2 = u_camera_radius_sq;
         float mu_light = u_world_sun_dir.y;
-        vec4 trans = SampleTransmittance(utex_tslut, ground_r, ground_r2, abs(mu_light));
+        vec4 trans = SampleTransmittance(utex_tslut, camera_r, camera_r2, abs(mu_light));
         vec3 ground_color;
         if (mu_light > 0.0) {
             ground_color = Rec2020ToSRGB(SpectralToLinearRec2020(trans * ATM_SOLAR)) * ATM_EXPOSURE;

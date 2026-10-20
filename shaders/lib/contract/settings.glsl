@@ -286,7 +286,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 // Opaque recursive screen-space indirect specular. This budget is separate
 // from the forward water/glass SSR path below.
-#define OPAQUE_REFLECTION // opaque screen-space reflection toggle; off = sky SH only
+// #define OPAQUE_REFLECTION // opaque screen-space reflection toggle; off = sky SH only
 #define OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD 0.5 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] roughness at which opaque reflections become SH-only and dielectric reflection fades out
 #define OPAQUE_REFLECTION_ROUGHNESS_TRANSITION 0.1 // [0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.4 0.5] roughness span used to blend SSR into SH
 #define OPAQUE_SSR_DEBUG 0 // [0 1 2 3 4 5 6 7 8 9] hidden opaque SSR diagnostics; no UI surface

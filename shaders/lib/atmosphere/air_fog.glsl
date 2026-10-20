@@ -11,8 +11,8 @@
 #include "/lib/scattering/phase.glsl"
 
 const HenyeyGreensteinTripleLobe AIRFOG_MIE_PHASE = HenyeyGreensteinTripleLobe(
-    0.95, 0.15,  // forward peak
-    0.6, 0.8,  // forward mid
+    0.85, 0.15,  // forward peak
+    0.5, 0.8,  // forward mid
     0.3, 0.05); // backward
 
 // Independent exponential-height model, informed by the density/time/weather

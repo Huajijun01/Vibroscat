@@ -29,6 +29,18 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
     ivec2 upper_pixel = min(min(base_texel + 1, half_size - 1) * 2 + grid_offset, full_max);
     // The final interval is one pixel wide at an odd-sized scene boundary.
     vec2 fraction = clamp(vec2(texel - lower_pixel) / vec2(max(upper_pixel - lower_pixel, 1)), 0.0, 1.0);
+    // These depth/workspace reads are independent. Issue the complete footprint
+    // before receiver math and tap rejection instead of serializing each fetch
+    // behind the preceding tap's checks. Keep all addresses bounded, including
+    // zero-weight taps; the UNORM8 workspace contains only finite values.
+    float fetched_depth[4];
+    vec4 fetched_data[4];
+    for (int i = 0; i < 4; ++i) {
+        ivec2 sample_texel = min(base_texel + ivec2(i & 1, i >> 1), half_size - 1);
+        ivec2 sample_pixel = min(sample_texel * 2 + grid_offset, full_max);
+        fetched_depth[i] = texelFetch(depthtex2, sample_pixel, 0).r;
+        fetched_data[i] = texelFetch(colortex2, sample_texel, 0);
+    }
     vec3 normal_world = DecodeOctahedralNormal(normal_oct);
     vec2 receiver_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
 #ifdef TAA
@@ -56,12 +68,11 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
         for (int x = 0; x < 2; ++x) {
             vec2 weights = mix(vec2(1.0) - fraction, fraction, bvec2(x != 0, y != 0));
             float weight = weights.x * weights.y;
-            if (weight <= 0.0) continue;
             ivec2 sample_texel = min(base_texel + ivec2(x, y), half_size - 1);
             ivec2 sample_pixel = min(sample_texel * 2 + grid_offset, full_max);
-            float sample_depth = texelFetch(depthtex2, sample_pixel, 0).r;
+            float sample_depth = fetched_depth[y * 2 + x];
             if (sample_depth >= 1.0) continue;
-            vec4 sample_data = texelFetch(colortex2, sample_texel, 0);
+            vec4 sample_data = fetched_data[y * 2 + x];
             // Coplanar block faces have identical stored normals. Avoid a
             // second normalization when their exact UNORM8 codes agree.
             if (any(notEqual(sample_data.gb, normal_oct))) {

@@ -1,8 +1,8 @@
 // ============================================================================
 // AO generation and accumulation (half resolution) - borrows colortex2 alt.
 // ============================================================================
-// Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/8),
-// local 8x8). Each invocation covers one 2x2 full-res block, evaluates the
+// Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/(16,32)),
+// local 16x32). Each invocation covers one 2x2 full-res block, evaluates the
 // kernel (ComputeGTAO / ComputeSSAO) at a rotating receiver in that block.
 // Every half-res texel is evaluated every frame. deferred1 reconstructs
 // the accumulated field with depth/normal guidance on this exact lattice.
@@ -26,7 +26,10 @@
 #include "/lib/lighting/ssao.glsl"
 #include "/lib/lighting/temporal_ao.glsl"
 
-layout(local_size_x = 8, local_size_y = 8) in;
+// Keep the original pixel mapping and sample coordinates. Larger neighboring
+// groups reduced the scattered-depth path's GPU time on the profiling target;
+// all half-resolution texels still update every frame.
+layout(local_size_x = 16, local_size_y = 32) in;
 const vec2 workGroupsRender = vec2(0.5, 0.5);
 
 layout(rgba8) uniform restrict writeonly image2D colorimg2;

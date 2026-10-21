@@ -221,7 +221,7 @@ const float ambientOcclusionLevel = 1.0;
 // SSGI supplies its own visibility and ignores this selector.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
-#define GTAO_RADIUS 3.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
+#define GTAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
 #define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
 #define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
@@ -229,24 +229,26 @@ const float ambientOcclusionLevel = 1.0;
 #define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
 #define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
+// Both kernels, including their RSM GI calls, bound depth sampling to 5% of
+// the active scene's shorter dimension. This is a radius, not a diameter.
+const float AO_MAX_SCREEN_RADIUS_FRACTION = 0.05;
 
 // Temporal accumulation runs in deferred1_a against full-resolution history
-// in colortex8. Each history tap passes depth/normal rejection before filtering.
+// in colortex8. One hardware bilinear history sample passes depth/normal rejection.
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
-// Every half-res texel is evaluated each frame. With history enabled, its
-// receiver rotates through all four pixels of the 2x2 block in four frames.
-// deferred1 reconstructs only within matching geometric planes/normals and
-// copies validated history for surfaces absent from the current lattice.
+// Every half-res texel evaluates the same receiver in its 2x2 block each frame.
+// deferred1 uses four-tap depth/normal bilateral upsampling; missing support
+// resolves to open AO rather than another full-resolution history lookup.
 #define AO_HISTORY_FRAMES 48 // [2 4 6 8 10 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
 // Rejection lifts the fresh-sample weight toward 1, so an untrusted history
 // is replaced quickly instead of lingering (vanished objects' AO does not
 // fade out slowly).
 // History rejection: the reprojected history is
-// trusted only when the world-space displacement from the previous-frame
-// depth stays under the distance limit and the normal at the reprojected
-// position agrees with the current pixel beyond the dot floor; both weights
+// trusted only when the previous surface stays within the receiver plane's
+// distance limit and its normal proxy, projected into the current frame,
+// agrees with the receiver beyond the dot floor; both weights
 // ramp smoothly to zero (AOHistoryWeight in lib/lighting/temporal_ao.glsl).
-#define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max world displacement (m)
+#define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max receiver-plane distance (m)
 #define AO_HISTORY_NORMAL_DOT_FLOOR 0.866 // [0.5 0.71 0.82 0.866 0.91 0.94] history rejection: min normal dot (cos 30 deg)
 
 // ==========================================================================

@@ -3,14 +3,14 @@
 // ============================================================================
 // Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/(16,32)),
 // local 16x32). Each invocation covers one 2x2 full-res block, evaluates the
-// kernel (ComputeGTAO / ComputeSSAO) at a rotating receiver in that block.
+// kernel (ComputeGTAO / ComputeSSAO) at a fixed receiver in that block.
 // Every half-res texel is evaluated every frame. deferred1 reconstructs
 // the accumulated field with depth/normal guidance on this exact lattice.
 // Runs with cloud compute in deferred1; the two write distinct textures.
 //
 // Storage: lower-left ceil-half-res rectangle of the RGBA8 workspace:
 // R = accumulated raw AO, GB = exact receiver octahedral geometric normal,
-// A = history age / 255. The four-frame lattice covers thin full-res faces.
+// A = history age / 255. The receiver is the lower-left pixel of each block.
 // deferred_pre selects alt; deferred1 samples it, then restores the opaque
 // material scalars on main. Raw AO (no multibounce/strength): the nonlinear
 // transforms are applied by the lighting consumer after the temporal blend (the
@@ -21,7 +21,6 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
-#include "/lib/lighting/ao_reconstruction.glsl"
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/lighting/ssao.glsl"
 #include "/lib/lighting/temporal_ao.glsl"
@@ -42,7 +41,7 @@ void main() {
     }
     // Depth, normal and ray origin use the same actual full-res pixel. The
     // last row/column clamps to the cropped scene when its size is odd.
-    ivec2 sample_pixel = min(half_texel * 2 + AOGridOffset(), ivec2(u_render_res) - 1);
+    ivec2 sample_pixel = min(half_texel * 2, ivec2(u_render_res) - 1);
     vec2 uv = (vec2(sample_pixel) + vec2(0.5)) * u_render_pixel_size;
     // The AO temporal accumulator runs with or without TAA, so the STBN pair
     // keeps advancing with frameCounter (no STBNFrame() pinning here). The

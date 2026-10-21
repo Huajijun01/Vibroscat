@@ -50,8 +50,10 @@ vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out flo
     vec3 end_view = center_view + tangent_view * GTAO_RADIUS;
     vec2 end_ndc = ViewToNDC(end_view).xy;
     vec2 delta = (end_ndc - center_ndc) * 0.5 * u_render_res;
-    radius_px = max(length(delta), 1.0e-5);
-    return delta / radius_px;
+    float projected_radius_px = max(length(delta), 1.0e-5);
+    radius_px = min(projected_radius_px,
+        AO_MAX_SCREEN_RADIUS_FRACTION * min(u_render_res.x, u_render_res.y));
+    return delta / projected_radius_px;
 }
 
 // Update one side with the original depth rejection and radius falloff.

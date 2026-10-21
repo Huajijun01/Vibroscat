@@ -58,6 +58,7 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     float azimuth_s = sin(stbn_noise.x * TAU);
     const float azimuth_step_c = cos(TAU * GOLDEN_RATIO);
     const float azimuth_step_s = sin(TAU * GOLDEN_RATIO);
+    float max_radius_px = AO_MAX_SCREEN_RADIUS_FRACTION * min(u_render_res.x, u_render_res.y);
 
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
@@ -75,7 +76,14 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         azimuth_c = next_c;
 
         vec3 sample_view = center_view + dir * SSAO_RADIUS;
+        // A projected point behind the eye must not be pulled back on screen
+        // by the footprint cap when the receiver is closer than the radius.
+        if (sample_view.z >= -1.0e-4) continue;
         vec2 sample_ndc = ViewToNDC(sample_view).xy;
+        // Bound the actual depth fetch footprint, including the RSM AO path.
+        vec2 offset_px = (sample_ndc * 0.5 + 0.5 - uv) * u_render_res;
+        offset_px *= min(1.0, max_radius_px * inversesqrt(max(dot(offset_px, offset_px), 1.0e-8)));
+        sample_ndc = (uv + offset_px * u_render_pixel_size) * 2.0 - 1.0;
         vec2 sample_uv = sample_ndc * 0.5 + 0.5;
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThan(sample_uv, vec2(1.0)))) {
             continue;

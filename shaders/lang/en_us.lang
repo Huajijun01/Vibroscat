@@ -334,7 +334,7 @@ option.GTAO_SLICES.comment = Quality of the corner-darkening calculation: higher
 option.GTAO_HORIZON_STEPS = GTAO Horizon Steps
 option.GTAO_HORIZON_STEPS.comment = How far the calculation looks along each direction: higher = catches larger nearby objects, slower.
 option.GTAO_RADIUS = GTAO Radius
-option.GTAO_RADIUS.comment = How far away an object can darken its surroundings, in metres: higher = broader, softer corner shadows.
+option.GTAO_RADIUS.comment = World radius in metres. The screen radius is also capped at 5% of the shorter scene dimension, including with RSM GI.
 suffix.GTAO_RADIUS = m
 option.GTAO_STRENGTH = GTAO Contrast
 option.GTAO_STRENGTH.comment = How dark corners become: the occlusion value is raised to this power. 1.0 is linear; higher darkens corners and steepens the transition.
@@ -346,13 +346,13 @@ option.AO_HISTORY_FRAMES = AO History Length Limit
 option.AO_HISTORY_FRAMES.comment = How many frames of smoothing are blended before a result counts as settled: higher = smoother, but corner darkening reacts more slowly to changes.
 option.AO_HISTORY_DISTANCE_LIMIT = AO History Distance Limit
 suffix.AO_HISTORY_DISTANCE_LIMIT = m
-option.AO_HISTORY_DISTANCE_LIMIT.comment = How far something may move between frames before its stored smoothing is thrown away: lower = fewer smears when things move, possibly more grain.
+option.AO_HISTORY_DISTANCE_LIMIT.comment = Maximum distance of the history surface from the current receiver plane: lower = less history bleeding across surfaces, possibly more grain.
 option.AO_HISTORY_NORMAL_DOT_FLOOR = AO History Normal Dot Floor
 option.AO_HISTORY_NORMAL_DOT_FLOOR.comment = How strictly a surface must keep facing the same direction for its stored smoothing to be reused; the value is a cosine floor (0.866 stands for 30 degrees). Higher = fewer smears when turning the camera, possibly more grain.
 option.SSAO_SAMPLES = SSAO Samples
 option.SSAO_SAMPLES.comment = Quality of the alternative SSAO mode: higher = smoother corner darkening, slower.
 option.SSAO_RADIUS = SSAO Radius
-option.SSAO_RADIUS.comment = How far away an object can darken its surroundings, in metres.
+option.SSAO_RADIUS.comment = World radius in metres. The screen radius is also capped at 5% of the shorter scene dimension, including with RSM GI.
 suffix.SSAO_RADIUS = m
 option.SSAO_STRENGTH = SSAO Contrast
 option.SSAO_STRENGTH.comment = How dark corners become: the occlusion value is raised to this power. SSAO reads lighter than GTAO, so its default is intentionally steeper. 1.0 is linear.

@@ -17,7 +17,7 @@
 // Sky pixels run cloud accumulation; geometry pixels reconstruct accumulated AO.
 // Type switches reset cleanly: cloud validation rejects NaN (AO pixels);
 // the AO side reseeds when the history is not AO-marked. AO generation is
-// half-res with joint depth/normal reconstruction on a four-frame rotating lattice.
+// half-res with joint depth/normal reconstruction on a fixed lattice.
 // AO_TEMPORAL off keeps the same edge protection without history.
 
 /* RENDERTARGETS: 8 */
@@ -32,7 +32,6 @@
 #include "/lib/cloud/volumetric.glsl"
 #include "/lib/lighting/ao_history.glsl"
 #include "/lib/lighting/ao_reconstruction.glsl"
-#include "/lib/lighting/temporal_ao.glsl"
 #include "/lib/raytrace/ssr_depth.glsl"
 
 layout(location = 0) out vec4 out_history;
@@ -101,14 +100,8 @@ void main() {
 #if defined(GTAO) || defined(SSAO)
     vec2 geo_normal_oct = texelFetch(colortex4, tx, 0).xy;
     // AO history was validated and accumulated at half resolution by the
-    // preceding compute. Full-res output never interpolates across surfaces.
+    // preceding compute. Full-res output uses depth/normal bilateral weights.
     vec2 resolved_ao = ReconstructAO(tx, scene_depth, geo_normal_oct);
-#if defined(AO_TEMPORAL_ENABLED)
-    if (resolved_ao.y < 0.5) {
-        vec3 history = ReprojectAOHistory(tx, scene_depth, geo_normal_oct, false);
-        if (history.b > 0.5) resolved_ao = history.rg;
-    }
-#endif
     out_history = vec4(EncodeAOHistory(resolved_ao.x), resolved_ao.y,
         EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
 #else

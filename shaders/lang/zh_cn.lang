@@ -255,10 +255,6 @@ option.CLOUD_MILKYWAY_TRANSMISSION = 体积云银河透光
 option.CLOUD_MILKYWAY_TRANSMISSION.comment = 体积云把身后的银河散射成云内辉光的比例。1.0 是各向同性单次散射的物理总量，调低更含蓄，0 关闭辉光。
 option.CIRRUS_MILKYWAY_TRANSMISSION = 卷云银河透光
 option.CIRRUS_MILKYWAY_TRANSMISSION.comment = 卷云把身后的银河散射成云内辉光的比例。1.0 是各向同性单次散射的物理总量，调低更含蓄，0 关闭辉光。
-option.CLOUD_HISTORY_GUIDED_MARCH_END = 步进终点引导（实验）
-option.CLOUD_HISTORY_GUIDED_MARCH_END.comment = 依据上一帧云历史判断云层结束位置并提前结束视线步进，在多云天空下省采样。实验特性，默认关闭；关闭则每条视线都走满全长。
-option.CLOUD_HISTORY_GUIDED_END_SCALE = 引导终点安全余量
-option.CLOUD_HISTORY_GUIDED_END_SCALE.comment = 仅在开启「步进终点引导」时生效。加在历史引导终点周围的安全余量：越高越晚停止（画面更保险，加速越少）。
 
 #Shadows
 option.SHADOW_PCSS = PCSS 软阴影

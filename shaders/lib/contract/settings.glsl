@@ -88,8 +88,6 @@ const vec2 CLOUD_CURRENT_SCALE = vec2(0.333333);
 #else
 const vec2 CLOUD_CURRENT_SCALE = vec2(0.25);
 #endif
-//#define CLOUD_HISTORY_GUIDED_MARCH_END // Guide the view march end from reprojected cloud history.
-#define CLOUD_HISTORY_GUIDED_END_SCALE 1.2 // [1.0 1.05 1.1 1.15 1.2 1.25] centroid-distance safety scale
 #define CLOUD_HISTORY_FRAMES 24 // [8 12 16 24 32 48] accepted-frame/history-weight cap
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define HISTORY_NO_CLOUD_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
@@ -545,8 +543,6 @@ const float centerDepthHalflife = 1.0;
 #ifdef CIRRUS
 #endif
 #ifdef CLOUD_SINGLE_LIGHT
-#endif
-#ifdef CLOUD_HISTORY_GUIDED_MARCH_END
 #endif
 // Fog
 #ifdef AIR_FOG

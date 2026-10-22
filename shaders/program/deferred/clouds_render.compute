@@ -21,68 +21,6 @@ const vec2 workGroupsRender = vec2(1.0, 1.0);
 // stay untouched in main until deferred2/3/4 consume them.
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
-#ifdef CLOUD_HISTORY_GUIDED_MARCH_END
-void CloudHistoryGuidedEnd(vec2 current_uv, vec3 view_dir, float march_start, inout float march_end
-) {
-    if (frameCounter <= 0) return;
-
-    vec3 camera_delta = u_camera_delta;
-    if (u_camera_delta_sq > 4096.0) return;
-
-    vec2 history_size = u_render_res;
-    ivec2 history_max = ivec2(history_size) - ivec2(1);
-    ivec2 current_texel = clamp(ivec2(current_uv * history_size), ivec2(0), history_max);
-    vec4 seed = texelFetch(colortex8, current_texel, 0);
-    if (any(isnan(seed)) || !(seed.a > 0.0) || !(seed.b < 0.99999)) return;
-
-    vec2 previous_uv;
-    if (!CloudProjectToPrevious(view_dir, seed.a, previous_uv)) return;
-    ivec2 previous_texel = clamp(ivec2(previous_uv * history_size), ivec2(0), history_max);
-    vec4 history = texelFetch(colortex8, previous_texel, 0);
-    if (any(isnan(history)) || !(history.a > 0.0) || !(history.b < 0.99999)) return;
-
-    // Recover the previous-frame ray at the accepted texel, move its
-    // centroid into the current camera space, project onto the current ray.
-    // Project the previous-frame ray into the current camera space; a large
-    // lateral error rejects (unrelated history must not shorten the march).
-    vec2 previous_center_uv = (vec2(previous_texel) + 0.5) / history_size;
-    vec3 previous_view_point = PreviousScreenToView(vec3(previous_center_uv, 1.0));
-    float previous_view_depth = -previous_view_point.z;
-    // The dense inverse carried this degeneracy in its homogeneous w; the
-    // sparse helper exposes it as the view depth instead.
-    if (!(previous_view_depth > 1.0e-5)) return;
-    vec3 previous_view_dir = normalize(previous_view_point);
-    vec3 previous_scene = previous_view_dir * (history.a * 1000.0);
-    // gbufferPreviousModelView is a rigid transform, so its inverse is the
-    // transposed rotation and the negated translated origin; no generic
-    // 4x4 inversion needed.
-    mat3 previous_view_inverse = transpose(mat3(gbufferPreviousModelView));
-    vec3 current_scene = previous_view_inverse * previous_scene
-        - previous_view_inverse * gbufferPreviousModelView[3].xyz
-        - camera_delta;
-
-    // The density field advances with the large-scale wind; fine erosion
-    // moves faster, its residual motion is left to the margin.
-    current_scene += vec3(-CLOUD_WIND_SPEED * frameTime * 1000.0, 0.0, 0.0);
-    float current_distance_km = dot(current_scene, view_dir) * 0.001;
-    if (!(current_distance_km > march_start)) return;
-
-    float lateral_distance_km = sqrt(max(
-        dot(current_scene, current_scene) - dot(current_scene, view_dir) * dot(current_scene, view_dir),
-        0.0
-    )) * 0.001;
-    float lateral_limit_km = max(2.0 * CLOUD_VIEW_TARGET_STEP_KM, current_distance_km * 0.05);
-    if (lateral_distance_km > lateral_limit_km) return;
-
-    float wind_margin_km = CLOUD_WIND_SPEED * frameTime * max(CLOUD_FINE_WIND_FACTOR, 1.0);
-    float centroid_margin_km = max(2.0 * CLOUD_VIEW_TARGET_STEP_KM,
-        current_distance_km * (CLOUD_HISTORY_GUIDED_END_SCALE - 1.0));
-    float guided_end = min(march_end, current_distance_km + centroid_margin_km + wind_margin_km);
-    if (guided_end <= march_start + CLOUD_VIEW_TARGET_STEP_KM) return;
-    march_end = guided_end;
-}
-#endif
-
 void main() {
 #ifndef VOLUMETRIC_CLOUDS
     // deferred1 is shared with GTAO (VOLUMETRIC_CLOUDS || GTAO): nothing to
@@ -142,9 +80,6 @@ void main() {
                 min(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS),
                 max(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS));
             cloud_top_distance = (view_dir.y < 0.0 && march_start > 0.0) ? march_start : march_end;
-#ifdef CLOUD_HISTORY_GUIDED_MARCH_END
-            CloudHistoryGuidedEnd(uv, view_dir, march_start, march_end);
-#endif
         } else {
             cloud_top_distance = march_end;
         }

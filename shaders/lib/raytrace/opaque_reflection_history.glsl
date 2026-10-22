@@ -88,6 +88,16 @@ struct OpaqueHistoryGather {
     uint dominant_data;
 };
 
+struct OpaqueHistoryGuide {
+    vec3 receiver_view;
+    vec3 previous_receiver_view;
+    vec3 geo_previous_view;
+    vec3 geo_view;
+    vec3 normal_world;
+    vec2 material;
+    float normal_floor;
+};
+
 // A previous tap is reconstructed at its OWN texel center and stored depth.
 vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
     vec2 uv = (vec2(texel) + 0.5) * u_render_pixel_size;
@@ -101,19 +111,22 @@ vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
 
 // Visibility and normal proxy at a historical tap's CURRENT projected location.
 float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 data,
-        vec3 previous_receiver_view, vec3 receiver_view, vec3 geo_normal_world,
-        vec3 normal_world, vec2 material) {
+        OpaqueHistoryGuide guide) {
     float depth_view = OpaqueHistoryDepth(data);
     if (OpaqueHistoryAge(data) < 1.0 || !(depth_view > 0.0) || isinf(depth_view)) return 0.0;
-    if (abs(OpaqueHistoryRoughness(data) - material.x) > 0.025) return 0.0;
-    if (abs(float(data.g >> 8) / 255.0 - material.y) > 1.5 / 255.0) return 0.0;
+    if (abs(OpaqueHistoryRoughness(data) - guide.material.x) > 0.025) return 0.0;
+    if (abs(float(data.g >> 8) / 255.0 - guide.material.y) > 1.5 / 255.0) return 0.0;
     vec3 old_view = OpaquePreviousPosition(history_texel, depth_view);
-    vec3 delta_world = transpose(mat3(gbufferPreviousModelView)) * (old_view - previous_receiver_view);
+    vec3 delta_previous = old_view - guide.previous_receiver_view;
     float depth_error = 0.0006 * depth_view;
     float plane_tolerance = 0.015 + depth_error;
-    float plane_error = abs(dot(delta_world, geo_normal_world));
+    // Move the normal once per receiver instead of every tap displacement.
+    float plane_error = abs(dot(delta_previous, guide.geo_previous_view));
     if (plane_error > plane_tolerance * 2.0) return 0.0;
-    vec3 predicted_view = receiver_view + mat3(gbufferModelView) * delta_world;
+    vec3 predicted_view = guide.receiver_view + vec3(
+        dot(u_ssr_previous_to_view_x, delta_previous),
+        dot(u_ssr_previous_to_view_y, delta_previous),
+        dot(u_ssr_previous_to_view_z, delta_previous));
     if (predicted_view.z >= -1e-4 || !IsFinite(predicted_view)) return 0.0;
     vec2 current_uv = ViewToNDC(predicted_view).xy * 0.5 + 0.5;
 #ifdef TAA
@@ -127,40 +140,41 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     if (all(equal(current_texel, receiver_texel))) return plane_weight;
     float current_depth = texelFetch(depthtex0, current_texel, 0).r;
     if (current_depth >= 1.0) return 0.0;
-    // Hand/view-model positions have no static world correspondence.
-    int material_id = int(texelFetch(colortex1, current_texel, 0).a * 255.0 + 0.5);
-    if (material_id == 64) return 0.0;
-    vec2 current_material = texelFetch(colortex2, current_texel, 0).rg;
-    if (abs(current_material.x - material.x) > 0.025
-            || abs(current_material.y - material.y) > 1.5 / 255.0) return 0.0;
+    // Depth first: sky does not write the opaque workspace. BA duplicates
+    // the exact UNORM8 material codes; negative B rejects the view model.
+    vec4 proxy = texelFetch(colortex12, current_texel, 0);
+    if (proxy.b < 0.0) return 0.0;
+    vec2 current_material = round(proxy.ba * 255.0) * (1.0 / 255.0);
+    if (abs(current_material.x - guide.material.x) > 0.025
+            || abs(current_material.y - guide.material.y) > 1.5 / 255.0) return 0.0;
     vec2 center_uv = (vec2(current_texel) + 0.5) * u_render_pixel_size;
 #ifdef TAA
     center_uv -= u_taa_offset * 0.5;
 #endif
-    vec3 visible_view = NDCToView(vec3(center_uv * 2.0 - 1.0, current_depth * 2.0 - 1.0));
-    vec3 geo_view = mat3(gbufferModelView) * geo_normal_world;
-    // Ray/plane intersection accounts for the legitimate tangential offset
-    // between a continuous projection and the current nearest texel center.
-    float ray_plane = dot(geo_view, visible_view);
+    float visible_z = -LinearDepthFromScreenDepth(current_depth);
+    vec2 ray_xy = (center_uv * 2.0 - 1.0)
+        * vec2(gbufferProjectionInverse[0][0], gbufferProjectionInverse[1][1]);
+    float ray_plane_rate = dot(guide.geo_view.xy, ray_xy) - guide.geo_view.z;
+    float ray_plane = -visible_z * ray_plane_rate;
     if (abs(ray_plane) < 1e-6) return 0.0;
-    vec3 plane_view = visible_view * (dot(geo_view, predicted_view) / ray_plane);
+    // Both original 3D tests share the same plane residual. The ray/plane
+    // depth error is residual / ray_plane_rate; compare after multiplying
+    // the tolerance so neither an intersection vector nor a division is needed.
+    float plane_residual = abs(ray_plane - dot(guide.geo_view, predicted_view));
     float footprint = -predicted_view.z * 2.0 * u_render_pixel_size.y
         / abs(gbufferProjection[1][1]);
-    if (abs(visible_view.z - plane_view.z) > 0.02 + depth_error + footprint * 0.5) return 0.0;
-    if (abs(dot(visible_view - predicted_view, geo_view)) > plane_tolerance * 2.0) return 0.0;
-    vec3 proxy_normal = DecodeOctahedralNormal(texelFetch(colortex12, current_texel, 0).rg);
-    float normal_floor = mix(0.999, 0.92, material.x * material.x);
-    return plane_weight * smoothstep(normal_floor, 1.0, dot(proxy_normal, normal_world));
+    if (plane_residual > min((0.02 + depth_error + footprint * 0.5) * abs(ray_plane_rate),
+            plane_tolerance * 2.0)) return 0.0;
+    vec3 proxy_normal = DecodeOctahedralNormal(proxy.rg);
+    return plane_weight * smoothstep(guide.normal_floor, 1.0, dot(proxy_normal, guide.normal_world));
 }
 
 void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
-        vec3 previous_view, vec3 receiver_view, vec3 geo_normal_world,
-        vec3 normal_world, vec2 material, inout OpaqueHistoryGather gather) {
+        OpaqueHistoryGuide guide, inout OpaqueHistoryGather gather) {
     if (any(lessThan(tap, ivec2(0))) || any(greaterThanEqual(tap, ivec2(u_render_res)))) return;
     if (weight < 1e-5) return;
     uvec4 data = texelFetch(colortex6, tap, 0);
-    weight *= OpaqueHistoryTapWeight(receiver_texel, tap, data, previous_view, receiver_view,
-        geo_normal_world, normal_world, material);
+    weight *= OpaqueHistoryTapWeight(receiver_texel, tap, data, guide);
     if (weight <= 0.0) return;
     vec3 history_z = OpaqueHistoryMean(tap, data);
     float history_variance = OpaqueHistoryVariance(data);
@@ -177,7 +191,7 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
 }
 
 vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
-        vec3 receiver_view, vec3 normal_world, vec3 geo_normal_world,
+        vec3 receiver_view, vec3 normal_world, vec3 geo_normal_world, vec3 geo_view,
         vec2 material, int material_id, out uvec4 metadata) {
     float age = 1.0;
     float variance = 0.0;
@@ -191,15 +205,28 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
     bool camera_valid = u_camera_delta_sq < 16.0 && dot(current_forward, previous_forward) > 0.85
         && abs(gbufferPreviousProjection[1][1] / gbufferProjection[1][1] - 1.0) < 0.15;
     if (frameCounter > 1 && material_id != 64 && camera_valid) {
-        vec3 previous_view = (gbufferPreviousModelView * vec4(world_pos + u_camera_delta, 1.0)).xyz;
-        vec4 clip = gbufferPreviousProjection * vec4(previous_view, 1.0);
-        vec2 previous_uv = clip.xy / clip.w * 0.5 + 0.5;
+        // Reproject a displacement, not a view -> world -> view round trip.
+        // This preserves exact zero pixel motion for identical camera frames;
+        // round-off must not activate three almost-zero bilinear taps.
+        vec4 receiver_world = vec4(world_pos, 1.0);
+        vec3 delta_view = vec3(dot(u_ssr_previous_delta_x, receiver_world),
+            dot(u_ssr_previous_delta_y, receiver_world), dot(u_ssr_previous_delta_z, receiver_world));
+        vec3 previous_view = receiver_view + delta_view;
+        vec2 current_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
 #ifdef TAA
-        previous_uv += u_taa_offset_previous * 0.5;
+        current_ndc -= u_taa_offset;
 #endif
-        if (clip.w > 0.0 && all(greaterThanEqual(previous_uv, vec2(0.0)))
+        vec2 ndc_delta = (vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1])
+            * delta_view.xy + u_ssr_projection_delta * receiver_view.xy + current_ndc * delta_view.z
+            + gbufferPreviousProjection[2].xy * previous_view.z) / -previous_view.z;
+        vec2 pixel_motion = ndc_delta * (0.5 * u_render_res);
+#ifdef TAA
+        pixel_motion += (u_taa_offset_previous - u_taa_offset) * (0.5 * u_render_res);
+#endif
+        vec2 history_pixel = vec2(texel) + pixel_motion;
+        vec2 previous_uv = (history_pixel + 0.5) * u_render_pixel_size;
+        if (previous_view.z < 0.0 && all(greaterThanEqual(previous_uv, vec2(0.0)))
                 && all(lessThan(previous_uv, vec2(1.0)))) {
-            vec2 history_pixel = previous_uv * u_render_res - 0.5;
             ivec2 base = ivec2(floor(history_pixel));
             vec2 fraction = fract(history_pixel);
             OpaqueHistoryGather gather;
@@ -210,16 +237,24 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
             gather.dominant_weight = 0.0;
             gather.dominant_data = 0u;
             vec2 inverse_fraction = vec2(1.0) - fraction;
+            OpaqueHistoryGuide guide;
+            guide.receiver_view = receiver_view;
+            guide.previous_receiver_view = previous_view;
+            guide.geo_previous_view = mat3(gbufferPreviousModelView) * geo_normal_world;
+            guide.geo_view = geo_view;
+            guide.normal_world = normal_world;
+            guide.material = material;
+            guide.normal_floor = mix(0.999, 0.92, material.x * material.x);
             // Four fixed bilinear taps in the original order. Explicit calls
             // specialize offsets without changing visibility or response.
             GatherOpaqueHistoryTap(texel, base, inverse_fraction.x * inverse_fraction.y,
-                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+                guide, gather);
             GatherOpaqueHistoryTap(texel, base + ivec2(1, 0), fraction.x * inverse_fraction.y,
-                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+                guide, gather);
             GatherOpaqueHistoryTap(texel, base + ivec2(0, 1), inverse_fraction.x * fraction.y,
-                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+                guide, gather);
             GatherOpaqueHistoryTap(texel, base + ivec2(1, 1), fraction.x * fraction.y,
-                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+                guide, gather);
             if (gather.sum_weight > 0.2) {
                 vec3 old_z = gather.sum_z / gather.sum_weight;
                 float old_y = Luminance(old_z);
@@ -235,11 +270,7 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 // during camera rotation while its reflection moves on screen.
                 // Account for that resampling/visibility change independently
                 // of angular parallax. Remove projection jitter from velocity.
-                vec2 screen_velocity = previous_uv - (vec2(texel) + 0.5) * u_render_pixel_size;
-#ifdef TAA
-                screen_velocity -= (u_taa_offset_previous - u_taa_offset) * 0.5;
-#endif
-                float screen_speed = length(screen_velocity * u_render_res);
+                float screen_speed = length(ndc_delta * (0.5 * u_render_res));
                 float motion_response = smoothstep(0.25, 2.0, screen_speed);
                 float moving_frames = mix(3.0, 6.0, smoothstep(0.08, 0.3, material.x));
                 // Interpolate update rates, so even slow movement shortens

@@ -17,6 +17,7 @@
 //   gbuf1.a   = v_material_id / 255.0  (see lib/material/model.glsl for ranges)
 //   gbuf2 (RGBA8) = roughness / raw specular selector / emission / combined AO
 //   colortex12.rg = octahedral-encoded shading world normal (FP16 workspace)
+//   colortex12.ba = roughness / selector proxy; B=-1 marks the hand
 //   gbuf4.rg = octahedral-encoded geometric world normal
 //   gbuf4.zw = lightmap coordinates
 //
@@ -162,4 +163,10 @@ void main() {
     // The existing main workspace holds shading normals until deferred4;
     // deferred4 clears the opposite side before forward translucent blending.
     out_shading_normal = vec4(EncodeOctahedralNormal(w_normal), 0.0, 0.0);
+#if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
+    // These existing channels share the normal's lifetime. FP16 retains
+    // every UNORM8 code after round(x*255), so history validation reads one
+    // current surface packet instead of separate normal/material/id textures.
+    out_shading_normal.ba = vec2(mat_id == 64 ? -1.0 : gbuf2.r, gbuf2.g);
+#endif
 }

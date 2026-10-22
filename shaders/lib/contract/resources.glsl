@@ -43,6 +43,7 @@
 //                                composited by air fog
 //   colortex12  RGBA16F          Sequential workspace:
 //                                opaque main RG = oct shading world normal;
+//                                BA = roughness/selector proxy (B=-1 hand);
 //                                deferred1 alt = low-res cloud current frame;
 //                                flip back to main for deferred2/3/4 normals;
 //                                deferred4 clears alt and flips, then

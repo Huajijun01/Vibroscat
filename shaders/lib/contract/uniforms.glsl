@@ -35,6 +35,13 @@ uniform float u_cam_altitude;      // camera altitude in km (cloud shell / sky L
 uniform vec3 u_camera_delta;      // cameraPosition - previousCameraPosition
 uniform float u_camera_delta_sq;  // |u_camera_delta|^2
 uniform vec3 u_eye_scene_pos;     // gbufferModelViewInverse[3].xyz
+uniform vec3 u_ssr_previous_to_view_x; // rows of R_current * transpose(R_previous)
+uniform vec3 u_ssr_previous_to_view_y;
+uniform vec3 u_ssr_previous_to_view_z;
+uniform vec4 u_ssr_previous_delta_x; // rows of M_previous - M_current, + R_previous * camera_delta
+uniform vec4 u_ssr_previous_delta_y;
+uniform vec4 u_ssr_previous_delta_z;
+uniform vec2 u_ssr_projection_delta; // previous - current projection diagonal
 uniform float u_inv_clip_depth;   // gbufferProjectionInverse[2][3] + [3][3]
 uniform float u_ssr_depth_decode; // SSR_DEPTH_HALF_RCP_SQRT / u_inv_clip_depth
 uniform float u_clip_far_distance; // 1 / u_inv_clip_depth
@@ -116,7 +123,7 @@ uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex9;      // half-res unblurred temporal GI irradiance
 uniform sampler2D colortex10;     // half-res GI receiver geometry and age
 uniform sampler2D colortex11;    // weather
-uniform sampler2D colortex12;     // sequential post workspace
+uniform sampler2D colortex12;     // opaque normal/material proxy, then sequential post workspace
 
 // -- Shadow bindings and transforms --
 uniform mat4 shadowModelView;

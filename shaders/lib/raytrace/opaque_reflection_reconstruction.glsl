@@ -11,16 +11,15 @@
 
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER == 2
 struct OpaqueReflectionFilterGuide {
-    vec3 receiver_view;
     vec3 normal_world;
-    vec3 geo_view;
-    vec3 eye_view;
+    vec2 plane_step;
+    float ray_plane;
+    float receiver_plane;
+    float receiver_depth;
     float roughness;
     float age;
-    float rough_outlier;
     float normal_floor;
     float support_floor;
-    float lobe_width;
     uint selector;
 };
 
@@ -30,29 +29,27 @@ struct OpaqueReflectionFilterState {
     vec3 brightest_z;
     float brightest_y;
     float brightest_weight;
-    float brightest_noise;
+    uint brightest_variance;
+    float brightest_age;
     float support_sum_weight;
     int support_taps;
 };
 
 // Inner taps call this with constant offsets and support=true; outer taps
 // use support=false. Neither path needs indexed private sample storage.
-float AccumulateOpaqueReflectionTap(ivec2 tap, float spatial_weight, bool use_support,
+float AccumulateOpaqueReflectionTap(ivec2 texel, ivec2 offset, float spatial_weight, bool use_support,
         OpaqueReflectionFilterGuide guide, inout OpaqueReflectionFilterState state) {
+    ivec2 tap = texel + offset;
     if (any(lessThan(tap, ivec2(0))) || any(greaterThanEqual(tap, ivec2(u_render_res)))) return 1e30;
     uvec4 data = texelFetch(colortex6, tap, 0);
     float tap_age = OpaqueHistoryAge(data);
     if (tap_age < 1.0) return 1e30;
     float roughness_difference = abs(OpaqueHistoryRoughness(data) - guide.roughness);
     if (roughness_difference > 0.04) return 1e30;
-    vec2 uv = (vec2(tap) + 0.5) * u_render_pixel_size;
-#ifdef TAA
-    uv -= u_taa_offset * 0.5;
-#endif
-    vec2 ray = (uv * 2.0 - 1.0) / vec2(gbufferProjection[0][0], gbufferProjection[1][1]);
-    vec3 tap_view = vec3(ray, -1.0) * OpaqueHistoryDepth(data);
-    float plane_error = abs(dot(tap_view - guide.receiver_view, guide.geo_view));
-    float plane_limit = 0.015 + 0.0012 * max(-tap_view.z, -guide.receiver_view.z);
+    float depth_view = OpaqueHistoryDepth(data);
+    float ray_plane = guide.ray_plane + dot(vec2(offset), guide.plane_step);
+    float plane_error = abs(depth_view * ray_plane - guide.receiver_plane);
+    float plane_limit = 0.015 + 0.0012 * max(depth_view, guide.receiver_depth);
     if (plane_error > plane_limit) return 1e30;
     vec3 tap_normal = DecodeOctahedralNormal(texelFetch(colortex12, tap, 0).rg);
     float normal_dot = dot(guide.normal_world, tap_normal);
@@ -60,8 +57,8 @@ float AccumulateOpaqueReflectionTap(ivec2 tap, float spatial_weight, bool use_su
     float weight = 1.0 / (1.0 + 2.0 * selector_difference);
     weight *= 1.0 - roughness_difference / 0.04;
     weight *= 1.0 - smoothstep(plane_limit * 0.5, plane_limit, plane_error);
-    float view_difference = length(normalize(-tap_view) - guide.eye_view);
-    weight *= 1.0 / (1.0 + view_difference / guide.lobe_width);
+    // The receiver already folded the local angular-lobe factor into the
+    // spatial weight. No tap position or normalized eye vector is needed.
     weight *= min(tap_age / guide.age, 1.0) * spatial_weight;
     float support_weight = use_support ? weight * smoothstep(guide.support_floor, 1.0, normal_dot) : 0.0;
     weight *= smoothstep(guide.normal_floor, 1.0, normal_dot);
@@ -82,8 +79,8 @@ float AccumulateOpaqueReflectionTap(ivec2 tap, float spatial_weight, bool use_su
         state.brightest_z = tap_z;
         state.brightest_y = tap_y;
         state.brightest_weight = weight;
-        state.brightest_noise = max(sqrt(max(OpaqueHistoryVariance(data), 0.0)) / max(tap_y, 0.05),
-            guide.rough_outlier * (1.0 - smoothstep(1.0, 4.0, tap_age)));
+        state.brightest_variance = data.a;
+        state.brightest_age = tap_age;
     }
     return support_y;
 }
@@ -147,40 +144,60 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
     float outer_weight = smoothstep(0.12, 0.25, roughness)
         * smoothstep(0.2, 0.8, relative_noise) * (1.0 - smoothstep(6.0, 12.0, age));
     OpaqueReflectionFilterGuide guide;
-    guide.receiver_view = receiver_view;
     guide.normal_world = normal_world;
-    guide.geo_view = mat3(gbufferModelView) * geo_normal_world;
-    guide.eye_view = normalize(-receiver_view);
+    vec3 geo_view = mat3(gbufferModelView) * geo_normal_world;
+    vec2 uv = (vec2(texel) + 0.5) * u_render_pixel_size;
+#ifdef TAA
+    uv -= u_taa_offset * 0.5;
+#endif
+    vec2 projection_inverse = 1.0 / vec2(gbufferProjection[0][0], gbufferProjection[1][1]);
+    vec2 ray = (uv * 2.0 - 1.0) * projection_inverse;
+    vec2 ray_step = 2.0 * u_render_pixel_size * projection_inverse;
+    guide.plane_step = ray_step * geo_view.xy;
+    guide.ray_plane = dot(vec3(ray, -1.0), geo_view);
+    guide.receiver_plane = dot(receiver_view, geo_view);
+    guide.receiver_depth = -receiver_view.z;
     guide.roughness = roughness;
     guide.age = age;
-    guide.rough_outlier = rough_outlier;
     guide.normal_floor = mix(0.9995, 0.95, roughness * roughness);
     // Broader normals provide statistical support on normal-mapped surfaces;
     // the color average retains the strict normal boundary above.
     guide.support_floor = mix(0.9995, 0.65, rough_outlier);
-    guide.lobe_width = max(roughness * roughness, 0.002);
     guide.selector = center_data.g >> 8;
+    // Differential of normalize(vec3(ray,-1)): squared angular distance is
+    // dx^2*M.x + 2*dx*dy*M.y + dy^2*M.z. The <=2-pixel kernel needs only
+    // this local metric, not a normalized 3D eye vector for every sample.
+    float ray_length_sq = dot(ray, ray) + 1.0;
+    vec3 view_metric = vec3(ray_step.x * ray_step.x * (1.0 + ray.y * ray.y),
+        -ray_step.x * ray_step.y * ray.x * ray.y,
+        ray_step.y * ray_step.y * (1.0 + ray.x * ray.x)) / (ray_length_sq * ray_length_sq);
+    float inverse_lobe = 1.0 / max(roughness * roughness, 0.002);
+    vec2 axial_weight = vec2(0.7) / (vec2(1.0) + sqrt(view_metric.xz) * inverse_lobe);
+    vec2 diagonal_lobe = vec2(1.0) / (vec2(1.0)
+        + sqrt(max(vec2(view_metric.x + view_metric.z) + vec2(2.0, -2.0) * view_metric.y,
+            vec2(0.0))) * inverse_lobe);
     OpaqueReflectionFilterState state;
     state.sum_z = center_z;
     state.sum_weight = 1.0;
     state.brightest_z = vec3(0.0);
     state.brightest_y = 0.0;
     state.brightest_weight = 0.0;
-    state.brightest_noise = 0.0;
+    state.brightest_variance = 0u;
+    state.brightest_age = 1.0;
     state.support_sum_weight = 0.0;
     state.support_taps = 0;
     vec4 support_low;
-    support_low.x = AccumulateOpaqueReflectionTap(texel + ivec2(-1, 0), 0.7, true, guide, state);
-    support_low.y = AccumulateOpaqueReflectionTap(texel + ivec2(1, 0), 0.7, true, guide, state);
-    support_low.z = AccumulateOpaqueReflectionTap(texel + ivec2(0, -1), 0.7, true, guide, state);
-    support_low.w = AccumulateOpaqueReflectionTap(texel + ivec2(0, 1), 0.7, true, guide, state);
+    support_low.x = AccumulateOpaqueReflectionTap(texel, ivec2(-1, 0), axial_weight.x, true, guide, state);
+    support_low.y = AccumulateOpaqueReflectionTap(texel, ivec2(1, 0), axial_weight.x, true, guide, state);
+    support_low.z = AccumulateOpaqueReflectionTap(texel, ivec2(0, -1), axial_weight.y, true, guide, state);
+    support_low.w = AccumulateOpaqueReflectionTap(texel, ivec2(0, 1), axial_weight.y, true, guide, state);
     vec4 support_high = vec4(1e30);
     if (diagonal_weight >= 0.01) {
-        float diagonal = 0.4 * diagonal_weight;
-        support_high.x = AccumulateOpaqueReflectionTap(texel + ivec2(-1, -1), diagonal, true, guide, state);
-        support_high.y = AccumulateOpaqueReflectionTap(texel + ivec2(1, -1), diagonal, true, guide, state);
-        support_high.z = AccumulateOpaqueReflectionTap(texel + ivec2(-1, 1), diagonal, true, guide, state);
-        support_high.w = AccumulateOpaqueReflectionTap(texel + ivec2(1, 1), diagonal, true, guide, state);
+        vec2 diagonal = 0.4 * diagonal_weight * diagonal_lobe;
+        support_high.x = AccumulateOpaqueReflectionTap(texel, ivec2(-1, -1), diagonal.x, true, guide, state);
+        support_high.y = AccumulateOpaqueReflectionTap(texel, ivec2(1, -1), diagonal.y, true, guide, state);
+        support_high.z = AccumulateOpaqueReflectionTap(texel, ivec2(-1, 1), diagonal.y, true, guide, state);
+        support_high.w = AccumulateOpaqueReflectionTap(texel, ivec2(1, 1), diagonal.x, true, guide, state);
         if (outer_weight >= 0.01) {
             for (int i = 0; i < 12; ++i) {
                 ivec2 offset;
@@ -191,8 +208,13 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
                 } else {
                     offset = ivec2((i & 1) * 2 - 1, ((i >> 1) & 1) * 4 - 2);
                 }
-                AccumulateOpaqueReflectionTap(texel + offset,
-                    (i < 4 ? 0.35 : 0.25) * outer_weight, false, guide, state);
+                vec2 offset_float = vec2(offset);
+                float view_difference = sqrt(max(dot(view_metric,
+                    vec3(offset_float.x * offset_float.x, 2.0 * offset_float.x * offset_float.y,
+                        offset_float.y * offset_float.y)), 0.0));
+                float spatial_weight = (i < 4 ? 0.35 : 0.25) * outer_weight
+                    / (1.0 + view_difference * inverse_lobe);
+                AccumulateOpaqueReflectionTap(texel, offset, spatial_weight, false, guide, state);
             }
         }
     }
@@ -202,6 +224,9 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
     // edge supported by several bright taps keeps its energy. This display
     // estimator is intentionally biased; the temporal mean stays unmodified.
     if (state.support_taps >= 4 && state.support_sum_weight > 1.0) {
+        float brightest_noise = max(sqrt(max(OpaqueHistoryVariance(
+            uvec4(0u, 0u, 0u, state.brightest_variance)), 0.0)) / max(state.brightest_y, 0.05),
+            rough_outlier * (1.0 - smoothstep(1.0, 4.0, state.brightest_age)));
         float supported_y = OpaqueReflectionSupportMedian(support_low, support_high, state.support_taps);
         // A broad rough lobe needs stronger local support than a sharp lobe.
         // Newly reset histories have no useful variance yet, so their age
@@ -213,7 +238,7 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
         float center_scale = mix(1.0, min(limit / max(Luminance(center_z), 0.05), 1.0),
             smoothstep(noise_start, noise_full, center_instability));
         float brightest_scale = mix(1.0, min(limit / max(state.brightest_y, 0.05), 1.0),
-            smoothstep(noise_start, noise_full, state.brightest_noise));
+            smoothstep(noise_start, noise_full, brightest_noise));
         state.sum_z += center_z * (center_scale - 1.0)
             + state.brightest_z * (state.brightest_weight * (brightest_scale - 1.0));
     }

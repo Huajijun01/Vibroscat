@@ -18,12 +18,14 @@
 //                                bytes of translucent RGB UNORM16 surface data;
 //                                colortex1 RGB carries the high bytes while its
 //                                material-ID alpha survives. A = water flag.
-//   colortex3   R11F_G11F_B10F   Opaque reflection incident radiance transient
+//   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, coarse RGB
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
 //                                lightmap (BA) (solid -> deferred4)
 //   colortex5   R11F_G11F_B10F   TAA history; optional history-side color mips
 //                                generated before deferred2 only. Other readers
 //                                explicitly select mip 0 after later writes.
+//   colortex6   RGBA16UI         SSR depth16/rough8/selector8/RGB remainder8/age5/state3/
+//                                log-variance16; no historical normal or M
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (AO*1020 integer, age, encoded view depth,
@@ -75,12 +77,19 @@ const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
 */
 
+#if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
+/*
+const int colortex6Format = RGBA16UI;
+*/
+const bool colortex6Clear = false;
+#endif
+
 // -- Clear flags --
 // true = cleared each frame before shader writes. false = carry data across frames.
 const bool colortex0Clear  = false;   // scene output
 const bool colortex1Clear  = false;   // GBuffer albedo
 const bool colortex2Clear  = false;   // GBuffer scalars, then translucent low bytes/flag
-const bool colortex3Clear  = false;   // opaque reflection incident radiance transient
+const bool colortex3Clear  = false;   // unblurred opaque reflection history
 const bool colortex4Clear  = false;   // opaque geometric world normal + lightmap
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)

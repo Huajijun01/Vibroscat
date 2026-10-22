@@ -628,6 +628,19 @@ High quality reuses the same mother texels for five normal layers and three
 POM height layers. Per-layer translations approximate dispersion rather than
 providing per-mode FFT animation. Generated assets use the pack's GPL-3.0 license.
 
+## 31. Opaque reflection material demodulation (concept only)
+
+The signal convention of dividing a correctly weighted specular sample by a
+stable integrated material factor before denoising, then restoring the current
+factor, references NVIDIA NRD v4.18.0's README, "MATERIAL DEMODULATION":
+https://github.com/NVIDIA-RTX/NRD . The inspected snapshot uses the NVIDIA RTX
+SDKs LICENSE, not MIT. No NRD source, helper, fit coefficients or assets are
+included. The project's `lib/lighting/specular_material_factor.glsl` rational
+approximation is independently fitted to numerical integration of this pack's
+GGX VNDF and Smith model. Reflection history, compact mean storage, current-frame
+normal estimation, reconstruction and outlier suppression are independently
+implemented for this pack and distributed under its GPL-3.0 license.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

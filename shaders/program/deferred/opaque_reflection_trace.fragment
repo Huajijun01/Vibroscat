@@ -1,12 +1,21 @@
-/* RENDERTARGETS: 3 */
-
 #include "/lib/contract/settings.glsl"
+#if OPAQUE_SSR_FILTER > 0
+/* RENDERTARGETS: 3,6 */
+#else
+/* RENDERTARGETS: 3 */
+#endif
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
+#include "/lib/color/spaces.glsl"
+#include "/lib/lighting/brdf.glsl"
+#include "/lib/lighting/specular_material_factor.glsl"
+#include "/lib/material/model.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
+#include "/lib/raytrace/opaque_reflection_history.glsl"
 
 #if OPAQUE_SSR_COLOR_MIPS > 0
 // Generate only the physical history side read by this pass, before tracing.
@@ -14,16 +23,26 @@ const bool colortex5MipmapEnabled = true;
 #endif
 
 layout(location = 0) out vec3 out_reflection_radiance;
+#if OPAQUE_SSR_FILTER > 0
+layout(location = 1) out uvec4 out_history_metadata;
+#endif
 
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     out_reflection_radiance = vec3(0.0);
+#if OPAQUE_SSR_FILTER > 0
+    out_history_metadata = uvec4(0u);
+#endif
 
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     if (scene_depth >= 1.0) return;
 
-    float roughness = texelFetch(colortex2, tx, 0).r;
+    vec4 material_data = texelFetch(colortex2, tx, 0);
+    vec4 albedo_data = texelFetch(colortex1, tx, 0);
+    int material_id = int(albedo_data.a * 255.0 + 0.5);
+    bool is_hand = material_id == 64;
+    float roughness = material_data.r;
     if (roughness >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
     vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
 
@@ -35,15 +54,17 @@ void main() {
     // colortex4 carries the world-space geometric normal; only the ray offset
     // below needs it in view space. The octahedral decode returns a unit
     // vector and the camera rotation preserves its length.
-    vec3 geo_view_normal = mat3(gbufferModelView)
-        * DecodeOctahedralNormal(geometry_data.xy);
+    vec3 geo_normal_world = DecodeOctahedralNormal(geometry_data.xy);
+    vec3 geo_view_normal = mat3(gbufferModelView) * geo_normal_world;
 
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
 #ifdef TAA
-    vec3 world_pos = DepthToWorldPos(uv - u_taa_offset * 0.5, scene_depth);
-#else
-    vec3 world_pos = DepthToWorldPos(uv, scene_depth);
+    uv -= u_taa_offset * 0.5;
 #endif
+    float ndc_depth = scene_depth * 2.0 - 1.0;
+    if (is_hand) ndc_depth /= MC_HAND_DEPTH;
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
+    vec3 world_pos = ViewToSceneSpace(view_pos);
     vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
     if (dot(normal_world, view_to_eye) <= 1e-5) return;
 
@@ -53,16 +74,17 @@ void main() {
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
         normal_world, view_to_eye, roughness, stbn_random, half_vector);
-    if (dot(reflection_direction, reflection_direction) < 1e-10) return;
-
-    vec3 view_pos = SceneToViewSpace(world_pos);
-    vec3 view_direction = normalize(
-        mat3(gbufferModelView) * reflection_direction);
+    // Below-surface VNDF samples are valid zero contributions, not invalid
+    // receivers. They must reach the temporal update with a zero sample.
+    bool valid_direction = dot(reflection_direction, reflection_direction) > 1e-10;
+    vec3 view_direction = valid_direction
+        ? normalize(mat3(gbufferModelView) * reflection_direction) : vec3(0.0);
     // Keep the normal separation for self-intersection, but do not advance
     // along the ray: nearby corner hits can be less than 5 cm away.
     vec3 trace_origin = view_pos + geo_view_normal * 0.03;
     float trace_jitter = stbn_random.y;
-    SSRHit shared_hit = TraceOpaqueSSR(trace_origin, view_direction, trace_jitter);
+    SSRHit shared_hit = SSRMiss();
+    if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_direction, trace_jitter);
     // History hits replace the sky-radiance environment sample entirely, so
     // the environment fetch only runs when no history was accepted.
     vec3 reflection_radiance;
@@ -89,6 +111,18 @@ void main() {
             trace_origin, roughness), 1.0, roughness)
         : vec3(0.0);
 #else
-    out_reflection_radiance = reflection_radiance;
+    PBRMaterial material = ResolveOpaquePBR(ToLinear(albedo_data.rgb),
+        roughness, material_data.g, material_data.b, 0.0);
+    float ndotv = saturate(dot(normal_world, view_to_eye));
+    vec3 throughput = VisibleGGXThroughput(material.f0, saturate(dot(view_to_eye, half_vector)),
+        ndotv, valid_direction ? saturate(dot(normal_world, reflection_direction)) : 0.0, material.alpha);
+    vec3 factor = SpecularMaterialFactor(material.f0, ndotv, roughness);
+    vec3 sample_z = reflection_radiance * throughput / factor;
+#if OPAQUE_SSR_FILTER > 0
+    out_reflection_radiance = AccumulateOpaqueHistory(tx, sample_z, world_pos, view_pos,
+        normal_world, geo_normal_world, material_data.rg, material_id, out_history_metadata);
+#else
+    out_reflection_radiance = sample_z;
+#endif
 #endif
 }

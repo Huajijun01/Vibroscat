@@ -388,6 +388,13 @@ option.BOUNDARY_FOG_HEIGHT_FADE.comment = How much the edge haze weakens when lo
 option.OPAQUE_REFLECTION = Solid Surface Reflections
 option.OPAQUE_REFLECTION.comment = Lets shiny solid blocks reflect the actual scene around them. Off = only a generic sky-based sheen remains.
 option.OPAQUE_SSR_STEPS = Opaque Reflection Steps
+option.OPAQUE_SSR_FILTER = Reflection Denoising
+option.OPAQUE_SSR_FILTER.comment = Accumulates reflections independently of TAA. Spatial filtering keeps geometry and reflection lobe boundaries; moving or newly exposed surfaces use shorter history.
+value.OPAQUE_SSR_FILTER.0 = Off
+value.OPAQUE_SSR_FILTER.1 = Temporal
+value.OPAQUE_SSR_FILTER.2 = Temporal + Spatial
+option.OPAQUE_SSR_DEMODULATION = Reflection Material Detail
+option.OPAQUE_SSR_DEMODULATION.comment = Removes stable material color and strength before denoising, then restores the current material. Helps preserve metal colors and material texture detail.
 option.OPAQUE_SSR_COLOR_MIPS = Reflection Color Mips (Experimental)
 option.OPAQUE_SSR_COLOR_MIPS.comment = Filters opaque reflection history by roughness and hit distance. Can reduce sparkling at a small GPU and texture-memory cost; bright silhouettes may bleed. Generate Only measures mip generation without filtering.
 value.OPAQUE_SSR_COLOR_MIPS.0 = Off

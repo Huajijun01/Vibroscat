@@ -517,6 +517,16 @@ https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的�
 没有移植第三方生成器、代码或资产。高档复用同一份母图采样 5 层法线和 3 层 POM 高度；
 按层平移仅近似色散，不是逐模式 FFT 动画。独立生成资产按本包 GPL-3.0 使用。
 
+## 31. 不透明反射材质去调制（仅概念参考）
+
+对带有正确采样权重的镜面贡献除以稳定积分材质因子、降噪后恢复当前因子的
+信号约定，概念参考 NVIDIA NRD v4.18.0 README 的「MATERIAL DEMODULATION」：
+https://github.com/NVIDIA-RTX/NRD 。所检查快照采用 NVIDIA RTX SDKs LICENSE，
+不是 MIT。没有引入 NRD 源码、helper、拟合系数或资产。本项目
+`lib/lighting/specular_material_factor.glsl` 的有理近似，依据本包自身 GGX VNDF
+及 Smith 模型的数值积分独立拟合。反射历史、紧凑均值存储、当前帧法线估计、
+空间重建与异常亮点抑制均为本包独立实现，按本包 GPL-3.0 分发。
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

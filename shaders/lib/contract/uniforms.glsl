@@ -106,9 +106,12 @@ uniform sampler2D specular;       // LabPBR specular atlas (1x1 fallback = none)
 uniform sampler2D colortex0;      // scene color (post chain input)
 uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
 uniform sampler2D colortex2;      // opaque/translucent surface data
-uniform sampler2D colortex3;      // opaque reflection incident radiance transient
+uniform sampler2D colortex3;      // demodulated mean; colortex6 carries its RGB low bits
 uniform sampler2D colortex4;      // geometric normal + lightmap
 uniform sampler2D colortex5;      // TAA / composite history
+#if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
+uniform usampler2D colortex6;     // packed 64-bit SSR metadata; integer texelFetch only
+#endif
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex9;      // half-res unblurred temporal GI irradiance
 uniform sampler2D colortex10;     // half-res GI receiver geometry and age

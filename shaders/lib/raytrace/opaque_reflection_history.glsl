@@ -35,8 +35,10 @@ float OpaqueHistoryRoughness(uvec4 data) {
 // Every consumer must reconstruct these before accumulating/filtering Z.
 vec3 OpaqueHistoryMean(ivec2 texel, uvec4 data) {
     vec3 coarse = texelFetch(colortex3, texel, 0).rgb;
-    ivec3 exponent = ivec3((floatBitsToUint(coarse) >> 23) & uvec3(255u)) - 127;
-    vec3 spacing = exp2(vec3(max(exponent, ivec3(-14)) - ivec3(9, 9, 7)));
+    uvec3 exponent = (floatBitsToUint(coarse) >> 23) & uvec3(255u);
+    // The spacing is a normal, exact power of two, including the coarse
+    // format's subnormal range (biased exponent floor 127 - 14 = 113).
+    vec3 spacing = uintBitsToFloat((max(exponent, uvec3(113u)) - uvec3(9u, 9u, 7u)) << 23);
     uvec3 remainder = uvec3(data.b & 7u, (data.b >> 3) & 7u, (data.b >> 6) & 3u);
     return coarse + vec3(remainder) * spacing;
 }
@@ -59,8 +61,8 @@ uvec4 PackOpaqueHistory(float depth_view, vec2 material, uint remainder,
 // This stream is independent of STBN and of the optional display dither.
 vec3 QuantizeOpaqueHistory(vec3 value, ivec2 texel, out uint remainder, out vec3 reconstructed) {
     uvec3 bits = floatBitsToUint(value);
-    ivec3 exponent = ivec3((bits >> 23) & uvec3(255u)) - 127;
-    vec3 spacing = exp2(vec3(max(exponent, ivec3(-14)) - ivec3(9, 9, 7)));
+    uvec3 exponent = (bits >> 23) & uvec3(255u);
+    vec3 spacing = uintBitsToFloat((max(exponent, uvec3(113u)) - uvec3(9u, 9u, 7u)) << 23);
     vec3 units = value / spacing;
     // Avalanche before splitting independent RGB bit fields. A linear seed
     // followed by xorshift leaves strong spatial periods in this low-bit RGB.
@@ -76,6 +78,15 @@ vec3 QuantizeOpaqueHistory(vec3 value, ivec2 texel, out uint remainder, out vec3
 }
 
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
+
+struct OpaqueHistoryGather {
+    vec3 sum_z;
+    float sum_second;
+    float sum_age;
+    float sum_weight;
+    float dominant_weight;
+    uint dominant_data;
+};
 
 // A previous tap is reconstructed at its OWN texel center and stored depth.
 vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
@@ -142,6 +153,29 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     return plane_weight * smoothstep(normal_floor, 1.0, dot(proxy_normal, normal_world));
 }
 
+void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
+        vec3 previous_view, vec3 receiver_view, vec3 geo_normal_world,
+        vec3 normal_world, vec2 material, inout OpaqueHistoryGather gather) {
+    if (any(lessThan(tap, ivec2(0))) || any(greaterThanEqual(tap, ivec2(u_render_res)))) return;
+    if (weight < 1e-5) return;
+    uvec4 data = texelFetch(colortex6, tap, 0);
+    weight *= OpaqueHistoryTapWeight(receiver_texel, tap, data, previous_view, receiver_view,
+        geo_normal_world, normal_world, material);
+    if (weight <= 0.0) return;
+    vec3 history_z = OpaqueHistoryMean(tap, data);
+    float history_variance = OpaqueHistoryVariance(data);
+    if (!IsFinite(history_z) || isnan(history_variance) || isinf(history_variance)) return;
+    float y = Luminance(history_z);
+    gather.sum_z += weight * history_z;
+    gather.sum_second += weight * (history_variance + y * y);
+    gather.sum_age += weight * OpaqueHistoryAge(data);
+    gather.sum_weight += weight;
+    if (weight > gather.dominant_weight) {
+        gather.dominant_weight = weight;
+        gather.dominant_data = data.b;
+    }
+}
+
 vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
         vec3 receiver_view, vec3 normal_world, vec3 geo_normal_world,
         vec2 material, int material_id, out uvec4 metadata) {
@@ -168,41 +202,29 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
             vec2 history_pixel = previous_uv * u_render_res - 0.5;
             ivec2 base = ivec2(floor(history_pixel));
             vec2 fraction = fract(history_pixel);
-            vec3 sum_z = vec3(0.0);
-            float sum_second = 0.0;
-            float sum_age = 0.0;
-            float sum_weight = 0.0;
-            float dominant_weight = 0.0;
-            uint dominant_data = 0u;
-            for (int i = 0; i < 4; ++i) {
-                ivec2 offset = ivec2(i & 1, i >> 1);
-                ivec2 tap = base + offset;
-                if (any(lessThan(tap, ivec2(0))) || any(greaterThanEqual(tap, ivec2(u_render_res)))) continue;
-                vec2 axis_weight = mix(vec2(1.0) - fraction, fraction, vec2(offset));
-                float weight = axis_weight.x * axis_weight.y;
-                if (weight < 1e-5) continue;
-                uvec4 data = texelFetch(colortex6, tap, 0);
-                weight *= OpaqueHistoryTapWeight(texel, tap, data, previous_view, receiver_view,
-                    geo_normal_world, normal_world, material);
-                if (weight <= 0.0) continue;
-                vec3 history_z = OpaqueHistoryMean(tap, data);
-                float history_variance = OpaqueHistoryVariance(data);
-                if (!IsFinite(history_z) || isnan(history_variance) || isinf(history_variance)) continue;
-                float y = Luminance(history_z);
-                sum_z += weight * history_z;
-                sum_second += weight * (history_variance + y * y);
-                sum_age += weight * OpaqueHistoryAge(data);
-                sum_weight += weight;
-                if (weight > dominant_weight) {
-                    dominant_weight = weight;
-                    dominant_data = data.b;
-                }
-            }
-            if (sum_weight > 0.2) {
-                vec3 old_z = sum_z / sum_weight;
+            OpaqueHistoryGather gather;
+            gather.sum_z = vec3(0.0);
+            gather.sum_second = 0.0;
+            gather.sum_age = 0.0;
+            gather.sum_weight = 0.0;
+            gather.dominant_weight = 0.0;
+            gather.dominant_data = 0u;
+            vec2 inverse_fraction = vec2(1.0) - fraction;
+            // Four fixed bilinear taps in the original order. Explicit calls
+            // specialize offsets without changing visibility or response.
+            GatherOpaqueHistoryTap(texel, base, inverse_fraction.x * inverse_fraction.y,
+                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+            GatherOpaqueHistoryTap(texel, base + ivec2(1, 0), fraction.x * inverse_fraction.y,
+                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+            GatherOpaqueHistoryTap(texel, base + ivec2(0, 1), inverse_fraction.x * fraction.y,
+                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+            GatherOpaqueHistoryTap(texel, base + ivec2(1, 1), fraction.x * fraction.y,
+                previous_view, receiver_view, geo_normal_world, normal_world, material, gather);
+            if (gather.sum_weight > 0.2) {
+                vec3 old_z = gather.sum_z / gather.sum_weight;
                 float old_y = Luminance(old_z);
-                float old_variance = max(sum_second / sum_weight - old_y * old_y, 0.0);
-                float old_age = sum_age / sum_weight * min(sum_weight, 1.0);
+                float old_variance = max(gather.sum_second / gather.sum_weight - old_y * old_y, 0.0);
+                float old_age = gather.sum_age / gather.sum_weight * min(gather.sum_weight, 1.0);
                 vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);
                 vec3 eye_world = normalize(EyePositionSceneSpace() - world_pos);
                 float angle_motion = length(eye_world - old_eye_world);
@@ -235,7 +257,7 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                         || (wetness > 0.01 && geo_normal_world.y > 0.9)) {
                     history_limit = min(history_limit, 4.0);
                 }
-                uint state = dominant_data >> 13;
+                uint state = gather.dominant_data >> 13;
                 int old_change = state <= 3u ? int(state) : state <= 6u ? 3 - int(state) : 0;
                 float residual = sample_y - old_y;
                 float threshold = max(mix(2.5, 1.25, motion_response) * sqrt(old_variance),

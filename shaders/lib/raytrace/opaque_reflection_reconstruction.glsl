@@ -10,35 +10,115 @@
 #include "/lib/raytrace/opaque_reflection_history.glsl"
 
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER == 2
+struct OpaqueReflectionFilterGuide {
+    vec3 receiver_view;
+    vec3 normal_world;
+    vec3 geo_view;
+    vec3 eye_view;
+    float roughness;
+    float age;
+    float rough_outlier;
+    float normal_floor;
+    float support_floor;
+    float lobe_width;
+    uint selector;
+};
+
+struct OpaqueReflectionFilterState {
+    vec3 sum_z;
+    float sum_weight;
+    vec3 brightest_z;
+    float brightest_y;
+    float brightest_weight;
+    float brightest_noise;
+    float support_sum_weight;
+    int support_taps;
+};
+
+// Inner taps call this with constant offsets and support=true; outer taps
+// use support=false. Neither path needs indexed private sample storage.
+float AccumulateOpaqueReflectionTap(ivec2 tap, float spatial_weight, bool use_support,
+        OpaqueReflectionFilterGuide guide, inout OpaqueReflectionFilterState state) {
+    if (any(lessThan(tap, ivec2(0))) || any(greaterThanEqual(tap, ivec2(u_render_res)))) return 1e30;
+    uvec4 data = texelFetch(colortex6, tap, 0);
+    float tap_age = OpaqueHistoryAge(data);
+    if (tap_age < 1.0) return 1e30;
+    float roughness_difference = abs(OpaqueHistoryRoughness(data) - guide.roughness);
+    if (roughness_difference > 0.04) return 1e30;
+    vec2 uv = (vec2(tap) + 0.5) * u_render_pixel_size;
+#ifdef TAA
+    uv -= u_taa_offset * 0.5;
+#endif
+    vec2 ray = (uv * 2.0 - 1.0) / vec2(gbufferProjection[0][0], gbufferProjection[1][1]);
+    vec3 tap_view = vec3(ray, -1.0) * OpaqueHistoryDepth(data);
+    float plane_error = abs(dot(tap_view - guide.receiver_view, guide.geo_view));
+    float plane_limit = 0.015 + 0.0012 * max(-tap_view.z, -guide.receiver_view.z);
+    if (plane_error > plane_limit) return 1e30;
+    vec3 tap_normal = DecodeOctahedralNormal(texelFetch(colortex12, tap, 0).rg);
+    float normal_dot = dot(guide.normal_world, tap_normal);
+    float selector_difference = abs(float(data.g >> 8) - float(guide.selector)) / 255.0;
+    float weight = 1.0 / (1.0 + 2.0 * selector_difference);
+    weight *= 1.0 - roughness_difference / 0.04;
+    weight *= 1.0 - smoothstep(plane_limit * 0.5, plane_limit, plane_error);
+    float view_difference = length(normalize(-tap_view) - guide.eye_view);
+    weight *= 1.0 / (1.0 + view_difference / guide.lobe_width);
+    weight *= min(tap_age / guide.age, 1.0) * spatial_weight;
+    float support_weight = use_support ? weight * smoothstep(guide.support_floor, 1.0, normal_dot) : 0.0;
+    weight *= smoothstep(guide.normal_floor, 1.0, normal_dot);
+    if (max(weight, support_weight) <= 1e-4) return 1e30;
+    vec3 tap_z = OpaqueHistoryMean(tap, data);
+    if (!IsFinite(tap_z)) return 1e30;
+    float tap_y = Luminance(tap_z);
+    float support_y = 1e30;
+    if (support_weight > 1e-4) {
+        state.support_sum_weight += support_weight;
+        ++state.support_taps;
+        support_y = tap_y;
+    }
+    if (weight <= 1e-4) return support_y;
+    state.sum_z += weight * tap_z;
+    state.sum_weight += weight;
+    if (tap_y > state.brightest_y) {
+        state.brightest_z = tap_z;
+        state.brightest_y = tap_y;
+        state.brightest_weight = weight;
+        state.brightest_noise = max(sqrt(max(OpaqueHistoryVariance(data), 0.0)) / max(tap_y, 0.05),
+            guide.rough_outlier * (1.0 - smoothstep(1.0, 4.0, tap_age)));
+    }
+    return support_y;
+}
+
 void OrderOpaqueReflectionSupport(inout float a, inout float b) {
     float low = min(a, b);
     b = max(a, b);
     a = low;
 }
 
-float OpaqueReflectionSupportMedian(float values[8], int count) {
+float OpaqueReflectionSupportMedian(vec4 low, vec4 high, int count) {
     // Fixed eight-value sorting network. Missing taps sort after valid ones;
     // the upper median preserves a bright edge with half-neighborhood support.
-    OrderOpaqueReflectionSupport(values[0], values[1]);
-    OrderOpaqueReflectionSupport(values[2], values[3]);
-    OrderOpaqueReflectionSupport(values[4], values[5]);
-    OrderOpaqueReflectionSupport(values[6], values[7]);
-    OrderOpaqueReflectionSupport(values[0], values[2]);
-    OrderOpaqueReflectionSupport(values[1], values[3]);
-    OrderOpaqueReflectionSupport(values[4], values[6]);
-    OrderOpaqueReflectionSupport(values[5], values[7]);
-    OrderOpaqueReflectionSupport(values[1], values[2]);
-    OrderOpaqueReflectionSupport(values[5], values[6]);
-    OrderOpaqueReflectionSupport(values[0], values[4]);
-    OrderOpaqueReflectionSupport(values[3], values[7]);
-    OrderOpaqueReflectionSupport(values[1], values[5]);
-    OrderOpaqueReflectionSupport(values[2], values[6]);
-    OrderOpaqueReflectionSupport(values[1], values[4]);
-    OrderOpaqueReflectionSupport(values[3], values[6]);
-    OrderOpaqueReflectionSupport(values[2], values[4]);
-    OrderOpaqueReflectionSupport(values[3], values[5]);
-    OrderOpaqueReflectionSupport(values[3], values[4]);
-    return values[count / 2];
+    OrderOpaqueReflectionSupport(low.x, low.y);
+    OrderOpaqueReflectionSupport(low.z, low.w);
+    OrderOpaqueReflectionSupport(high.x, high.y);
+    OrderOpaqueReflectionSupport(high.z, high.w);
+    OrderOpaqueReflectionSupport(low.x, low.z);
+    OrderOpaqueReflectionSupport(low.y, low.w);
+    OrderOpaqueReflectionSupport(high.x, high.z);
+    OrderOpaqueReflectionSupport(high.y, high.w);
+    OrderOpaqueReflectionSupport(low.y, low.z);
+    OrderOpaqueReflectionSupport(high.y, high.z);
+    OrderOpaqueReflectionSupport(low.x, high.x);
+    OrderOpaqueReflectionSupport(low.w, high.w);
+    OrderOpaqueReflectionSupport(low.y, high.y);
+    OrderOpaqueReflectionSupport(low.z, high.z);
+    OrderOpaqueReflectionSupport(low.y, high.x);
+    OrderOpaqueReflectionSupport(low.w, high.z);
+    OrderOpaqueReflectionSupport(low.z, high.x);
+    OrderOpaqueReflectionSupport(low.w, high.y);
+    OrderOpaqueReflectionSupport(low.w, high.x);
+    // The caller has 4..8 valid taps, so only sorted elements 2, 3, 4
+    // can be selected. Keep every component statically addressable.
+    return count < 6 ? low.z : count < 8 ? low.w : high.x;
 }
 #endif
 
@@ -66,78 +146,54 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
     // rough, noisy histories; established stationary means keep the small kernel.
     float outer_weight = smoothstep(0.12, 0.25, roughness)
         * smoothstep(0.2, 0.8, relative_noise) * (1.0 - smoothstep(6.0, 12.0, age));
-    vec3 sum_z = center_z;
-    float sum_weight = 1.0;
-    vec3 brightest_z = vec3(0.0);
-    float brightest_y = 0.0;
-    float brightest_weight = 0.0;
-    float brightest_noise = 0.0;
-    float support_sum_weight = 0.0;
-    int support_taps = 0;
-    float support_values[8] = float[8](1e30, 1e30, 1e30, 1e30, 1e30, 1e30, 1e30, 1e30);
-    vec3 geo_view = mat3(gbufferModelView) * geo_normal_world;
-    const ivec2 OFFSETS[20] = ivec2[20](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1),
-        ivec2(-1, -1), ivec2(1, -1), ivec2(-1, 1), ivec2(1, 1),
-        ivec2(-2, 0), ivec2(2, 0), ivec2(0, -2), ivec2(0, 2),
-        ivec2(-2, -1), ivec2(-2, 1), ivec2(2, -1), ivec2(2, 1),
-        ivec2(-1, -2), ivec2(1, -2), ivec2(-1, 2), ivec2(1, 2));
-    for (int i = 0; i < 20; ++i) {
-        if (i >= 4 && diagonal_weight < 0.01) break;
-        if (i >= 8 && outer_weight < 0.01) break;
-        ivec2 tap = texel + OFFSETS[i];
-        if (any(lessThan(tap, ivec2(0))) || any(greaterThanEqual(tap, ivec2(u_render_res)))) continue;
-        uvec4 data = texelFetch(colortex6, tap, 0);
-        float tap_age = OpaqueHistoryAge(data);
-        if (tap_age < 1.0) continue;
-        float roughness_difference = abs(OpaqueHistoryRoughness(data) - roughness);
-        if (roughness_difference > 0.04) continue;
-        vec2 uv = (vec2(tap) + 0.5) * u_render_pixel_size;
-#ifdef TAA
-        uv -= u_taa_offset * 0.5;
-#endif
-        vec2 ray = (uv * 2.0 - 1.0) / vec2(gbufferProjection[0][0], gbufferProjection[1][1]);
-        vec3 tap_view = vec3(ray, -1.0) * OpaqueHistoryDepth(data);
-        float plane_error = abs(dot(tap_view - receiver_view, geo_view));
-        float plane_limit = 0.015 + 0.0012 * max(-tap_view.z, -receiver_view.z);
-        if (plane_error > plane_limit) continue;
-        vec3 tap_normal = DecodeOctahedralNormal(texelFetch(colortex12, tap, 0).rg);
-        float normal_floor = mix(0.9995, 0.95, roughness * roughness);
-        float normal_dot = dot(normal_world, tap_normal);
-        float weight = 1.0;
-        // Same GGX model permits color/F0 edges; selector changes are soft.
-        float selector_difference = abs(float(data.g >> 8) - float(center_data.g >> 8)) / 255.0;
-        weight *= 1.0 / (1.0 + 2.0 * selector_difference);
-        weight *= 1.0 - roughness_difference / 0.04;
-        weight *= 1.0 - smoothstep(plane_limit * 0.5, plane_limit, plane_error);
-        float view_difference = length(normalize(-tap_view) - normalize(-receiver_view));
-        weight *= 1.0 / (1.0 + view_difference / max(roughness * roughness, 0.002));
-        float spatial_weight = i < 4 ? 0.7 : i < 8 ? 0.4 * diagonal_weight
-            : (i < 12 ? 0.35 : 0.25) * outer_weight;
-        weight *= min(tap_age / max(age, 1.0), 1.0) * spatial_weight;
-        // Normal-map detail must not leave a rough outlier with no statistical
-        // support. Use a broader normal guide for its luminance limit only;
-        // the color average below retains the strict lobe/normal boundary.
-        float support_floor = mix(0.9995, 0.65, smoothstep(0.08, 0.25, roughness));
-        float support_weight = i < 8 ? weight * smoothstep(support_floor, 1.0, normal_dot) : 0.0;
-        weight *= smoothstep(normal_floor, 1.0, normal_dot);
-        if (max(weight, support_weight) <= 1e-4) continue;
-        vec3 tap_z = OpaqueHistoryMean(tap, data);
-        if (!IsFinite(tap_z)) continue;
-        float tap_y = Luminance(tap_z);
-        if (support_weight > 1e-4) {
-            support_sum_weight += support_weight;
-            support_values[support_taps] = tap_y;
-            ++support_taps;
-        }
-        if (weight <= 1e-4) continue;
-        sum_z += weight * tap_z;
-        sum_weight += weight;
-        if (tap_y > brightest_y) {
-            brightest_z = tap_z;
-            brightest_y = tap_y;
-            brightest_weight = weight;
-            brightest_noise = max(sqrt(max(OpaqueHistoryVariance(data), 0.0)) / max(tap_y, 0.05),
-                rough_outlier * (1.0 - smoothstep(1.0, 4.0, tap_age)));
+    OpaqueReflectionFilterGuide guide;
+    guide.receiver_view = receiver_view;
+    guide.normal_world = normal_world;
+    guide.geo_view = mat3(gbufferModelView) * geo_normal_world;
+    guide.eye_view = normalize(-receiver_view);
+    guide.roughness = roughness;
+    guide.age = age;
+    guide.rough_outlier = rough_outlier;
+    guide.normal_floor = mix(0.9995, 0.95, roughness * roughness);
+    // Broader normals provide statistical support on normal-mapped surfaces;
+    // the color average retains the strict normal boundary above.
+    guide.support_floor = mix(0.9995, 0.65, rough_outlier);
+    guide.lobe_width = max(roughness * roughness, 0.002);
+    guide.selector = center_data.g >> 8;
+    OpaqueReflectionFilterState state;
+    state.sum_z = center_z;
+    state.sum_weight = 1.0;
+    state.brightest_z = vec3(0.0);
+    state.brightest_y = 0.0;
+    state.brightest_weight = 0.0;
+    state.brightest_noise = 0.0;
+    state.support_sum_weight = 0.0;
+    state.support_taps = 0;
+    vec4 support_low;
+    support_low.x = AccumulateOpaqueReflectionTap(texel + ivec2(-1, 0), 0.7, true, guide, state);
+    support_low.y = AccumulateOpaqueReflectionTap(texel + ivec2(1, 0), 0.7, true, guide, state);
+    support_low.z = AccumulateOpaqueReflectionTap(texel + ivec2(0, -1), 0.7, true, guide, state);
+    support_low.w = AccumulateOpaqueReflectionTap(texel + ivec2(0, 1), 0.7, true, guide, state);
+    vec4 support_high = vec4(1e30);
+    if (diagonal_weight >= 0.01) {
+        float diagonal = 0.4 * diagonal_weight;
+        support_high.x = AccumulateOpaqueReflectionTap(texel + ivec2(-1, -1), diagonal, true, guide, state);
+        support_high.y = AccumulateOpaqueReflectionTap(texel + ivec2(1, -1), diagonal, true, guide, state);
+        support_high.z = AccumulateOpaqueReflectionTap(texel + ivec2(-1, 1), diagonal, true, guide, state);
+        support_high.w = AccumulateOpaqueReflectionTap(texel + ivec2(1, 1), diagonal, true, guide, state);
+        if (outer_weight >= 0.01) {
+            for (int i = 0; i < 12; ++i) {
+                ivec2 offset;
+                if (i < 4) {
+                    offset = 2 * ivec2(i < 2 ? i * 2 - 1 : 0, i >= 2 ? i * 2 - 5 : 0);
+                } else if (i < 8) {
+                    offset = ivec2(((i >> 1) & 1) * 4 - 2, (i & 1) * 2 - 1);
+                } else {
+                    offset = ivec2((i & 1) * 2 - 1, ((i >> 1) & 1) * 4 - 2);
+                }
+                AccumulateOpaqueReflectionTap(texel + offset,
+                    (i < 4 ? 0.35 : 0.25) * outer_weight, false, guide, state);
+            }
         }
     }
     // Estimate local support without the center. The median also rejects a
@@ -145,8 +201,8 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
     // isolated, noisy outliers are limited; a stable highlight or a reflected
     // edge supported by several bright taps keeps its energy. This display
     // estimator is intentionally biased; the temporal mean stays unmodified.
-    if (support_taps >= 4 && support_sum_weight > 1.0) {
-        float supported_y = OpaqueReflectionSupportMedian(support_values, support_taps);
+    if (state.support_taps >= 4 && state.support_sum_weight > 1.0) {
+        float supported_y = OpaqueReflectionSupportMedian(support_low, support_high, state.support_taps);
         // A broad rough lobe needs stronger local support than a sharp lobe.
         // Newly reset histories have no useful variance yet, so their age
         // supplies uncertainty only for rough surfaces. Keep this out of the
@@ -156,12 +212,12 @@ vec3 ReconstructOpaqueReflection(ivec2 texel, vec3 receiver_view,
         float noise_full = mix(1.5, 0.75, rough_outlier);
         float center_scale = mix(1.0, min(limit / max(Luminance(center_z), 0.05), 1.0),
             smoothstep(noise_start, noise_full, center_instability));
-        float brightest_scale = mix(1.0, min(limit / max(brightest_y, 0.05), 1.0),
-            smoothstep(noise_start, noise_full, brightest_noise));
-        sum_z += center_z * (center_scale - 1.0)
-            + brightest_z * (brightest_weight * (brightest_scale - 1.0));
+        float brightest_scale = mix(1.0, min(limit / max(state.brightest_y, 0.05), 1.0),
+            smoothstep(noise_start, noise_full, state.brightest_noise));
+        state.sum_z += center_z * (center_scale - 1.0)
+            + state.brightest_z * (state.brightest_weight * (brightest_scale - 1.0));
     }
-    return sum_z / sum_weight;
+    return state.sum_z / state.sum_weight;
 #elif defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
     return OpaqueHistoryMean(texel, texelFetch(colortex6, texel, 0));
 #else

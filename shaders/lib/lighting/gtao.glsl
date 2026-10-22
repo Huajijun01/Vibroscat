@@ -50,10 +50,9 @@ vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out flo
     vec3 end_view = center_view + tangent_view * GTAO_RADIUS;
     vec2 end_ndc = ViewToNDC(end_view).xy;
     vec2 delta = (end_ndc - center_ndc) * 0.5 * u_render_res;
-    float projected_radius_px = max(length(delta), 1.0e-5);
-    radius_px = min(projected_radius_px,
-        AO_MAX_SCREEN_RADIUS_FRACTION * min(u_render_res.x, u_render_res.y));
-    return delta / projected_radius_px;
+    // No screen-fraction cap: the search length is the projected radius.
+    radius_px = max(length(delta), 1.0e-5);
+    return delta / radius_px;
 }
 
 // Update one side with the original depth rejection and radius falloff.
@@ -151,21 +150,18 @@ float GTAOBlockedArc(float a, float b, float normal_angle, float inv_normal_leng
 
 // Screen-space GTAO at one pixel (full-res UV and texel). stbn_noise is the
 // SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].
-float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
-    ivec2 center_texel = ivec2(texel);
-    float center_depth = texelFetch(depthtex2, center_texel, 0).r;
+float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2 stbn_noise) {
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
     }
     vec3 center_view = NDCToViewSparse(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0);
     vec3 view_axis = normalize(-center_view);  // toward camera
-    vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
     // colortex4 carries the world-space geometric normal; the slices are built
     // around the view axis, so the transform is paid once per pixel here. The
     // octahedral decode returns a unit vector and the camera rotation
     // preserves its length.
     vec3 normal_view = mat3(gbufferModelView)
-        * DecodeOctahedralNormal(geometry_data.xy);
+        * DecodeOctahedralNormal(normal_oct);
 
     // The slice basis depends only on the toward-camera axis, so its
     // GTAOSliceTangent construction is hoisted here verbatim and each slice
@@ -215,6 +211,15 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
             + GTAOBlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
     }
     return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
+}
+
+// Preserve the existing recursive-GI entry point.
+float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
+    ivec2 center_texel = ivec2(texel);
+    float center_depth = texelFetch(depthtex2, center_texel, 0).r;
+    if (center_depth >= 1.0) return 1.0;
+    vec2 normal_oct = texelFetch(colortex4, center_texel, 0).xy;
+    return ComputeGTAOFromGeometry(uv, center_depth, normal_oct, stbn_noise);
 }
 
 #endif // LIB_LIGHTING_GTAO_GLSL

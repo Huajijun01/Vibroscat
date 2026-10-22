@@ -31,19 +31,16 @@
 
 // Screen-space SSAO at one pixel (full-res UV and texel). stbn_noise is the
 // SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].
-float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
-    ivec2 center_texel = ivec2(texel);
-    float center_depth = texelFetch(depthtex2, center_texel, 0).r;
+float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2 stbn_noise) {
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
     }
     vec3 center_view = NDCToViewSparse(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0);
-    vec4 geometry_data = texelFetch(colortex4, center_texel, 0);
     // colortex4 carries the world-space geometric normal; the hemisphere
     // sampler below is built in view space. The octahedral decode returns a
     // unit vector and the camera rotation preserves its length.
     vec3 normal_view = mat3(gbufferModelView)
-        * DecodeOctahedralNormal(geometry_data.xy);
+        * DecodeOctahedralNormal(normal_oct);
 
     // Tangent frame around the normal for the hemisphere sampling.
     vec3 up = abs(normal_view.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
@@ -58,8 +55,6 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     float azimuth_s = sin(stbn_noise.x * TAU);
     const float azimuth_step_c = cos(TAU * GOLDEN_RATIO);
     const float azimuth_step_s = sin(TAU * GOLDEN_RATIO);
-    float max_radius_px = AO_MAX_SCREEN_RADIUS_FRACTION * min(u_render_res.x, u_render_res.y);
-
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
         // Cosine-weighted hemisphere sample: uniform disk point
@@ -79,11 +74,8 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         // A projected point behind the eye must not be pulled back on screen
         // by the footprint cap when the receiver is closer than the radius.
         if (sample_view.z >= -1.0e-4) continue;
+        // No screen-fraction cap: fetch at the projected sample point.
         vec2 sample_ndc = ViewToNDC(sample_view).xy;
-        // Bound the actual depth fetch footprint, including the RSM AO path.
-        vec2 offset_px = (sample_ndc * 0.5 + 0.5 - uv) * u_render_res;
-        offset_px *= min(1.0, max_radius_px * inversesqrt(max(dot(offset_px, offset_px), 1.0e-8)));
-        sample_ndc = (uv + offset_px * u_render_pixel_size) * 2.0 - 1.0;
         vec2 sample_uv = sample_ndc * 0.5 + 0.5;
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThan(sample_uv, vec2(1.0)))) {
             continue;
@@ -120,6 +112,15 @@ float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
         occlusion += cos_theta * distance_falloff;
     }
     return saturate(1.0 - occlusion / float(SSAO_SAMPLES));
+}
+
+// Preserve the existing recursive-GI entry point.
+float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
+    ivec2 center_texel = ivec2(texel);
+    float center_depth = texelFetch(depthtex2, center_texel, 0).r;
+    if (center_depth >= 1.0) return 1.0;
+    vec2 normal_oct = texelFetch(colortex4, center_texel, 0).xy;
+    return ComputeSSAOFromGeometry(uv, center_depth, normal_oct, stbn_noise);
 }
 
 #endif // LIB_LIGHTING_SSAO_GLSL

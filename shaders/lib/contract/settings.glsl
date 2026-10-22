@@ -221,18 +221,14 @@ const float ambientOcclusionLevel = 1.0;
 // SSGI supplies its own visibility and ignores this selector.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
-#define GTAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
+#define GTAO_RADIUS 2.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
 #define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
 #define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
 // #define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
 #define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
-#define SSAO_RADIUS 1.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
+#define SSAO_RADIUS 2.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
-// Both kernels, including their RSM GI calls, bound depth sampling to 5% of
-// the active scene's shorter dimension. This is a radius, not a diameter.
-const float AO_MAX_SCREEN_RADIUS_FRACTION = 0.05;
-
 // Temporal accumulation runs in deferred1_a against full-resolution history
 // in colortex8. One hardware bilinear history sample passes depth/normal rejection.
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation

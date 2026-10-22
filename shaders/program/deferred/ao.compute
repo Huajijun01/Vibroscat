@@ -43,6 +43,12 @@ void main() {
     // last row/column clamps to the cropped scene when its size is odd.
     ivec2 sample_pixel = min(half_texel * 2, ivec2(u_render_res) - 1);
     vec2 uv = (vec2(sample_pixel) + vec2(0.5)) * u_render_pixel_size;
+    vec2 normal_oct = texelFetch(colortex4, sample_pixel, 0).xy;
+    float scene_depth = texelFetch(depthtex2, sample_pixel, 0).r;
+    if (scene_depth >= 1.0) {
+        imageStore(colorimg2, half_texel, vec4(1.0, normal_oct, 1.0 / 255.0));
+        return;
+    }
     // The AO temporal accumulator runs with or without TAA, so the STBN pair
     // keeps advancing with frameCounter (no STBNFrame() pinning here). The
     // evaluation point is half-res: shift nothing spatially, offset the
@@ -50,26 +56,15 @@ void main() {
     vec2 stbn_noise = SampleSTBNPair(
         half_texel, frameCounter, STBN_STREAM_3, ivec2(0));
 #if defined(GTAO)
-    float ao = ComputeGTAO(uv, vec2(sample_pixel), stbn_noise);
+    float ao = ComputeGTAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
 #elif defined(SSAO)
-    float ao = ComputeSSAO(uv, vec2(sample_pixel), stbn_noise);
+    float ao = ComputeSSAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
 #else
     // Unreachable while deferred1_a is scheduled (AO_MODE != 0 with
     // GI_MODE == 0 implies GTAO or SSAO); keeps `ao` defined if that gating
     // and these macros ever drift apart.
     float ao = 1.0;
 #endif
-    vec2 normal_oct = texelFetch(colortex4, sample_pixel, 0).xy;
-    float scene_depth = texelFetch(depthtex2, sample_pixel, 0).r;
     vec2 accumulated = ResolveTemporalAO(sample_pixel, scene_depth, normal_oct, ao);
-    ao = accumulated.x;
-#if defined(AO_TEMPORAL_ENABLED)
-    // Unbiased UNORM8 conversion prevents small EMA updates from stalling at
-    // an 8-bit boundary. Independent hash bits avoid correlating with rays.
-    uint rounding_bits = LowBias32Hash(uint(half_texel.x) ^ (uint(half_texel.y) * 0x9e3779b9u)
-        ^ (uint(frameCounter) * 0x85ebca6bu));
-    float rounding_noise = float(rounding_bits >> 8) * (1.0 / 16777216.0);
-    ao = floor(clamp(ao, 0.0, 1.0) * 255.0 + rounding_noise) * (1.0 / 255.0);
-#endif
-    imageStore(colorimg2, half_texel, vec4(ao, normal_oct, accumulated.y * (1.0 / 255.0)));
+    imageStore(colorimg2, half_texel, vec4(accumulated.x, normal_oct, accumulated.y * (1.0 / 255.0)));
 }

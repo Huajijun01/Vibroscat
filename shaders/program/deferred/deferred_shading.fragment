@@ -337,9 +337,9 @@ void main() {
             sss_lighting = diffuse_reflectance * visible_response.y;
         }
         // Half-vector work belongs after visibility, outside the screen ray's
-        // live state. Dry rough plants need no direct GGX; wet/smooth plants
-        // retain their original lobe on the real surface normal.
-        if (ndotl > 0.0 && (!plant_receiver || material.perceptual_roughness < 0.5)) {
+        // live state. Plants retain GGX at every roughness on the real surface
+        // normal; their two-sided response replaces only the diffuse lobe.
+        if (ndotl > 0.0) {
             vec3 half_vector = view_to_eye + light_direction;
             vec3 half_direction = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
             // Unit N,V,L and guarded unit H bound both cosines. V.H == L.H.
@@ -350,6 +350,7 @@ void main() {
                 albedo, material.f0, material.diffuse_weight,
                 material.perceptual_roughness,
                 ndotv, ndotl, ndoth, vdoth, vdoth, diffuse_brdf);
+            // Plant diffuse and transmission were already evaluated above.
             if (plant_receiver) direct_brdf = max(direct_brdf - diffuse_brdf, vec3(0.0));
             direct_visibility += direct_brdf * ndotl * shadow_occlusion;
         }

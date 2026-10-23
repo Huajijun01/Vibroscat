@@ -14,7 +14,7 @@
 // Authored additive radiance, separate from the analytic water medium. No
 // second attenuation is applied to scene color. The source is constant along
 // the unrefracted world sun direction, including its projection to the pole.
-vec3 EpipolarWaterRadiance(vec3 start_scene, vec3 direction_world, float distance_m, float ray_jitter) {
+vec3 WaterRadiance(vec3 start_scene, vec3 direction_world, float distance_m, float ray_jitter) {
     float sun_height = u_water_sun_height;
     float sky_access = u_water_skylight;
     if (sun_height <= 0.0 || sky_access <= 0.0) return vec3(0.0);
@@ -49,7 +49,7 @@ vec3 EpipolarWaterRadiance(vec3 start_scene, vec3 direction_world, float distanc
             vec3(source_uv + source_delta * u, source_time), 0.0).r;
         // Positive caustic excess forms shafts without another uniform fog.
         float source = max(irradiance - 0.9, 0.0) * 4.0;
-        float visibility = EpipolarShadowVisibility(shadow_start, shadow_end, u);
+        float visibility = ShadowVisibility(shadow_start, shadow_end, u);
         integral += weight * (source * visibility);
         transmittance = next_transmittance;
     }

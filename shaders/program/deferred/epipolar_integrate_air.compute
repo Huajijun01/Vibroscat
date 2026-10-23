@@ -10,7 +10,7 @@
 layout(local_size_x = 1, local_size_y = 128) in;
 // Iris scans these consts after option defines and full preprocessing, so
 // the dispatch count follows EPIPOLAR_SLICES branch-wise. The in-shader
-// guard stays: underwater EpipolarSliceCount() caps at min(slices, 512),
+// guard stays: underwater SliceCount() caps at min(slices, 512),
 // which no compile-time dispatch can express.
 #if EPIPOLAR_SLICES == 256
 const ivec3 workGroups = ivec3(256, 1, 1);
@@ -27,10 +27,10 @@ layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
 
 void main() {
     uint slice = gl_WorkGroupID.x;
-    if (slice >= uint(EpipolarSliceCount())) return;
+    if (slice >= uint(SliceCount())) return;
     vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(int(slice), 0), 0);
     bool line_valid = !all(equal(line, vec4(0.0)));
-    int sample_count = EpipolarSampleCount();
+    int sample_count = SampleCount();
     float sample_rcp = 1.0 / float(sample_count - 1);
     uint sample_groups = uint((sample_count + 127) / 128);
     vec3 air_start = EyePositionSceneSpace();
@@ -47,14 +47,14 @@ void main() {
             float water_key = 0.0;
             if (line_valid) {
                 vec2 uv = mix(line.xy, line.zw, float(sample_index) * sample_rcp) * 0.5 + 0.5;
-                ivec2 texel = EpipolarScreenTexel(uv);
+                ivec2 texel = ScreenTexel(uv);
                 float depth0 = texelFetch(depthtex0, texel, 0).r;
                 water_key = LinearDepthFromScreenDepth(depth0);
-                vec3 delta = EpipolarViewToScene(uv, depth0) - air_start;
+                vec3 delta = ScenePosFromScreenUV(uv, depth0) - air_start;
                 float distance_m = length(delta);
                 if (distance_m > 1e-6) {
                     float jitter = SampleSTBN(texel, STBNFrame());
-                    radiance = EpipolarWaterRadiance(air_start, delta / distance_m, distance_m, jitter);
+                    radiance = WaterRadiance(air_start, delta / distance_m, distance_m, jitter);
                 }
             }
             imageStore(uimg_epipolar_term, ivec2(int(slice), int(sample_index)), vec4(radiance, water_key));
@@ -65,16 +65,16 @@ void main() {
         if (line_valid && isEyeInWater == 0) {
             float p = float(sample_index) * sample_rcp;
             vec2 uv = mix(line.xy, line.zw, p) * 0.5 + 0.5;
-            ivec2 texel = EpipolarScreenTexel(uv);
+            ivec2 texel = ScreenTexel(uv);
             float depth0 = texelFetch(depthtex0, texel, 0).r;
             air_key = LinearDepthFromScreenDepth(depth0);
-            vec3 delta = EpipolarViewToScene(uv, depth0) - air_start;
+            vec3 delta = ScenePosFromScreenUV(uv, depth0) - air_start;
             float distance_m = length(delta);
             if (distance_m > 1e-6) {
                 vec3 direction_world = delta / distance_m;
                 float length_m = AirFogSegmentLength(distance_m, far);
                 float jitter = SampleSTBN(texel, STBNFrame());
-                air_e = EpipolarAirShadowRatio(air_start, air_start + direction_world * length_m,
+                air_e = AirShadowRatio(air_start, air_start + direction_world * length_m,
                     profile, medium, jitter);
             }
         }

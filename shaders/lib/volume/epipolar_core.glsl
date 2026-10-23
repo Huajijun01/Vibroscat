@@ -19,14 +19,14 @@
 
 // Underwater occupies a bounded lower-left rectangle of the existing images.
 // Every active texel is rewritten each frame; neither medium consumes history.
-int EpipolarSliceCount() {
+int SliceCount() {
 #if defined(WATER_EPIPOLAR_ACTIVE)
     if (isEyeInWater == 1) return min(EPIPOLAR_SLICES, 512);
 #endif
     return EPIPOLAR_SLICES;
 }
 
-int EpipolarSampleCount() {
+int SampleCount() {
 #if defined(WATER_EPIPOLAR_ACTIVE)
     if (isEyeInWater == 1) return min(EPIPOLAR_SAMPLES, 256);
 #endif
@@ -36,12 +36,12 @@ int EpipolarSampleCount() {
 // Quantize a screen UV to the texel holding its center, shared by every
 // epipolar depth/key fetch: clamping to texel centers keeps truncation inside
 // the viewport at both edges.
-ivec2 EpipolarScreenTexel(vec2 uv01) {
+ivec2 ScreenTexel(vec2 uv01) {
     return ivec2(clamp(uv01 * u_render_res, vec2(0.5), u_render_res - vec2(0.5)));
 }
 
 // Shadow visibility on the undistorted segment; apply distortion at each step.
-float EpipolarShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
+float ShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
     vec3 clip = mix(shadow_clip_start, shadow_clip_end, u);
     vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
     float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
@@ -54,7 +54,7 @@ float EpipolarShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, flo
 // screen position: behind the camera it mirrors (lines stay valid); at
 // clip.w ~ 0 it is at infinity (lines become parallel). pole_in_screen =
 // inside the rect.
-vec2 EpipolarLightNDC(out bool pole_in_screen) {
+vec2 LightNDC(out bool pole_in_screen) {
     vec3 light_dir_view = u_view_light_dir;
 #if defined(WATER_EPIPOLAR_ACTIVE)
     if (isEyeInWater == 1) light_dir_view = u_sun_dir_view;
@@ -67,8 +67,8 @@ vec2 EpipolarLightNDC(out bool pole_in_screen) {
 
 // Exit point on the rect for slice i (Intel quadrant parametrization):
 // uniform perimeter placement keeps coverage even with a far/infinite pole.
-vec2 EpipolarSliceExit(int slice) {
-    float f = (float(slice) + 0.5) / float(EpipolarSliceCount());
+vec2 SliceExit(int slice) {
+    float f = (float(slice) + 0.5) / float(SliceCount());
     int sector = clamp(int(f * 4.0), 0, 3);
     float s = fract(f * 4.0);
     if (sector == 0) return vec2(-1.0, 1.0 - 2.0 * s);
@@ -80,7 +80,7 @@ vec2 EpipolarSliceExit(int slice) {
 // Other rect crossing of the line through origin and dir (origin = one
 // boundary crossing; the ray enters forward or leaves backward; zero dir
 // components -> +/-inf, tolerated by the slab test).
-vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
+vec2 BoundaryHit(vec2 origin, vec2 dir) {
     // Avoid 0 * inf when a line starts on an edge and is parallel to it.
     // Such NaNs used to leak into endpoint lines near horizontal/vertical
     // light directions and made the corresponding slice invalid.
@@ -105,17 +105,17 @@ vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
 
 // Camera-relative scene point from UV+depth; do NOT add cameraPosition
 // (shadowModelView maps this space).
-vec3 EpipolarViewToScene(vec2 uv01, float depth01) {
+vec3 ScenePosFromScreenUV(vec2 uv01, float depth01) {
     vec3 view_pos = NDCToView(vec3(uv01 * 2.0 - 1.0, depth01 * 2.0 - 1.0));
     return ViewToSceneSpace(view_pos);
 }
 
 // Gather order: lower/upper sample on slice0, then on slice1. Iris uses
 // linear filtering and clamp-to-edge for these noninteger custom images.
-vec4 EpipolarGatherKeys(int slice0, int row) {
+vec4 GatherKeys(int slice0, int row) {
     vec2 uv = vec2(float(slice0 + 1) / float(EPIPOLAR_SLICES),
         float(row + 1) / float(EPIPOLAR_SAMPLES));
-    if (slice0 < EpipolarSliceCount() - 1) return textureGather(usam_epipolar_term, uv, 3).wxzy;
+    if (slice0 < SliceCount() - 1) return textureGather(usam_epipolar_term, uv, 3).wxzy;
     vec4 left = textureGather(usam_epipolar_term, vec2((float(slice0) + 0.5)
         / float(EPIPOLAR_SLICES), uv.y), 3);
     vec4 right = textureGather(usam_epipolar_term, vec2(0.5 / float(EPIPOLAR_SLICES), uv.y), 3);
@@ -124,7 +124,7 @@ vec4 EpipolarGatherKeys(int slice0, int row) {
 
 // Compare relative errors by cross multiplication, without four reciprocals
 // per search footprint. Settings expose power-of-two slice counts.
-void EpipolarSelectKey(vec4 keys, float pixel_key, int slice0, int row,
+void SelectKey(vec4 keys, float pixel_key, int slice0, int row,
         inout float closest_distance, inout float closest_scale, inout ivec2 closest_texel) {
     vec4 distance_z = abs(vec4(pixel_key) - keys);
     vec4 scale_z = max(vec4(pixel_key), max(keys, vec4(1.0)));
@@ -150,17 +150,17 @@ void EpipolarSelectKey(vec4 keys, float pixel_key, int slice0, int row,
     if (candidate_distance * closest_scale < closest_distance * candidate_scale) {
         closest_distance = candidate_distance;
         closest_scale = candidate_scale;
-        closest_texel = ivec2((slice0 + (corner >> 1)) & (EpipolarSliceCount() - 1), row + (corner & 1));
+        closest_texel = ivec2((slice0 + (corner >> 1)) & (SliceCount() - 1), row + (corner & 1));
     }
 }
 
-vec3 EpipolarSample(vec2 ndc, float pixel_key, vec3 fallback) {
+vec3 SampleEpipolarTerm(vec2 ndc, float pixel_key, vec3 fallback) {
 #ifdef EPIPOLAR_POLE_VARYING
     bool pole_in_screen = v_epipolar_pole_in_screen != 0;
     vec2 pole = v_epipolar_pole;
 #else
     bool pole_in_screen;
-    vec2 pole = EpipolarLightNDC(pole_in_screen);
+    vec2 pole = LightNDC(pole_in_screen);
     if (pole_in_screen) pole = unpackHalf2x16(packHalf2x16(pole));
 #endif
     vec2 delta = ndc - pole;
@@ -178,9 +178,9 @@ vec3 EpipolarSample(vec2 ndc, float pixel_key, vec3 fallback) {
     } else {
         perimeter = negative.y ? 1.0 + (exit_point.x + 1.0) * 0.5 : 3.0 + (1.0 - exit_point.x) * 0.5;
     }
-    float slice_f = fract(perimeter * 0.25 - 0.5 / float(EpipolarSliceCount())) * float(EpipolarSliceCount());
+    float slice_f = fract(perimeter * 0.25 - 0.5 / float(SliceCount())) * float(SliceCount());
     int slice0 = int(slice_f);
-    int slice1 = (slice0 + 1) & (EpipolarSliceCount() - 1);
+    int slice1 = (slice0 + 1) & (SliceCount() - 1);
     // Progress on the continuous pole->pixel line. Inside one exit sector
     // this inverts the producer grid exactly for an in-screen pole. Outside
     // the screen it follows the continuous entry/exit ray; interpolation of
@@ -198,15 +198,15 @@ vec3 EpipolarSample(vec2 ndc, float pixel_key, vec3 fallback) {
         float entry_weight = entry_bound * exit_magnitude;
         t = entry_weight / max(entry_weight + exit_bound * entry_magnitude, 1e-20);
     }
-    float sample_f = clamp(t, 0.0, 1.0) * float(EpipolarSampleCount() - 1);
-    int row = min(int(sample_f), EpipolarSampleCount() - 2);
+    float sample_f = clamp(t, 0.0, 1.0) * float(SampleCount() - 1);
+    int row = min(int(sample_f), SampleCount() - 2);
     vec2 blend = vec2(fract(slice_f), sample_f - float(row));
-    vec4 keys = EpipolarGatherKeys(slice0, row);
+    vec4 keys = GatherKeys(slice0, row);
     vec4 distance_z = abs(vec4(pixel_key) - keys);
     vec4 tolerance_z = EPIPOLAR_DEPTH_TOLERANCE * max(vec4(pixel_key), max(keys, vec4(1.0)));
     vec2 uv = vec2((slice_f + 0.5) / float(EPIPOLAR_SLICES),
         (sample_f + 0.5) / float(EPIPOLAR_SAMPLES));
-    if (slice0 < EpipolarSliceCount() - 1 && all(greaterThan(keys, vec4(0.0)))
+    if (slice0 < SliceCount() - 1 && all(greaterThan(keys, vec4(0.0)))
             && all(lessThanEqual(distance_z, tolerance_z))) {
         return textureLod(usam_epipolar_term, uv, 0.0).rgb;
     }
@@ -218,7 +218,7 @@ vec3 EpipolarSample(vec2 ndc, float pixel_key, vec3 fallback) {
     weight = mix(vec4(0.0), weight * spatial, greaterThan(keys, vec4(0.0)));
     float total = dot(weight, vec4(1.0));
     if (total >= 1e-4) {
-        if (slice0 < EpipolarSliceCount() - 1) {
+        if (slice0 < SliceCount() - 1) {
             vec2 footprint_uv = vec2(float(slice0 + 1) / float(EPIPOLAR_SLICES),
                 float(row + 1) / float(EPIPOLAR_SAMPLES));
             vec4 red = textureGather(usam_epipolar_term, footprint_uv, 0).wxzy;
@@ -236,13 +236,13 @@ vec3 EpipolarSample(vec2 ndc, float pixel_key, vec3 fallback) {
     float closest_distance = 1e30;
     float closest_scale = 1.0;
     ivec2 closest_texel = ivec2(slice0, row);
-    EpipolarSelectKey(keys, pixel_key, slice0, row, closest_distance, closest_scale, closest_texel);
+    SelectKey(keys, pixel_key, slice0, row, closest_distance, closest_scale, closest_texel);
     for (int k = 1; k <= EPIPOLAR_EDGE_EXTEND; k += 2) {
         int below = max(row - k - 1, 0);
-        int above = min(row + 1 + k, EpipolarSampleCount() - 2);
-        EpipolarSelectKey(EpipolarGatherKeys(slice0, below), pixel_key, slice0, below,
+        int above = min(row + 1 + k, SampleCount() - 2);
+        SelectKey(GatherKeys(slice0, below), pixel_key, slice0, below,
             closest_distance, closest_scale, closest_texel);
-        EpipolarSelectKey(EpipolarGatherKeys(slice0, above), pixel_key, slice0, above,
+        SelectKey(GatherKeys(slice0, above), pixel_key, slice0, above,
             closest_distance, closest_scale, closest_texel);
         if (closest_distance <= EPIPOLAR_DEPTH_TOLERANCE * closest_scale) break;
     }

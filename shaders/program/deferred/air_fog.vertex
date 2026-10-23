@@ -12,7 +12,7 @@ void main() {
         float(gl_VertexID == 2) * 4.0 - 1.0, 0.0, 1.0);
 #if defined(EPIPOLAR_ACTIVE)
     bool pole_in_screen;
-    v_epipolar_pole = EpipolarLightNDC(pole_in_screen);
+    v_epipolar_pole = LightNDC(pole_in_screen);
     if (pole_in_screen) v_epipolar_pole = unpackHalf2x16(packHalf2x16(v_epipolar_pole));
     v_epipolar_pole_in_screen = pole_in_screen ? 1 : 0;
 #endif

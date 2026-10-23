@@ -16,7 +16,7 @@
 // across its equal-distance interval.
 // In channel-wise RGB transport the constant whole-ray source cancels from
 // this ratio. The remaining weight is T(start)-T(end), never T alone.
-vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfile profile,
+vec3 AirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfile profile,
         AirFogMedium medium, float stbn_jitter) {
     vec3 delta = end_scene - start_scene;
     float length_m = length(delta);
@@ -38,7 +38,7 @@ vec3 EpipolarAirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfi
         vec3 bin_tau = AirFogOpticalDepth(bin_profile, medium, direction_y, bin_length);
         vec3 bin_transmittance = exp(-bin_tau);
         vec3 weight = prefix_transmittance * AirFogRemovedFraction(bin_tau, bin_transmittance);
-        numerator += weight * EpipolarShadowVisibility(shadow_start, shadow_end, u);
+        numerator += weight * ShadowVisibility(shadow_start, shadow_end, u);
         denominator += weight;
         prefix_transmittance *= bin_transmittance;
     }

@@ -69,8 +69,8 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
     // it has crossed the sea-level horizon but the layer still catches it over
     // its own dipped one, and is released once the antisolar side has taken
     // over.
-    vec3 light_color = sun_color * CloudTwilightWeight(sun_dir.y)
-        + moon_color * CloudMoonlightFactor(sun_dir.y);
+    vec3 light_color = sun_color * TwilightWeight(sun_dir.y)
+        + moon_color * MoonlightFactor(sun_dir.y);
     return cloud_data.x * light_color + ambient_cloud_radiance;
 #else
     return cloud_data.x * sun_color + cloud_data.y * moon_color + ambient_cloud_radiance;

@@ -49,7 +49,7 @@ const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
 
 // fms / (1 - fms): every scattering order past the first, isotropized.
 // saturation_albedo is the layer's own, not a shared constant; see the header.
-float CloudMultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {
+float MultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {
     float fms = saturation_albedo
         * (1.0 - exp2(-max(reference_optical_depth, 0.0)));
     return fms / (1.0 - fms);
@@ -58,9 +58,9 @@ float CloudMultipleScatteringOrders(float reference_optical_depth, float saturat
 // The added orders enter as an isotropic source, so they carry the isotropic
 // phase and sum directly with the single-scattering phase. strength is the
 // layer's own linear weight on those orders.
-float CloudIsotropicOrders(float reference_optical_depth, float saturation_albedo, float strength) {
+float IsotropicOrders(float reference_optical_depth, float saturation_albedo, float strength) {
     return strength * PHASE_ISOTROPIC
-        * CloudMultipleScatteringOrders(reference_optical_depth, saturation_albedo);
+        * MultipleScatteringOrders(reference_optical_depth, saturation_albedo);
 }
 
 #endif // LIB_CLOUD_MULTIPLE_SCATTERING_GLSL

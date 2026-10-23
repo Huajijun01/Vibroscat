@@ -131,7 +131,7 @@ vec3 CirrusPhaseScattering(vec3 sample_position, vec3 view_dir, float sample_den
     float direct_gain = mix(CIRRUS_DIRECT_EDGE_GAIN, CIRRUS_DIRECT_BODY_GAIN,
         smoothstep(0.0, CIRRUS_BODY_DENSITY, sample_density));
     float reference_optical_depth = sample_extinction * CIRRUS_MS_REFERENCE_LENGTH_KM;
-    float isotropic_orders = CloudIsotropicOrders(
+    float isotropic_orders = IsotropicOrders(
         reference_optical_depth, CIRRUS_MS_SAT_ALBEDO, CIRRUS_MS_ISOTROPIC);
     vec3 in_scattering = vec3(0.0);
     if (sun_visible > 0.0) {

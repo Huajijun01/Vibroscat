@@ -23,7 +23,7 @@ ivec2 CloudCurrentImageSize() {
 // Return the full-resolution pixel's coordinate on the moving low-res lattice.
 // The low-res texel centers are at (id + r2_offset) * cell_size in full-res
 // pixel coordinates, so integer lattice coordinates are valid sample centers.
-vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
+vec2 CurrentGridPosition(ivec2 full_res_texel) {
     vec2 full_size = u_render_res;
     vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 cell_size = full_size / low_size;
@@ -41,7 +41,7 @@ vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
 CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 low_texel_size = 1.0 / low_size;
-    vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
+    vec2 grid_position = CurrentGridPosition(full_res_texel);
     vec2 current_uv = (grid_position + 0.5) * low_texel_size;
     current_uv = clamp(current_uv, 0.5 * low_texel_size, vec2(1.0) - 0.5 * low_texel_size);
     current_uv *= low_size / vec2(textureSize(colortex12, 0));

@@ -312,43 +312,40 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudLayerFrame fra
 }
 
 #if CLOUD_SHAPE_MODE == 1
-// High-end view density: the Alpha 0.1.0 erosion chain on the shared
-// distribution stage. The composite Worley-fBm volume erodes the broad form
-// (0.1.0's single-threshold contract: its R channel bakes the weighted
-// darkness sum of the erosion stages), then the voronoise volume plays the
-// old fine-erosion slot. Both stages ride the distribution stage verbatim
-// from SampleCloudDensity; only the erosion chain differs between modes.
+
+const float CLOUD_DISTRIBUTION_UV_OFFSET = 0.114514;
+
 float SampleCloudDensityHighQuality(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
 ) {
     vec2 density_world_km = atmosphere_position.xz + frame.world_km_offset;
+    vec2 distribution_uv = CloudDistributionUv(density_world_km, frame.distribution_offset);
+    float large_scale_cloud = texture(utex_cloud_distribution_tex,
+        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution_density = saturate((
-        texture(utex_cloud_distribution_tex,
-            CloudDistributionUv(density_world_km, frame.distribution_offset)).r
+        texture(utex_cloud_distribution_tex, distribution_uv).r
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
     }
-    // Same intentionally reversed smoothstep pair as SampleCloudDensity; keep
-    // the implementations bit-identical on this ramp.
-    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4,
+    float bottom_ramp = smoothstep(0.0, 0.2 - large_scale_cloud * 0.1,
         profile.height_fraction);
-    float lq_density = distribution_density * profile.bottom_ramp * top_fade;
-    if(lq_density < 0.001) {
+    float height_penalty = saturate((profile.height_fraction - 0.15) / 0.85) * 0.5;
+    float top_fade = 1.0 - smoothstep(0.2 + large_scale_cloud * large_scale_cloud * 0.4, 1.0,
+        profile.height_fraction);
+    float macro_density = saturate(distribution_density - height_penalty) * bottom_ramp * top_fade;
+    if(macro_density < 0.001) {
         return 0.0;
     }
 
-    // Broad erosion grows up the layer: 0.1.0's height exposure, whose
-    // smoothstep is exactly the shared bottom_ramp.
+    // Broad erosion exposure ramps up with height on the shared bottom_ramp.
     float height_exposure = profile.bottom_ramp * 0.95 + 0.05;
     vec3 erosion_coordinates = vec3(density_world_km, length(atmosphere_position) - ATM_PLANET_R);
-    float broad_density = RemapCloudErosion(lq_density,
+    float broad_density = RemapCloudErosion(macro_density,
         texture(utex_cloud_erosion_tex,
             erosion_coordinates * (1.0 / CLOUD_HQ_EROSION_SCALE_KM)).r
             * CLOUD_HQ_EROSION_STRENGTH * height_exposure);
 
-    // The voronoise read fills the fine-erosion slot: 0.1.0's height-weighted
-    // detail, re-based by the voronoise bake so the threshold rises with the
-    // sampled value instead of the old (1 - noise).
+    // Fine detail fades in with height so the condensation base stays smooth.
     float fine_weight = smoothstep(0.0, CLOUD_HQ_FINE_EROSION_HEIGHT, profile.height_fraction) * 0.9 + 0.1;
     return RemapCloudErosion(broad_density,
         texture(utex_cloud_voronoise_tex,
@@ -361,22 +358,25 @@ float SampleCloudDensityHighQuality(vec3 atmosphere_position, CloudLayerFrame fr
 // erosion thresholds equal to the high-end view path.
 float SampleCloudDensityHighQualityLowQuality(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
 ) {
+    vec2 distribution_uv = CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset,
+        frame.distribution_offset);
+    float large_scale_cloud = texture(utex_cloud_distribution_tex,
+        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution_density = saturate((
-        texture(utex_cloud_distribution_tex,
-            CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset,
-                frame.distribution_offset)).r
+        texture(utex_cloud_distribution_tex, distribution_uv).r
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
     }
-    // Same intentionally reversed smoothstep pair as SampleCloudDensity; keep
-    // the implementations bit-identical on this ramp.
-    float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4,
+    float bottom_ramp = smoothstep(0.0, 0.2 - large_scale_cloud * 0.1,
         profile.height_fraction);
-    float lq_density = distribution_density * profile.bottom_ramp * top_fade;
+    float height_penalty = saturate((profile.height_fraction - 0.15) / 0.85) * 0.5;
+    float top_fade = 1.0 - smoothstep(0.2 + large_scale_cloud * large_scale_cloud * 0.4, 1.0,
+        profile.height_fraction);
+    float macro_density = saturate(distribution_density - height_penalty) * bottom_ramp * top_fade;
 
     float height_exposure = profile.bottom_ramp * 0.95 + 0.05;
-    float broad_density = RemapCloudErosion(lq_density,
+    float broad_density = RemapCloudErosion(macro_density,
         CLOUD_EROSION_COMPOSITE_MEAN * CLOUD_HQ_EROSION_STRENGTH * height_exposure);
     float fine_weight = smoothstep(0.0, CLOUD_HQ_FINE_EROSION_HEIGHT, profile.height_fraction) * 0.9 + 0.1;
     return RemapCloudErosion(broad_density,

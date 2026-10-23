@@ -279,7 +279,10 @@ void main() {
 
     vec3 sun_reflect = sun_light * (sun_specular) * ndotl * sun_spec_mask;
     vec3 sky_reflect = reflect_color * out_alpha * v_texcoord.w;
-    vec3 env_reflect = v_id == 1 ? vec3(0.0) : v_ambient_col * base_color;
+    // v_ambient_col is cosine-convolved sky irradiance; this diffuse ambient
+    // term needs the same Lambert E/pi conversion the plain path's
+    // lambert_brdf already carries, or it reads pi times too bright.
+    vec3 env_reflect = v_id == 1 ? vec3(0.0) : v_ambient_col * base_color * (1.0 / PI);
 
     // The sun glint stays at full strength; the sky and environment
     // reflections are weighted by out_alpha, which is also the layer alpha

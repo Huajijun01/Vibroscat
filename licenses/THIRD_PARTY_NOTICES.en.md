@@ -461,9 +461,8 @@ Upstream: <https://github.com/GPUOpen-Effects/FidelityFX-LPM>. Retrieved
 2026-10-11; source file SHA-256
 `7a7c0f376c89bcecd51fe8a5d8ba3b34ec59841e9915cb5b3e16ee87e9448c4d`.
 
-The reference is itself the ALU version (its changelog records "Switched from
-using LUTs to doing the full mapping in ALU"), so **this port contains and needs
-no lookup table**.
+The reference is itself the ALU version, so **this port contains and needs no
+lookup table**.
 
 Port adaptations:
 

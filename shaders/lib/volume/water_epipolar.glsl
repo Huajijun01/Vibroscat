@@ -35,15 +35,15 @@ vec3 EpipolarWaterRadiance(vec3 start_scene, vec3 direction_world, float distanc
     vec3 transmittance = vec3(1.0);
     vec3 integral = vec3(0.0);
     for (int k = 0; k < WATER_GODRAYS_STEPS; ++k) {
-        // Quadratic distance bins put samples in the visible near water;
-        // exact exponential weights retain the constant-source integral.
-        // A shared STBN offset moves the origin within every bin, breaking
-        // coherent integration bands. TAA consumes the changing sequence;
-        // with TAA off STBNFrame fixes it to a spatial blue-noise pattern.
+        // Stratified, equal-length bins matching the air march; exact
+        // exponential weights retain the constant-source integral. A shared
+        // STBN offset moves the origin within every bin, breaking coherent
+        // integration bands. TAA consumes the changing sequence; with TAA
+        // off STBNFrame fixes it to a spatial blue-noise pattern.
         float a = float(k) * inv_steps;
         float b = float(k + 1) * inv_steps;
-        float u = mix(a * a, b * b, ray_jitter);
-        vec3 next_transmittance = exp(-FAST_WATERFOG_EXTINCTION * (length_m * b * b));
+        float u = mix(a, b, ray_jitter);
+        vec3 next_transmittance = exp(-FAST_WATERFOG_EXTINCTION * (length_m * b));
         vec3 weight = transmittance - next_transmittance;
         float irradiance = textureLod(utex_godray_caustics,
             vec3(source_uv + source_delta * u, source_time), 0.0).r;

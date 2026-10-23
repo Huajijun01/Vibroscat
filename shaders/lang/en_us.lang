@@ -74,7 +74,7 @@ screen.CLOUD_SHAPE.comment = Layer height, sky coverage, weather pattern size an
 screen.CLOUD_SHAPE_LIGHT = Light Shape
 screen.CLOUD_SHAPE_LIGHT.comment = Detail erosion of the light cloud field: one voronoise stage.
 screen.CLOUD_SHAPE_HIGH = High-End Shape
-screen.CLOUD_SHAPE_HIGH.comment = Alpha 0.1.0 erosion chain: a composite Worley volume shapes the broad forms, then voronoise adds detail.
+screen.CLOUD_SHAPE_HIGH.comment = Two-stage erosion: a composite Worley volume shapes the broad forms, then voronoise adds detail.
 screen.CLOUD_LIGHTING = Cloud Lighting
 screen.CLOUD_LIGHTING.comment = Which light is traced and how far, plus the scattering that makes edges glow.
 screen.CLOUD_MULTISCATTER = Cloud Multiple Scattering
@@ -233,7 +233,7 @@ option.CLOUD_FINE_EROSION_SCALE.comment = Size of the fine erosion detail inside
 option.CLOUD_FINE_EROSION_STRENGTH = Voronoise Shadow Strength
 option.CLOUD_FINE_EROSION_STRENGTH.comment = Strength of that fine detail in the sunlight shading.
 option.CLOUD_SHAPE_MODE = Cloud Shape Mode
-option.CLOUD_SHAPE_MODE.comment = Light: one voronoise detail stage on the shared distribution (the current field). High-End: the Alpha 0.1.0 erosion chain on the same distribution - broad composite erosion first, voronoise detail second, at two extra 3D reads per sample.
+option.CLOUD_SHAPE_MODE.comment = Light: one voronoise detail stage on the shared distribution (the current field). High-End: broad composite erosion first, voronoise detail second, at two extra 3D reads per sample.
 value.CLOUD_SHAPE_MODE.0 = Light
 value.CLOUD_SHAPE_MODE.1 = High-End
 option.CLOUD_HQ_EROSION_SCALE_KM = Broad Erosion Scale
@@ -280,6 +280,10 @@ option.SHADOW_PCSS = PCSS Shadows
 option.SHADOW_PCSS.comment = Realistic soft shadows: the farther an object is above the surface below it, the blurrier its shadow edge, like real sunlight. Off = cheap hard-edged shadows.
 option.shadowMapResolution = Shadow Map Resolution
 option.shadowMapResolution.comment = Shadow map detail: higher = sharper edges that stay crisp farther away, at a significant performance cost.
+option.sunPathRotation = Sun Path Rotation
+option.sunPathRotation.comment = Tilt of the sun and moon path away from directly overhead, in degrees; the shadow projection tilts with it. 0 = the arc passes straight overhead; larger absolute values slant the arc and shift shadow directions.
+option.shadowDistance = Shadow Distance
+option.shadowDistance.comment = Radius the shadow map covers around the camera, in blocks: higher = shadows reach more distant terrain, at a higher shadow-pass cost.
 option.SHADOW_BLOCKER_SAMPLES = PCSS Blocker Samples
 option.SHADOW_BLOCKER_SAMPLES.comment = Precision of the height measurement behind the soft edge: higher = smoother, more stable soft edges, slower.
 option.SHADOW_BLOCKER_SEARCH_TEXELS = PCSS Search Radius (texels)
@@ -440,6 +444,8 @@ option.GI_MODE.comment = Bounced sunlight that softly tints its surroundings, li
 value.GI_MODE.0 = None
 value.GI_MODE.1 = SSGI
 value.GI_MODE.2 = Reflective Shadow Map
+option.PARTICLE_FORWARD = Forward Opaque Particles
+option.PARTICLE_FORWARD.comment = Renders opaque particles with forward lighting after the deferred pass instead of feeding them into the GBuffer, so they no longer disturb GI and ambient occlusion. Particles lose deferred-only shading. Host dependent: some Iris versions keep the old draw order.
 screen.SSGI = Screen Space GI
 screen.RSM = Reflective Shadow Map
 option.RSM_SAMPLES = RSM Samples

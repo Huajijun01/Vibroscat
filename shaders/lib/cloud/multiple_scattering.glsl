@@ -46,16 +46,13 @@
 
 // Extinction in m^-1 for an extinction authored per kilometer.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
-// 1 - fms only needs a guard against an albedo of exactly 1. At a saturation
-// albedo of 0.99 the ratio peaks at 99 and never reaches this floor.
-const float CLOUD_MS_FLOOR = 1.0e-4;
 
 // fms / (1 - fms): every scattering order past the first, isotropized.
 // saturation_albedo is the layer's own, not a shared constant; see the header.
 float CloudMultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {
     float fms = saturation_albedo
         * (1.0 - exp2(-max(reference_optical_depth, 0.0)));
-    return fms / max(1.0 - fms, CLOUD_MS_FLOOR);
+    return fms / (1.0 - fms);
 }
 
 // The added orders enter as an isotropic source, so they carry the isotropic

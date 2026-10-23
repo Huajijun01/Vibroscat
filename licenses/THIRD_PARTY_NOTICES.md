@@ -385,8 +385,7 @@ FidelityFX Luma Preserving Mapper，`ffx-lpm/ffx_lpm.h`（文件头标记
 上游：<https://github.com/GPUOpen-Effects/FidelityFX-LPM>。取用日期 2026-10-11，源文件 SHA-256
 `7a7c0f376c89bcecd51fe8a5d8ba3b34ec59841e9915cb5b3e16ee87e9448c4d`。
 
-参考实现本身就是 ALU 版本（其更新记录写明 "Switched from using LUTs to doing the full mapping
-in ALU"），因此**本移植不含、也不需要任何查找表**。
+参考实现本身就是 ALU 版本，因此**本移植不含、也不需要任何查找表**。
 
 移植适配说明：
 

@@ -61,6 +61,12 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_FINE_WIND_FACTOR 2.0 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0] Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
 #define CLOUD_FINE_EROSION_SCALE 1.5 // [1.0 1.5 2.0 3.0 4.0 5.0 6.0 8.0] Voronoise coordinate scale per kilometer; higher = smaller, denser erosion cells.
 #define CLOUD_FINE_EROSION_STRENGTH 0.7 // [0.25 0.5 0.7 1.0 1.5] Light-trace erosion strength; scales the voronoise mean the same way the view path scales its per-point read.
+#define CLOUD_SHAPE_MODE 0 // [0 1] Cloud shape field: 0 = light, one voronoise detail stage on the shared distribution; 1 = high-end, the Alpha 0.1.0 erosion chain (broad composite erosion, then voronoise detail) at two extra 3D reads per sample.
+#define CLOUD_HQ_EROSION_SCALE_KM 1.5 // [0.75 1.0 1.5 2.0 3.0 4.0 6.0] High-end composite erosion volume wrap (km); higher = broader, smoother cloud bodies.
+#define CLOUD_HQ_EROSION_STRENGTH 0.5 // [0.0 0.1 0.2 0.3 0.4 0.5 0.65 0.8] High-end broad erosion strength; higher = more torn, sculpted cloud bodies.
+#define CLOUD_HQ_FINE_EROSION_SCALE 2.5 // [1.0 1.5 2.0 2.5 3.0 4.0 5.0] High-end voronoise coordinate scale per kilometer; higher = smaller, denser detail.
+#define CLOUD_HQ_FINE_EROSION_STRENGTH 0.1 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.4] High-end fine detail strength.
+#define CLOUD_HQ_FINE_EROSION_HEIGHT 0.3 // [0.15 0.25 0.3 0.45 0.6 0.8] Normalized height for high-end fine detail to reach full strength; keeps the cloud base smooth.
 #define CLOUD_ALPHA_EXTINCTION_SRGB_GRAY 50.0 // [25.0 35.0 50.0 65.0 80.0 100.0] Extinction of a fully dense sample (km^-1); higher = denser, more opaque clouds.
 #define CLOUD_LIGHT_MAX_DISTANCE_KM 2.0 // [1.0 1.5 2.0 3.0 4.0 6.0 8.0] Maximum light-direction optical depth trace distance (km).
 #define CLOUD_PHASE_FORWARD_G 0.9 // [0.65 0.75 0.8 0.85 0.9 0.95] Forward HG eccentricity of the cloud phase.

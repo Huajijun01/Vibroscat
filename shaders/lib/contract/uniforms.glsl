@@ -144,6 +144,7 @@ uniform sampler2D utex_mother_river;         // selected periodic 128x128 R8 wav
 uniform sampler2D utex_mother_river_slope;   // selected periodic 128x128 RG8 mother UV slopes
 uniform sampler2D utex_cloud_distribution_tex; // cloud coverage atlas (R8, 1024x1024)
 uniform sampler3D utex_cloud_voronoise_tex;   // experimental voronoise volume (R8, 32^3, periodic)
+uniform sampler3D utex_cloud_erosion_tex;     // composite erosion volume, high-end shape mode (R8, 64^3, periodic)
 uniform sampler3D utex_stbn_scalar;           // 128x128x64 STBN volume
 uniform sampler3D utex_caustics;              // baked water caustics volume
 uniform sampler3D utex_godray_caustics;       // low-res linear caustic irradiance (R16F)

@@ -106,7 +106,7 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 
 ## 14. 大气模型出处说明
 
-`lib/atmosphere/` 的 4-波谱大气模型自 2026-10 起改用包作者研究项目 sky-tracer（research/ 内 Rust/wgpu 仓库，GPL-3.0）的 OPAC/libRadtran 输入表：波长 450/510/580/650 nm，介质为 US-standard 空气、臭氧与 inso/waso/soot/suso 四种气溶胶的分段线性剖面，密度/相位模型参考 Hillaire 2020（见第 6 节）。透射与多重散射 LUT 由 sky-baker `pack` 子命令在 GPU 上以逐阶迭代多散射解烘焙（含 8 km 地平线下探几何），替换了此前 HSPEAtmosCreator 工具（不入库）的 fms 不动点近似烘焙。运行时直射单散射仍使用包作者调参的三叶 HG Mie 混合相位；烘焙内部使用 sky-tracer 的逐物种 1024-bin Mie 相位表。
+`lib/atmosphere/` 的 4-波谱大气模型自 2026-10 起改用包作者研究项目 sky-tracer（Rust/wgpu，GPL-3.0）的 OPAC/libRadtran 输入表：波长 450/510/580/650 nm，介质为 US-standard 空气、臭氧与 inso/waso/soot/suso 四种气溶胶的分段线性剖面，密度/相位模型参考 Hillaire 2020（见第 6 节）。透射与多重散射 LUT 由 sky-baker `pack` 子命令在 GPU 上以逐阶迭代多散射解烘焙（含 8 km 地平线下探几何），替换了此前 HSPEAtmosCreator 工具（不入库）的 fms 不动点近似烘焙。运行时直射单散射仍使用包作者调参的三叶 HG Mie 混合相位；烘焙内部使用 sky-tracer 的逐物种 1024-bin Mie 相位表。研究工具不随包分发。
 
 2026-10-18 的 MS LUT 重烘仅更换最终输出的太阳方向节点：采用独立代数推导的有理映射 `q = mu*(0.5 + 4/(1 + 7*abs(mu)))`，32 列包含两端 mu = ±1，运行时 `u = 0.5 + (31/64)*q`。内部输运的三次高度角节点与物理输入保持原样；该寻址公式没有从其他光影包移植代码。
 

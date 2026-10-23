@@ -3,7 +3,7 @@
 #define PROGRAM_GBUFFERS_PARTICLES
 #include "/lib/contract/settings.glsl"
 #ifdef PARTICLE_FORWARD
-#include "/program/gbuffer/solid_simple.vertex"
+#include "/program/gbuffer/solid_lite.vertex"
 #else
 #include "/program/gbuffer/solid.vertex"
 #endif

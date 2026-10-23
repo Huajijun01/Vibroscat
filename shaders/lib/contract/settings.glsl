@@ -268,7 +268,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define AMBIENT_FLOOR 0.005 // [0.0 0.005 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
 
 // Forward-lit opaque particles, default off. gbuffers_particles switches from
-// the deferred solid GBuffer path to the forward solid_simple shader and
+// the deferred solid GBuffer path to the forward solid_lite shader and
 // particles.ordering moves to after the deferred pass (see shaders.properties),
 // so quad particles no longer feed the opaque GBuffer, AO, or GI. Host
 // dependent: some Iris builds ignore particles.ordering for quad particles

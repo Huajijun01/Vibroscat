@@ -6,16 +6,24 @@
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
-// This dispatch directive must stay a bare literal: Iris parses dispatch
-// directives at pack load, where option defines do not exist yet, so an
-// option-conditional directive would be stripped and dispatch would silently
-// fall back to this same full-coverage default. The upscaling tier bounds
-// main() with u_render_res * CLOUD_CURRENT_SCALE - the same formula as
-// CloudCurrentImageSize() in lib/cloud/temporal.glsl - rather than via
-// dispatch or imageSize(): with TAAU the allocation is display-sized while
-// the active scene rectangle is smaller, so walking imageSize() would visit
-// dead texels.
+// Dispatch follows CLOUD_TEMPORAL_UPSCALING: Iris applies option defines and
+// runs a full C preprocessor before scanning these consts, so one plain
+// literal per branch is authoritative. The in-shader guard stays: dispatch
+// ceil() versus the truncated active rectangle keeps a <=1-texel edge
+// margin. The upscaling tier bounds main() with u_render_res *
+// CLOUD_CURRENT_SCALE - the same formula as CloudCurrentImageSize() in
+// lib/cloud/temporal.glsl - rather than via dispatch or imageSize(): with
+// TAAU the allocation is display-sized while the active scene rectangle is
+// smaller, so walking imageSize() would visit dead texels.
+#if CLOUD_TEMPORAL_UPSCALING == 1
 const vec2 workGroupsRender = vec2(1.0, 1.0);
+#elif CLOUD_TEMPORAL_UPSCALING == 2
+const vec2 workGroupsRender = vec2(0.5, 0.5);
+#elif CLOUD_TEMPORAL_UPSCALING == 3
+const vec2 workGroupsRender = vec2(0.333333, 0.333333);
+#else
+const vec2 workGroupsRender = vec2(0.25, 0.25);
+#endif
 
 // deferred_pre selects the existing alt workspace; opaque shading normals
 // stay untouched in main until deferred2/3/4 consume them.

@@ -3,9 +3,18 @@
 #include "/lib/volume/epipolar_core.glsl"
 
 layout(local_size_x = 128) in;
-// Iris parses workGroups with Integer.parseInt: literal only, no macros.
-// Max 2048 slices / 128 lanes = 16 groups; EPIPOLAR_SLICES is enforced by guard.
+// Iris scans these consts after option defines and full preprocessing, so
+// the group count follows EPIPOLAR_SLICES branch-wise; the in-shader slice
+// guard stays as the edge safety net.
+#if EPIPOLAR_SLICES == 256
+const ivec3 workGroups = ivec3(2, 1, 1);
+#elif EPIPOLAR_SLICES == 512
+const ivec3 workGroups = ivec3(4, 1, 1);
+#elif EPIPOLAR_SLICES == 1024
+const ivec3 workGroups = ivec3(8, 1, 1);
+#else
 const ivec3 workGroups = ivec3(16, 1, 1);
+#endif
 
 #if defined(EPIPOLAR_ACTIVE)
 // Full uniform set (compiled even when unused here).

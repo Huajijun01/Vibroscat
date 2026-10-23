@@ -7,8 +7,6 @@
 // block.properties: low byte retains the existing material; upper byte owns
 // geometry only (1 rooted, 2 tall lower, 3 tall upper, 4 continuous canopy).
 // Both terrain and shadow call this in feet-player space before projection.
-// Reference study: Photon vertex/displacement and MakeUp position_vertex;
-// independent implementation. See third-party notices, Plant wind.
 vec3 PlantWindOffset(vec3 scene_pos, vec3 to_block_center, int block_id) {
 #if defined(PLANT_WIND)
     int plant_class = block_id >> 8;

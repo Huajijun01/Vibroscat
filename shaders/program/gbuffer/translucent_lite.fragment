@@ -18,8 +18,8 @@ in vec4 v_texcoord;
 layout(location = 0) out vec4 out_layer_color;
 layout(location = 1) out vec4 out_surface_data;
 
-// Lightweight forward translucent for hand-held items and particles:
-// deferred2-compatible BRDF (shared BRDF helper), alpha passes
+// Lightweight forward translucent for hand-held items, translucent entities
+// and particles: deferred4-compatible BRDF (shared BRDF helper), alpha passes
 // straight through. No Fresnel, SSR, water waves or water-column fog.
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
@@ -28,7 +28,7 @@ void main() {
     vec3 base_color = ToLinear(albedo.rgb);
     float alpha = albedo.a;
 
-    // Same BRDF configuration as deferred2 (shared BRDF helper).
+    // Same BRDF configuration as deferred4 (shared BRDF helper).
     // v_normal is flat and already unit length at the vertex; interpolation
     // of a per-primitive constant keeps those bits, so no renormalization.
     vec3 surface_normal_view = v_normal;

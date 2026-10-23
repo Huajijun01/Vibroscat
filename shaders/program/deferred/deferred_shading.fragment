@@ -9,7 +9,7 @@
 // Direct: Burley diffuse + Cook-Torrance GGX specular
 // Ambient: SH irradiance from the cloud skybox (sky_light.glsl, L0-2,
 //          projected by prepare2), x skyLight x AO, Lambertian
-// Torch: blockLight masked by (1-skyLight), warm tint, Lambertian
+// Torch: raw blockLight (no sky mask), warm tint, Lambertian
 // Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance -> irradiance.
 
 #include "/lib/contract/settings.glsl"
@@ -424,7 +424,8 @@ void main() {
     color += lambert_brdf * gi_ambient;
 #else
     // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor
-    // (AmbientLight). Only the no-GI branch consumes it.
+    // (AmbientLight). The no-GI term owns this call; the GI paths keep it as
+    // a fallback.
     vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif

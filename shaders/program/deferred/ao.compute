@@ -3,7 +3,7 @@
 // ============================================================================
 // Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/(16,32)),
 // local 16x32). Each invocation covers one 2x2 full-res block, evaluates the
-// kernel (ComputeGTAO / ComputeSSAO) at a fixed receiver in that block.
+// kernel (ComputeGTAOFromGeometry / ComputeSSAOFromGeometry) at a fixed receiver in that block.
 // Every half-res texel is evaluated every frame. deferred1 reconstructs
 // the accumulated field with depth/normal guidance on this exact lattice.
 // Runs with cloud compute in deferred1; the two write distinct textures.

@@ -28,8 +28,8 @@ vec3 Tonemap(vec3 linear_rgb) {
 
 // Rational compression for temporal HDR history; this is not a display DRT.
 // L2-optimal first-order rational fit of the TonemapGT7 gray response over
-// [0, 16] (research/gt7-fast-tonemap); the pair must keep identical
-// constants so FastInvtonemap inverts FastTonemap exactly.
+// [0, 16]; the pair must keep identical constants so FastInvtonemap inverts
+// FastTonemap exactly.
 vec3 FastTonemap(vec3 x) {
     return x / (0.951067 * x + 0.344568);
 }

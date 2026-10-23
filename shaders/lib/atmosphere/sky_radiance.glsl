@@ -82,13 +82,10 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         float r_lut   = max(r_mid, ATM_PLANET_R);
         float r2_lut  = r_lut * r_lut;
 
-        // Midpoint sigmas, vec4 = (Rayleigh, Mie, Ozone) RGB packing shared
-        // with the LUTs: sr/sm/so are the scattering components, se the Mie
-        // extinction (scattering + absorption), sigma_t the total, ss the
-        // scattering sum; rs/ms_raw fold in the transmittance,
-        // ms is the multi-scatter LUT sample, xs their product. One call now
-        // builds all four terms: sr/sm/se used to run the same aerosol
-        // vertical profile and the same suso profile twice per step.
+        // Midpoint sigmas are 4-wave spectra (450/510/580/650 nm): sr/sm are
+        // the Rayleigh/Mie scattering terms, sigma_t the total extinction, ss
+        // the scattering sum; rs/ms_raw fold in the transmittance,
+        // ms is the multi-scatter LUT sample, xs their product.
         AtmosphereMedia media = AtmosphereMediaAt(r_mid);
         vec4 sr_mid = media.sigma_s_ray;
         vec4 sm_mid = media.sigma_s_mie;

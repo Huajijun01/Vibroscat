@@ -11,8 +11,8 @@
 // Sketches: 1) blocker search (shadowtex0); 2) penumbra estimate from the
 // receiver/blocker depth ratio; 3) PCF filtering with that radius
 // (shadowtex1, HW PCF).
-// Samples: base-2 radical inverse (Hammersley) on a disk (Shirley & Chiu
-// concentric square-to-disk), rotated by the shared STBN volume.
+// Samples: base-2 radical inverse (Hammersley) polar disk (sqrt radius x angle
+// table), rotated by the shared STBN volume.
 
 // ---- Low-discrepancy disk sampling ----
 

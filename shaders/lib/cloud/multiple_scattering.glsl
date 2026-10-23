@@ -24,8 +24,8 @@
 //
 // reference_optical_depth: a knee expressed in sigma_t alone carries a length
 // in its units, and a length calibrated for one medium lands somewhere else
-// entirely for another. This pack's volumetric layer runs at 100 km^-1 and a
-// cirrus shell at 3 km^-1, a factor of 33 apart. One knee cannot put both at
+// entirely for another. This pack's volumetric layer runs at 50 km^-1 and a
+// cirrus shell at 2 km^-1, a factor of 25 apart. One knee cannot put both at
 // the same place on the curve, and a layer that never reaches the knee gets no
 // series at all. Each layer therefore owns the length and states it next to
 // its own extinction.
@@ -47,7 +47,7 @@
 // Extinction in m^-1 for an extinction authored per kilometer.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
 // 1 - fms only needs a guard against an albedo of exactly 1. At a saturation
-// albedo of 0.99 the ratio peaks at 999 and never reaches this floor.
+// albedo of 0.99 the ratio peaks at 99 and never reaches this floor.
 const float CLOUD_MS_FLOOR = 1.0e-4;
 
 // fms / (1 - fms): every scattering order past the first, isotropized.

@@ -22,7 +22,7 @@ vec3 DepthOfField(vec2 uv) {
 
     float center_depth = centerDepthSmooth;
 #if defined(TAAU_ACTIVE)
-    // Iris samples the display center, outside the cropped scene at low scales.
+    // Unreachable: DOF is disabled under TAAU (see main).
     center_depth = texelFetch(depthtex0, ivec2(u_render_res * 0.5), 0).r;
 #endif
     // The focus point sits on the view axis, so the reconstruction only needs
@@ -68,8 +68,7 @@ vec3 DepthOfField(vec2 uv) {
 void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
     vec3 scene_color;
-    // Iris registers a boolean option only where an #ifdef/#ifndef names it,
-    // so the DOF part of this dispatch cannot use the one-line #if form.
+    // DOF has a passthrough path, so the dispatch keeps the #ifndef/#else form.
 #ifndef DOF
     scene_color = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
 #elif defined(TAAU_ACTIVE)

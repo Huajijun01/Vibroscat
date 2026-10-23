@@ -55,9 +55,10 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float scene_de
 // weather pass writes neither depth nor the G-buffer, so the sheet owns no
 // normal, material, or depth of its own and is lit as a thin scattering layer
 // instead of a surface. This constant folds its path length into that colour.
-// The value predates both the linear premultiplied sheet write and
-// RAIN_PARTICLE_OPACITY_SCALE, so treat it as a starting point rather than a
-// calibrated level and re-fit it against the sky if streaks read too bright.
+// The value predates both the linear premultiplied sheet write and the
+// u_rain_particle_opacity coverage scale, so treat it as a starting point
+// rather than a calibrated level and re-fit it against the sky if streaks
+// read too bright.
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
@@ -127,8 +128,9 @@ void main() {
 
         float weather_cos_theta = dot(world_dir, normalize(u_world_light_dir));
         // EvalSkyLight(vec3(0,1,0)) with the constant up direction folded:
-        // only L0 and the y L1 basis survive (z/x L1 and all L2 monomials
-        // vanish on the axis), so the SH evaluation is two constant dots.
+        // only L0 and the y L1 basis survive here, plus the L2 y^2 self term
+        // (2 * Y20); z/x L1 and the mixed L2 monomials vanish on the axis.
+        // Dropping the self term keeps the sheet's ambient at the two-dot cost.
         vec3 weather_scattering = max(
                 vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * (SH_Y0 * SH_A0)
               + vec3(sky_sh_r0.y, sky_sh_g0.y, sky_sh_b0.y) * (SH_Y1 * SH_A1),

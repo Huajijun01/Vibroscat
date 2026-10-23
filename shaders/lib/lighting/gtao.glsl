@@ -38,9 +38,9 @@
 
 
 // Per-block STBN: x = slice rotation, y = horizon-step dither. Point-sampled
-// Slice-plane tangent at azimuth `angle` around the toward-camera axis:
-// built once per pixel in ComputeGTAO (the basis depends only on view_axis)
-// and rotated per slice below.
+// Slice-plane tangent at the block-dithered azimuth around the toward-camera
+// axis: built once per pixel in ComputeGTAOFromGeometry (the basis depends
+// only on view_axis) and rotated per slice below.
 
 // Screen-space unit direction along the projected tangent and the pixel
 // length of the full search radius (projection of GTAO_RADIUS). center_ndc is
@@ -71,7 +71,7 @@ float GTAOUpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
     }
     float inv_offset_len = inversesqrt(offset_len_sq);
     float offset_len = offset_len_sq * inv_offset_len;
-    // Near-field fade (Jimenez section4.3): linear band [FALLOFF_START*R, R]
+    // Near-field fade (Jimenez section4.3): linear band [GTAO_FALLOFF_START*R, R]
     // applied to the sample cosine (no hard cut at the radius).
     float fade = clamp(
         (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
@@ -148,8 +148,9 @@ float GTAOBlockedArc(float a, float b, float normal_angle, float inv_normal_leng
         + b * (0.5 * (hi - lo) - 0.25 * (sin(2.0 * hi) - sin(2.0 * lo))), 0.0);
 }
 
-// Screen-space GTAO at one pixel (full-res UV and texel). stbn_noise is the
-// SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].
+// Screen-space GTAO at one receiver (full-res UV, pre-fetched depth and oct
+// normal). stbn_noise is the SampleSTBNPair pair sampled by the pass main.
+// Returns AO in [0,1].
 float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2 stbn_noise) {
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open
@@ -163,9 +164,9 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     vec3 normal_view = mat3(gbufferModelView)
         * DecodeOctahedralNormal(normal_oct);
 
-    // The slice basis depends only on the toward-camera axis, so its
-    // GTAOSliceTangent construction is hoisted here verbatim and each slice
-    // only rotates it (identical operations, evaluated once).
+    // The slice basis depends only on the toward-camera axis: slice_t/slice_b
+    // are built once here and each slice rotates them (identical operations,
+    // evaluated once).
     vec3 slice_up = abs(view_axis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
     vec3 slice_t = normalize(cross(slice_up, view_axis));
     vec3 slice_b = cross(view_axis, slice_t);

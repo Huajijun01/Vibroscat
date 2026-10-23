@@ -365,7 +365,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // adaptation key is reconstructed from the persistent exposure EV and ramps
 // the rod share log-linearly across the mesopic band: 0.004 anchors near the
 // full-moon night key (moon ground irradiance ATM_MOON_IRR * ATM_EXPOSURE ~
-// 0.007), 0.04 stays below the daylight key. CONE_LUMINANCE is the
+// 0.007), 0.04 stays below the daylight key. PURKINJE_CONE_LUMINANCE is the
 // post-exposure luminance pivot where cone color vision retakes over (0.35 ~
 // +1 EV over the 0.18 exposure target); the tint is the unit-luminance rod
 // gray.

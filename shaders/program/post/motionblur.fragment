@@ -23,8 +23,7 @@ vec3 PassthroughColor() {
 }
 
 void main() {
-    // Iris registers a boolean option only where an #ifdef/#ifndef names it,
-    // so the two dispatch guards cannot stay a single one-line #if.
+    // Two independent fallbacks (MOTION_BLUR off, TAA off) keep the guards separate.
 #ifndef MOTION_BLUR
     out_color = PassthroughColor();
     return;

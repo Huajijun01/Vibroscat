@@ -29,8 +29,9 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 
-// Screen-space SSAO at one pixel (full-res UV and texel). stbn_noise is the
-// SampleSTBNPair pair sampled by the pass main. Returns AO in [0,1].
+// Screen-space SSAO at one receiver (full-res UV, pre-fetched depth and oct
+// normal). stbn_noise is the SampleSTBNPair pair sampled by the pass main.
+// Returns AO in [0,1].
 float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2 stbn_noise) {
     if (center_depth >= 1.0) {
         return 1.0;  // sky: fully open

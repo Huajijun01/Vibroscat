@@ -1,7 +1,7 @@
 #ifndef LIB_COLOR_SPACES_GLSL
 #define LIB_COLOR_SPACES_GLSL
 
-// sRGB <-> Linear conversion (BT.709 OETF)
+// sRGB <-> Linear conversion (IEC 61966-2-1 piecewise curve)
 vec3 ToLinear(vec3 srgb) {
     bvec3 cutoff = lessThan(srgb, vec3(0.04045));
     vec3 higher = pow((srgb + vec3(0.055)) / vec3(1.055), vec3(2.4));

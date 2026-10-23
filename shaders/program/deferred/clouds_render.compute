@@ -23,8 +23,8 @@ layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 void main() {
 #ifndef VOLUMETRIC_CLOUDS
-    // deferred1 is shared with GTAO (VOLUMETRIC_CLOUDS || GTAO): nothing to
-    // do without clouds.
+    // deferred1 is shared with GTAO/SSAO (VOLUMETRIC_CLOUDS || GTAO || SSAO):
+    // nothing to do without clouds.
     return;
 #endif
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);

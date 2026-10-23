@@ -47,14 +47,12 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float sur
 // adds skyColor * cloudData.z afterwards. Light colors use the sky's
 // sRGB-domain white balance (the same conversion as the sky LUT), so cloud
 // and sky hues stay locked as transmittance changes through the day.
-// const float MOON_DARKEN = 0.4;
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
     vec3 sun_dir = u_world_sun_dir;
     vec3 moon_dir = u_world_moon_dir;
     float surface_r2 = surface_r * surface_r;
     float sun_mu = dot(surface_position, sun_dir) / surface_r;
-    // moon_dir is the exact IEEE negation of sun_dir, so the second dot is
-    // bit-identical to -sun_mu (negation distributes exactly through dot).
+    // moon_mu is just -sun_mu; the host's moon_dir is the antipode of sun_dir.
     float moon_mu = -sun_mu;
     vec3 sun_color = SpectralToLinearSRGBWhiteBalanced(
         SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu) * ATM_SOLAR) * ATM_EXPOSURE;

@@ -280,9 +280,9 @@ float SampleCloudDensity(vec3 atmosphere_position, CloudLayerFrame frame, CloudH
 }
 
 // Low-quality density for the light-transport trace: the same field with the
-// voronoise threshold replaced by the baked texture mean times the same 0.5
-// factor, which keeps the expected threshold equal to the view path and
-// saves one 3D read per light step.
+// voronoise threshold replaced by the baked texture mean times the same
+// CLOUD_FINE_EROSION_STRENGTH * fine_exposure scale, which keeps the expected
+// threshold equal to the view path and saves one 3D read per light step.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
 ) {
     float distribution_density = saturate((
@@ -365,9 +365,9 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float light_phase_weight[CLOUD_MS_OCTAVES];
     CloudPhaseOctaves(light_cos_theta, light_phase_weight);
 #else
-    // Moon sits opposite the sun (no separate uniform); its view cosine is the
-    // exact negation of the sun's. Each light keeps its own march and its own
-    // earth-occlusion gate.
+    // Moon direction is u_world_moon_dir, the host-built antipode of the sun;
+    // its view cosine is the exact negation of the sun's. Each light keeps its
+    // own march and its own earth-occlusion gate.
     vec3 moon_dir = u_world_moon_dir;
     float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
     float sun_phase_weight[CLOUD_MS_OCTAVES];
@@ -387,7 +387,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     // stbn_jitter is sampled by the pass main: the screen pass seeds it with
     // (view texel, frameCounter), the skybox with (skybox texel,
     // frameCounter / 4). x = view march jitter, y = light march base; the two
-    // streams are decorrelated by their STBN slice offset (STBN_SLICE_LIGHT).
+    // streams are decorrelated by the STBN stream offset (STBN_STREAM_3).
     float view_jitter = stbn_jitter.x;
     float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;

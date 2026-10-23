@@ -32,9 +32,7 @@ void main() {
 #ifdef AE
     hdr *= exposure;
 #endif
-// The scotopic shift models adapted rod vision, so it requires AE. Keep the
-// feature gates as #ifdef directives so Iris discovers PURKINJE_EFFECT as a
-// configurable boolean option.
+// The scotopic shift requires AE. PURKINJE_EFFECT is registered in settings.glsl.
 #ifdef PURKINJE_EFFECT
 #ifdef AE
     float adapted_key_lum = AE_TARGET_LUMINANCE * exp2(-adapted_exposure_ev);

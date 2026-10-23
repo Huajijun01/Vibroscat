@@ -19,7 +19,7 @@ float BlockLightFromLm(float lm_block) {
     return (light - light_zero) / (1.0 - light_zero);
 }
 
-// Sky light: quadratic falloff - outdoor areas ramp quickly with sky access.
+// Sky light: rational ramp (FastAdjust, c=-0.85) - outdoor areas ramp quickly with sky access.
 float SkyLightFromLm(float lm_sky) {
     return FastAdjust(lm_sky, -0.85);
 }

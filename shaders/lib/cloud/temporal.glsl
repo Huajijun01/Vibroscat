@@ -2,7 +2,7 @@
 #define LIB_CLOUD_TEMPORAL_GLSL
 
 #include "/lib/contract/settings.glsl"
-// Previous-frame camera transforms, shared with TAA and the GTAO temporal
+// Previous-frame camera transforms, shared with TAA and the AO temporal
 // accumulation (temporal_ao.glsl); declared in uniforms.glsl so both
 // include cleanly.
 #include "/lib/contract/uniforms.glsl"
@@ -98,7 +98,7 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
         return current;
     }
     // Age counts accepted frames and doubles as the bounded accumulated
-    // sample weight, matching the Alpha-style history cap.
+    // sample weight, capped by CLOUD_HISTORY_FRAMES.
     float alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
     CloudFrame result;
     // Radiance mixes linearly; transmittance is nonlinear (T = exp(-OD)),

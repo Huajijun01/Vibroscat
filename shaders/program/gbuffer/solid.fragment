@@ -3,14 +3,17 @@
 // ============================================================================
 //
 // Program dispatch via #define (set in world*/ stub .fsh files):
-//   PROGRAM_GBUFFERS_TERRAIN       terrain, terrain_solid, terrain_cutout, block
-//   PROGRAM_GBUFFERS_ENTITIES      entities
-//   PROGRAM_GBUFFERS_HAND          hand
-//   PROGRAM_GBUFFERS_BEACONBEAM    beaconbeam
-//   PROGRAM_GBUFFERS_SPIDEREYES    spidereyes
-//   PROGRAM_GBUFFERS_PARTICLES     particles (opaque quad particles; world-up
-//                                  dielectric surface, no PBR atlas)
-//   (none of the above)           basic, line, textured, textured_lit
+//   PROGRAM_GBUFFERS_TERRAIN / _TERRAIN_SOLID / _TERRAIN_CUTOUT
+//                                 terrain family (shared vertex branch)
+//   PROGRAM_GBUFFERS_BLOCK        block-model programs (unmasked material id)
+//   PROGRAM_GBUFFERS_ENTITIES     entities
+//   PROGRAM_GBUFFERS_HAND         hand
+//   PROGRAM_GBUFFERS_BEACONBEAM   beaconbeam
+//   PROGRAM_GBUFFERS_SPIDEREYES   spidereyes
+//   PROGRAM_GBUFFERS_PARTICLES    particles (opaque quad particles; world-up
+//                                 dielectric surface, no PBR atlas)
+//   PROGRAM_GBUFFERS_BASIC / _LINE / _TEXTURED / _TEXTURED_LIT
+//                                 generic opaque class (material id 0)
 //
 // GBuffer layout:
 //   gbuf1.rgb = albedo (sRGB, decoded to linear in deferred pass)
@@ -21,8 +24,9 @@
 //   gbuf4.rg = octahedral-encoded geometric world normal
 //   gbuf4.zw = lightmap coordinates
 //
-// Coordinate-first lightmap: v_lmcoord stores UV, normalized by 1/240;
-// never sampled in the gbuffer pass (sampled in deferred).
+// Coordinate-first lightmap: v_lmcoord carries an affine remap of the raw UV
+// (clamp(x * 1.103449 - 0.0689656)); never sampled in the gbuffer pass
+// (sampled in deferred).
 //
 // Attribute availability matrix:
 //   at_tangent -> terrain, entities, block (but NOT hand, basic, textured, particles)

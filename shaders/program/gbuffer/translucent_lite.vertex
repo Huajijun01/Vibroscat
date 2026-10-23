@@ -56,7 +56,7 @@ void main() {
     vec3 world_normal = mat3(gbufferModelViewInverse) * v_normal;
 #endif
     v_sun_light_col = ground_light.rgb;
-    // Same sky ambient + lightmap remap as deferred2 (no AO in the gbuffer
+    // Same sky ambient + lightmap remap as deferred4 (no AO in the gbuffer
     // stage).
     v_ambient_col = AmbientLight(world_normal, vec3(1.0), v_texcoord.w);
 }

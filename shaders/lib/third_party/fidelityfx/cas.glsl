@@ -32,7 +32,7 @@
 
 // FidelityFX CAS — Contrast Adaptive Sharpening.
 // Sharpen-only GLSL adaptation used after tonemapping. The luma helper uses
-// the pack-wide Rec.709 Luminance from color/color.glsl (identical to the
+// the pack-wide Rec.709 Luminance from color/spaces.glsl (identical to the
 // original CAS dot product).
 #include "/lib/color/spaces.glsl"
 

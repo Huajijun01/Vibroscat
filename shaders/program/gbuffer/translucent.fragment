@@ -56,11 +56,11 @@ void main() {
     diffuse.rgb *= v_color.rgb;
     diffuse.rgb = ToLinear(diffuse.rgb);
 
-    // Non-glass/non-water translucent objects (ice, slime, honey, ...) use
-    // the translucent_lite path: diffuse only, no SSR/Fresnel/water data.
+    // Non-glass/non-water translucent objects (slime, honey, ...) shade inline
+    // with the full direct BRDF: no SSR/Fresnel/water data.
     if (v_id != 1 && v_glass != 1) {
         if (diffuse.a < 0.01) discard;
-        // Same BRDF configuration as deferred2 (shared BRDF helper).
+        // Same BRDF configuration as deferred4 (shared BRDF helper).
         vec3 surface_normal_view = normalize(v_normal);
         vec3 view_to_eye = -normalize(v_view_pos);
         vec3 light_direction = u_view_light_dir;
@@ -209,8 +209,9 @@ void main() {
         }
     }
 
-    // Sun glint = direct solar reflection; SSR landing on ground reflects
-    // that ground instead (tracer classifies the hit, no extra depth fetch).
+    // Sun glint = direct solar reflection; masked off exactly when a history
+    // ray hit geometry (history_hit && !rt_hit_sky) - that hit already
+    // reflects the ground, with no extra depth fetch.
     float sun_spec_mask = (history_hit && !rt_hit_sky) ? 0.0 : 1.0;
 
     // Single hardware-PCF shadow sample (no PCSS needed on water).
@@ -280,9 +281,9 @@ void main() {
     vec3 sky_reflect = reflect_color * out_alpha * v_texcoord.w;
     vec3 env_reflect = v_id == 1 ? vec3(0.0) : v_ambient_col * base_color;
 
-    // Surface reflections stay at full strength (not modulated by the layer
-    // alpha); only the scattered/transmitted terms are alpha-modulated - the
-    // blend pass adds them on top of the transmitted background.
+    // The sun glint stays at full strength; the sky and environment
+    // reflections are weighted by out_alpha, which is also the layer alpha
+    // written for the blend.
     vec3 comp_light = sun_reflect + sky_reflect + env_reflect * saturate(out_alpha);
     out_layer_color = vec4(comp_light, saturate(out_alpha));
 

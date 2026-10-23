@@ -5,106 +5,106 @@ profile.LOW = §aLow
 profile.MEDIUM = §aMedium
 profile.HIGH = §eHigh (Recommended)
 profile.ULTRA = §4Ultra
-profile.comment = One-click performance presets. Each tier only changes settings that cost GPU time (shadow resolution, cloud sampling, ambient occlusion, reflection quality and similar), and leaves every setting you tuned for personal taste untouched.
+profile.comment = One-click quality presets. Each tier only changes settings that affect performance (shadow resolution, cloud sampling, ambient occlusion, reflection quality); your other custom settings stay untouched.
 
 #Screens
 screen.RAIN = Rain & Wet Surfaces
-screen.RAIN.comment = Wetness on exposed ground, optional puddle patterns and adjustable rain ripples on ground and water.
+screen.RAIN.comment = Wet ground, puddles, and rain ripples on ground and water.
 option.RAIN_WETNESS = Rain Wetness
-option.RAIN_WETNESS.comment = Enable rain wetness on exposed ground and raindrop ripples on ground and water.
+option.RAIN_WETNESS.comment = Master switch for rain effects: wets exposed ground and adds raindrop ripples on ground and water.
 option.RAIN_PUDDLES = Rain Puddles
-option.RAIN_PUDDLES.comment = Restrict wet ground to puddle patterns. When disabled, all eligible exposed upward-facing ground becomes wet.
+option.RAIN_PUDDLES.comment = Restrict wet ground to puddle patterns. Off = all eligible exposed ground gets wet.
 option.RAIN_RIPPLES = Rain Ripples
-option.RAIN_RIPPLES.comment = Raindrop rings on exposed wet ground and water. Sky light excludes sheltered surfaces.
+option.RAIN_RIPPLES.comment = Raindrop rings on exposed ground and water. Sheltered surfaces stay dry.
 option.RAIN_PUDDLE_COVERAGE = Puddle Coverage
-option.RAIN_PUDDLE_COVERAGE.comment = Area occupied by puddles at full wetness. Zero disables wet ground only when Rain Puddles is enabled.
+option.RAIN_PUDDLE_COVERAGE.comment = How much ground the puddles cover at full wetness. 0 disables wet ground while Rain Puddles is on.
 option.RAIN_PUDDLE_SCALE_M = Puddle Pattern Size
-option.RAIN_PUDDLE_SCALE_M.comment = World-space wrap size of the puddle pattern. Larger values create larger puddles.
+option.RAIN_PUDDLE_SCALE_M.comment = Tiling size of the puddle pattern: larger = bigger puddles.
 suffix.RAIN_PUDDLE_SCALE_M = \ m
 option.RAIN_RIPPLE_STRENGTH = Ripple Strength
-option.RAIN_RIPPLE_STRENGTH.comment = Normal slope strength shared by wet ground and water. Zero skips the ripple lookup.
+option.RAIN_RIPPLE_STRENGTH.comment = Strength of the ripple motion. 0 = off.
 screen.POSTPROC = Post Processing
-screen.POSTPROC.comment = Everything layered on top of the finished world render: film-style color, camera-lens effects and edge smoothing.
+screen.POSTPROC.comment = Color grading, camera-lens effects and edge smoothing applied after the world is rendered.
 screen.TONEMAP = Tone Mapping
-screen.TONEMAP.comment = Select a display transform and its official presets.
+screen.TONEMAP.comment = How scene brightness is compressed into your display's range. Pick a style and its presets.
 screen.TONEMAP_OPENDRT = OpenDRT
-screen.TONEMAP_OPENDRT.comment = Official OpenDRT v1.1.0 presets; applies only in OpenDRT mode.
+screen.TONEMAP_OPENDRT.comment = Official OpenDRT v1.1.0 presets. Only used in OpenDRT mode.
 screen.EXPOSURE = Exposure
-screen.EXPOSURE.comment = Automatic eye adaptation (like a phone camera's auto brightness), a manual brightness offset, and the night-vision color effect.
+screen.EXPOSURE.comment = Auto eye adaptation, a manual brightness offset, and the night-vision color effect.
 screen.CAMERA = Camera & Effects
-screen.CAMERA.comment = Camera-lens effects: focus blur, motion smear and glowing light sources.
+screen.CAMERA.comment = Lens-style effects: focus blur, motion smear and light-source glow.
 screen.ANTIALIASING = Antialiasing
 screen.TAA_SETTINGS = Temporal Antialiasing
-screen.TAA_SETTINGS.comment = Shared reconstruction, jitter, history and rejection settings for native TAA and Temporal Upscaling.
-screen.ANTIALIASING.comment = Smooths jagged staircase edges and re-sharpens the image afterwards. TAA is temporal anti-aliasing, which blends many frames; CAS is AMD FidelityFX Contrast Adaptive Sharpening.
+screen.TAA_SETTINGS.comment = Settings shared by native TAA and Temporal Upscaling.
+screen.ANTIALIASING.comment = Smooths jagged edges, then re-sharpens the image. TAA blends many frames; CAS is AMD FidelityFX sharpening.
 screen.LIGHTING = Lighting
-screen.LIGHTING.comment = Reflections, bounced sunlight, shadows, corner darkening and light source strength.
+screen.LIGHTING.comment = Reflections, bounced sunlight, shadows, corner darkening and light brightness.
 screen.REFLECTION = Reflections
-screen.REFLECTION.comment = Screen-space reflections on opaque surfaces: how far they reach, their quality, and where they fade into the sky sheen.
+screen.REFLECTION.comment = Screen-space reflections on solid surfaces: range, quality, and the blend into the sky sheen.
 screen.GI = Global Illumination
-screen.GI.comment = Bounced sunlight: light that lands on a surface and then softly tints everything around it. SSGI (screen-space global illumination) traces it on screen; RSM (reflective shadow map) computes it from the sun's shadow map.
+screen.GI.comment = Bounced sunlight: light landing on one surface softly tints its surroundings, like a red carpet glowing onto nearby walls. SSGI traces it on screen; RSM (reflective shadow map) computes it from the sun's shadow map.
 screen.AMBIENT = Ambient Light
-screen.AMBIENT.comment = A guaranteed minimum light level and the strength of artificial lights.
+screen.AMBIENT.comment = A guaranteed minimum light level and the brightness of block lights.
 screen.SHADOWS = Shadows
-screen.SHADOWS.comment = Shadow sharpness, realistic soft shadow edges, and sunlight shining through leaves.
+screen.SHADOWS.comment = Shadow sharpness, realistic soft edges, and sunlight through leaves.
 screen.PCSS = PCSS Soft Shadows
-screen.PCSS.comment = Contact-hardening soft shadows: the blocker search budget, the light-source angle PCSS assumes, and the sample count behind the penumbra. PCSS is percentage-closer soft shadows and PCF is percentage-closer filtering; both apply while PCSS is on.
+screen.PCSS.comment = Soft shadows whose edges blur with distance from the caster. PCSS = percentage-closer soft shadows; PCF = percentage-closer filtering. Applies while PCSS is on.
 screen.SHADOW_DEPTH = Shadow Depth
-screen.SHADOW_DEPTH.comment = Depth tolerance, plus the two boosts that set how wide the soft-shadow blur may grow.
+screen.SHADOW_DEPTH.comment = Depth tolerance and the two boosts that cap how wide soft shadows may blur.
 screen.PLANT_SSS = Plant Translucency
-screen.PLANT_SSS.comment = Bright exposed leaves and grass tips, soft partial shadows and shaded interiors. SSS stands for subsurface scattering.
+screen.PLANT_SSS.comment = Light passing through thin leaves and grass: bright tips and soft partial shade. SSS = subsurface scattering.
 screen.CONTACT = Contact Shadows
-screen.CONTACT.comment = Short-range screen-space shadows that fill the seam where objects meet the ground or a wall. Overworld and End only.
+screen.CONTACT.comment = Short screen-space shadows where objects meet the ground or a wall. Overworld and End only.
 screen.AO = Ambient Occlusion
-screen.AO.comment = The soft darkening inside corners, crevices, and where objects meet the ground. GTAO is the horizon-based method, SSAO the hemisphere-sampling one.
+screen.AO.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO = horizon-based method; SSAO = hemisphere sampling.
 screen.AO_GTAO = GTAO
-screen.AO_GTAO.comment = Parameters of the horizon-based ambient occlusion. Used while the mode is GTAO.
+screen.AO_GTAO.comment = Settings of the horizon-based method. Used while the AO mode is GTAO.
 screen.AO_SSAO = SSAO
-screen.AO_SSAO.comment = Parameters of the hemisphere-sampling ambient occlusion, which is heavier but softer. Used while the mode is SSAO.
+screen.AO_SSAO.comment = Settings of the hemisphere-sampling method: heavier but softer. Used while the AO mode is SSAO.
 screen.AO_TEMPORAL_SETTINGS = AO History
-screen.AO_TEMPORAL_SETTINGS.comment = How long the ambient occlusion history is trusted and how it reacts to movement, so the shading stays steady without smearing. Used while temporal accumulation is on.
+screen.AO_TEMPORAL_SETTINGS.comment = How long AO history is trusted and how it reacts to motion. Used while temporal accumulation is on.
 screen.ENVIRONMENT = Environment
-screen.ENVIRONMENT.comment = Clouds, water and haze.
+screen.ENVIRONMENT.comment = Clouds, water and fog.
 screen.SKY = Sky
 screen.SKY.comment = Stars and the atmosphere at the horizon.
 screen.CLOUDS = Clouds
-screen.CLOUDS.comment = True 3D volumetric clouds: their shape, motion and lighting.
+screen.CLOUDS.comment = True 3D volumetric clouds: shape, motion and lighting.
 screen.CLOUD_SHAPE = Cloud Shape
-screen.CLOUD_SHAPE.comment = Where the cloud layer sits, how much of the sky it covers, how wide the weather pattern is, and how fast it drifts with the wind.
+screen.CLOUD_SHAPE.comment = Layer height, sky coverage, weather pattern size and wind drift.
 screen.CLOUD_LIGHTING = Cloud Lighting
-screen.CLOUD_LIGHTING.comment = How the cloud is lit: which light is traced, how far the light ray marches, and the forward and backward scattering that makes edges glow.
+screen.CLOUD_LIGHTING.comment = Which light is traced and how far, plus the scattering that makes edges glow.
 screen.CLOUD_MULTISCATTER = Cloud Multiple Scattering
-screen.CLOUD_MULTISCATTER.comment = Light that bounces around inside the cloud, so thick bodies stay bright instead of turning grey. Also holds the sky-light term and the cirrus equivalent.
+screen.CLOUD_MULTISCATTER.comment = Light bouncing inside clouds so thick bodies stay bright. Sky-light term and cirrus equivalent live here too.
 screen.CLOUD_QUALITY = Cloud Quality
-screen.CLOUD_QUALITY.comment = Sampling budget, temporal upscaling and history age: the settings that trade cloud cost against stability.
+screen.CLOUD_QUALITY.comment = Sampling budget, temporal upscaling and history length: cost versus stability.
 screen.WATER = Water
 screen.WATER.comment = Water reflections, wave detail and underwater light.
 screen.WATER_SURFACE = Water Surface
-screen.WATER_SURFACE.comment = Adjust wave strength, large-wave parallax height, and reflection and parallax search quality.
+screen.WATER_SURFACE.comment = Wave strength, parallax height, and reflection and parallax quality.
 screen.FOG = Fog
-screen.FOG.comment = Hides the edge of the loaded world with boundary fog. Overworld only.
+screen.FOG.comment = Boundary fog that hides the edge of the loaded world. Overworld only.
 screen.INFORMATION = Information
-screen.INFORMATION.comment = Pack info: the open-source license, what the performance presets change, how to read setting help, and where the diagnostic views live.
+screen.INFORMATION.comment = Pack info: license, performance presets, setting help and debug views.
 screen.DEBUG = Debug Views
-screen.DEBUG.comment = Diagnostic views for troubleshooting. Each one replaces part of the normal image; leave them at their defaults while playing.
+screen.DEBUG.comment = Diagnostic views that replace part of the normal image. Keep defaults while playing.
 
 #About / information (display-only pseudo options)
 option.ABOUT = Vibroscat Alpha v0.3.0
-option.ABOUT.comment = Vibroscat shaderpack by Huajijun, free open-source software under GPL-3.0. This line is information only; clicking it changes nothing.
+option.ABOUT.comment = Vibroscat shaderpack by Huajijun, free open-source software under GPL-3.0.
 value.ABOUT.0 = by Huajijun
 option.INFO_LICENSE = License
-option.INFO_LICENSE.comment = Vibroscat is distributed under GNU GPL-3.0: you may share and adapt it under the same license. See the LICENSE file and the third-party notices bundled with the pack.
+option.INFO_LICENSE.comment = Vibroscat is distributed under GNU GPL-3.0: share and adapt it under the same license. See the LICENSE file and the bundled third-party notices.
 value.INFO_LICENSE.0 = GNU GPL-3.0
 option.INFO_PROFILE = Performance Presets
-option.INFO_PROFILE.comment = The Profile button on the first page switches one-click quality tiers. Each tier only changes settings that cost GPU time (shadow resolution, cloud sampling, ambient occlusion, reflection quality and similar) and leaves your personal taste untouched.
+option.INFO_PROFILE.comment = The Profile button on the first page switches quality tiers. Each tier only changes performance-related settings.
 value.INFO_PROFILE.0 = LOW - ULTRA
 option.INFO_TOOLTIPS = Setting Help
-option.INFO_TOOLTIPS.comment = Hover the mouse over any setting or category to read a plain-language explanation of what it does.
+option.INFO_TOOLTIPS.comment = Hover the mouse over any setting or category to read what it does.
 value.INFO_TOOLTIPS.0 = Hover any setting
 
 #Post: tonemapping
 option.TONEMAP_MODE = Tone Mapping Mode
-option.TONEMAP_MODE.comment = AgX-HSV, ACES 2.0, Blender AgX, OpenDRT, AMD LPM or GT7 (default). GT7 uses the pack's calibrated SDR curve. Numeric operator parameters are fixed.
+option.TONEMAP_MODE.comment = AgX-HSV, ACES 2.0, Blender AgX, OpenDRT, AMD LPM or GT7 (default). GT7 uses the pack's calibrated SDR curve.
 value.TONEMAP_MODE.0 = AgX-HSV
 value.TONEMAP_MODE.1 = ACES 2.0
 value.TONEMAP_MODE.2 = Blender AgX
@@ -112,71 +112,71 @@ value.TONEMAP_MODE.3 = OpenDRT
 value.TONEMAP_MODE.4 = AMD LPM
 value.TONEMAP_MODE.5 = GT7
 option.TONEMAP_EXPOSURE = Manual Exposure
-option.TONEMAP_EXPOSURE.comment = A fixed brightness offset applied before auto exposure, measured in stops: +1.0 makes everything twice as bright, -1.0 half as bright. Use it if you consistently find the game too dark or too bright.
+option.TONEMAP_EXPOSURE.comment = Fixed brightness offset before auto exposure, in stops: +1.0 doubles brightness, -1.0 halves it.
 option.PURKINJE_EFFECT = Purkinje Effect
-option.PURKINJE_EFFECT.comment = Simulates real human night vision: in darkness your color-sensing cells stop working and everything fades into a bluish grey. Dark scenes lose their color the same way, so nights feel darker and more atmospheric without actually removing any light. Needs Auto Exposure (AE) so the game knows how dark it is.
+option.PURKINJE_EFFECT.comment = Real human night vision: in darkness color vision fades toward bluish grey, so nights feel darker without losing light. Requires Auto Exposure.
 option.PURKINJE_STRENGTH = Purkinje Strength
-option.PURKINJE_STRENGTH.comment = How strong the night-time bluish-grey shift is: 0 = off, 1 = full effect in the darkest scenes.
+option.PURKINJE_STRENGTH.comment = Strength of the night-time color fade: 0 = off, 1 = full effect in the darkest scenes.
 
 #Post: camera & effects
 option.DOF = Depth of Field
-option.DOF.comment = Blurs whatever your crosshair is not focused on, like a real camera lens: near and far objects soften while the aimed-at spot stays sharp. Costs performance.
+option.DOF.comment = Blurs what the crosshair is not focused on, like a camera lens; the aimed-at spot stays sharp. Costs performance.
 option.MOTION_BLUR = Motion Blur
-option.MOTION_BLUR.comment = Smears the image slightly while you turn or move quickly, like a real camera sensor. Reduces strobing, but adds motion trails.
+option.MOTION_BLUR.comment = Slightly smears the image during fast movement, like a real camera sensor.
 option.MB_STRENGTH = Motion Blur Strength
-option.MB_STRENGTH.comment = Length of the motion smear: 0 = barely visible, 1 = strong trails.
+option.MB_STRENGTH.comment = Smear length: 0 = barely visible, 1 = strong trails.
 option.BLOOM = Bloom
-option.BLOOM.comment = Makes very bright things glow and bleed light into their surroundings - the haze around a torch flame, or glare when you look toward the sun.
+option.BLOOM.comment = Bright light bleeds a glow into its surroundings, like haze around a flame or glare toward the sun.
 option.BLOOM_STRENGTH = Bloom Strength
 option.BLOOM_STRENGTH.comment = Strength of the glow.
 option.AE = Auto Exposure
-option.AE.comment = Automatic eye adaptation, like a phone camera's auto brightness: walk into a cave and the image gradually brightens; step into sunlight and it dims. Off = one fixed manual brightness.
+option.AE.comment = Eye adaptation, like a phone camera's auto brightness: caves brighten gradually, sunlight dims the image. Off = one fixed manual brightness.
 option.AE_TARGET_LUMINANCE = Auto Exposure Target Luminance
-option.AE_TARGET_LUMINANCE.comment = The average brightness auto exposure aims for: lower = the whole game renders darker and moodier, higher = brighter. 0.18 is the standard neutral value.
-option.AE_ADAPTATION_STRENGTH = Auto Exposure Adaptation Gain
-option.AE_ADAPTATION_STRENGTH.comment = How strongly the exposure follows the scene. 0 = never react (fixed brightness everywhere); 1 = nearly every scene gets equalized to the same average brightness, which flattens natural contrast. In between keeps some of the game's own light differences.
+option.AE_TARGET_LUMINANCE.comment = The average brightness auto exposure aims for: lower = darker overall, higher = brighter. 0.18 is the standard neutral value.
+option.AE_ADAPTATION_STRENGTH = Exposure Adaptation Strength
+option.AE_ADAPTATION_STRENGTH.comment = How strongly exposure follows the scene: 0 = never reacts, 1 = every scene equalized to the same brightness, which flattens natural contrast. In between keeps some of it.
 
 #Post: antialiasing
 option.TAA = TAA
-option.TAA.comment = Removes jagged staircase edges by blending many frames together. Very effective, but costs performance and can leave faint trails behind fast-moving objects.
+option.TAA.comment = Blends many frames to remove jagged edges. Effective but costs performance; fast objects can leave faint trails.
 option.TAAU = Temporal Upscaling
-option.TAAU.comment = Requires TAA. Renders geometry and scene shading at a lower resolution, then reconstructs full-resolution output. Disabled by default. Reuses existing buffers; color clipping limits ghosting without a separate depth history.
+option.TAAU.comment = Requires TAA. Renders the scene at lower resolution and reconstructs full-resolution output. Off by default.
 option.TAAU_RENDER_SCALE = Render Scale
-option.TAAU_RENDER_SCALE.comment = Scale of each scene axis relative to the display. 0.50 shades one quarter of the scene pixels. Disable Temporal Upscaling for native resolution. Existing texture allocations retain their display size.
+option.TAAU_RENDER_SCALE.comment = Scene resolution relative to the display: 50% shades one quarter of the pixels. Disable Temporal Upscaling for native resolution.
 value.TAAU_RENDER_SCALE.0.50 = 50%
 value.TAAU_RENDER_SCALE.0.59 = 59%
 value.TAAU_RENDER_SCALE.0.67 = 67%
 value.TAAU_RENDER_SCALE.0.75 = 75%
 value.TAAU_RENDER_SCALE.0.85 = 85%
 option.TAA_RECONSTRUCTION = Reconstruction Filter
-option.TAA_RECONSTRUCTION.comment = Current-frame reconstruction filter. Bilinear costs less; cubic keeps sharper detail at a higher sampling cost. Current taps stay inside the rendered scene. History always uses five-tap Catmull-Rom.
+option.TAA_RECONSTRUCTION.comment = Filter for the current-frame reconstruction: bilinear is cheaper, cubic keeps sharper detail.
 value.TAA_RECONSTRUCTION.0 = Bilinear
 value.TAA_RECONSTRUCTION.1 = Cubic
 option.TAA_JITTER = Jitter Pattern
-option.TAA_JITTER.comment = Sub-pixel jitter sequence shared by TAA, Temporal Upscaling and the temporal AO/GI history. Halton 8 repeats a fixed 8-frame pattern with uniform pixel coverage and a short convergence cycle. R2 is the continuous plastic-constant sequence: no short repeat, with samples spreading over longer runs at the cost of slower convergence.
+option.TAA_JITTER.comment = Sub-pixel sample sequence shared by all temporal effects. Halton 8 repeats a fixed 8-frame pattern and converges quickly; R2 does not repeat and settles more slowly.
 value.TAA_JITTER.0 = Halton 8
 value.TAA_JITTER.1 = R2
 option.TAA_HISTORY_WEIGHT = History Weight
-option.TAA_HISTORY_WEIGHT.comment = Maximum history contribution for both native TAA and Temporal Upscaling. Motion and color rejection reduce it. Higher values improve stability but respond more slowly.
+option.TAA_HISTORY_WEIGHT.comment = Maximum history contribution; motion and color rejection lower it. Higher = steadier image, slower response.
 option.TAA_MOTION_REJECTION = Motion Response
-option.TAA_MOTION_REJECTION.comment = Smoothly reduces history with speed in display pixels. No abrupt cutoff at one pixel. Higher values respond faster but retain less noise reduction in motion.
+option.TAA_MOTION_REJECTION.comment = How quickly history is reduced for fast-moving pixels. Higher = faster response, less smoothing in motion.
 option.TAA_REACTIVE_STRENGTH = Color Change Response
-option.TAA_REACTIVE_STRENGTH.comment = Reduces history by its RGB distance outside the neighborhood bounds, normalized by local color range. Detail inside the bounds keeps normal history. 0.50 balances trails and noise.
+option.TAA_REACTIVE_STRENGTH.comment = How strongly history is rejected where colors changed. 0.50 balances trails and noise.
 option.TAA_DEBUG = TAA Debug View
-option.TAA_DEBUG.comment = Requires TAA. Shows spatial reconstruction or history rejection (red = fresh, green = history) at any render scale. Motion blur is disabled for these views.
+option.TAA_DEBUG.comment = Requires TAA. Shows the spatial reconstruction or history rejection (red = fresh, green = history).
 value.TAA_DEBUG.0 = Scene
 value.TAA_DEBUG.1 = Spatial Reconstruction
 value.TAA_DEBUG.2 = History Rejection
 option.CAS = CAS Sharpening
-option.CAS.comment = A light sharpening filter (AMD FidelityFX CAS) applied on top, mainly to restore the crispness that antialiasing smoothing softens away.
+option.CAS.comment = Light sharpening (AMD FidelityFX CAS) that restores crispness lost to antialiasing smoothing.
 option.CAS_SHARPNESS = CAS Sharpness
-option.CAS_SHARPNESS.comment = Sharpening strength: 0 = off, higher = crisper (too high shows bright halos around edges).
+option.CAS_SHARPNESS.comment = Sharpening strength: 0 = off; too high shows bright halos on edges.
 
 #Post: color dither
 option.COLOR_DITHER = Color Dither
-option.COLOR_DITHER.comment = Adds a fine grain that hides color banding - the ugly striped rings you can otherwise see in smooth sky, fog and shadow gradients. The grain pattern is fixed to the screen, so it never fades out and reads as a regular crosshatch over sky and clouds. Off by default; turn it on only when banding bothers you more than the grain.
+option.COLOR_DITHER.comment = Adds fine grain that hides color banding in smooth sky, fog and shadow gradients. Off by default.
 option.COLOR_DITHER_STRENGTH = Color Dither Strength
-option.COLOR_DITHER_STRENGTH.comment = Only applies while Color Dither is on. Grain strength: 0.5 = conservative, 1.0 = default, 2.0 = aggressive de-banding but a more visible grain.
+option.COLOR_DITHER_STRENGTH.comment = Grain strength: 0.5 = subtle, 1.0 = default, 2.0 = strongest de-banding but visible grain.
 
 #Clouds: temporal upscaling values
 value.CLOUD_TEMPORAL_UPSCALING.1 = 1x (Full)
@@ -186,263 +186,260 @@ value.CLOUD_TEMPORAL_UPSCALING.4 = 4x (1/4 res)
 
 #Clouds: rendering
 option.VOLUMETRIC_CLOUDS = Volumetric Clouds
-option.VOLUMETRIC_CLOUDS.comment = Replaces flat cloud pictures with real 3D clouds that have volume, depth and proper sunlight. One of the most expensive effects in the pack.
+option.VOLUMETRIC_CLOUDS.comment = Replaces flat cloud sprites with real 3D clouds that have depth and proper sunlight. One of the most expensive effects in the pack.
 option.CIRRUS = Cirrus Clouds
-option.CIRRUS.comment = Thin high-altitude cloud shell with silver-lining lighting. Far cheaper than the volumetric layer and independent of it: turning Volumetric Clouds off keeps the cirrus, and vice versa.
+option.CIRRUS.comment = Thin high-altitude cloud sheet with silver-lining lighting. Far cheaper than volumetric clouds and independent of them.
 option.CLOUD_SINGLE_LIGHT = Single Light Trace
-option.CLOUD_SINGLE_LIGHT.comment = Traces the cloud layer toward one folded sun/moon direction instead of marching both lights. Cheaper, and the sunset glow is kept by holding the sun's colour through the band just below the horizon. Off = both lights are traced separately, which costs more but lights the layer from each side independently.
+option.CLOUD_SINGLE_LIGHT.comment = Traces one merged sun/moon direction instead of both lights separately. Cheaper; sunset glow is kept by extending the sun's color below the horizon. Off = both lights traced separately, each lighting the layer from its own side.
 option.CLOUD_TEMPORAL_UPSCALING = Temporal Upscaling
-option.CLOUD_TEMPORAL_UPSCALING.comment = Renders clouds at a reduced resolution and rebuilds full detail over consecutive frames. 1x = full resolution (sharpest, slowest), 4x = quarter resolution (fastest, can smear slightly during fast camera movement).
+option.CLOUD_TEMPORAL_UPSCALING.comment = Renders clouds at reduced resolution and rebuilds detail across frames. 1x = sharpest and slowest; 4x = fastest, may smear during fast camera movement.
 option.CLOUD_HISTORY_FRAMES = Cloud History Length Limit
-option.CLOUD_HISTORY_FRAMES.comment = How many frames a cloud texel's accumulated history stays trusted before a fresh sample fully replaces it: higher = steadier clouds between frames, but slower response to wind and view changes.
+option.CLOUD_HISTORY_FRAMES.comment = How many frames accumulated cloud history stays trusted: higher = steadier clouds, slower response to wind and view changes.
 option.CLOUD_VIEW_MIN_STEPS = Minimum Steps
-option.CLOUD_VIEW_MIN_STEPS.comment = Sampling quality for clouds near you: higher = fewer holes or speckles on nearby cloud edges, slower.
+option.CLOUD_VIEW_MIN_STEPS.comment = Sampling quality for nearby clouds: higher = fewer holes on close edges, slower.
 option.CLOUD_VIEW_MAX_STEPS = Maximum Steps
-option.CLOUD_VIEW_MAX_STEPS.comment = Sampling quality for clouds far toward the horizon: higher = clouds stay detailed farther away, slower.
+option.CLOUD_VIEW_MAX_STEPS.comment = Sampling quality for distant clouds: higher = detail holds farther toward the horizon, slower.
 option.CLOUD_VIEW_TARGET_STEP_KM = Target Step Distance (km)
-option.CLOUD_VIEW_TARGET_STEP_KM.comment = How densely clouds are scanned along your line of sight, in kilometres; smaller = finer steps. Lower = more detail and smoother shapes, slower.
+option.CLOUD_VIEW_TARGET_STEP_KM.comment = How densely the view ray scans the cloud layer: smaller = finer steps and smoother shapes, slower.
 option.CLOUD_LIGHT_STEPS = Light Steps
-option.CLOUD_LIGHT_STEPS.comment = How carefully sunlight is traced through each cloud to decide which parts are in shadow. Higher = better lit and shadowed detail inside clouds, slower.
+option.CLOUD_LIGHT_STEPS.comment = How carefully sunlight is traced through each cloud: higher = better in-cloud light and shadow detail, slower.
 option.CLOUD_LIGHT_START_OFFSET_KM = Light Start Offset
-suffix.CLOUD_LIGHT_START_OFFSET_KM = km
-option.CLOUD_LIGHT_START_OFFSET_KM.comment = Distance skipped toward the light before tracing cloud self-shadow. Higher = a broader bright edge on backlit clouds, but less shadow detail near the surface. Zero restores the original trace.
+suffix.CLOUD_LIGHT_START_OFFSET_KM = \ km
+option.CLOUD_LIGHT_START_OFFSET_KM.comment = Distance skipped toward the light before tracing a cloud's self-shadow: higher = broader bright rim on backlit clouds, less shadow detail near surfaces.
 option.CLOUD_BASE_ALTITUDE = Base Altitude
-option.CLOUD_BASE_ALTITUDE.comment = How high above the terrain the cloud layer floats. Higher = clouds sit farther overhead.
-suffix.CLOUD_BASE_ALTITUDE = km
+option.CLOUD_BASE_ALTITUDE.comment = How high the cloud layer floats above the terrain: higher = clouds sit farther overhead.
+suffix.CLOUD_BASE_ALTITUDE = \ km
 option.CLOUD_THICKNESS_KM = Layer Thickness
-suffix.CLOUD_THICKNESS_KM = km
-option.CLOUD_THICKNESS_KM.comment = Vertical thickness of the cloud layer: higher = taller, towering clouds with deeper shadows inside.
+suffix.CLOUD_THICKNESS_KM = \ km
+option.CLOUD_THICKNESS_KM.comment = Vertical thickness of the cloud layer: higher = taller, towering clouds with deeper inner shadows.
 option.CLOUD_DISTRIBUTION_SCALE_KM = Distribution Scale
-suffix.CLOUD_DISTRIBUTION_SCALE_KM = km
-option.CLOUD_DISTRIBUTION_SCALE_KM.comment = The size of the overall cloud pattern across the world: higher = bigger, more sprawling cloud systems spaced farther apart; lower = more, smaller cloud clusters.
+suffix.CLOUD_DISTRIBUTION_SCALE_KM = \ km
+option.CLOUD_DISTRIBUTION_SCALE_KM.comment = Size of the overall weather pattern: higher = larger, more sprawling cloud systems; lower = more, smaller clusters.
 option.CLOUD_WIND_SPEED = Wind Speed
-suffix.CLOUD_WIND_SPEED = km/s
+suffix.CLOUD_WIND_SPEED = \ km/s
 option.CLOUD_WIND_SPEED.comment = How fast clouds drift across the sky.
 option.CLOUD_FINE_WIND_FACTOR = Fine Wind Factor
-option.CLOUD_FINE_WIND_FACTOR.comment = Makes the small details inside a cloud flow faster than the cloud as a whole, so clouds seem to boil and churn instead of just sliding by.
+option.CLOUD_FINE_WIND_FACTOR.comment = Makes small cloud details flow faster than the whole cloud, so clouds churn instead of just sliding by.
 option.CLOUD_COVERAGE = Coverage
-option.CLOUD_COVERAGE.comment = The weather-map coverage bar: higher = a wider, more connected cloud footprint; lower = scattered clouds and more blue sky. Rain still pushes coverage to full overcast.
+option.CLOUD_COVERAGE.comment = Sky coverage of the weather pattern: higher = wider, more connected clouds; lower = scattered clouds and more blue sky. Rain still forces full overcast.
 option.CLOUD_DISTRIBUTION_UV_SCALE = Distribution Frequency
-option.CLOUD_DISTRIBUTION_UV_SCALE.comment = Extra sampling frequency on the distribution atlas: higher = smaller, more frequent weather cells inside the same pattern.
+option.CLOUD_DISTRIBUTION_UV_SCALE.comment = Sampling frequency on the weather pattern: higher = smaller, more frequent weather cells.
 option.CLOUD_FINE_EROSION_SCALE = Voronoise Scale
-option.CLOUD_FINE_EROSION_SCALE.comment = Coordinate scale of the 32^3 voronoise erosion volume per kilometer: higher = smaller, denser detail cells.
+option.CLOUD_FINE_EROSION_SCALE.comment = Size of the fine erosion detail inside clouds: higher = smaller, denser detail.
 option.CLOUD_FINE_EROSION_STRENGTH = Voronoise Shadow Strength
-option.CLOUD_FINE_EROSION_STRENGTH.comment = Erosion strength used by the sun trace through clouds; scales the volume mean the same way the view path scales its per-point voronoise read.
+option.CLOUD_FINE_EROSION_STRENGTH.comment = Strength of that fine detail in the sunlight shading.
 option.CLOUD_MS_SAT_ALBEDO = Scatter Saturation
-option.CLOUD_MS_SAT_ALBEDO.comment = Saturation albedo of the multiple-scattering series: higher = brighter, milkier cloud interiors. Values near 1.0 brighten dense interiors very steeply.
+option.CLOUD_MS_SAT_ALBEDO.comment = Brightness cap of the multiple-scattering approximation: higher = brighter, milkier cloud interiors.
 option.CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = Cloud Density
-option.CLOUD_ALPHA_EXTINCTION_SRGB_GRAY.comment = Extinction of a fully dense cloud sample: higher = denser, more opaque clouds with deeper self-shadows.
+option.CLOUD_ALPHA_EXTINCTION_SRGB_GRAY.comment = How opaque a fully dense cloud sample is: higher = denser, more opaque clouds with deeper self-shadows.
 option.CLOUD_LIGHT_MAX_DISTANCE_KM = Light Trace Distance
-suffix.CLOUD_LIGHT_MAX_DISTANCE_KM = km
-option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = How far sunlight is traced through a cloud when deciding its self-shadowing: higher = correct lighting deeper inside thick clouds, slower.
+suffix.CLOUD_LIGHT_MAX_DISTANCE_KM = \ km
+option.CLOUD_LIGHT_MAX_DISTANCE_KM.comment = How far sunlight is traced through a cloud for its self-shadow: higher = correct lighting deeper inside thick clouds, slower.
 option.CLOUD_PHASE_FORWARD_G = Sunward Scatter Sharpness
-option.CLOUD_PHASE_FORWARD_G.comment = Controls the bright "silver lining" when you look toward the sun through clouds: higher = a tighter, brighter glow around the sun.
+option.CLOUD_PHASE_FORWARD_G.comment = The bright silver lining when looking toward the sun through clouds: higher = a tighter, brighter glow around the sun.
 option.CLOUD_PHASE_BACKWARD_G = Backward Scatter Strength
-option.CLOUD_PHASE_BACKWARD_G.comment = Controls how bright clouds look when your back is to the sun: higher = a stronger glow on the clouds across the sky from the sun.
+option.CLOUD_PHASE_BACKWARD_G.comment = How bright clouds look with your back to the sun: higher = a stronger glow on clouds opposite the sun.
 option.CLOUD_MS_ATTENUATION = Multi-Scatter Attenuation
-option.CLOUD_MS_ATTENUATION.comment = Part of the simulation of sunlight bouncing around inside a cloud (this is why shadowed cloud interiors are not pitch black). Controls how much light survives each bounce: higher = light penetrates deeper, giving brighter, softer shadowed interiors.
+option.CLOUD_MS_ATTENUATION.comment = How much light survives each bounce inside a cloud: higher = light penetrates deeper, brighter and softer shadowed interiors.
 option.CLOUD_MS_CONTRIBUTION = Multi-Scatter Contribution
-option.CLOUD_MS_CONTRIBUTION.comment = Energy multiplier for each extra order of the directional-light scattering series, so it sets how much the sunlit side gains from bounces inside the cloud. Higher = brighter, milkier clouds.
+option.CLOUD_MS_CONTRIBUTION.comment = Energy added by each extra bounce: higher = brighter, milkier clouds.
 option.CLOUD_MS_ECCENTRICITY = Multi-Scatter Eccentricity
-option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow concentrates toward the sun's direction: higher = a stronger halo of light spreading through the cloud around the sun.
-option.CLOUD_MS_ISOTROPIC = Multi-Scatter Isotropic Strength
-option.CLOUD_MS_ISOTROPIC.comment = Strength of the fill light that does not follow the sun or the view direction; it is what keeps shadowed cloud interiors from going black. Higher = brighter, milkier cores.
+option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow concentrates toward the sun: higher = a stronger halo around the sun inside the cloud.
+option.CLOUD_MS_ISOTROPIC = Multi-Scatter Fill Light
+option.CLOUD_MS_ISOTROPIC.comment = Direction-independent fill light that keeps shadowed cloud interiors from going black: higher = brighter, milkier cores.
 option.CLOUD_SKY_LIGHT_STRENGTH = Cloud Sky Light Strength
-option.CLOUD_SKY_LIGHT_STRENGTH.comment = How much ambient sky light the volumetric and cirrus layers receive: higher = brighter shadowed sides and undersides, so both layers look softer and whiter.
-option.CIRRUS_MS_ISOTROPIC = Cirrus Multi-Scatter Isotropic
-option.CIRRUS_MS_ISOTROPIC.comment = Strength of the light the cirrus bounces around inside itself, added to the sun and moon. It scales with how dense that part of the sheet is, so thin edges stay thin: higher = fuller, brighter cirrus bodies and less contrast in the sheet.
+option.CLOUD_SKY_LIGHT_STRENGTH.comment = Ambient sky light received by both cloud layers: higher = brighter shadowed sides and undersides, a softer look.
+option.CIRRUS_MS_ISOTROPIC = Cirrus Fill Light
+option.CIRRUS_MS_ISOTROPIC.comment = Fill light bouncing inside the cirrus sheet, scaled by its density: higher = fuller, brighter cirrus with less contrast.
 option.CLOUD_MILKYWAY_TRANSMISSION = Milky Way Cloud Transmission
-option.CLOUD_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the volumetric clouds scatters into a glow inside the layer. 1.0 is the physical isotropic total; lower keeps the band subtle, 0 turns the glow off.
+option.CLOUD_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the clouds glows inside the layer: 1.0 = the physical total, 0 = off.
 option.CIRRUS_MILKYWAY_TRANSMISSION = Milky Way Cirrus Transmission
-option.CIRRUS_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the cirrus shell scatters into a glow inside the sheet. 1.0 is the physical isotropic total; lower keeps the band subtle, 0 turns the glow off.
+option.CIRRUS_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the cirrus glows inside the sheet: 1.0 = the physical total, 0 = off.
 
 #Shadows
 option.SHADOW_PCSS = PCSS Shadows
-option.SHADOW_PCSS.comment = Realistic soft shadows: a shadow's edge gets blurrier the farther the object is above the ground it falls on, like real sunlight. Off (Low) = cheap hard-edged shadows. The thickness estimate needed for light-through-leaves keeps working either way.
+option.SHADOW_PCSS.comment = Realistic soft shadows: the farther an object is above the surface below it, the blurrier its shadow edge, like real sunlight. Off = cheap hard-edged shadows.
 option.shadowMapResolution = Shadow Map Resolution
-option.shadowMapResolution.comment = Detail level of the shadow map: higher = sharper, cleaner shadow edges that also stay crisp farther from you, at a significant performance cost.
+option.shadowMapResolution.comment = Shadow map detail: higher = sharper edges that stay crisp farther away, at a significant performance cost.
 option.SHADOW_BLOCKER_SAMPLES = PCSS Blocker Samples
-option.SHADOW_BLOCKER_SAMPLES.comment = Precision of the soft-shadow measurement (how exactly the game estimates how high above the ground a shadow caster sits): higher = smoother, more stable soft edges, slower.
+option.SHADOW_BLOCKER_SAMPLES.comment = Precision of the height measurement behind the soft edge: higher = smoother, more stable soft edges, slower.
 option.SHADOW_BLOCKER_SEARCH_TEXELS = PCSS Search Radius (texels)
-option.SHADOW_BLOCKER_SEARCH_TEXELS.comment = How wide an area is examined for that measurement: higher = allows broader, softer shadows, slower.
+option.SHADOW_BLOCKER_SEARCH_TEXELS.comment = How wide an area that measurement searches: higher = broader soft shadows, slower.
 option.SHADOW_SUN_ANGULAR_RADIUS = Shadow Penumbra Angle
-suffix.SHADOW_SUN_ANGULAR_RADIUS = rad
-option.SHADOW_SUN_ANGULAR_RADIUS.comment = The angular size of the light source that PCSS assumes when it decides how wide a soft shadow gets. It is about ten times the sun disc actually drawn in the sky, and that difference is what makes the edges soft; raising it softens every shadow.
+suffix.SHADOW_SUN_ANGULAR_RADIUS = \ rad
+option.SHADOW_SUN_ANGULAR_RADIUS.comment = The assumed angular size of the sun that sets how wide soft shadows get: higher = softer shadows everywhere.
 option.SHADOW_BLOCKER_DEPTH_TOLERANCE_M = Blocker Depth Tolerance
-suffix.SHADOW_BLOCKER_DEPTH_TOLERANCE_M = m
-option.SHADOW_BLOCKER_DEPTH_TOLERANCE_M.comment = Lets surfaces at nearly the same height count as the ground. A small value can reduce shadow speckle on stairs, fences and leaves; too high makes shadows leak through thin objects. 0 = strictest.
+suffix.SHADOW_BLOCKER_DEPTH_TOLERANCE_M = \ m
+option.SHADOW_BLOCKER_DEPTH_TOLERANCE_M.comment = Lets surfaces at nearly the same height count as the same ground. Reduces shadow speckle on stairs and fences; too high leaks shadows through thin objects. 0 = strictest.
 option.SHADOW_PCF_MIN_SAMPLES = PCF Min Samples
-option.SHADOW_PCF_MIN_SAMPLES.comment = Smoothness of shadow edges in fully sunlit areas: higher = less grainy edges, slower.
+option.SHADOW_PCF_MIN_SAMPLES.comment = Shadow edge smoothness in fully sunlit areas: higher = less grainy edges, slower.
 option.SHADOW_PCF_MAX_SAMPLES = PCF Max Samples
-option.SHADOW_PCF_MAX_SAMPLES.comment = Smoothness in the softest, blurriest shadow regions: higher = cleaner large soft shadows, slower.
+option.SHADOW_PCF_MAX_SAMPLES.comment = Smoothness in the softest shadow regions: higher = cleaner large soft shadows, slower.
 option.SHADOW_PCF_GAIN = PCF Sample Growth
-option.SHADOW_PCF_GAIN.comment = How fast the sample count grows as shadows get softer: it multiplies the penumbra radius in texels to pick the sample count. Higher = better quality in soft regions at higher cost.
+option.SHADOW_PCF_GAIN.comment = How fast the sample count grows as shadows get softer: higher = better quality in soft regions, higher cost.
 option.SHADOW_PENUMBRA_CAP_BOOST = Penumbra Cap Boost
-option.SHADOW_PENUMBRA_CAP_BOOST.comment = Raises the ceiling on how wide the soft-shadow blur may grow. It is a fixed multiplier and carries no sun-height term, so noon and sunset behave exactly the same. Higher = the widest soft shadows may spread further, slower.
+option.SHADOW_PENUMBRA_CAP_BOOST.comment = Raises the maximum width soft shadows may reach. A fixed multiplier, the same at noon and sunset: higher = wider soft shadows, slower.
 option.SHADOW_SSS = Plant Translucency (SSS)
-option.SHADOW_SSS.comment = Broadens thin-plant lighting while retaining deep occlusion. Grass uses partial screen shadows near and far. Leaves rely on the nearby shadow map and gradually add screen shadows at distance.
+option.SHADOW_SSS.comment = Light passing through thin plants: exposed tips brighten toward full sun, partial shadows turn soft, deep shadows stay dark.
 option.SHADOW_SSS_STEPS = Plant Soft Shadow Samples
-option.SHADOW_SSS_STEPS.comment = Shadow-map filter samples for plants when PCSS is enabled. Higher = smoother soft edges, slower. Screen shadows use Contact Shadow Steps.
+option.SHADOW_SSS_STEPS.comment = Shadow-map filter samples for plants while PCSS is on: higher = smoother soft edges, slower.
 option.SHADOW_SSS_DENSITY = Plant Shadow Absorption
-option.SHADOW_SSS_DENSITY.comment = Absorption along plant screen-shadow rays. Higher = darker overlaps and shorter partial shadows; lower = gentler, longer partial shadows. Requires Contact Shadows.
+option.SHADOW_SSS_DENSITY.comment = Absorption along plant shadow rays: higher = darker overlaps, shorter partial shadows; lower = gentler, longer ones. Requires Contact Shadows.
 option.SHADOW_SSS_SCALE = Plant Response Strength
-option.SHADOW_SSS_SCALE.comment = Strength of the broad thin-plant response. Exposed tips approach directly lit brightness; fully occluded plants stay shaded. Material response saturates at high values.
+option.SHADOW_SSS_SCALE.comment = Strength of the through-plant brightening: exposed tips approach full sun, fully occluded plants stay shaded.
 option.SHADOW_SSS_PENUMBRA_BOOST = Plant Shadow Softness
-option.SHADOW_SSS_PENUMBRA_BOOST.comment = Widens the shadow-map penumbra on plants. Fully sheltered regions remain dark. Requires PCSS.
+option.SHADOW_SSS_PENUMBRA_BOOST.comment = Widens the shadow-map penumbra on plants. Requires PCSS.
 option.SHADOW_SSS_ENERGY = Plant Light Compensation
-option.SHADOW_SSS_ENERGY.comment = How far exposed thin plants approach a fully lit diffuse surface. Raises back and side lighting without reducing the directly lit side. Occlusion applies to the entire response.
+option.SHADOW_SSS_ENERGY.comment = How far exposed thin plants approach fully lit brightness: raises back and side light without dimming the sunlit side.
 option.SHADOW_SSS_DEBUG = SSS Debug View
-option.SHADOW_SSS_DEBUG.comment = Isolates the thin-plant lighting enhancement, map confidence (green = map, red = fallback), raw plant screen visibility, or raw map visibility. Needs Plant Translucency. Fog and post effects still apply.
+option.SHADOW_SSS_DEBUG.comment = Requires Plant Translucency. Isolates the plant lighting boost, or its map confidence (green = map, red = fallback).
 value.SHADOW_SSS_DEBUG.0 = Off
 value.SHADOW_SSS_DEBUG.1 = Lighting Enhancement
 value.SHADOW_SSS_DEBUG.2 = Map Confidence
 value.SHADOW_SSS_DEBUG.3 = Plant Contact Visibility
 value.SHADOW_SSS_DEBUG.4 = Map Visibility
 option.SHADOW_SSS_PHASE_G = SSS Directionality
-option.SHADOW_SSS_PHASE_G.comment = Focus of the grass sunward highlight. Side views keep the broad response; leaf cubes retain broad compensation. Highlight brightness is capped.
+option.SHADOW_SSS_PHASE_G.comment = How much the grass highlight concentrates sunward; side views keep the broad response.
 option.SHADOW_SSS_FADE_START = Shadow Fade Start
-option.SHADOW_SSS_FADE_START.comment = Start of the smooth shadow-map handoff. Plants blend map visibility into a skylight shelter estimate. Grass keeps screen shadows throughout; leaves gradually add them as map confidence falls.
+option.SHADOW_SSS_FADE_START.comment = Where the plant shadow map starts blending into the skylight approximation.
 option.CONTACT_SHADOW = Screen-Space Contact Shadows
-option.CONTACT_SHADOW.comment = A short depth-buffer ray fills shadow-map contact gaps and works beyond the map. With plant SSS enabled, grass uses partial attenuation at every distance; leaves add screen attenuation as map confidence fades. Overworld and End only.
+option.CONTACT_SHADOW.comment = Short screen-space shadows that close the gaps where objects meet the ground or a wall. Overworld and End only.
 option.CONTACT_SHADOW_STEPS = Contact Shadow Steps
 option.CONTACT_SHADOW_STEPS.comment = Quality of these small shadows: higher = fewer missed or speckled shadows, slower.
 option.CONTACT_SHADOW_MAX_DISTANCE = Contact Shadow Distance
-option.CONTACT_SHADOW_MAX_DISTANCE.comment = Maximum reach of the effect in metres; the actual reach also scales with your view distance.
-suffix.CONTACT_SHADOW_MAX_DISTANCE = m
+suffix.CONTACT_SHADOW_MAX_DISTANCE = \ m
+option.CONTACT_SHADOW_MAX_DISTANCE.comment = Maximum reach in metres; actual reach also scales with your view distance.
 option.CONTACT_SHADOW_THICKNESS = Contact Shadow Thickness
-option.CONTACT_SHADOW_THICKNESS.comment = Assumed thickness of the objects casting these shadows: higher = more forgiving and softer; lower = sharper but can miss thin blockers.
+option.CONTACT_SHADOW_THICKNESS.comment = Assumed thickness of shadow casters: higher = more forgiving and softer; lower = sharper but can miss thin blockers.
 option.CONTACT_SHADOW_DEBUG = Contact Shadow Debug View
-option.CONTACT_SHADOW_DEBUG.comment = Diagnostic views for troubleshooting: the raw shadow mask, or an exaggerated darkness view. Needs Contact Shadows on, and works in the Overworld and the End only. Leave Off while playing.
+option.CONTACT_SHADOW_DEBUG.comment = Requires Contact Shadows. Shows the raw shadow mask or an exaggerated darkness view. Overworld and End only.
 value.CONTACT_SHADOW_DEBUG.0 = Off
 value.CONTACT_SHADOW_DEBUG.1 = Raw Mask
 value.CONTACT_SHADOW_DEBUG.2 = Exaggerated Darkness
 
 #AO
 option.AO_MODE = Ambient Occlusion Mode
-option.AO_MODE.comment = Ambient occlusion: the soft darkening inside corners, crevices and where objects meet the ground that makes the world look grounded. GTAO is the efficient standard method; SSAO is an alternative with a slightly different look that costs more. Off = flat lighting without corner darkening.
+option.AO_MODE.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO is the efficient standard; SSAO is heavier with a slightly different look. Off = no corner darkening.
 value.AO_MODE.0 = Off
 value.AO_MODE.1 = GTAO
 value.AO_MODE.2 = SSAO
 option.AO_TEMPORAL = Temporal Accumulation
-option.AO_TEMPORAL.comment = Smooths the corner darkening across several frames so it looks clean instead of grainy. Off = noisier but reacts instantly, with no smoothing lag.
+option.AO_TEMPORAL.comment = Smooths the darkening across frames to remove grain. Off = grainier but reacts instantly.
 option.GTAO_SLICES = GTAO Slices
-option.GTAO_SLICES.comment = Quality of the corner-darkening calculation: higher = smoother and more accurate, slower.
+option.GTAO_SLICES.comment = Quality of the AO calculation: higher = smoother and more accurate, slower.
 option.GTAO_HORIZON_STEPS = GTAO Horizon Steps
-option.GTAO_HORIZON_STEPS.comment = How far the calculation looks along each direction: higher = catches larger nearby objects, slower.
+option.GTAO_HORIZON_STEPS.comment = How far each direction scan looks: higher = catches larger nearby objects, slower.
 option.GTAO_RADIUS = GTAO Radius
-option.GTAO_RADIUS.comment = World radius in metres. The screen radius is also capped at 5% of the shorter scene dimension, including with RSM GI.
-suffix.GTAO_RADIUS = m
+suffix.GTAO_RADIUS = \ m
+option.GTAO_RADIUS.comment = World radius in metres. The on-screen radius is also capped at 5% of the shorter scene dimension.
 option.GTAO_STRENGTH = GTAO Contrast
-option.GTAO_STRENGTH.comment = How dark corners become: the occlusion value is raised to this power. 1.0 is linear; higher darkens corners and steepens the transition.
+option.GTAO_STRENGTH.comment = How dark corners become: 1.0 is linear, higher darkens corners more steeply.
 option.GTAO_MULTIBOUNCE = GTAO Multi-Bounce
-option.GTAO_MULTIBOUNCE.comment = Lets bright surfaces bounce a little light back into the corners, so dark corners take on a slight tint of their surroundings instead of going pure black.
+option.GTAO_MULTIBOUNCE.comment = Bright surfaces bounce a little light back into corners, so dark corners pick up a slight tint instead of going black.
 option.GTAO_FALLOFF_START = GTAO Falloff Start
-option.GTAO_FALLOFF_START.comment = Where inside the radius the darkening starts to fade out: lower = tight dark contact lines, higher = the darkening spreads more evenly.
+option.GTAO_FALLOFF_START.comment = Where the darkening starts to fade within the radius: lower = tight contact lines, higher = more even spread.
 option.AO_HISTORY_FRAMES = AO History Length Limit
-option.AO_HISTORY_FRAMES.comment = How many frames of smoothing are blended before a result counts as settled: higher = smoother, but corner darkening reacts more slowly to changes.
+option.AO_HISTORY_FRAMES.comment = How many frames are blended before a result counts as settled: higher = smoother, slower to react.
 option.AO_HISTORY_DISTANCE_LIMIT = AO History Distance Limit
-suffix.AO_HISTORY_DISTANCE_LIMIT = m
-option.AO_HISTORY_DISTANCE_LIMIT.comment = Maximum distance of the history surface from the current receiver plane: lower = less history bleeding across surfaces, possibly more grain.
-option.AO_HISTORY_NORMAL_DOT_FLOOR = AO History Normal Dot Floor
-option.AO_HISTORY_NORMAL_DOT_FLOOR.comment = How strictly a surface must keep facing the same direction for its stored smoothing to be reused; the value is a cosine floor (0.866 stands for 30 degrees). Higher = fewer smears when turning the camera, possibly more grain.
+suffix.AO_HISTORY_DISTANCE_LIMIT = \ m
+option.AO_HISTORY_DISTANCE_LIMIT.comment = Maximum depth mismatch allowed when reusing history: lower = less bleeding across surfaces, possibly more grain.
+option.AO_HISTORY_NORMAL_DOT_FLOOR = AO History Normal Threshold
+option.AO_HISTORY_NORMAL_DOT_FLOOR.comment = How strictly a surface must keep its facing for history reuse (cosine value; 0.866 = 30 degrees): higher = fewer smears when turning, possibly more grain.
 option.SSAO_SAMPLES = SSAO Samples
-option.SSAO_SAMPLES.comment = Quality of the alternative SSAO mode: higher = smoother corner darkening, slower.
+option.SSAO_SAMPLES.comment = Quality of the SSAO mode: higher = smoother darkening, slower.
 option.SSAO_RADIUS = SSAO Radius
-option.SSAO_RADIUS.comment = World radius in metres. The screen radius is also capped at 5% of the shorter scene dimension, including with RSM GI.
-suffix.SSAO_RADIUS = m
+suffix.SSAO_RADIUS = \ m
+option.SSAO_RADIUS.comment = World radius in metres. The on-screen radius is also capped at 5% of the shorter scene dimension.
 option.SSAO_STRENGTH = SSAO Contrast
-option.SSAO_STRENGTH.comment = How dark corners become: the occlusion value is raised to this power. SSAO reads lighter than GTAO, so its default is intentionally steeper. 1.0 is linear.
+option.SSAO_STRENGTH.comment = How dark corners become. SSAO reads lighter than GTAO, so its default is steeper. 1.0 is linear.
 
 #Water
 option.WATER_SURFACE_QUALITY = Water Surface Quality
-option.WATER_SURFACE_QUALITY.comment = Low keeps small, gentle waves. High adds larger waves and finer surface detail at a higher rendering cost.
+option.WATER_SURFACE_QUALITY.comment = Low = small gentle waves. High = larger waves and finer surface detail at higher cost.
 value.WATER_SURFACE_QUALITY.0 = Low
 value.WATER_SURFACE_QUALITY.1 = High
 option.WATER_SSR = Water Reflections
-option.WATER_SSR.comment = Lets water reflect the actual world in front of it - mountains, buildings, trees - instead of only the sky.
+option.WATER_SSR.comment = Water reflects the actual world in front of it - mountains, buildings, trees - instead of only the sky.
 option.WATER_SSR_STEPS = Water Reflection Steps
-option.WATER_SSR_STEPS.comment = Depth samples along the water reflection ray: higher = reflections reach farther with fewer broken or faded areas, slower.
+option.WATER_SSR_STEPS.comment = Depth samples along the reflection ray: higher = reflections reach farther with fewer broken areas, slower.
 option.WATER_POM = Water Parallax
-option.WATER_POM.comment = Gives the wave surface real 3D depth: waves visibly rise and shift as you move past. Off = flat water with painted-on wave shading.
+option.WATER_POM.comment = Gives waves real 3D depth: they rise and shift as you move past. Off = flat water with painted-on waves.
 option.WATER_POM_COARSE_STEPS = POM Coarse Steps
-option.WATER_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate wave relief, slower.
+option.WATER_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate relief, slower.
 option.WATER_POM_BISECT_STEPS = POM Bisection Steps
-option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the wave relief after the coarse search: higher = crisper wave crests, slower.
+option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the relief: higher = crisper crests, slower.
 option.WATER_RIVER_GAIN = Water Wave Height
-option.WATER_RIVER_GAIN.comment = Normal strength for both modes and parallax height for Low. High has a separate parallax height control.
+option.WATER_RIVER_GAIN.comment = Wave strength for both modes, and parallax height on Low. High has its own parallax height control.
 option.WATER_LARGE_POM_HEIGHT = Large Wave Parallax Height
-option.WATER_LARGE_POM_HEIGHT.comment = High only: scales parallax relief independently. 1.0 uses the baked height; 0 removes relief. Does not change normal strength.
 suffix.WATER_LARGE_POM_HEIGHT = x
+option.WATER_LARGE_POM_HEIGHT.comment = High quality only: scales the parallax relief. 1.0 = default, 0 = flat. Does not change normal strength.
 
 #Fog
 option.BOUNDARY_FOG = Boundary Fog
-option.BOUNDARY_FOG.comment = Hides the edge of the rendered world by fading distant terrain into the sky, so the loaded-chunk boundary is not a hard wall.
+option.BOUNDARY_FOG.comment = Fades distant terrain into the sky so the loaded-chunk edge is not a hard wall.
 option.BOUNDARY_FOG_START = Boundary Fog Start
-option.BOUNDARY_FOG_START.comment = Where the hiding fade begins, as a fraction of your render distance: higher = the fade hugs the visible edge, lower = terrain fades earlier.
+option.BOUNDARY_FOG_START.comment = Where the fade begins as a fraction of render distance: higher = hugs the visible edge, lower = terrain fades earlier.
 option.BOUNDARY_FOG_STRENGTH = Boundary Fog Strength
-option.BOUNDARY_FOG_STRENGTH.comment = How opaque the edge-hiding haze is.
+option.BOUNDARY_FOG_STRENGTH.comment = Opacity of the edge haze.
 option.BOUNDARY_FOG_HEIGHT_FADE = Boundary Fog Height Fade
-option.BOUNDARY_FOG_HEIGHT_FADE.comment = How much the edge haze weakens when looking up at the sky, so the horizon is masked without a milky sky overhead.
+option.BOUNDARY_FOG_HEIGHT_FADE.comment = How much the haze weakens toward the sky, so the horizon is masked without a milky sky overhead.
 
 #Lighting
 option.OPAQUE_REFLECTION = Solid Surface Reflections
-option.OPAQUE_REFLECTION.comment = Lets shiny solid blocks reflect the actual scene around them. Off = only a generic sky-based sheen remains.
+option.OPAQUE_REFLECTION.comment = Shiny solid blocks reflect the actual scene around them. Off = only a generic sky-based sheen.
 option.OPAQUE_SSR_STEPS = Opaque Reflection Steps
 option.OPAQUE_SSR_FILTER = Reflection Denoising
-option.OPAQUE_SSR_FILTER.comment = Accumulates reflections independently of TAA. Spatial filtering keeps geometry and reflection lobe boundaries; moving or newly exposed surfaces use shorter history.
+option.OPAQUE_SSR_FILTER.comment = Temporally denoises solid reflections independently of TAA. Moving surfaces use shorter history.
 value.OPAQUE_SSR_FILTER.0 = Off
 value.OPAQUE_SSR_FILTER.1 = Temporal
-value.OPAQUE_SSR_FILTER.2 = Temporal + Spatial
 option.OPAQUE_SSR_DEMODULATION = Reflection Material Detail
-option.OPAQUE_SSR_DEMODULATION.comment = Removes stable material color and strength before denoising, then restores the current material. Helps preserve metal colors and material texture detail.
-option.OPAQUE_SSR_COLOR_MIPS = Reflection Color Mips (Experimental)
-option.OPAQUE_SSR_COLOR_MIPS.comment = Filters opaque reflection history by roughness and hit distance. Can reduce sparkling at a small GPU and texture-memory cost; bright silhouettes may bleed. Generate Only measures mip generation without filtering.
+option.OPAQUE_SSR_DEMODULATION.comment = Separates the stable material color before denoising and restores it afterwards, preserving metal colors and material detail.
+option.OPAQUE_SSR_COLOR_MIPS = Reflection Color Mips (Exp.)
+option.OPAQUE_SSR_COLOR_MIPS.comment = Filters reflection history by roughness and hit distance: reduces sparkling, at a small GPU and memory cost; bright silhouettes may bleed.
 value.OPAQUE_SSR_COLOR_MIPS.0 = Off
 value.OPAQUE_SSR_COLOR_MIPS.1 = Generate Only
 value.OPAQUE_SSR_COLOR_MIPS.2 = Roughness Filter
 option.OPAQUE_SSR_COLOR_MIP_SCALE = Reflection Mip Footprint
-option.OPAQUE_SSR_COLOR_MIP_SCALE.comment = Scales the roughness/distance sampling footprint. Larger values smooth more noise and detail, and can mix colors across bright silhouettes.
+option.OPAQUE_SSR_COLOR_MIP_SCALE.comment = Size of the roughness-based filtering area: larger = smoother reflections, more detail loss and color bleed.
 option.OPAQUE_SSR_COLOR_MIP_MAX = Maximum Reflection Mip
-option.OPAQUE_SSR_COLOR_MIP_MAX.comment = Caps the reflection color sampling LOD. Higher levels permit wider filtering at distant hits.
+option.OPAQUE_SSR_COLOR_MIP_MAX.comment = Caps the filtering level for distant hits: higher = wider filtering at range.
 value.OPAQUE_SSR_COLOR_MIP_MAX.2 = 2
 value.OPAQUE_SSR_COLOR_MIP_MAX.3 = 3
 value.OPAQUE_SSR_COLOR_MIP_MAX.4 = 4
 value.OPAQUE_SSR_COLOR_MIP_MAX.5 = 5
-option.OPAQUE_SSR_STEPS.comment = Depth samples along the opaque reflection ray. The default keeps the whole trace at 17 depth samples (12 march steps + 4 bisection + 1 correction); higher counts mostly extend how far reflections reach, not how accurately they hit.
+option.OPAQUE_SSR_STEPS.comment = Depth samples along the reflection ray: higher values mainly extend how far reflections reach.
 option.SSR_INTERPOLATION = SSR Hit Refinement
-option.SSR_INTERPOLATION.comment = Refines the first depth crossing of solid and water reflections with 4 bisection steps inside the march bracket, then one surface-depth correction at the bisected position, so the hit lands closer to the actual surface. Off reports the raw march sample as the hit, without refinement.
+option.SSR_INTERPOLATION.comment = Refines where the reflection ray hits the surface, so hits land closer to the real geometry. Off reports the raw march sample.
 option.SSR_QUARTER_DEPTH = Quarter-Resolution SSR Depth
-option.SSR_QUARTER_DEPTH.comment = Uses reduced depth for water, glass and solid reflections. May improve speed, with less accurate small silhouettes. Off uses full depth.
+option.SSR_QUARTER_DEPTH.comment = Reflections use a reduced depth buffer: faster, but small silhouettes are less accurate. Off = full depth.
 option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD = Surface Roughness Cutoff
-option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD.comment = How matte a surface may be before it stops mirroring the scene and falls back to the cheap sky sheen: higher = more surfaces get real reflections (more cost); lower = only near-mirror surfaces do.
+option.OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD.comment = How matte a surface may be and still mirror the scene: higher = more surfaces get real reflections (more cost); lower = only near-mirrors.
 option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION = Surface Roughness Blend
-option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION.comment = Width of the gradual blend between real reflections and the sky sheen, so surfaces don't visibly pop between the two.
+option.OPAQUE_REFLECTION_ROUGHNESS_TRANSITION.comment = Width of the blend between real reflections and the sky sheen, so surfaces do not pop between the two.
 option.GI_MODE = Global Illumination Mode
-option.GI_MODE.comment = Bounced sunlight: light that lands on a surface and then softly tints its surroundings, like red carpet glowing onto nearby walls. Off keeps direct light and ambient only. SSGI computes the bounce from what is on screen; Reflective Shadow Map computes it from the sun's shadow map for more stable results over a wider area. Both fill the gaps with normal sky light.
+option.GI_MODE.comment = Bounced sunlight that softly tints its surroundings, like a red carpet glowing onto walls. SSGI computes it on screen; RSM computes it from the sun's shadow map, more stable over a wider area. Both fill gaps with sky light.
 value.GI_MODE.0 = None
 value.GI_MODE.1 = SSGI
 value.GI_MODE.2 = Reflective Shadow Map
 screen.SSGI = Screen Space GI
 screen.RSM = Reflective Shadow Map
 option.RSM_SAMPLES = RSM Samples
-option.RSM_SAMPLES.comment = Bounce samples per half-resolution GI pixel per frame; default 8. GI temporal denoising also works with TAA off. More samples improve newly exposed regions and cost more GPU time.
+option.RSM_SAMPLES.comment = Bounce samples per half-resolution GI pixel per frame, default 8: higher = better newly exposed regions, slower.
 option.RSM_RADIUS = RSM Radius
-option.RSM_RADIUS.comment = How wide an area each pixel gathers bounce light from, in metres: higher = broader, softer color bleeding.
-suffix.RSM_RADIUS = m
+suffix.RSM_RADIUS = \ m
+option.RSM_RADIUS.comment = How wide an area each pixel gathers bounce light from: higher = broader, softer color bleeding.
 option.SSGI_STEPS = SSGI Steps
-option.SSGI_STEPS.comment = Depth samples traced per half-resolution GI pixel; default 16. More steps improve trace detail and cost more GPU time. GI uses its own temporal denoising even with TAA off.
+option.SSGI_STEPS.comment = Depth samples traced per half-resolution GI pixel, default 16: higher = better trace detail, slower.
 option.SSGI_MARCH_PIXELS = SSGI March Width Cap
-suffix.SSGI_MARCH_PIXELS = px
-option.SSGI_MARCH_PIXELS.comment = How far the bounce-light ray marches across the screen, in pixels: higher = bounce light reaches farther from its source, slower.
+suffix.SSGI_MARCH_PIXELS = \ px
+option.SSGI_MARCH_PIXELS.comment = How far the bounce ray may travel across the screen: higher = bounce light reaches farther, slower.
 option.SSGI_THICKNESS = SSGI Thickness
-option.SSGI_THICKNESS.comment = Assumed depth thickness of the surfaces hit by the rays, in meters: higher = thin geometry blocks bounce light more (less leak-through), lower = more light passes through thin surfaces.
-suffix.SSGI_THICKNESS = m
+suffix.SSGI_THICKNESS = \ m
+option.SSGI_THICKNESS.comment = Assumed thickness of hit surfaces: higher = thin geometry blocks bounce light (less leak); lower = more light passes through.
 option.SSGI_RADIANCE_LIMIT = SSGI Radiance Limit
-option.SSGI_RADIANCE_LIMIT.comment = Upper bound on the stored bounce light: lower = fewer bright firefly sparkles but dimmer highlight bounce; raise only for unusually bright scenes.
+option.SSGI_RADIANCE_LIMIT.comment = Caps the stored bounce light: lower = fewer bright firefly sparkles, dimmer bounce highlights.
 option.RSM_STRENGTH = RSM Strength
-option.RSM_STRENGTH.comment = Intensity of the bounced sunlight. Does not change the direct sun or the ambient sky light.
-option.RSM_DEBUG = RSM Debug View
-option.RSM_DEBUG.comment = Diagnostic view: normal lighting or denoised, reconstructed irradiance. Requires Reflective Shadow Map GI. Leave on Normal View while playing.
+option.RSM_STRENGTH.comment = Intensity of the bounced sunlight. Direct sun and sky ambient are unaffected.
 value.RSM_SAMPLES.8 = 8
 value.RSM_SAMPLES.16 = 16
 value.RSM_SAMPLES.32 = 32
@@ -464,29 +461,31 @@ value.RSM_STRENGTH.2.5 = 2.5
 value.RSM_STRENGTH.3.0 = 3.0
 value.RSM_DEBUG.0 = Normal View
 value.RSM_DEBUG.1 = Reconstructed Irradiance
+option.RSM_DEBUG = RSM Debug View
+option.RSM_DEBUG.comment = Requires RSM GI. Shows normal lighting or the denoised bounce light.
 option.AMBIENT_FLOOR = Minimum Ambient Light
-option.AMBIENT_FLOOR.comment = A small guaranteed light level added to every surface, so unlit caves and the deepest shadows keep a hint of visibility instead of pure black. 0 = fully realistic darkness.
+option.AMBIENT_FLOOR.comment = A guaranteed minimum light on every surface, so unlit caves keep slight visibility instead of pure black. 0 = fully realistic darkness.
 option.SKY_AMBIENT_STRENGTH = Sky Ambient Strength
-option.SKY_AMBIENT_STRENGTH.comment = Brightness of the sky's ambient (SH) light on every surface. It dims the flat sky fill on shaded sides while direct sunlight stays untouched, and the SH fallback that GI uses for directions the screen trace cannot cover scales with it. 1.0 = the raw sky SH irradiance.
+option.SKY_AMBIENT_STRENGTH.comment = Brightness of the sky's ambient light on surfaces: lowering it dims the fill on shaded sides; direct sunlight is unaffected.
 option.TORCH_BRIGHTNESS = Block Light Brightness
-option.TORCH_BRIGHTNESS.comment = Brightness of every block light source: torches, lanterns, glowstone, lava, redstone lamps and the rest. They all share one warm tint, so cool-colored sources are tinted warm as well. The tint itself does not change with this slider.
+option.TORCH_BRIGHTNESS.comment = Brightness of every block light: torches, lanterns, glowstone, lava and more. They share one warm tint; the tint itself does not change.
 option.STAR_MAP_INTENSITY = Star Brightness
-option.STAR_MAP_INTENSITY.comment = Brightness of the night sky's stars, drawn from the 4K NASA star map. 0 = starless sky.
+option.STAR_MAP_INTENSITY.comment = Brightness of the stars, drawn from a 4K NASA star map. 0 = starless sky.
 option.STAR_MAP_CONTRAST = Star Contrast
-option.STAR_MAP_CONTRAST.comment = Contrast between faint and bright stars. Values below 1.0 lift the faint Milky Way structure; higher values hide faint stars and keep only the bright ones.
+option.STAR_MAP_CONTRAST.comment = Contrast between faint and bright stars: below 1.0 lifts the faint Milky Way, above 1.0 keeps only bright stars.
 option.STAR_MAP_BRIGHT_BOOST = Bright Star Boost
-option.STAR_MAP_BRIGHT_BOOST.comment = Extra brightness for the brightest stars, scaled by their luminance, so prominent stars stand out with a realistic magnitude spread.
+option.STAR_MAP_BRIGHT_BOOST.comment = Extra brightness for the brightest stars, so prominent stars stand out.
 option.ATM_HORIZON_DIP = Horizon Dip
-option.ATM_HORIZON_DIP.comment = Thickens the haze band at the horizon by extending the atmosphere below the ground line, so distant terrain melts into a denser, more realistic horizon haze.
+option.ATM_HORIZON_DIP.comment = Extends the atmosphere below the ground line, thickening the haze band so distant terrain melts into the horizon.
 option.ATM_HORIZON_DIP_SCALE = Horizon Dip Depth (km)
-option.ATM_HORIZON_DIP_SCALE.comment = How deep that horizon atmosphere reaches, in kilometres: higher = thicker horizon haze.
+option.ATM_HORIZON_DIP_SCALE.comment = How deep the horizon atmosphere extends: higher = thicker horizon haze.
 
 
 
 screen.TONEMAP_BLENDER_AGX = Blender AgX
-screen.TONEMAP_BLENDER_AGX.comment = Official Blender 4.0 AgX looks; applies only in Blender AgX mode.
+screen.TONEMAP_BLENDER_AGX.comment = Official Blender 4.0 AgX looks. Only used in Blender AgX mode.
 option.TONEMAP_BLENDER_AGX_LOOK = Blender AgX Look
-option.TONEMAP_BLENDER_AGX_LOOK.comment = Select an official preset. Numeric parameters are fixed.
+option.TONEMAP_BLENDER_AGX_LOOK.comment = Select an official preset.
 value.TONEMAP_BLENDER_AGX_LOOK.0 = Base Contrast
 value.TONEMAP_BLENDER_AGX_LOOK.1 = Punchy
 value.TONEMAP_BLENDER_AGX_LOOK.2 = Greyscale
@@ -497,7 +496,7 @@ value.TONEMAP_BLENDER_AGX_LOOK.6 = Medium Low Contrast
 value.TONEMAP_BLENDER_AGX_LOOK.7 = Low Contrast
 value.TONEMAP_BLENDER_AGX_LOOK.8 = Very Low Contrast
 option.TONEMAP_ODT_LOOK = OpenDRT Look
-option.TONEMAP_ODT_LOOK.comment = Select an official preset. Numeric parameters are fixed.
+option.TONEMAP_ODT_LOOK.comment = Select an official preset.
 value.TONEMAP_ODT_LOOK.0 = Standard
 value.TONEMAP_ODT_LOOK.1 = Arriba
 value.TONEMAP_ODT_LOOK.2 = Sylvan
@@ -506,7 +505,7 @@ value.TONEMAP_ODT_LOOK.4 = Aery
 value.TONEMAP_ODT_LOOK.5 = Dystopic
 value.TONEMAP_ODT_LOOK.6 = Umbra
 option.TONEMAP_ODT_TONESCALE = OpenDRT Tonescale
-option.TONEMAP_ODT_TONESCALE.comment = Select an official preset. Numeric parameters are fixed.
+option.TONEMAP_ODT_TONESCALE.comment = Select an official preset.
 value.TONEMAP_ODT_TONESCALE.0 = USE LOOK PRESET
 value.TONEMAP_ODT_TONESCALE.1 = Low Contrast
 value.TONEMAP_ODT_TONESCALE.2 = Medium Contrast
@@ -524,55 +523,55 @@ value.TONEMAP_ODT_TONESCALE.13 = DaGrinchi ToneGroan
 
 # Epipolar air fog
 screen.AIR_FOG_DENSITY = Air Density
-screen.AIR_FOG_DENSITY.comment = Height, time of day and rain density.
+screen.AIR_FOG_DENSITY.comment = Density by height, time of day and rain.
 screen.AIR_FOG_LIGHTING = Air Lighting
 screen.AIR_FOG_LIGHTING.comment = Air scattering and shadow controls.
 screen.EPIPOLAR = Epipolar Sampling
-screen.EPIPOLAR.comment = Air shadow march and reconstruction quality.
+screen.EPIPOLAR.comment = Air shadow marching and reconstruction quality.
 option.AIR_FOG = Air Fog
-option.AIR_FOG.comment = Closed-form height fog with optional shadow-map shafts.
+option.AIR_FOG.comment = Height-based air fog with optional shadow-map light shafts.
 option.AIR_FOG_INTENSITY = Scattering Strength
-option.AIR_FOG_INTENSITY.comment = Scattered-light gain; extinction is unchanged.
+option.AIR_FOG_INTENSITY.comment = Brightness of the scattered light; fog density is unchanged.
 option.AIR_FOG_DENSITY_DAY = Day Density
 option.AIR_FOG_DENSITY_DAY.comment = Clear-weather density at the reference height during daytime.
 option.AIR_FOG_DENSITY_DUSK = Twilight Density
-option.AIR_FOG_DENSITY_DUSK.comment = Clear-weather density around the solar horizon.
+option.AIR_FOG_DENSITY_DUSK.comment = Clear-weather density around sunrise and sunset.
 option.AIR_FOG_DENSITY_NIGHT = Night Density
 option.AIR_FOG_DENSITY_NIGHT.comment = Clear-weather density when the sun is below the horizon.
-option.AIR_FOG_DENSITY_RAIN = Rain Mie Density Gain
-option.AIR_FOG_DENSITY_RAIN.comment = Additional height-independent neutral Mie scattering/extinction, scaled by rain and biome rain eligibility. Does not increase Rayleigh or ozone.
+option.AIR_FOG_DENSITY_RAIN = Rain Density Gain
+option.AIR_FOG_DENSITY_RAIN.comment = Extra neutral haze while it rains, scaled by rainfall; the clear-sky air color is unchanged.
 option.AIR_FOG_REFERENCE_HEIGHT_M = Reference Height
 option.AIR_FOG_REFERENCE_HEIGHT_M.comment = World height where the clear-weather density equals the selected day/twilight/night value.
 option.AIR_FOG_SCALE_HEIGHT_M = Density Scale Height
-option.AIR_FOG_SCALE_HEIGHT_M.comment = Every scale height upward reduces clear density to 1/e (about 37%).
+option.AIR_FOG_SCALE_HEIGHT_M.comment = How fast air thins with altitude: every scale height up, density drops to about 37%.
 option.AIR_FOG_SKY_STRENGTH = Sky Scattering Strength
-option.AIR_FOG_SKY_STRENGTH.comment = Ambient sky scattering gain.
+option.AIR_FOG_SKY_STRENGTH.comment = Brightness of the ambient sky scattering in the air.
 option.AIR_FOG_SHADOWS = Fog Shadows
 screen.PLANTS = Plants
-screen.PLANTS.comment = Wind response of rooted plants and leaf blocks.
+screen.PLANTS.comment = Wind response of plants and leaf blocks.
 option.PLANT_WIND = Plant Wind
-option.PLANT_WIND.comment = Turbulent wind with damped elastic response and matching shadows. Connected cane/bamboo and attached/aquatic plants remain still.
+option.PLANT_WIND.comment = Wind sways plants and their shadows move to match. Cane, bamboo, attached and aquatic plants stay still.
 option.PLANT_WIND_STRENGTH = Wind Strength
-option.PLANT_WIND_STRENGTH.comment = Scales wind load; rain increases the load automatically. Zero stops all plant motion.
+option.PLANT_WIND_STRENGTH.comment = Overall wind force; rain strengthens it automatically. 0 stops all plant motion.
 option.PLANT_WIND_GRASS = Grass and Flower Sway
-option.PLANT_WIND_GRASS.comment = Flexibility of rooted grass, flowers, crops and saplings. Tall plants bend continuously across both halves.
+option.PLANT_WIND_GRASS.comment = Flexibility of grass, flowers, crops and saplings; tall plants bend along their whole stem.
 option.PLANT_WIND_LEAVES = Leaf Sway
-option.PLANT_WIND_LEAVES.comment = Flexibility of leaf blocks. Shared corners move together to preserve canopy seams.
-option.AIR_FOG_SHADOWS.comment = Shadow-map visibility along the air column; requires epipolar sampling.
+option.PLANT_WIND_LEAVES.comment = Flexibility of leaf blocks; shared corners move together so canopies stay seamless.
+option.AIR_FOG_SHADOWS.comment = Objects cast shadows into the air itself, so haze darkens behind obstacles. Requires Epipolar Sampling.
 option.EPIPOLAR_VOLUMETRICS = Epipolar Air Light
-option.EPIPOLAR_VOLUMETRICS.comment = Depth-aware reconstruction of normalized air shadow visibility; air only.
+option.EPIPOLAR_VOLUMETRICS.comment = Depth-aware reconstruction of the air shadows; applies to air only.
 option.EPIPOLAR_SLICES = Epipolar Slices
 option.EPIPOLAR_SLICES.comment = Number of screen-space slice lines.
 option.EPIPOLAR_SAMPLES = Samples per Slice
-option.EPIPOLAR_SAMPLES.comment = Number of depth-keyed columns per slice.
+option.EPIPOLAR_SAMPLES.comment = Depth-keyed air columns stored per slice.
 option.AIR_EPIPOLAR_SHADOW_STEPS = Uniform Shadow Steps
-option.AIR_EPIPOLAR_SHADOW_STEPS.comment = Equal-length shadow march bins per air column.
+option.AIR_EPIPOLAR_SHADOW_STEPS.comment = Shadow march steps per air column.
 option.EPIPOLAR_DEPTH_TOLERANCE = Depth Match Tolerance
-option.EPIPOLAR_DEPTH_TOLERANCE.comment = Relative view-depth tolerance for column reconstruction.
+option.EPIPOLAR_DEPTH_TOLERANCE.comment = Allowed depth mismatch when reconstructing air columns.
 option.EPIPOLAR_EDGE_EXTEND = Edge Search Samples
-option.EPIPOLAR_EDGE_EXTEND.comment = Search distance for matching depth columns near silhouettes.
-suffix.AIR_FOG_REFERENCE_HEIGHT_M = m
-suffix.AIR_FOG_SCALE_HEIGHT_M = m
+option.EPIPOLAR_EDGE_EXTEND.comment = How far the search for matching air columns extends near silhouettes.
+suffix.AIR_FOG_REFERENCE_HEIGHT_M = \ m
+suffix.AIR_FOG_SCALE_HEIGHT_M = \ m
 value.EPIPOLAR_SLICES.256 = 256
 value.EPIPOLAR_SLICES.512 = 512
 value.EPIPOLAR_SLICES.1024 = 1024
@@ -588,18 +587,18 @@ value.EPIPOLAR_EDGE_EXTEND.16 = 16
 value.EPIPOLAR_EDGE_EXTEND.32 = 32
 value.EPIPOLAR_EDGE_EXTEND.64 = 64
 
-screen.WATER_GODRAYS=Underwater Light Shafts
-screen.WATER_GODRAYS.comment=Additive sun shafts driven by a filtered version of the surface caustics.
-option.WATER_GODRAYS=Underwater Light Shafts
-option.WATER_GODRAYS.comment=Adds artistic sunlight beams while submerged. Requires Epipolar Volumetrics; independent of air fog.
-option.WATER_GODRAYS_STRENGTH=Shaft Brightness
-option.WATER_GODRAYS_STRENGTH.comment=Brightness of additive underwater beams, without changing water fog extinction.
-option.WATER_GODRAYS_STEPS=Shaft Samples
-option.WATER_GODRAYS_STEPS.comment=Samples along each underwater ray. Higher values reduce integration banding at extra GPU cost.
-option.WATER_GODRAYS_DISTANCE_M=Maximum Shaft Distance
-option.WATER_GODRAYS_DISTANCE_M.comment=Maximum distance marched through water. Shorter distances concentrate samples near the camera.
-suffix.WATER_GODRAYS_DISTANCE_M= m
-option.WATER_GODRAYS_DEBUG=Underwater Shafts View
-option.WATER_GODRAYS_DEBUG.comment=Shows only the additive underwater radiance before post processing.
-value.WATER_GODRAYS_DEBUG.0=Off
-value.WATER_GODRAYS_DEBUG.1=Shafts Only
+screen.WATER_GODRAYS = Underwater Light Shafts
+screen.WATER_GODRAYS.comment = Underwater sun shafts driven by the surface caustics.
+option.WATER_GODRAYS = Underwater Light Shafts
+option.WATER_GODRAYS.comment = Sun beams while submerged. Requires Epipolar Air Light; independent of Air Fog.
+option.WATER_GODRAYS_STRENGTH = Shaft Brightness
+option.WATER_GODRAYS_STRENGTH.comment = Brightness of the underwater beams.
+option.WATER_GODRAYS_STEPS = Shaft Samples
+option.WATER_GODRAYS_STEPS.comment = Samples along each beam: higher = smoother shafts, slower.
+option.WATER_GODRAYS_DISTANCE_M = Maximum Shaft Distance
+suffix.WATER_GODRAYS_DISTANCE_M = \ m
+option.WATER_GODRAYS_DISTANCE_M.comment = How far the beams are traced through water; shorter distances concentrate samples near the camera.
+option.WATER_GODRAYS_DEBUG = Underwater Shafts View
+option.WATER_GODRAYS_DEBUG.comment = Shows only the underwater beams before post processing.
+value.WATER_GODRAYS_DEBUG.0 = Off
+value.WATER_GODRAYS_DEBUG.1 = Shafts Only

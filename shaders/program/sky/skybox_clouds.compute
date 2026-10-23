@@ -7,9 +7,9 @@
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/atmosphere/skybox_uv.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
-// The skybox feeds only the L0-L2 SH probe (fine detail averaged away), so
-// it bakes with a reduced march budget; the screen pass keeps the
-// settings-level budgets.
+// The skybox feeds the L0-L2 SH probe and the reflection fallbacks (fine detail
+// averaged away), so it bakes with a reduced march budget; the screen pass keeps
+// the settings-level budgets.
 #define CLOUD_SKYBOX_VIEW_STEPS 48
 #define CLOUD_SKYBOX_MIN_STEPS 16
 #define CLOUD_SKYBOX_LIGHT_STEPS 2

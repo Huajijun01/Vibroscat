@@ -13,9 +13,8 @@
 // stratospheric sulfate evaluation: it carries the visible sulfate
 // contribution, so the runtime medium no longer evaluates a separate sulfate
 // layer. The fit targets the installed transmittance and multiscatter LUTs,
-// which stay unchanged and still hold the pre-merge species bake. See
-// research/mie-smoothing-2026-10-20/sulfate-merged/report.zh-CN.md and
-// coefficients.json model "compact75". Only the per-band coefficients follow
+// which stay unchanged and still hold the pre-merge species bake. The merged
+// Mie fit is labeled "compact75"; only the per-band coefficients follow
 // sky-tracer's OPAC/libRadtran tables. Provenance:
 // licenses/THIRD_PARTY_NOTICES.md section 14.
 // ===============================================================
@@ -27,9 +26,9 @@
 
 // -- Rayleigh density: exp(-h / H), signed altitude --
 // H = 7.50 km is the best tested single-exponential fit to the unclamped
-// exp(-A * sign(h) * |h|^B) reference over the pack's full training target
-// (research/atmosphere-unclamped-2026-10-18). It removes the per-sample pow
-// and is defined below sea level, where it reaches 2.906x sea level at -8 km.
+// exp(-A * sign(h) * |h|^B) reference over the pack's full training target.
+// It removes the per-sample pow and is defined below sea level, where it
+// reaches 2.906x sea level at -8 km.
 // The density functions take the signed planet-centred radius r = R + h, so
 // exp(-h / H) becomes exp(-r / H + R / H), one contracted multiply-add.
 const float ATM_RAY_SCALE_H_KM = 7.5;
@@ -45,7 +44,6 @@ const vec4 ATM_SIGMA_S_RAY = vec4(0.03295005, 0.01997218, 0.01193972, 0.00756925
 // [0.596299124, 44.584849304] km above the surface. The function returns the
 // unitless tent shape in [0, 1]; the tent peak and the existing 381 factor are
 // baked into ATM_OZONE_SIGMA below, so shape * ATM_OZONE_SIGMA = 1000 * n * sigma.
-// Fit and error protocol: research/ozone-tent-2026-10-20/report.zh-CN.md.
 const float ATM_OZONE_TENT_CENTER_KM = 22.5905742141994;
 const float ATM_OZONE_TENT_INV_HALF_WIDTH = 0.045466376859396;
 const float ATM_OZONE_TENT_PEAK = 1.10522750647986e+19;
@@ -68,8 +66,7 @@ const vec4 ATM_OZONE_SIGMA = 381.0 * ATM_OZONE_TENT_PEAK
 // fits, and the extinction fit already contains absorption. The coefficients
 // are km^-1 at sea level, ordered [450, 510, 580, 650] nm. The mask is C1 at
 // h = 0 and at Hc; negative altitude follows the signed Rayleigh continuation.
-// Source: research/mie-smoothing-2026-10-20/sulfate-merged/coefficients.json
-// model "compact75"; report.zh-CN.md documents the fit protocol.
+// Source: the merged "compact75" fit (licenses/THIRD_PARTY_NOTICES.md section 14).
 const float ATM_MIE_COMPACT_H_KM = 2.3632245061346153;
 const float ATM_MIE_COMPACT_INV_H = 1.0 / ATM_MIE_COMPACT_H_KM;
 // Multiply-add constant -R / Hc for the radius-space height ratio.
@@ -120,9 +117,9 @@ const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 // negative altitude below the ground line thickens the horizon dip instead of
 // folding back to sea level. Each height term is a plain a * r + b that the
 // compiler contracts to one FMA, and the march no longer materialises
-// h = r - R for the medium. The transmittance and multiscatter LUT radii stay
-// clamped separately at their call sites; that addressing protection must not
-// truncate density.
+// h = r - R for the medium. Only the transmittance LUT radius is clamped at
+// its call site; the multiscatter LUT takes the real signed radius down to
+// the bake's -8 km row. That addressing protection must not truncate density.
 float DensityRayR(float r) {
     return exp(-ATM_RAY_INV_H * r + ATM_RAY_OFFSET);
 }

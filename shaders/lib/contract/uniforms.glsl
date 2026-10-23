@@ -89,7 +89,7 @@ uniform float u_star_cos_theta;       // star-map rotation cosine term
 uniform float u_star_sin_theta;       // -sun.x
 uniform float u_cirrus_height_diff;   // 6367 - abs(camera radius)
 uniform float centerDepthSmooth;   // DOF focus distance
-uniform ivec2 eyeBrightnessSmooth; // eye adaptation (block/sky brightness, /240)
+uniform ivec2 eyeBrightnessSmooth; // water sky access (block/sky brightness, /240)
 
 // -- Time (Iris system built-ins) --
 uniform float frameTimeCounter;
@@ -116,7 +116,7 @@ uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
 uniform sampler2D colortex2;      // opaque/translucent surface data
 uniform sampler2D colortex3;      // direct demodulated temporal RGB mean
 uniform sampler2D colortex4;      // geometric normal + lightmap
-uniform sampler2D colortex5;      // TAA / composite history
+uniform sampler2D colortex5;      // TAA history; deferred4 overwrites it with the direct BRDF (water caustics)
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
 uniform usampler2D colortex6;     // packed 64-bit SSR metadata; integer texelFetch only
 #endif

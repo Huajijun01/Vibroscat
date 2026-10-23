@@ -2,8 +2,8 @@
 #define LIB_CLOUD_CIRRUS_GLSL
 
 // Cirrus layer.
-// Shape: offline-baked 64x64 value noise (source texture removed from
-// scrolled; sampled once at the shell crossing.
+// Shape: shared 1024x1024 R8 worley-fBm distribution atlas, sampled at
+// ps.xz * 0.005 and ps.xz * 0.06, once at the shell crossing.
 // Light: single shell sample with density-graded direct light, triple-lobe HG
 // silver lining, shared isotropic multiple scattering and sky ambient.
 // View extinction retains grazing-path thickening and above/below ordering.
@@ -33,8 +33,8 @@ const float CIRRUS_SCATTERING = 2.0;
 const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // This layer's multiple-scattering reference length, in km: the length over
 // which one scattering order spreads inside this deck, and the scale the
-// series' knee is measured against. At 3 km^-1 the knee sits at a density of
-// 1 / (3 * 1.2) = 0.28, near the lower end of the density range: a thin edge
+// series' knee is measured against. At 2 km^-1 the knee sits at a density of
+// 1 / (2 * 2.2) = 0.23, near the lower end of the density range: a thin edge
 // still returns little (about 0.18x single scattering at a density of 0.05)
 // while the body of the deck runs past single scattering, about 3.3x at a
 // density whose vertical optical depth is near 1.5.

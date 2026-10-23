@@ -9,7 +9,7 @@
 const vec3 FAST_WATERFOG_SCATTERING = vec3(0.1, 0.4, 0.4) * 0.05;
 const vec3 FAST_WATERFOG_EXTINCTION = vec3(0.4, 0.19, 0.15) * 0.6;
 // Lighting approximations, not measured optical properties. The uniform,
-// unshadowed source needs a neutral gain; do not dim the measured scattering.
+// unshadowed source needs a neutral gain; do not dim the scattering here.
 const float FAST_WATERFOG_PHASE_G = 0.15;
 
 // In-water sunlight path per metre of vertical drop (flat-surface

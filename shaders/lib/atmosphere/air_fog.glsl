@@ -15,9 +15,7 @@ const HenyeyGreensteinTripleLobe AIRFOG_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.5, 0.8,  // forward mid
     0.3, 0.05); // backward
 
-// Independent exponential-height model, informed by the density/time/weather
-// concepts in iterationT and Photon. See third-party notices and the local
-// derivation in docs/epipolar-air-fog.md. No reference-pack code is transferred.
+// Exponential-height density with day/night and weather response.
 struct AirFogDensityProfile {
     float clear_density;
     float rain_density;
@@ -119,7 +117,7 @@ AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float
 }
 
 vec3 AirFogRemovedFraction(vec3 tau, vec3 transmittance) {
-    // Stable 1-exp(-tau) near zero. This changes no integration endpoint.
+    // Plain 1-exp(-tau); the stable near-zero mix is parked below and changes no endpoint.
     // return mix(vec3(1.0) - transmittance,
     //     tau * (1.0 - tau * 0.5), lessThan(tau, vec3(0.001)));
     return 1.0 - transmittance;

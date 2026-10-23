@@ -21,9 +21,12 @@
 //   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, direct RGB
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
 //                                lightmap (BA) (solid -> deferred4)
-//   colortex5   R11F_G11F_B10F   TAA history; optional history-side color mips
-//                                generated before deferred2 only. Other readers
-//                                explicitly select mip 0 after later writes.
+//   colortex5   R11F_G11F_B10F   TAA history; deferred4 overwrites it with the
+//                                direct-light BRDF for composite1's water caustics,
+//                                and composite1 flips the TAA side back afterwards.
+//                                Optional history-side color mips are generated
+//                                before deferred2 only. Other readers explicitly
+//                                select mip 0 after later writes.
 //   colortex6   RGBA16UI         SSR depth16/rough8/selector8/unused8/age5/state3/
 //                                log-variance16; no historical normal or M
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);

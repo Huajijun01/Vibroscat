@@ -12,10 +12,10 @@ layout(rgba16f) uniform restrict image2D colorimg12;
 
 shared vec3 tile[21][21];
 
-// 5x5 Gaussian bloom upsample, pixel-center aligned: separable Gaussian
-// (sigma ~0.866, [1,4,6,4,1]/16) on the output's source position. Even axis
-// = 5-tap binomial; odd axis needs a 6th tap (half-texel center - a
-// truncated 5-tap drifts ~0.045 texel/level through the cascade).
+// 5x5 Gaussian bloom upsample, pixel-center aligned, on the output's source
+// position. Even axis: 5-tap binomial [1,4,6,4,1]/16 (sigma 1.0); odd axis:
+// 6-tap Gaussian, sigma ~0.866 (half-texel center - a truncated 5-tap drifts
+// ~0.045 texel/level through the cascade).
 void main() {
     ivec2 full_size = imageSize(colorimg12);
     ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);

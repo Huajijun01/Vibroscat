@@ -11,6 +11,9 @@
 //   B = emission    (0=dark, 1=self-illuminated)
 //   A = reserved
 //
+// oldPBR convention above; under MC_TEXTURE_FORMAT_LAB_PBR the atlas is
+// LabPBR instead: B = auxiliary, A = emission (see DecodeOpaqueMaterial).
+//
 // materialID ranges (see block.properties for per-block assignment):
 //   80-95   water
 //   96-111  metal   (iron, gold, anvil, etc.)

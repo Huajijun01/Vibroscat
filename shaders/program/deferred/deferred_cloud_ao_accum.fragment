@@ -105,7 +105,7 @@ void main() {
     out_history = vec4(EncodeAOHistory(resolved_ao.x), resolved_ao.y,
         EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
 #else
-    // GTAO off (clouds on): geometry pixels invalidate the cloud history.
+    // No standalone AO (clouds on): geometry pixels invalidate the cloud history.
 #ifdef VOLUMETRIC_CLOUDS
     out_history = vec4(0.0, 0.0, 1.0, HISTORY_NO_CLOUD_DATA);
     imageStore(uimg_clouds_age, tx, vec4(0.0, 0.0, 0.0, 0.0));

@@ -199,8 +199,7 @@ vec3 StarMapDirection(vec3 view_dir, vec3 sun_dir) {
     return STAR_MAP_ALIGNMENT * celestial;
 }
 
-// Artistic grade (technique after Alpha Piscium v1.9.1, GPL-3.0; our
-// own expression): the contrast exponent lifts faint map structure so
+// Artistic grade: the contrast exponent lifts faint map structure so
 // the Milky Way and dim stars read better, then a luminance-keyed
 // exponential gain (unity at black) magnifies only the brightest stars
 // for magnitude-like variation. The decoded map's luma stays below

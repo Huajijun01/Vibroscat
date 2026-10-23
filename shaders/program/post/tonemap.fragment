@@ -15,7 +15,13 @@ layout(location = 0) out vec4 out_color;
 void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
 
+    // Match taa's output routing: motion blur and the debug views leave the
+    // display color in colortex0; otherwise it exists only in colortex5.
+#if defined(MOTION_BLUR) || TAA_DEBUG > 0
     vec3 hdr = texture(colortex0, uv).rgb;
+#else
+    vec3 hdr = texture(colortex5, uv).rgb;
+#endif
 
 #ifdef BLOOM
     // Final half-res -> full-res step: bilinear sample of the mip1 tile with

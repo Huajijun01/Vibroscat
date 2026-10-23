@@ -22,7 +22,15 @@ const ivec3 workGroups = ivec3(8, 8, 1);
 // Per-axis sampling stride. 1 = every pixel, 2 = every other pixel per axis.
 const uint AE_SAMPLE_STRIDE = 2u;
 
+// Match taa's output routing: colortex0 holds the blur/velocity result only
+// with motion blur or a debug view; otherwise the color is only in colortex5.
+#if defined(MOTION_BLUR) || TAA_DEBUG > 0
 layout(r11f_g11f_b10f) readonly uniform image2D colorimg0;
+#define SCENE_HDR_IMAGE colorimg0
+#else
+layout(r11f_g11f_b10f) readonly uniform image2D colorimg5;
+#define SCENE_HDR_IMAGE colorimg5
+#endif
 
 shared float log_cache[512];
 shared float weight_cache[512];
@@ -39,7 +47,7 @@ void main() {
     uint tid = gl_LocalInvocationIndex;
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
 
-    ivec2 size = imageSize(colorimg0);
+    ivec2 size = imageSize(SCENE_HDR_IMAGE);
     uint size_x = uint(size.x);
     uint size_y = uint(size.y);
     vec2 size_f = vec2(size);
@@ -69,7 +77,7 @@ void main() {
     uint col = sample_index - row * grid_w;
     for (; sample_index < end; sample_index += 512u) {
         ivec2 pos = ivec2(col * AE_SAMPLE_STRIDE + phase_x, row * AE_SAMPLE_STRIDE + phase_y);
-        vec3 c = imageLoad(colorimg0, pos).rgb;
+        vec3 c = imageLoad(SCENE_HDR_IMAGE, pos).rgb;
         float luminance = max(Luminance(max(c, vec3(0.0))), 1.0e-5);
         float log_luminance = log2(luminance);
         vec2 uv = (vec2(pos) + 0.5) * inv_size;

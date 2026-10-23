@@ -2,8 +2,17 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/post/bloom.glsl"
 
-layout(local_size_x = 16, local_size_y = 16) in;
+// Match taa's output routing: colortex0 holds the blur/velocity result only
+// with motion blur or a debug view; otherwise the color is only in colortex5.
+#if defined(MOTION_BLUR) || TAA_DEBUG > 0
 layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg0;
+#define SCENE_HDR_IMAGE colorimg0
+#else
+layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg5;
+#define SCENE_HDR_IMAGE colorimg5
+#endif
+
+layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 shared vec4 tile[33][33];
@@ -17,7 +26,7 @@ void main() {
     return;
 #else
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 full_size = imageSize(colorimg0);
+    ivec2 full_size = imageSize(SCENE_HDR_IMAGE);
     ivec2 dst_size = GetBloomMipSize(full_size, 1);
     bool valid = all(lessThan(gid, dst_size));
 
@@ -29,7 +38,7 @@ void main() {
         uint ty = i / 33u;
         uint tx = i % 33u;
         ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), full_size - 1);
-        tile[ty][tx] = imageLoad(colorimg0, coord);
+        tile[ty][tx] = imageLoad(SCENE_HDR_IMAGE, coord);
     }
 
     barrier();

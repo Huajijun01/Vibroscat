@@ -1,6 +1,16 @@
-/* RENDERTARGETS: 0,5 */
-
 #include "/lib/contract/settings.glsl"
+
+// Motion blur encodes velocity into colortex0 and blurs the color from
+// colortex5; the debug views display colortex0. Without either, the display
+// color exists only in colortex5 (which doubles as the TAA history side), and
+// colortex0 stays unwritten between blend and final. tonemap, the exposure
+// sweep, and bloom extract read colortex5 in that case.
+#if defined(MOTION_BLUR) || TAA_DEBUG > 0
+/* RENDERTARGETS: 0,5 */
+#else
+/* RENDERTARGETS: 5 */
+#endif
+
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"

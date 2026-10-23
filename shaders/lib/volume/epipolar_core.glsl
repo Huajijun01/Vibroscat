@@ -57,7 +57,7 @@ float ShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
 vec2 LightNDC(out bool pole_in_screen) {
     vec3 light_dir_view = u_view_light_dir;
 #if defined(WATER_EPIPOLAR_ACTIVE)
-    if (isEyeInWater == 1) light_dir_view = u_sun_dir_view;
+    if (isEyeInWater == 1) light_dir_view = u_view_sun_dir;
 #endif
     vec4 clip = gbufferProjection * vec4(light_dir_view, 0.0);
     float side = clip.w >= 0.0 ? 1.0 : -1.0;

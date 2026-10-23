@@ -66,13 +66,13 @@ bool ScreenUVInside(vec2 uv) {
 // screen-edge extent is the smallest forward clip parameter reaching any NDC
 // edge, with crossings at or behind the origin falling back to a beyond-far
 // sentinel so the minimum stays forward-facing.
-SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_direction, bool toward_eye) {
+SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_dir, bool toward_eye) {
     vec4 origin_clip = gbufferProjection * vec4(view_origin, 1.0);
     // Same value chain as ViewToNDC(origin) * 0.5 + 0.5 (identical operation
     // order), derived from the clip position the ray stepper already needs.
     SSRChord chord;
     chord.start_pos = origin_clip.xyz / -view_origin.z * 0.5 + 0.5;
-    vec4 direction_clip = gbufferProjection * vec4(view_direction, 0.0);
+    vec4 direction_clip = gbufferProjection * vec4(view_dir, 0.0);
 
     // Iris 'far' is the render distance, not the clipping plane, which is
     // roughly far * 4.0 (ShaderDoc, uniform far). The no-crossing fallback
@@ -290,9 +290,9 @@ SSRHit ClassifyScreenHit(vec3 screen_pos) {
 // the chord can leave through the near plane. Surface crossings use their
 // actual depth bracket. The march budget is owned by OPAQUE_SSR_STEPS; the shared
 // SSR_INTERPOLATION toggle owns first-crossing refinement.
-SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
-    bool toward_eye = view_direction.z > 0.0;
-    SSRChord chord = ComputeSSRChord(view_origin, view_direction, toward_eye);
+SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_dir, float jitter) {
+    bool toward_eye = view_dir.z > 0.0;
+    SSRChord chord = ComputeSSRChord(view_origin, view_dir, toward_eye);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
         OPAQUE_SSR_STEPS, true);
     // The ray end is the chord's clipped exit unless a geometry crossing was
@@ -317,8 +317,8 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
 // front of the ray point count as crossings. The march budget is owned by
 // WATER_SSR_STEPS; the shared SSR_INTERPOLATION toggle owns first-crossing
 // refinement.
-SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) {
-    SSRChord chord = ComputeSSRChord(view_origin, view_direction, false);
+SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_dir, float jitter) {
+    SSRChord chord = ComputeSSRChord(view_origin, view_dir, false);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
         WATER_SSR_STEPS, false);
     // The ray end is the chord's clipped exit unless a geometry crossing was

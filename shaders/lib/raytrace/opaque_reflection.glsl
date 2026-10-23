@@ -42,18 +42,18 @@ vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
 
 // stbn_random is the OpaqueSSRSTBNPair pair sampled by the pass main; it
 // seeds the visible-normal GGX sample.
-vec3 OpaqueReflectionDirection(vec3 normal_world, vec3 view_direction,
-        float perceptual_roughness, vec2 stbn_random, out vec3 half_direction) {
+vec3 OpaqueReflectionDirection(vec3 normal_world, vec3 view_dir,
+        float perceptual_roughness, vec2 stbn_random, out vec3 half_dir) {
     float alpha = max(perceptual_roughness * perceptual_roughness, 0.002);
     mat3 frame = BuildOrthonormalBasis(normal_world);
-    vec3 local_v = transpose(frame) * view_direction;
+    vec3 local_v = transpose(frame) * view_dir;
     vec3 local_h = SampleVisibleGGX(local_v, alpha, stbn_random);
     // The orthonormal frame preserves the sampled unit vector, and reflect()
     // keeps unit inputs unit; the trace-side normalize still guards the
     // zero-vector sentinel below.
-    half_direction = frame * local_h;
-    vec3 light_direction = reflect(-view_direction, half_direction);
-    return dot(normal_world, light_direction) > 1e-5 ? light_direction : vec3(0.0);
+    half_dir = frame * local_h;
+    vec3 light_dir = reflect(-view_dir, half_dir);
+    return dot(normal_world, light_dir) > 1e-5 ? light_dir : vec3(0.0);
 }
 
 vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {

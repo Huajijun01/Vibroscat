@@ -72,13 +72,13 @@ float EotfST2084(float pq) {
     return 100.0 * pow(max(shaped - 0.8359375, 0.0) / (18.8515625 - 18.6875 * shaped), 6.277394636015);
 }
 
-vec3 RgbToICtCp(vec3 rgb) {
+vec3 RGBToICtCp(vec3 rgb) {
     vec3 lms = GT7_BT2020_TO_LMS * rgb;
     lms = vec3(InverseEotfST2084(lms.r), InverseEotfST2084(lms.g), InverseEotfST2084(lms.b));
     return GT7_LMS_TO_ICTCP * lms;
 }
 
-vec3 ICtCpToRgb(vec3 ictcp) {
+vec3 ICtCpToRGB(vec3 ictcp) {
     vec3 lms = GT7_ICTCP_TO_LMS * ictcp;
     lms = vec3(EotfST2084(lms.r), EotfST2084(lms.g), EotfST2084(lms.b));
     return max(GT7_LMS_TO_BT2020 * lms, 0.0);
@@ -122,7 +122,7 @@ float GT7Curve(float x) {
 
 vec3 TonemapGT7(vec3 linear_rgb) {
     vec3 rgb = SRGB_TO_BT2020_SCALED * max(linear_rgb, 0.0);
-    vec3 ucs = RgbToICtCp(rgb);
+    vec3 ucs = RGBToICtCp(rgb);
 
     // Step 1: per-channel curve pass (color-accurate midtones, hue twist
     // in the shoulder).
@@ -130,11 +130,11 @@ vec3 TonemapGT7(vec3 linear_rgb) {
 
     // Step 2: UCS pass - twisted luma, original chroma faded toward white
     // as the scene luminance approaches paper white.
-    vec3 skewed_ucs = RgbToICtCp(skewed);
+    vec3 skewed_ucs = RGBToICtCp(skewed);
     // The official thresholds are fixed and strictly ordered.
     float relative_luma = ucs.x / GT7_TARGET_LUMA_UCS;
     float chroma_scale = 1.0 - smoothstep(GT7_CHROMA_FADE_START, GT7_CHROMA_FADE_END, relative_luma);
-    vec3 faded = ICtCpToRgb(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));
+    vec3 faded = ICtCpToRGB(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));
 
     // Step 3: blend the paths and apply the SDR paper-white correction.
     vec3 blended = mix(skewed, faded, GT7_BLEND);

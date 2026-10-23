@@ -77,14 +77,14 @@ void main() {
     // Below-surface VNDF samples are valid zero contributions, not invalid
     // receivers. They must reach the temporal update with a zero sample.
     bool valid_direction = dot(reflection_direction, reflection_direction) > 1e-10;
-    vec3 view_direction = valid_direction
+    vec3 view_dir = valid_direction
         ? normalize(mat3(gbufferModelView) * reflection_direction) : vec3(0.0);
     // Keep the normal separation for self-intersection, but do not advance
     // along the ray: nearby corner hits can be less than 5 cm away.
     vec3 trace_origin = view_pos + geo_view_normal * 0.03;
     float trace_jitter = stbn_random.y;
     SSRHit shared_hit = Miss();
-    if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_direction, trace_jitter);
+    if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_dir, trace_jitter);
     // History hits replace the sky-radiance environment sample entirely, so
     // the environment fetch only runs when no history was accepted.
     vec3 reflection_radiance;

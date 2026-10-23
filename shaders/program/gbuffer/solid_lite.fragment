@@ -37,13 +37,13 @@ void main() {
 #endif
     vec3 view_to_eye = -normalize(v_view_pos);
     // Draw-invariant direction from the vertex stage (flat per-primitive).
-    vec3 light_direction = v_light_dir_view;
+    vec3 light_dir = v_light_dir_view;
     vec3 direct_lighting;
     vec3 lambert_brdf;
     vec3 diffuse_reflectance;
     // Particles carry no PBR data: fixed dielectric defaults, never the
     // specular atlas.
-    EvaluateBRDF(base_color, vec4(0.0), surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
+    EvaluateBRDF(base_color, vec4(0.0), surface_normal_view, view_to_eye, light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
 
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
     float torch_light = BlockLightFromLm(v_texcoord.z);

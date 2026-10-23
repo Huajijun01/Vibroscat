@@ -106,7 +106,7 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
 // is non-negative, so the pre-blurred map never rings the way a
 // Catmull-Rom kernel would. Wraps horizontally at RA 0/360 through the
 // sampler's repeat; v clamps so the filter never bleeds across the poles.
-vec4 SampleStarMapLowresBSpline(vec2 uv) {
+vec4 SampleStarMapLowresBspline(vec2 uv) {
     // Baked map is 256x128 (customTexture.utex_starmap_lowres).
     const vec2 resolution = vec2(256.0, 128.0);
     vec2 rcp_resolution = 1.0 / resolution;
@@ -262,7 +262,7 @@ vec3 RenderMilkyWayGlow(vec3 view_dir, vec4 view_transmittance, CelestialContext
     if (context.horizon_occluded) return vec3(0.0);
 
     vec2 uv = StarMapEquirectUV(StarMapDirection(view_dir, context.sun_dir));
-    vec3 glow_color = LogLuv32ToLinear(SampleStarMapLowresBSpline(uv));
+    vec3 glow_color = LogLuv32ToLinear(SampleStarMapLowresBspline(uv));
     return StarMapGrade(glow_color)
         * TransmittanceToLinearSRGB(view_transmittance, vec4(1.0))
         * night_fade * STAR_MAP_INTENSITY;
@@ -282,27 +282,27 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
 
     vec3 contribution = vec3(0.0);
 
-    float cos_sun = dot(view_dir, sun_dir);
-    if (cos_sun > cos(SUN_GLOW_RADIUS)) {
+    float sun_cos = dot(view_dir, sun_dir);
+    if (sun_cos > cos(SUN_GLOW_RADIUS)) {
         // The raw sRGB ratio is clamped in the display space, then the scene
         // white balance is applied to the summed disc contribution below.
         vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, ATM_SOLAR);
         vec3 sun_radiance = SpectralToLinearSRGB(ATM_SOLAR)
             / (PI * SUN_DISC_RADIUS * SUN_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
         contribution += sun_radiance * transmittance
-            * CelestialAngularMask(cos_sun, SUN_DISC_RADIUS, SUN_GLOW_RADIUS);
+            * CelestialAngularMask(sun_cos, SUN_DISC_RADIUS, SUN_GLOW_RADIUS);
     }
 
     // moon_dir above is the exact IEEE negation of sun_dir, and negation
     // distributes exactly through the dot product, so this is bit-identical
     // to dot(view_dir, moon_dir).
-    float cos_moon = -cos_sun;
-    if (cos_moon > cos(MOON_GLOW_RADIUS)) {
+    float moon_cos = -sun_cos;
+    if (moon_cos > cos(MOON_GLOW_RADIUS)) {
         vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, ATM_MOON_IRR);
         vec3 moon_radiance = SpectralToLinearSRGB(ATM_MOON_IRR)
             / (PI * MOON_DISC_RADIUS * MOON_DISC_RADIUS) * ATM_EXPOSURE * BRIGHTNESS_FACT;
         contribution += moon_radiance * transmittance
-            * CelestialAngularMask(cos_moon, MOON_DISC_RADIUS, MOON_GLOW_RADIUS);
+            * CelestialAngularMask(moon_cos, MOON_DISC_RADIUS, MOON_GLOW_RADIUS);
     }
 
     return sky_color + contribution * SRGB_WHITE_BALANCE;

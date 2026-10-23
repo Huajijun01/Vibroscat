@@ -56,16 +56,16 @@ vec3 ViewToNDC(vec3 view_pos) {
 }
 
 // Reconstructs a camera-relative player-space position from screen UV and depth.
-vec3 DepthToWorldPos(vec2 texcoord, float depth) {
-    vec3 view_pos = NDCToView(vec3(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0));
+vec3 DepthToWorldPos(vec2 uv, float depth) {
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, depth * 2.0 - 1.0));
     return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 
 // Same reconstruction that also yields the intermediate view-space position,
 // so callers needing both frames skip a SceneToViewSpace round trip through
 // the world matrix.
-vec3 DepthToWorldPosView(vec2 texcoord, float depth, out vec3 view_pos) {
-    view_pos = NDCToView(vec3(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0));
+vec3 DepthToWorldPosView(vec2 uv, float depth, out vec3 view_pos) {
+    view_pos = NDCToView(vec3(uv * 2.0 - 1.0, depth * 2.0 - 1.0));
     return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 

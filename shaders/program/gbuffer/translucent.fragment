@@ -63,11 +63,11 @@ void main() {
         // Same BRDF configuration as deferred4 (shared BRDF helper).
         vec3 surface_normal_view = normalize(v_normal);
         vec3 view_to_eye = -normalize(v_view_pos);
-        vec3 light_direction = u_view_light_dir;
+        vec3 light_dir = u_view_light_dir;
         vec3 direct_lighting;
         vec3 lambert_brdf;
         vec3 diffuse_reflectance;
-        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
+        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
         float shadow = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
         float torch_light = BlockLightFromLm(v_texcoord.z);
@@ -219,11 +219,11 @@ void main() {
 
     vec3 view_to_eye = -view_dir;
     vec3 surface_normal_view = current_normal;
-    vec3 light_direction = u_view_light_dir;
+    vec3 light_dir = u_view_light_dir;
 
     float ndotv = saturate(dot(surface_normal_view, view_to_eye));
-    float ndotl = saturate(dot(surface_normal_view, light_direction));
-    float ldotv = dot(light_direction, view_to_eye);
+    float ndotl = saturate(dot(surface_normal_view, light_dir));
+    float ldotv = dot(light_dir, view_to_eye);
     // For unit V and L, H = normalize(V+L) gives L·H == sqrt((1 + L·V)/2).
     // The half vector has no other consumer on this path, so build the
     // cosine directly instead of the vector and its dot.

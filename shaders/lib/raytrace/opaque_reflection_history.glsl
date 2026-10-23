@@ -54,7 +54,7 @@ struct OpaqueHistoryGather {
     vec3 sum_z;
     float sum_second;
     float sum_age;
-    float sum_weight;
+    float weight_sum;
     float dominant_weight;
     uint dominant_data;
 };
@@ -156,7 +156,7 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
     gather.sum_z += weight * history_z;
     gather.sum_second += weight * (history_variance + y * y);
     gather.sum_age += weight * OpaqueHistoryAge(data);
-    gather.sum_weight += weight;
+    gather.weight_sum += weight;
     if (weight > gather.dominant_weight) {
         gather.dominant_weight = weight;
         gather.dominant_data = data.b;
@@ -204,7 +204,7 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
             gather.sum_z = vec3(0.0);
             gather.sum_second = 0.0;
             gather.sum_age = 0.0;
-            gather.sum_weight = 0.0;
+            gather.weight_sum = 0.0;
             gather.dominant_weight = 0.0;
             gather.dominant_data = 0u;
             vec2 inverse_fraction = vec2(1.0) - fraction;
@@ -227,11 +227,11 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 guide, gather);
             GatherOpaqueHistoryTap(texel, base + ivec2(1, 1), fraction.x * fraction.y,
                 guide, gather);
-            if (gather.sum_weight > 0.2) {
-                vec3 old_z = gather.sum_z / gather.sum_weight;
+            if (gather.weight_sum > 0.2) {
+                vec3 old_z = gather.sum_z / gather.weight_sum;
                 float old_y = Luminance(old_z);
-                float old_variance = max(gather.sum_second / gather.sum_weight - old_y * old_y, 0.0);
-                float old_age = gather.sum_age / gather.sum_weight * min(gather.sum_weight, 1.0);
+                float old_variance = max(gather.sum_second / gather.weight_sum - old_y * old_y, 0.0);
+                float old_age = gather.sum_age / gather.weight_sum * min(gather.weight_sum, 1.0);
                 float angle_motion = 0.0;
                 if (!u_ssr_history_static) {
                     vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);

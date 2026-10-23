@@ -73,9 +73,9 @@ vec2 SampleSliceDirection(vec3 normal_view, float random_value) {
     return direction;
 }
 
-vec4 QuaternionFromViewDirection(vec3 view_direction) {
-    vec3 xyz = vec3(view_direction.y, -view_direction.x, 0.0);
-    float scalar = -view_direction.z;
+vec4 QuaternionFromViewDirection(vec3 view_dir) {
+    vec3 xyz = vec3(view_dir.y, -view_dir.x, 0.0);
+    float scalar = -view_dir.z;
     float inverse_scale = inversesqrt(max(scalar * 0.5 + 0.5, 0.0));
     return vec4(xyz * inverse_scale * 0.5, 1.0 / inverse_scale);
 }
@@ -124,8 +124,8 @@ uint VisibilityMaskFromRange(vec2 range01) {
 vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
         out float coverage, out float second_moment) {
     second_moment = 0.0;
-    vec3 view_direction = -normalize(origin_view_position);
-    vec4 q_to_view = QuaternionFromViewDirection(view_direction);
+    vec3 view_dir = -normalize(origin_view_position);
+    vec4 q_to_view = QuaternionFromViewDirection(view_dir);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
     vec3 normal_view = RotateVectorByQuaternion(origin_normal_view, q_from_view);
     // stbn_noise comes from the pass main (streams 0/3/1): x samples the
@@ -162,7 +162,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     float inverse_projection_depth_scale = gbufferProjectionInverse[2].w;
     float inverse_projection_depth_bias = gbufferProjectionInverse[3].w;
 
-    vec3 slice_normal = cross(view_direction, ray_direction);
+    vec3 slice_normal = cross(view_dir, ray_direction);
     vec3 projected_normal = origin_normal_view - slice_normal * dot(origin_normal_view, slice_normal);
     float projected_normal_sq = dot(projected_normal, projected_normal);
     if (projected_normal_sq < 1.0e-10) { coverage = 0.0; return vec3(0.0); }
@@ -171,8 +171,8 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     // The slice CDF and w0 assume a front-facing projected normal. A
     // back-facing one (silhouette, thin surface) pushes the CDF denominator
     // through zero and inverts the sector order, so clamp it at the horizon.
-    float cos_normal = clamp(dot(projected_normal, view_direction), 0.0, 1.0);
-    float angle_normal = (dot(view_direction, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
+    float cos_normal = clamp(dot(projected_normal, view_dir), 0.0, 1.0);
+    float angle_normal = (dot(view_dir, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
     float sin_normal = sin(angle_normal);
     // The slice CDF denominator is a per-pixel constant: hoist it and its
     // reciprocal so the per-step CDF calls neither recompute sin(angle_normal)
@@ -216,8 +216,8 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         vec3 delta_back = delta_front + normalize(sample_view) * SSGI_THICKNESS;
         float front_dd = max(dot(delta_front, delta_front), 1.0e-6);
         float front_inv_len = inversesqrt(front_dd);
-        float front_cos = dot(delta_front, view_direction) * front_inv_len;
-        float back_cos = dot(delta_back, view_direction) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
+        float front_cos = dot(delta_front, view_dir) * front_inv_len;
+        float back_cos = dot(delta_back, view_dir) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
         // Reference hor01 pipeline: shift the horizon angles from V to N,
         // evaluate the slice-relative cosine CDF, keep only the [w0, 1]

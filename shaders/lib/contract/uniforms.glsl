@@ -62,7 +62,7 @@ uniform vec3 u_water_direct_transmittance;
 uniform float u_water_wetness_gain;   // 1 - wetness * 0.6
 uniform float u_eye_sky_access;       // SkyLightFromLm(eyeBrightness.y / 240)
 uniform vec3 u_view_light_dir;        // gbufferModelView * u_world_light_dir
-uniform vec3 u_sun_dir_view;          // gbufferModelView * u_world_sun_dir
+uniform vec3 u_view_sun_dir;          // gbufferModelView * u_world_sun_dir
 uniform vec3 u_shadow_light_dir;      // shadowModelView * u_world_light_dir
 uniform vec3 u_world_moon_dir;        // -u_world_sun_dir
 uniform float u_light_disc_radius;    // sun or moon disc radius

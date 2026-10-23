@@ -42,23 +42,23 @@ void main() {
     // vertex computes the same bits and the flat varying costs no quality.
     v_light_dir_view = mat3(gbufferModelView) * normalize(u_world_light_dir);
 
-    vec3 view_normal = gl_NormalMatrix * gl_Normal;
+    vec3 normal_view = gl_NormalMatrix * gl_Normal;
     // Squared-length test and inversesqrt normalize: one square-root-family
     // op per vertex instead of a length + normalize pair.
-    float view_normal_sq = dot(view_normal, view_normal);
-    v_normal = view_normal_sq < 1.0e-8
+    float normal_view_sq = dot(normal_view, normal_view);
+    v_normal = normal_view_sq < 1.0e-8
         ? vec3(0.0, 0.0, 1.0)
-        : view_normal * inversesqrt(view_normal_sq);
+        : normal_view * inversesqrt(normal_view_sq);
 
     // Particles shade as world-up surfaces: ambient must not use the
     // billboard normal, which points at the eye and swaps zenith/ground sky
     // ambient with camera pitch.
 #ifdef PROGRAM_GBUFFERS_PARTICLES
-    vec3 world_normal = vec3(0.0, 1.0, 0.0);
+    vec3 normal_world = vec3(0.0, 1.0, 0.0);
 #else
     // v_normal is unit and the camera rotation preserves its length.
-    vec3 world_normal = mat3(gbufferModelViewInverse) * v_normal;
+    vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
 #endif
     v_sun_light_col = ground_light.rgb;
-    v_ambient_col = AmbientLight(world_normal, vec3(1.0), v_texcoord.w);
+    v_ambient_col = AmbientLight(normal_world, vec3(1.0), v_texcoord.w);
 }

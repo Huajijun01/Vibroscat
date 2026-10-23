@@ -138,11 +138,6 @@ const float sunPathRotation = -15.0;
 const float shadowIntervalSize = 2.0;
 const float real_shadow_map_resolution = float(shadowMapResolution);
 const float shadowDistance = 128.0;
-// Iris ShadowMatrices.NEAR/FAR defaults, i.e. the host values while these
-// const directives stay undeclared; pinning them keeps the custom-light
-// projection (lib/core/coordinates.glsl) on the host's exact depth slab.
-const float shadowNearPlane = -100.05;
-const float shadowFarPlane = 156.0;
 
 // Shadow depth protection: the shadow map depth is
 // remapped from [0,1] into [0.5-0.5*SCALE, 0.5+0.5*SCALE] so depth never

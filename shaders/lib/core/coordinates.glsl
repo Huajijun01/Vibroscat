@@ -207,37 +207,6 @@ float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels
     return (slope_world + const_world) * depth_scale * smoothstep(0.0, 0.05, ndotl);
 }
 
-// World position -> shadow NDC [0,1]3 (orthographic projection uses only the
-// diagonal components: 3 mul + 3 add), with the analytic distortion and the
-// protected depth remap applied.
-vec3 ProjectToShadow(vec3 world_pos) {
-    vec3 view_pos = mat3(shadowModelView) * world_pos + shadowModelView[3].xyz;
-
-    vec3 clip_pos;
-    clip_pos.x = shadowProjection[0].x * view_pos.x + shadowProjection[3].x;
-    clip_pos.y = shadowProjection[1].y * view_pos.y + shadowProjection[3].y;
-    clip_pos.z = shadowProjection[2].z * view_pos.z + shadowProjection[3].z;
-
-    clip_pos.xy /= GetDistortFactor(clip_pos.xy);
-    return vec3(clip_pos.xy * 0.5 + 0.5, ProtectShadowDepth(clip_pos.z * 0.5 + 0.5));
-}
-
-// World position -> shadow NDC [0,1]3 with a slope-scaled depth bias.
-vec3 ProjectToShadowWithBias(vec3 world_pos, float ndotl) {
-    vec3 view_pos = mat3(shadowModelView) * world_pos + shadowModelView[3].xyz;
-
-    vec3 clip_pos;
-    clip_pos.x = shadowProjection[0].x * view_pos.x + shadowProjection[3].x;
-    clip_pos.y = shadowProjection[1].y * view_pos.y + shadowProjection[3].y;
-    clip_pos.z = shadowProjection[2].z * view_pos.z + shadowProjection[3].z;
-
-    float bias = AxialDistortShadowBias(ndotl, view_pos, 3.0);
-    vec2 distort_factor = GetDistortFactor(clip_pos.xy);
-    clip_pos.xy /= distort_factor;
-    // Bias applied in NDC space, then remapped into the protected range.
-    float ndc_z = clip_pos.z * 0.5 + 0.5 - bias;
-    return vec3(clip_pos.xy * 0.5 + 0.5, ProtectShadowDepth(ndc_z));
-}
 
 // Undistorted shadow clip space [-1,1]^3. PCSS offset math works in clip
 // space; the distortion is re-applied per sample via DistortShadowClip().
@@ -290,48 +259,5 @@ vec2 DistortShadowClip(vec2 clip_pos) {
 // and AxialDistortShadowBias / ShadowDepthGap* still read the Iris uniforms,
 // so the swap must happen on both the shadow-pass and sampling sides at once.
 
-// Symmetric orthographic shadow projection: the diagonal-only GLSL form of
-// ShadowMatrices.createOrthoMatrix (JOML setOrthoSymmetric with width = height
-// = 2 * shadowDistance, near shadowNearPlane, far shadowFarPlane). The float
-// expressions mirror JOML's setOrtho so the entries match the host matrix.
-mat4 CustomShadowProjection() {
-    float plane_size = 2.0 * shadowDistance;
-    float inv_half_plane = 2.0 / plane_size;
-    float depth_range = shadowFarPlane - shadowNearPlane;
-
-    return mat4(
-        vec4(inv_half_plane, 0.0, 0.0, 0.0),
-        vec4(0.0, inv_half_plane, 0.0, 0.0),
-        vec4(0.0, 0.0, -2.0 / depth_range, 0.0),
-        vec4(0.0, 0.0, -(shadowFarPlane + shadowNearPlane) / depth_range, 1.0));
-}
-
-// World -> shadow-view matrix for an arbitrary light direction, generalizing
-// the generic (celestial) branch of ShadowMatrices.createBaselineModelViewMatrix:
-// view +Z points toward the light (the ortho camera looks along -light), and
-// view +Y derives from world -Z, which is exact for celestial lights since
-// their path lies in the world XY plane; world +X covers the degenerate
-// light-along-Z case. The camera grid snap of snapModelViewToGrid is folded
-// into the translation column, so the result carries the same
-// shadowModelView[3] semantics the sampling code relies on.
-mat4 CustomShadowModelView(vec3 light_dir_world) {
-    vec3 light_axis = normalize(light_dir_world);
-    vec3 up_ref = abs(light_axis.z) < 0.999 ? vec3(0.0, 0.0, -1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 up_axis = normalize(up_ref - light_axis * dot(up_ref, light_axis));
-    vec3 right_axis = cross(up_axis, light_axis);
-
-    // Sign-preserving fmod matching Java's % in snapModelViewToGrid; GLSL
-    // mod() would fold negative camera coordinates into [0, interval) and
-    // shift the map by whole grid cells relative to the host.
-    vec3 snap_offset = cameraPosition
-        - shadowIntervalSize * trunc(cameraPosition / shadowIntervalSize);
-    snap_offset -= 0.5 * shadowIntervalSize;
-
-    return mat4(
-        vec4(right_axis.x, up_axis.x, light_axis.x, 0.0),
-        vec4(right_axis.y, up_axis.y, light_axis.y, 0.0),
-        vec4(right_axis.z, up_axis.z, light_axis.z, 0.0),
-        vec4(dot(right_axis, snap_offset), dot(up_axis, snap_offset), dot(light_axis, snap_offset), 1.0));
-}
 
 #endif // LIB_CORE_COORDINATES_GLSL

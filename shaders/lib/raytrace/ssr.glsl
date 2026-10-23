@@ -251,7 +251,7 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
     float ray_depth_span = ray_depth - previous_ray_depth;
     float inverse_span = sign(ray_depth_span)
         / max(abs(ray_depth_span), 1e-20);
-    // A zero span keeps the midpoint; nonzero spans retain their sign.
+    // A zero span collapses hit_frac to the bracket's front sample; nonzero spans retain their sign.
     float hit_surface = ReadSSRDepthSample(hit_pos.xy);
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float hit_frac = clamp((1.0 / hit_surface - previous_ray_depth)

@@ -120,7 +120,7 @@ void main() {
     vec3 sample_z = reflection_radiance * throughput / factor;
 #if OPAQUE_SSR_FILTER > 0
     out_reflection_radiance = AccumulateOpaqueHistory(tx, sample_z, world_pos, view_pos,
-        normal_world, geo_normal_world, geo_view_normal, material_data.rg, material_id, out_history_metadata);
+        view_to_eye, normal_world, geo_normal_world, geo_view_normal, material_data.rg, material_id, out_history_metadata);
 #else
     out_reflection_radiance = sample_z;
 #endif

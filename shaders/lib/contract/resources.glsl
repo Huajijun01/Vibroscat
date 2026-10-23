@@ -18,13 +18,13 @@
 //                                bytes of translucent RGB UNORM16 surface data;
 //                                colortex1 RGB carries the high bytes while its
 //                                material-ID alpha survives. A = water flag.
-//   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, coarse RGB
+//   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, direct RGB
 //   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
 //                                lightmap (BA) (solid -> deferred4)
 //   colortex5   R11F_G11F_B10F   TAA history; optional history-side color mips
 //                                generated before deferred2 only. Other readers
 //                                explicitly select mip 0 after later writes.
-//   colortex6   RGBA16UI         SSR depth16/rough8/selector8/RGB remainder8/age5/state3/
+//   colortex6   RGBA16UI         SSR depth16/rough8/selector8/unused8/age5/state3/
 //                                log-variance16; no historical normal or M
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
 //                                merged with the AO history: geometry pixels

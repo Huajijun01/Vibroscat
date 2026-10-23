@@ -5,12 +5,12 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
-#include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
 
 // RGB is the unblurred mean of Z = (Li * sampled throughput) / material factor.
-// RGBA16UI: depth half | rough8/selector8 | RGB remainder8/age5/state3 | log2(1+v_Z) half.
+// RGB is stored directly in colortex3; metadata carries no color bits.
+// RGBA16UI: depth half | rough8/selector8 | unused8/age5/state3 | log2(1+v_Z) half.
 // No historical normal: each previous tap is projected into the current GBuffer.
 const float OPAQUE_HISTORY_MAX = 31.0;
 const vec3 OPAQUE_HISTORY_RGB_MAX = vec3(65024.0, 65024.0, 64512.0);
@@ -31,19 +31,7 @@ float OpaqueHistoryRoughness(uvec4 data) {
     return float(data.g & 255u) / 255.0;
 }
 
-// Add three red/green and two blue mantissa bits inside the existing metadata.
-// Every consumer must reconstruct these before accumulating/filtering Z.
-vec3 OpaqueHistoryMean(ivec2 texel, uvec4 data) {
-    vec3 coarse = texelFetch(colortex3, texel, 0).rgb;
-    uvec3 exponent = (floatBitsToUint(coarse) >> 23) & uvec3(255u);
-    // The spacing is a normal, exact power of two, including the coarse
-    // format's subnormal range (biased exponent floor 127 - 14 = 113).
-    vec3 spacing = uintBitsToFloat((max(exponent, uvec3(113u)) - uvec3(9u, 9u, 7u)) << 23);
-    uvec3 remainder = uvec3(data.b & 7u, (data.b >> 3) & 7u, (data.b >> 6) & 3u);
-    return coarse + vec3(remainder) * spacing;
-}
-
-uvec4 PackOpaqueHistory(float depth_view, vec2 material, uint remainder,
+uvec4 PackOpaqueHistory(float depth_view, vec2 material,
         float age, int change_state, float variance) {
     uint depth_bits = packHalf2x16(vec2(depth_view, 0.0)) & 65535u;
     // Reject unrepresentable depths, including half overflow and underflow.
@@ -51,30 +39,13 @@ uvec4 PackOpaqueHistory(float depth_view, vec2 material, uint remainder,
     uint roughness = uint(round(clamp(material.x, 0.0, 1.0) * 255.0));
     uint selector = uint(round(clamp(material.y, 0.0, 1.0) * 255.0));
     uint state = change_state < 0 ? uint(3 - change_state) : uint(change_state);
+    uint variance_bits = packHalf2x16(vec2(log2(1.0 + max(variance, 0.0)), 0.0)) & 65535u;
+    // A nonzero age certifies finite RGB and a finite decoded variance.
+    // Half log values >= 128 would overflow exp2 on the next frame.
+    if (variance_bits >= 0x5800u) return uvec4(0u);
     return uvec4(depth_bits, roughness | (selector << 8),
-        remainder | (uint(round(clamp(age, 1.0, OPAQUE_HISTORY_MAX))) << 8) | (state << 13),
-        packHalf2x16(vec2(log2(1.0 + max(variance, 0.0)), 0.0)) & 65535u);
-}
-
-// Stochastic rounding at the combined 9/9/7-bit mantissa precision, then
-// split into an exactly representable R11/G11/B10 coarse value and low bits.
-// This stream is independent of STBN and of the optional display dither.
-vec3 QuantizeOpaqueHistory(vec3 value, ivec2 texel, out uint remainder, out vec3 reconstructed) {
-    uvec3 bits = floatBitsToUint(value);
-    uvec3 exponent = (bits >> 23) & uvec3(255u);
-    vec3 spacing = uintBitsToFloat((max(exponent, uvec3(113u)) - uvec3(9u, 9u, 7u)) << 23);
-    vec3 units = value / spacing;
-    // Avalanche before splitting independent RGB bit fields. A linear seed
-    // followed by xorshift leaves strong spatial periods in this low-bit RGB.
-    uint seed = LowBias32Hash(uint(texel.x) ^ (uint(texel.y) * 0x9e3779b9u)
-        ^ (uint(frameCounter) * 0x85ebca6bu) ^ 0x68bc21ebu);
-    vec3 random_value = (vec3(seed & 1023u, (seed >> 10) & 1023u, seed >> 20) + 0.5)
-        * vec3(1.0 / 1024.0, 1.0 / 1024.0, 1.0 / 4096.0);
-    uvec3 codes = uvec3(floor(units) + step(random_value, fract(units)));
-    uvec3 low_bits = codes & uvec3(7u, 7u, 3u);
-    remainder = low_bits.r | (low_bits.g << 3) | (low_bits.b << 6);
-    reconstructed = vec3(codes) * spacing;
-    return vec3(codes - low_bits) * spacing;
+        (uint(round(clamp(age, 1.0, OPAQUE_HISTORY_MAX))) << 8) | (state << 13),
+        variance_bits);
 }
 
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
@@ -99,11 +70,9 @@ struct OpaqueHistoryGuide {
 };
 
 // A previous tap is reconstructed at its OWN texel center and stored depth.
+// History addressing follows camera motion only, independently of TAA jitter.
 vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
     vec2 uv = (vec2(texel) + 0.5) * u_render_pixel_size;
-#ifdef TAA
-    uv -= u_taa_offset_previous * 0.5;
-#endif
     vec2 ray = (uv * 2.0 - 1.0 + gbufferPreviousProjection[2].xy)
         / vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1]);
     return vec3(ray, -1.0) * depth_view;
@@ -116,6 +85,15 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     if (OpaqueHistoryAge(data) < 1.0 || !(depth_view > 0.0) || isinf(depth_view)) return 0.0;
     if (abs(OpaqueHistoryRoughness(data) - guide.material.x) > 0.025) return 0.0;
     if (abs(float(data.g >> 8) / 255.0 - guide.material.y) > 1.5 / 255.0) return 0.0;
+    if (u_ssr_history_static) {
+        // Identical camera frames have one tap at this receiver. Its
+        // stored depth scales the same view ray, so the plane residual is
+        // a scalar depth difference; no projection or normal proxy is needed.
+        float plane_tolerance = 0.015 + 0.0006 * depth_view;
+        float plane_error = abs((depth_view + guide.receiver_view.z)
+            * (dot(guide.geo_view, guide.receiver_view) / guide.receiver_view.z));
+        return 1.0 - smoothstep(plane_tolerance, plane_tolerance * 2.0, plane_error);
+    }
     vec3 old_view = OpaquePreviousPosition(history_texel, depth_view);
     vec3 delta_previous = old_view - guide.previous_receiver_view;
     float depth_error = 0.0006 * depth_view;
@@ -129,9 +107,6 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
         dot(u_ssr_previous_to_view_z, delta_previous));
     if (predicted_view.z >= -1e-4 || !IsFinite(predicted_view)) return 0.0;
     vec2 current_uv = ViewToNDC(predicted_view).xy * 0.5 + 0.5;
-#ifdef TAA
-    current_uv += u_taa_offset * 0.5;
-#endif
     if (any(lessThan(current_uv, vec2(0.0))) || any(greaterThanEqual(current_uv, vec2(1.0)))) return 0.0;
     ivec2 current_texel = ivec2(current_uv * u_render_res);
     float plane_weight = 1.0 - smoothstep(plane_tolerance, plane_tolerance * 2.0, plane_error);
@@ -148,9 +123,6 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     if (abs(current_material.x - guide.material.x) > 0.025
             || abs(current_material.y - guide.material.y) > 1.5 / 255.0) return 0.0;
     vec2 center_uv = (vec2(current_texel) + 0.5) * u_render_pixel_size;
-#ifdef TAA
-    center_uv -= u_taa_offset * 0.5;
-#endif
     float visible_z = -LinearDepthFromScreenDepth(current_depth);
     vec2 ray_xy = (center_uv * 2.0 - 1.0)
         * vec2(gbufferProjectionInverse[0][0], gbufferProjectionInverse[1][1]);
@@ -176,9 +148,10 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
     uvec4 data = texelFetch(colortex6, tap, 0);
     weight *= OpaqueHistoryTapWeight(receiver_texel, tap, data, guide);
     if (weight <= 0.0) return;
-    vec3 history_z = OpaqueHistoryMean(tap, data);
+    vec3 history_z = texelFetch(colortex3, tap, 0).rgb;
     float history_variance = OpaqueHistoryVariance(data);
-    if (!IsFinite(history_z) || isnan(history_variance) || isinf(history_variance)) return;
+    // Both MRT outputs are written and flipped together. PackOpaqueHistory
+    // and the export check validate them once, rather than at every read.
     float y = Luminance(history_z);
     gather.sum_z += weight * history_z;
     gather.sum_second += weight * (history_variance + y * y);
@@ -191,7 +164,7 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
 }
 
 vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
-        vec3 receiver_view, vec3 normal_world, vec3 geo_normal_world, vec3 geo_view,
+        vec3 receiver_view, vec3 view_to_eye, vec3 normal_world, vec3 geo_normal_world, vec3 geo_view,
         vec2 material, int material_id, out uvec4 metadata) {
     float age = 1.0;
     float variance = 0.0;
@@ -208,21 +181,19 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
         // Reproject a displacement, not a view -> world -> view round trip.
         // This preserves exact zero pixel motion for identical camera frames;
         // round-off must not activate three almost-zero bilinear taps.
-        vec4 receiver_world = vec4(world_pos, 1.0);
-        vec3 delta_view = vec3(dot(u_ssr_previous_delta_x, receiver_world),
-            dot(u_ssr_previous_delta_y, receiver_world), dot(u_ssr_previous_delta_z, receiver_world));
-        vec3 previous_view = receiver_view + delta_view;
-        vec2 current_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
-#ifdef TAA
-        current_ndc -= u_taa_offset;
-#endif
-        vec2 ndc_delta = (vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1])
-            * delta_view.xy + u_ssr_projection_delta * receiver_view.xy + current_ndc * delta_view.z
-            + gbufferPreviousProjection[2].xy * previous_view.z) / -previous_view.z;
+        vec3 previous_view = receiver_view;
+        vec2 ndc_delta = vec2(0.0);
+        if (!u_ssr_history_static) {
+            vec4 receiver_world = vec4(world_pos, 1.0);
+            vec3 delta_view = vec3(dot(u_ssr_previous_delta_x, receiver_world),
+                dot(u_ssr_previous_delta_y, receiver_world), dot(u_ssr_previous_delta_z, receiver_world));
+            previous_view += delta_view;
+            vec2 current_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
+            ndc_delta = (vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1])
+                * delta_view.xy + u_ssr_projection_delta * receiver_view.xy + current_ndc * delta_view.z
+                + gbufferPreviousProjection[2].xy * previous_view.z) / -previous_view.z;
+        }
         vec2 pixel_motion = ndc_delta * (0.5 * u_render_res);
-#ifdef TAA
-        pixel_motion += (u_taa_offset_previous - u_taa_offset) * (0.5 * u_render_res);
-#endif
         vec2 history_pixel = vec2(texel) + pixel_motion;
         vec2 previous_uv = (history_pixel + 0.5) * u_render_pixel_size;
         if (previous_view.z < 0.0 && all(greaterThanEqual(previous_uv, vec2(0.0)))
@@ -240,7 +211,8 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
             OpaqueHistoryGuide guide;
             guide.receiver_view = receiver_view;
             guide.previous_receiver_view = previous_view;
-            guide.geo_previous_view = mat3(gbufferPreviousModelView) * geo_normal_world;
+            guide.geo_previous_view = u_ssr_history_static
+                ? geo_view : mat3(gbufferPreviousModelView) * geo_normal_world;
             guide.geo_view = geo_view;
             guide.normal_world = normal_world;
             guide.material = material;
@@ -260,24 +232,29 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 float old_y = Luminance(old_z);
                 float old_variance = max(gather.sum_second / gather.sum_weight - old_y * old_y, 0.0);
                 float old_age = gather.sum_age / gather.sum_weight * min(gather.sum_weight, 1.0);
-                vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);
-                vec3 eye_world = normalize(EyePositionSceneSpace() - world_pos);
-                float angle_motion = length(eye_world - old_eye_world);
-                float history_limit = OPAQUE_HISTORY_MAX;
+                float angle_motion = 0.0;
+                if (!u_ssr_history_static) {
+                    vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);
+                    angle_motion = length(view_to_eye - old_eye_world);
+                }
+                // Valid reprojection still carries useful samples in motion.
+                // Reserve fast replacement for sustained radiance changes;
+                // a receiver moving on screen does not invalidate its history.
+                float rough_history = smoothstep(0.08, 0.4, material.x);
+                float responsive_frames = mix(2.0, 8.0, rough_history);
                 float motion_risk = angle_motion / max(material.x * material.x, 0.002);
-                history_limit = mix(history_limit, 2.0, smoothstep(0.1, 1.0, motion_risk));
+                float angular_response = smoothstep(0.1, 1.0, motion_risk);
                 // A fixed world receiver can keep the same eye direction
                 // during camera rotation while its reflection moves on screen.
                 // Account for that resampling/visibility change independently
-                // of angular parallax. Remove projection jitter from velocity.
+                // of angular parallax. Only camera motion enters this velocity.
                 float screen_speed = length(ndc_delta * (0.5 * u_render_res));
-                float motion_response = smoothstep(0.25, 2.0, screen_speed);
-                float moving_frames = mix(3.0, 6.0, smoothstep(0.08, 0.3, material.x));
-                // Interpolate update rates, so even slow movement shortens
-                // the trail instead of retaining almost the full 31 frames.
-                float screen_limit = 1.0 / mix(1.0 / OPAQUE_HISTORY_MAX,
+                float motion_response = max(angular_response, smoothstep(0.25, 2.0, screen_speed));
+                float moving_frames = mix(8.0, 20.0, rough_history);
+                // Even full motion response retains 7/8 of valid smooth
+                // history at convergence, instead of injecting 50% new noise.
+                float history_limit = 1.0 / mix(1.0 / OPAQUE_HISTORY_MAX,
                     1.0 / moving_frames, motion_response);
-                history_limit = min(history_limit, screen_limit);
                 // Random VNDF hit/miss changes at reflection silhouettes are
                 // estimator noise. Geometry, camera motion and sustained
                 // radiance changes govern validity and temporal response.
@@ -291,14 +268,17 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 uint state = gather.dominant_data >> 13;
                 int old_change = state <= 3u ? int(state) : state <= 6u ? 3 - int(state) : 0;
                 float residual = sample_y - old_y;
-                float threshold = max(mix(2.5, 1.25, motion_response) * sqrt(old_variance),
+                // A wider noise threshold keeps motion from turning ordinary
+                // stochastic variation into a sustained radiance-change event.
+                float change_response = motion_response * (1.0 - rough_history);
+                float threshold = max(mix(2.5, 2.0, change_response) * sqrt(old_variance),
                     0.12 * max(old_y, 0.05));
                 if (abs(residual) > threshold) {
                     int direction = residual > 0.0 ? 1 : -1;
                     change_state = old_change * direction > 0 ? old_change + direction : direction;
                     change_state = clamp(change_state, -3, 3);
-                    int change_frames = motion_response > 0.5 ? 2 : 3;
-                    if (abs(change_state) >= change_frames) history_limit = min(history_limit, 2.0);
+                    int change_frames = change_response > 0.5 ? 2 : 3;
+                    if (abs(change_state) >= change_frames) history_limit = min(history_limit, responsive_frames);
                 }
                 old_age = min(old_age, history_limit - 1.0);
                 float beta = 1.0 / (old_age + 1.0);
@@ -314,13 +294,8 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
         metadata = uvec4(0u);
         return mean_z;
     }
-    uint remainder;
-    vec3 reconstructed;
-    vec3 stored_z = QuantizeOpaqueHistory(mean_z, texel, remainder, reconstructed);
-    float rounding_error = Luminance(reconstructed - mean_z);
-    variance += rounding_error * rounding_error;
-    metadata = PackOpaqueHistory(-receiver_view.z, material, remainder, age, change_state, variance);
-    return stored_z;
+    metadata = PackOpaqueHistory(-receiver_view.z, material, age, change_state, variance);
+    return mean_z;
 }
 
 #endif

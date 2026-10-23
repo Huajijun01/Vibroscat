@@ -42,6 +42,7 @@ uniform vec4 u_ssr_previous_delta_x; // rows of M_previous - M_current, + R_prev
 uniform vec4 u_ssr_previous_delta_y;
 uniform vec4 u_ssr_previous_delta_z;
 uniform vec2 u_ssr_projection_delta; // previous - current projection diagonal
+uniform bool u_ssr_history_static; // identical camera/projection, independent of TAA
 uniform float u_inv_clip_depth;   // gbufferProjectionInverse[2][3] + [3][3]
 uniform float u_ssr_depth_decode; // SSR_DEPTH_HALF_RCP_SQRT / u_inv_clip_depth
 uniform float u_clip_far_distance; // 1 / u_inv_clip_depth
@@ -113,7 +114,7 @@ uniform sampler2D specular;       // LabPBR specular atlas (1x1 fallback = none)
 uniform sampler2D colortex0;      // scene color (post chain input)
 uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
 uniform sampler2D colortex2;      // opaque/translucent surface data
-uniform sampler2D colortex3;      // demodulated mean; colortex6 carries its RGB low bits
+uniform sampler2D colortex3;      // direct demodulated temporal RGB mean
 uniform sampler2D colortex4;      // geometric normal + lightmap
 uniform sampler2D colortex5;      // TAA / composite history
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0

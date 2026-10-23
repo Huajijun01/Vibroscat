@@ -94,10 +94,10 @@ bool SampleOpaqueHistory(SSRHit hit, vec3 trace_origin, float roughness,
         out vec3 history) {
     history = vec3(0.0);
     if (!hit.valid || frameCounter < 1) return false;
-    if (!SSRScreenInside(hit.screen.xy)) return false;
+    if (!ScreenUVInside(hit.screen.xy)) return false;
 
     vec3 previous_hit = ToPrevious(hit.screen);
-    if (!SSRScreenInside(previous_hit.xy)) return false;
+    if (!ScreenUVInside(previous_hit.xy)) return false;
 
     float lod = OpaqueHistoryLod(hit, previous_hit, trace_origin, roughness);
     history = textureLod(colortex5, previous_hit.xy, lod).rgb;

@@ -44,7 +44,7 @@ uniform vec4 u_ssr_previous_delta_z;
 uniform vec2 u_ssr_projection_delta; // previous - current projection diagonal
 uniform bool u_ssr_history_static; // identical camera/projection, independent of TAA
 uniform float u_inv_clip_depth;   // gbufferProjectionInverse[2][3] + [3][3]
-uniform float u_squared_depth_decode; // SSR_DEPTH_HALF_RCP_SQRT / u_inv_clip_depth
+uniform float u_squared_depth_decode; // SQUARED_DEPTH_HALF_RCP_SQRT / u_inv_clip_depth
 uniform float u_clip_far_distance; // 1 / u_inv_clip_depth
 uniform float u_camera_radius_km;   // 6360.0 + u_cam_altitude
 uniform float u_camera_radius_sq;   // u_camera_radius_km^2

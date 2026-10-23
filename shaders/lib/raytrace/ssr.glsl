@@ -42,7 +42,7 @@ struct SSRBracket {
     bool hit_found;
 };
 
-SSRHit SSRMiss() {
+SSRHit Miss() {
     SSRHit hit;
     hit.screen = vec3(0.0);
     hit.valid = false;
@@ -50,7 +50,7 @@ SSRHit SSRMiss() {
     return hit;
 }
 
-bool SSRScreenInside(vec2 uv) {
+bool ScreenUVInside(vec2 uv) {
     // The [0,1] comparisons already reject NaN (unordered) and +-Inf for
     // every input, so an explicit IsFinite sweep is redundant.
     return all(greaterThanEqual(uv, vec2(0.0)))
@@ -109,21 +109,21 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
     vec3 sample_pos = chord.start_pos + march_step * jitter;
     float ray_start_depth = -view_origin.z;
     bracket.previous_pos = chord.start_pos;
-    bracket.previous_ray_depth = SSRRayDepthFromScreen(chord.start_pos.z);
+    bracket.previous_ray_depth = RayDepthFromScreen(chord.start_pos.z);
     bracket.previous_surface_sample = opaque_trace
-        ? ReadSSRDepthSample(chord.start_pos.xy) : 0.0;
-    bool previous_behind = opaque_trace && SSRDepthSampleBeforeRay(
+        ? ReadDepthSample(chord.start_pos.xy) : 0.0;
+    bool previous_behind = opaque_trace && DepthSampleBeforeRay(
         bracket.previous_surface_sample, bracket.previous_ray_depth);
     bracket.surface_sample = 0.0;
     bracket.ray_depth = bracket.previous_ray_depth;
     bracket.hit_found = false;
 
     for (int i = 0; i < step_budget; ++i) {
-        if (!SSRScreenInside(sample_pos.xy)) break;
+        if (!ScreenUVInside(sample_pos.xy)) break;
 
-        bracket.surface_sample = ReadSSRDepthSample(sample_pos.xy);
-        bracket.ray_depth = SSRRayDepthFromScreen(sample_pos.z);
-        bool behind_surface = SSRDepthSampleBeforeRay(bracket.surface_sample,
+        bracket.surface_sample = ReadDepthSample(sample_pos.xy);
+        bracket.ray_depth = RayDepthFromScreen(sample_pos.z);
+        bool behind_surface = DepthSampleBeforeRay(bracket.surface_sample,
             bracket.ray_depth);
         bool depth_crossing = opaque_trace
             ? behind_surface && !previous_behind
@@ -171,7 +171,7 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
 // and raw screen depth are affine along the projected ray and a planar face,
 // allowing a secant inside the narrowed bracket without projecting onto the
 // depth of an unrelated UV (which fails on slopes and constant-depth rays).
-float SSRDepthResidual(float surface_sample, float ray_depth) {
+float DepthResidual(float surface_sample, float ray_depth) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
     return 1.0 / surface_sample - ray_depth;
 #else
@@ -182,15 +182,15 @@ float SSRDepthResidual(float surface_sample, float ray_depth) {
 SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
     vec3 front_pos = bracket.previous_pos;
     vec3 behind_pos = bracket.sample_pos;
-    float front_delta = SSRDepthResidual(bracket.previous_surface_sample,
+    float front_delta = DepthResidual(bracket.previous_surface_sample,
         bracket.previous_ray_depth);
-    float behind_delta = SSRDepthResidual(bracket.surface_sample,
+    float behind_delta = DepthResidual(bracket.surface_sample,
         bracket.ray_depth);
 #ifdef SSR_INTERPOLATION
     for (int j = 0; j < OPAQUE_SSR_BISECT_STEPS; ++j) {
         vec3 mid_pos = 0.5 * (front_pos + behind_pos);
-        float mid_delta = SSRDepthResidual(ReadSSRDepthSample(mid_pos.xy),
-            SSRRayDepthFromScreen(mid_pos.z));
+        float mid_delta = DepthResidual(ReadDepthSample(mid_pos.xy),
+            RayDepthFromScreen(mid_pos.z));
         if (mid_delta > 0.0) {
             behind_pos = mid_pos;
             behind_delta = mid_delta;
@@ -205,9 +205,9 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
 #else
     vec3 hit_pos = behind_pos;
 #endif
-    float hit_surface = ReadSSRDepthSample(hit_pos.xy);
-    bool hit_sky = SSRDepthSampleIsSky(hit_surface);
-    if (hit_sky && hit_pos.z < 1.0) return SSRMiss();
+    float hit_surface = ReadDepthSample(hit_pos.xy);
+    bool hit_sky = DepthSampleIsSky(hit_surface);
+    if (hit_sky && hit_pos.z < 1.0) return Miss();
     float surface_view_depth = hit_surface;
 #if !defined(SSR_QUARTER_DEPTH_ACTIVE)
     surface_view_depth = LinearDepthFromScreenDepth(hit_surface);
@@ -215,7 +215,7 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
     float hit_view_depth = LinearDepthFromScreenDepth(clamp(hit_pos.z, 0.0, 1.0));
     float travelled = abs(hit_view_depth - ray_start_depth);
     if (abs(hit_view_depth - surface_view_depth)
-            > SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) return SSRMiss();
+            > SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) return Miss();
 
     SSRHit hit;
     hit.screen = vec3(hit_pos.xy, hit_sky ? 1.0 : hit_pos.z);
@@ -238,8 +238,8 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
     vec3 refine_step = (sample_pos - previous_pos)
         * (0.25 - 0.5 * float(toward_eye));
     for (int j = 0; j < refine_steps; ++j) {
-        float mid_surface = ReadSSRDepthSample(hit_pos.xy);
-        float mid_ray_depth = SSRRayDepthFromScreen(hit_pos.z);
+        float mid_surface = ReadDepthSample(hit_pos.xy);
+        float mid_ray_depth = RayDepthFromScreen(hit_pos.z);
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
         float depth_delta = mid_ray_depth * mid_surface - 1.0;
 #else
@@ -252,7 +252,7 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
     float inverse_span = sign(ray_depth_span)
         / max(abs(ray_depth_span), 1e-20);
     // A zero span collapses hit_frac to the bracket's front sample; nonzero spans retain their sign.
-    float hit_surface = ReadSSRDepthSample(hit_pos.xy);
+    float hit_surface = ReadDepthSample(hit_pos.xy);
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float hit_frac = clamp((1.0 / hit_surface - previous_ray_depth)
         * inverse_span, 0.0, 1.0);
@@ -266,7 +266,7 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
 // Known sky at the march end: reported at the chord's projected far-plane
 // exit rather than the jittered march endpoint, so the reflected sky sample
 // does not inherit the trace dither. The caller owns the far-plane decision.
-SSRHit SSRSkyEndpointHit(vec2 exit_uv) {
+SSRHit SkyEndpointHit(vec2 exit_uv) {
     SSRHit hit;
     hit.screen = vec3(exit_uv, 1.0);
     hit.valid = true;
@@ -276,9 +276,9 @@ SSRHit SSRSkyEndpointHit(vec2 exit_uv) {
 
 // Assemble the refined hit: a crossing that lands on sky keeps the far-plane
 // endpoint and reports sky so consumers can suppress their glint term there.
-SSRHit SSRClassifyScreenHit(vec3 screen_pos) {
-    bool hit_sky = SSRDepthSampleIsSky(ReadSSRDepthSample(screen_pos.xy));
-    if (hit_sky && screen_pos.z < 1.0) return SSRMiss();
+SSRHit ClassifyScreenHit(vec3 screen_pos) {
+    bool hit_sky = DepthSampleIsSky(ReadDepthSample(screen_pos.xy));
+    if (hit_sky && screen_pos.z < 1.0) return Miss();
     SSRHit hit;
     hit.screen = vec3(screen_pos.xy, hit_sky ? 1.0 : screen_pos.z);
     hit.valid = true;
@@ -299,14 +299,14 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_direction, float jitter) {
     // accepted; a sky surface_sample at the final step is the ray passing the
     // far plane, not geometry. The exit pixel owns the sky decision (the last
     // march sample rides the trace jitter); edge exits are misses.
-    if (!bracket.hit_found || SSRDepthSampleIsSky(bracket.surface_sample)) {
+    if (!bracket.hit_found || DepthSampleIsSky(bracket.surface_sample)) {
         if (chord.exit_on_far_plane) {
             vec2 exit_uv = chord.start_pos.xy + chord.span.xy;
-            if (SSRDepthSampleIsSky(ReadSSRDepthSample(exit_uv))) {
-                return SSRSkyEndpointHit(exit_uv);
+            if (DepthSampleIsSky(ReadDepthSample(exit_uv))) {
+                return SkyEndpointHit(exit_uv);
             }
         }
-        if (!bracket.hit_found) return SSRMiss();
+        if (!bracket.hit_found) return Miss();
     }
 
     return RefineOpaqueSSR(bracket, -view_origin.z);
@@ -325,14 +325,14 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) 
     // accepted; a sky surface_sample at the final step is the ray passing the
     // far plane, not geometry. The exit pixel owns the sky decision (the last
     // march sample rides the trace jitter); edge exits are misses.
-    if (!bracket.hit_found || SSRDepthSampleIsSky(bracket.surface_sample)) {
+    if (!bracket.hit_found || DepthSampleIsSky(bracket.surface_sample)) {
         if (chord.exit_on_far_plane) {
             vec2 exit_uv = chord.start_pos.xy + chord.span.xy;
-            if (SSRDepthSampleIsSky(ReadSSRDepthSample(exit_uv))) {
-                return SSRSkyEndpointHit(exit_uv);
+            if (DepthSampleIsSky(ReadDepthSample(exit_uv))) {
+                return SkyEndpointHit(exit_uv);
             }
         }
-        if (!bracket.hit_found) return SSRMiss();
+        if (!bracket.hit_found) return Miss();
     }
 
 #ifdef SSR_INTERPOLATION
@@ -343,7 +343,7 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_direction, float jitter) 
     // Raw trace: report the accepted march sample without refinement.
     vec3 hit_pos = bracket.sample_pos;
 #endif
-    return SSRClassifyScreenHit(hit_pos);
+    return ClassifyScreenHit(hit_pos);
 }
 
 #endif // LIB_RAYTRACE_SSR_GLSL

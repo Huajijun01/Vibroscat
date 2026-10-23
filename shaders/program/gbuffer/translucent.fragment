@@ -187,14 +187,14 @@ void main() {
 #endif
     vec3 prev_coord = vec3(0.0);
     bool history_hit = false;
-    if (frameCounter > 0 && rt_hit_flag && SSRScreenInside(rt_pos.xy)) {
+    if (frameCounter > 0 && rt_hit_flag && ScreenUVInside(rt_pos.xy)) {
         rt_coord = rt_pos.xy;
         // Sky hits reproject at their reported far-plane depth: the current
         // frame can carry nearer translucent water over that pixel, which
         // would turn the sky reflection into a water-surface history sample.
         prev_coord = ToPrevious(vec3(rt_coord, rt_hit_sky ? rt_pos.z
             : texture(depthtex0, SceneTextureUV(rt_coord)).x));
-        history_hit = SSRScreenInside(prev_coord.xy);
+        history_hit = ScreenUVInside(prev_coord.xy);
     }
 
     vec3 reflect_color = vec3(0.0);

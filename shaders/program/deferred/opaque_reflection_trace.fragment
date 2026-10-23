@@ -83,7 +83,7 @@ void main() {
     // along the ray: nearby corner hits can be less than 5 cm away.
     vec3 trace_origin = view_pos + geo_view_normal * 0.03;
     float trace_jitter = stbn_random.y;
-    SSRHit shared_hit = SSRMiss();
+    SSRHit shared_hit = Miss();
     if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_direction, trace_jitter);
     // History hits replace the sky-radiance environment sample entirely, so
     // the environment fetch only runs when no history was accepted.

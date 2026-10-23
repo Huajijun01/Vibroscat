@@ -53,13 +53,13 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     // so hoist the ground light out of the sample loop. The strength stays at
     // the use site to keep the original multiplication order bit-identical.
     vec3 ground_light_payload = ground_light.rgb;
-    // The azimuth sequence TAU * fract(seed + k * GOLDEN_RATIO) is the orbit of
+    // The azimuth sequence TAU * fract(seed + k * GOLDEN_RATIO_CONJUGATE) is the orbit of
     // one fixed rotation (TAU-periodic), so one sin/cos pair per pixel seeds a
     // rotation recurrence and the per-sample angle never needs fract, a float
     // convert, a multiply or a sin/cos pair. Same recurrence the SSAO, DOF and
     // GTAO samplers already use.
-    float cos_step = cos(TAU * GOLDEN_RATIO);
-    float sin_step = sin(TAU * GOLDEN_RATIO);
+    float cos_step = cos(TAU * GOLDEN_RATIO_CONJUGATE);
+    float sin_step = sin(TAU * GOLDEN_RATIO_CONJUGATE);
     float sample_azimuth_c = cos(TAU * stbn_noise.x);
     float sample_azimuth_s = sin(TAU * stbn_noise.x);
     float rsm_inv_sample_count = 1.0 / rsm_sample_count;

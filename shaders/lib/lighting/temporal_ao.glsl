@@ -13,7 +13,7 @@
 // AO temporal accumulation at the fixed half-resolution receivers.
 // ============================================================================
 // History in the merged colortex8 (R = EncodeAOHistory(AO), G = age, B = view depth
-// via the EncodeSSRDepth squared curve, A = NaN "not cloud"); this module
+// via the EncodeSquaredDepth curve, A = NaN "not cloud"); this module
 // provides per-pixel math only. Half-res generation accumulates before the
 // depth/normal-guided full-res reconstruction on the fixed sample lattice.
 // Rejection trusts the history only within the distance limit and the normal
@@ -37,12 +37,12 @@ bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiv
         && all(lessThanEqual(previous_uv, vec2(1.0)));
 }
 
-// Decode the stored history depth (EncodeSSRDepth curve) back to linear view
+// Decode the stored history depth (EncodeSquaredDepth curve) back to linear view
 // depth in meters. The clip-depth reference is projection-depth-row derived
 // and therefore FOV-independent; it only moves when near/far change, which
 // reloads the world and reseeds the history anyway.
 float AOHistoryViewDepth(float encoded) {
-    return sqrt(max(encoded, 0.0)) * u_ssr_depth_decode;
+    return sqrt(max(encoded, 0.0)) * u_squared_depth_decode;
 }
 
 // Reconstruct the history tap at its actual previous jittered pixel center.

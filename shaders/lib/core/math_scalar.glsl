@@ -7,7 +7,7 @@
 
 // Additive low-discrepancy increment (R1 sequence, the golden-ratio conjugate
 // 1/phi); the 2D analogue is R2Offset in noise.glsl.
-const float GOLDEN_RATIO = 0.61803398875;
+const float GOLDEN_RATIO_CONJUGATE = 0.61803398875;
 
 
 float saturate(float x) { return clamp(x, 0.0, 1.0); }

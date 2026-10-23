@@ -52,14 +52,14 @@ float EpipolarShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, flo
 
 // Project the active light into NDC. The pole is the light's projective
 // screen position: behind the camera it mirrors (lines stay valid); at
-// clip.w ~ 0 it is at infinity (lines become parallel). poleInScreen =
+// clip.w ~ 0 it is at infinity (lines become parallel). pole_in_screen =
 // inside the rect.
 vec2 EpipolarLightNDC(out bool pole_in_screen) {
-    vec3 view_dir = u_view_light_dir;
+    vec3 light_dir_view = u_view_light_dir;
 #if defined(WATER_EPIPOLAR_ACTIVE)
-    if (isEyeInWater == 1) view_dir = u_sun_dir_view;
+    if (isEyeInWater == 1) light_dir_view = u_sun_dir_view;
 #endif
-    vec4 clip = gbufferProjection * vec4(view_dir, 0.0);
+    vec4 clip = gbufferProjection * vec4(light_dir_view, 0.0);
     float side = clip.w >= 0.0 ? 1.0 : -1.0;
     pole_in_screen = clip.w > 1e-6 && abs(clip.x) <= clip.w && abs(clip.y) <= clip.w;
     return clip.xy / max(abs(clip.w), 1e-6) * side;

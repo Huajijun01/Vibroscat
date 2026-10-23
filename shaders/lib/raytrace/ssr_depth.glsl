@@ -14,7 +14,7 @@ const float SSR_DEPTH_HALF_MAX = 65504.0;
 const float SSR_DEPTH_HALF_MIN = 5.960464477539063e-8;
 const float SSR_DEPTH_HALF_RCP_SQRT = 0.0039072041399776936;  // inversesqrt(65504)
 
-float EncodeSSRDepth(float screen_depth) {
+float EncodeSquaredDepth(float screen_depth) {
     // Iris 'far' is render distance, not the clipping plane. Use the inverse
     // projection at screen depth 1 so visible geometry is never truncated.
     float normalized_depth = min(LinearDepthFromScreenDepth(screen_depth) * u_inv_clip_depth, 1.0);
@@ -28,7 +28,7 @@ float ReadSSRDepthSample(vec2 uv) {
     // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX): the constant leaves the
     // square root as one multiply, and the CPU folds its divide by the
     // inverse-depth row sum.
-    return sqrt(encoded_depth) * u_ssr_depth_decode;
+    return sqrt(encoded_depth) * u_squared_depth_decode;
 #else
     return textureLod(depthtex1, SceneTextureUV(uv), 0.0).r;
 #endif

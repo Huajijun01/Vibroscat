@@ -7,8 +7,8 @@
 // This fragment writes one merged full-res history frame to colortex8.
 // The two histories are spatially exclusive (depth branch):
 //   sky:      RGBA = radiance.rgb + distance (NaN/0 rejected by cloud validation)
-//   geometry: R = EncodeAOHistory(AO), G = age, B = encoded view depth (EncodeSSRDepth
-//             squared-depth curve, see lib/raytrace/ssr_depth.glsl), A = NaN
+//   geometry: R = EncodeAOHistory(AO), G = age, B = encoded view depth (EncodeSquaredDepth
+//             curve, see lib/raytrace/ssr_depth.glsl), A = NaN
 //             ("not cloud": taps crossing the boundary propagate NaN and
 //             reject the history)
 // The colortex flip (read main / write alt) gives lighting the current
@@ -103,7 +103,7 @@ void main() {
     // preceding compute. Full-res output uses depth/normal bilateral weights.
     vec2 resolved_ao = ReconstructAO(tx, scene_depth, geo_normal_oct);
     out_history = vec4(EncodeAOHistory(resolved_ao.x), resolved_ao.y,
-        EncodeSSRDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
+        EncodeSquaredDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
 #else
     // No standalone AO (clouds on): geometry pixels invalidate the cloud history.
 #ifdef VOLUMETRIC_CLOUDS

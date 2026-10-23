@@ -22,6 +22,6 @@ void main() {
     ivec2 source_texel = ivec2((vec2(depth_texel) + 0.5)
         * vec2(source_size) / vec2(depth_size));
     float screen_depth = texelFetch(depthtex1, source_texel, 0).r;
-    imageStore(uimg_ssr_depth, depth_texel, vec4(EncodeSSRDepth(screen_depth), 0.0, 0.0, 1.0));
+    imageStore(uimg_ssr_depth, depth_texel, vec4(EncodeSquaredDepth(screen_depth), 0.0, 0.0, 1.0));
 #endif
 }

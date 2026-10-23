@@ -353,10 +353,10 @@ float SampleCloudDensityHighQuality(vec3 atmosphere_position, CloudLayerFrame fr
             * CLOUD_HQ_FINE_EROSION_STRENGTH * fine_weight);
 }
 
-// Low-quality high-end density for the light-transport trace: the same field
-// with both 3D reads replaced by their baked means, keeping both expected
-// erosion thresholds equal to the high-end view path.
-float SampleCloudDensityHighQualityLowQuality(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
+// Cheap high-end density for the light-transport trace: the same field with
+// both 3D reads replaced by their baked means, keeping both expected erosion
+// thresholds equal to the high-end view path.
+float SampleCloudDensityHighQualityLightTrace(vec3 atmosphere_position, CloudLayerFrame frame, CloudHeightProfile profile
 ) {
     vec2 distribution_uv = CloudDistributionUv(atmosphere_position.xz + frame.world_km_offset,
         frame.distribution_offset);
@@ -416,7 +416,7 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
         // Same cheap band rejection the density functions used to open with.
         if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
 #if CLOUD_SHAPE_MODE == 1
-            sample_density = SampleCloudDensityHighQualityLowQuality(sample_position, frame,
+            sample_density = SampleCloudDensityHighQualityLightTrace(sample_position, frame,
                 CloudHeightProfileFor(sample_altitude_km));
 #else
             sample_density = SampleCloudDensityLowQuality(sample_position, frame,
@@ -527,14 +527,14 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // The jitter only feeds the light trace, so compute it after the
         // horizon test has skipped erased samples.
         if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
-            float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
+            float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
             float light_optical_depth = CloudLightOpticalDepth(
                 sample_position, light_dir, light_jitter, layer_frame);
             sample_light = CloudDirectionalScattering(light_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
 #else
-        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO);
+        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
         float sample_sun = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = CloudLightOpticalDepth(

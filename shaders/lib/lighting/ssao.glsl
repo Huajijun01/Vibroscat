@@ -54,8 +54,8 @@ float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     // sample. Drift over SSAO_SAMPLES steps stays near 1e-6 rad.
     float azimuth_c = cos(stbn_noise.x * TAU);
     float azimuth_s = sin(stbn_noise.x * TAU);
-    const float azimuth_step_c = cos(TAU * GOLDEN_RATIO);
-    const float azimuth_step_s = sin(TAU * GOLDEN_RATIO);
+    const float azimuth_step_c = cos(TAU * GOLDEN_RATIO_CONJUGATE);
+    const float azimuth_step_s = sin(TAU * GOLDEN_RATIO_CONJUGATE);
     float occlusion = 0.0;
     for (int k = 0; k < SSAO_SAMPLES; ++k) {
         // Cosine-weighted hemisphere sample: uniform disk point

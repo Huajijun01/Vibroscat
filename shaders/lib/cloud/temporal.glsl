@@ -30,7 +30,7 @@ vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
 #else
-    vec2 r2_offset = R2Offset(frameCounter);
+    vec2 r2_offset = R2Offset();
 #endif
     return (vec2(full_res_texel) + 0.5) / cell_size - r2_offset;
 }

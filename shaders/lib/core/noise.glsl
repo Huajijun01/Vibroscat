@@ -78,7 +78,7 @@ uint LowBias32Hash(uint x) {
 // Continuous R2 offset for sub-resolution grids. The first frame starts at
 // the cell center; subsequent frames cover the cell without a finite phase
 // table.
-vec2 R2Offset(int frame) {
+vec2 R2Offset() {
     // Frame-uniform: shaders.properties derives it from frameCounter.
     return u_r2_offset;
 }

@@ -35,7 +35,7 @@ layout(location = 1) out vec4 out_gi_metadata;
 
 
 #if GI_MODE == 1
-float GIPartialSlice(float x, float sin_view_normal) {
+float RemapPartialSlice(float x, float sin_view_normal) {
     if (abs(x) >= 1.0 || x == 0.0) return x;
     bool negative = x < 0.0;
     x = abs(x);
@@ -60,27 +60,27 @@ float GIPartialSlice(float x, float sin_view_normal) {
     return negative ? -y : y;
 }
 
-vec2 GISampleSliceDirection(vec3 normal_view, float random_value) {
+vec2 SampleSliceDirection(vec3 normal_view, float random_value) {
     float angle = random_value * TAU;
     vec2 direction = vec2(cos(angle), sin(angle));
     float normal_xy_length = length(normal_view.xy);
     if (normal_xy_length > 1.0e-5) {
         vec2 normal_direction = normal_view.xy / normal_xy_length;
         direction = Rotate2D(direction, normal_direction * vec2(1.0, -1.0));
-        float slice_angle = GIPartialSlice(FastAtan2(direction), normal_xy_length) * PI;
+        float slice_angle = RemapPartialSlice(FastAtan2(direction), normal_xy_length) * PI;
         direction = Rotate2D(vec2(cos(slice_angle), sin(slice_angle)), normal_direction);
     }
     return direction;
 }
 
-vec4 GIQuaternionFromViewDirection(vec3 view_direction) {
+vec4 QuaternionFromViewDirection(vec3 view_direction) {
     vec3 xyz = vec3(view_direction.y, -view_direction.x, 0.0);
     float scalar = -view_direction.z;
     float inverse_scale = inversesqrt(max(scalar * 0.5 + 0.5, 0.0));
     return vec4(xyz * inverse_scale * 0.5, 1.0 / inverse_scale);
 }
 
-vec3 GIRotateVectorByQuaternion(vec3 value, vec4 quaternion) {
+vec3 RotateVectorByQuaternion(vec3 value, vec4 quaternion) {
     float cross_term = value.y * quaternion.x - value.x * quaternion.y;
     float scale = 2.0 * (value.z * quaternion.w + cross_term);
     vec3 result;
@@ -90,7 +90,7 @@ vec3 GIRotateVectorByQuaternion(vec3 value, vec4 quaternion) {
     return result;
 }
 
-vec3 GIRotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
+vec3 RotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
     float offset = quaternion.x * slice_direction.y;
     float cross_term = quaternion.y * slice_direction.x;
     vec3 basis = vec3(offset - cross_term, -offset + cross_term, offset - cross_term);
@@ -103,7 +103,7 @@ vec3 GIRotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
 // reference. sin_normal and the reciprocal denominator are per-pixel
 // constants hoisted by the caller: this CDF runs twice per march step and
 // recomputing both here cost 64 redundant sin per pixel at 16 steps.
-float GISliceRelativeCDF(float x, float angle_normal, float cos_normal,
+float SliceRelativeCDF(float x, float angle_normal, float cos_normal,
         float sin_normal, float cdf_inv_denominator) {
     if (x <= 0.0 || x >= 1.0) return x;
     float phi = x * PI - PI * 0.5;
@@ -114,24 +114,24 @@ float GISliceRelativeCDF(float x, float angle_normal, float cos_normal,
 
 // Quantize the remapped arc into 32 sectors and mask the covered span
 // (reference: uvec2(floor(hor01 * 32.0)) with the range-end masks ANDed).
-uint GIVisibilityMaskFromRange(vec2 range01) {
+uint VisibilityMaskFromRange(vec2 range01) {
     uvec2 range_bits = uvec2(floor(range01 * 32.0));
     uint left = range_bits.x < 32u ? 0xFFFFFFFFu << range_bits.x : 0u;
     uint right = range_bits.y != 0u ? 0xFFFFFFFFu >> (32u - range_bits.y) : 0u;
     return left & right;
 }
 
-vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
+vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
         out float coverage, out float second_moment) {
     second_moment = 0.0;
     vec3 view_direction = -normalize(origin_view_position);
-    vec4 q_to_view = GIQuaternionFromViewDirection(view_direction);
+    vec4 q_to_view = QuaternionFromViewDirection(view_direction);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
-    vec3 normal_view = GIRotateVectorByQuaternion(origin_normal_view, q_from_view);
+    vec3 normal_view = RotateVectorByQuaternion(origin_normal_view, q_from_view);
     // stbn_noise comes from the pass main (streams 0/3/1): x samples the
     // slice direction, y jitters the first march step, z jitters the arcs.
-    vec2 slice_direction = GISampleSliceDirection(normal_view, stbn_noise.x);
-    vec3 ray_direction = GIRotateSliceDirectionByQuaternion(slice_direction, q_to_view);
+    vec2 slice_direction = SampleSliceDirection(normal_view, stbn_noise.x);
+    vec3 ray_direction = RotateSliceDirectionByQuaternion(slice_direction, q_to_view);
 
     vec3 projection_diag = vec3(gbufferProjection[0].x, gbufferProjection[1].y, gbufferProjection[2].z);
     vec4 origin_proj = vec4(projection_diag * origin_view_position + gbufferProjection[3].xyz, -origin_view_position.z);
@@ -224,11 +224,11 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         // share, then jitter both arc ends by one sector.
         vec2 horizontal01 = clamp((horizontal + angle_normal) / PI + 0.5, vec2(0.0), vec2(1.0));
         horizontal01 = vec2(
-            GISliceRelativeCDF(horizontal01.x, angle_normal, cos_normal, sin_normal, cdf_inv_denominator),
-            GISliceRelativeCDF(horizontal01.y, angle_normal, cos_normal, sin_normal, cdf_inv_denominator));
+            SliceRelativeCDF(horizontal01.x, angle_normal, cos_normal, sin_normal, cdf_inv_denominator),
+            SliceRelativeCDF(horizontal01.y, angle_normal, cos_normal, sin_normal, cdf_inv_denominator));
         horizontal01 = horizontal01 * remap_mul + vec2(remap_add);
         horizontal01 = clamp(horizontal01 + vec2(stbn_noise.z * (1.0 / 32.0)), vec2(0.0), vec2(1.0));
-        uint sample_mask = GIVisibilityMaskFromRange(horizontal01);
+        uint sample_mask = VisibilityMaskFromRange(horizontal01);
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
             float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
@@ -260,7 +260,7 @@ vec3 GITrace(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 
 void main() {
     ivec2 gi_texel = ivec2(gl_FragCoord.xy);
-    if (any(greaterThanEqual(gi_texel, GIActiveSize()))) discard;
+    if (any(greaterThanEqual(gi_texel, GIHistorySize()))) discard;
     out_gi = vec3(0.0);
     out_gi_metadata = vec4(0.0);
     ivec2 tx = ivec2(0);
@@ -269,7 +269,7 @@ void main() {
     // One actual receiver per block; hand remains a full-res SH path in
     // deferred4 and never replaces world geometry in this history grid.
     for (int i = 0; i < 4; ++i) {
-        ivec2 sample_texel = ivec2(GISampleUV(gi_texel, i) * u_render_res);
+        ivec2 sample_texel = ivec2(RepresentativePixelUV(gi_texel, i) * u_render_res);
         float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
         int sample_material = int(texelFetch(colortex1, sample_texel, 0).a * 255.0 + 0.5);
         if (sample_material == 64 || sample_depth >= scene_depth) continue;
@@ -324,7 +324,7 @@ void main() {
     // x samples the slice, y jitters march steps, z jitters sector arcs.
     // The screen-space trace builds its slice basis in view space.
     vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
-    raw_gi = GITrace(receiver_view + normal_view * 0.003, normal_view, gi_noise,
+    raw_gi = TraceGI(receiver_view + normal_view * 0.003, normal_view, gi_noise,
         coverage, second_moment);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;

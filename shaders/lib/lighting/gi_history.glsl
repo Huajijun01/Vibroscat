@@ -11,19 +11,19 @@ const float GI_NORMAL_DOT_FLOOR = 0.95;
 
 // Both history attachments have half-display allocations. TAAU crops their
 // lower-left active rectangle; projection UVs still span the complete view.
-ivec2 GIActiveSize() {
+ivec2 GIHistorySize() {
     return max(ivec2(floor(u_render_res * 0.5)), ivec2(1));
 }
 
 // Two endpoint samples per axis also cover odd-size blocks (occasionally
 // three pixels wide). The two-bit selector records the exact receiver ray.
-vec2 GIRepresentativePixel(ivec2 gi_texel, int offset_code, vec2 block_scale) {
+vec2 RepresentativePixel(ivec2 gi_texel, int offset_code, vec2 block_scale) {
     vec2 selector = vec2(offset_code & 1, (offset_code >> 1) & 1);
     return floor((vec2(gi_texel) + selector) * block_scale) - selector + 0.5;
 }
 
-vec2 GISampleUV(ivec2 gi_texel, int offset_code) {
-    return GIRepresentativePixel(gi_texel, offset_code, u_render_res / vec2(GIActiveSize())) / u_render_res;
+vec2 RepresentativePixelUV(ivec2 gi_texel, int offset_code) {
+    return RepresentativePixel(gi_texel, offset_code, u_render_res / vec2(GIHistorySize())) / u_render_res;
 }
 
 // Oct6 geometry and fifteen signed change states fit in the 61440 normal,
@@ -75,7 +75,7 @@ int GIHistoryOffset(vec4 metadata) {
     return (int(round(metadata.a)) >> 8) & 3;
 }
 
-vec3 GIReceiverView(vec2 sample_uv, float depth_view, bool previous) {
+vec3 ReceiverViewFromUV(vec2 sample_uv, float depth_view, bool previous) {
     vec2 ndc_xy = sample_uv * 2.0 - 1.0;
 #ifdef TAA
     ndc_xy -= previous ? u_taa_offset_previous : u_taa_offset;
@@ -130,7 +130,7 @@ GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
     result.weight = 0.0;
     result.change_count = 0.0;
     result.second_moment = 0.0;
-    ivec2 history_size = GIActiveSize();
+    ivec2 history_size = GIHistorySize();
     ivec2 base_texel = ivec2(floor(previous_uv * vec2(history_size) - 0.5));
     float plane_tolerance_m = 0.015 + abs(previous_view.z) * 0.0015;
     float footprint_m = abs(previous_view.z) * 6.0 / u_pixel_world_scale_prev;
@@ -146,8 +146,8 @@ GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
         vec4 metadata = texelFetch(colortex10, sample_texel, 0);
         float age = GIHistoryAge(metadata);
         if (age < 32.0 || dot(normal_world, GIHistoryNormal(metadata)) < GI_NORMAL_DOT_FLOOR) continue;
-        vec2 sample_uv = GISampleUV(sample_texel, GIHistoryOffset(metadata));
-        vec3 sample_view = GIReceiverView(sample_uv, metadata.b, true);
+        vec2 sample_uv = RepresentativePixelUV(sample_texel, GIHistoryOffset(metadata));
+        vec3 sample_view = ReceiverViewFromUV(sample_uv, metadata.b, true);
         vec3 delta_view = sample_view - previous_view;
         float plane_distance = abs(dot(delta_view, normal_previous_view)) / plane_tolerance_m;
         if (!GIHistoryMatchesPlane(sample_view, previous_view, normal_previous_view,
@@ -196,7 +196,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     if (any(lessThan(previous_uv, -support_margin))
             || any(greaterThanEqual(previous_uv, vec2(1.0) + support_margin))) return result;
 
-    ivec2 history_size = GIActiveSize();
+    ivec2 history_size = GIHistorySize();
     // Rounded block endpoints can lie before the normalized block boundary
     // at odd resolutions. The half-pixel correction keeps that endpoint in
     // the search fan, including motion smaller than the rounding discrepancy.
@@ -204,7 +204,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     ivec2 owner_texel = clamp(ivec2(ceil((previous_uv * u_render_res + 0.5) / block_scale)) - 1,
         ivec2(0), history_size - 1);
     vec4 owner_metadata = texelFetch(colortex10, owner_texel, 0);
-    vec2 owner_delta = GISampleUV(owner_texel, GIHistoryOffset(owner_metadata)) - previous_uv;
+    vec2 owner_delta = RepresentativePixelUV(owner_texel, GIHistoryOffset(owner_metadata)) - previous_uv;
     ivec2 primary_corner = ivec2(greaterThan(owner_delta, vec2(0.0)));
     // RGBA8 octahedral storage cannot represent 0.5 exactly. Restore block
     // axes within its quantization cell before predicting plane depth: the
@@ -219,7 +219,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     // covers the two block endpoints when their normalized boundary is exact.
     if (dot(owner_delta * u_render_res, owner_delta * u_render_res) < 1.0e-6) {
         float age = GIHistoryAge(owner_metadata);
-        vec3 sample_view = GIReceiverView(previous_uv, owner_metadata.b, true);
+        vec3 sample_view = ReceiverViewFromUV(previous_uv, owner_metadata.b, true);
         if (age >= 1.0 && dot(normal_world, GIHistoryNormal(owner_metadata)) >= GI_NORMAL_DOT_FLOOR
                 && GIHistoryMatchesPlane(sample_view, previous_view, normal_previous_view,
                     plane_tolerance_m, reject_radius_m)) {
@@ -248,7 +248,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
         for (int i = 0; i < 4; ++i) {
             ivec2 sample_texel = base_texel + ivec2(i & 1, i >> 1);
             samples[i] = texelFetch(colortex10, sample_texel, 0);
-            deltas[i] = (GISampleUV(sample_texel, GIHistoryOffset(samples[i])) - previous_uv) * u_render_res;
+            deltas[i] = (RepresentativePixelUV(sample_texel, GIHistoryOffset(samples[i])) - previous_uv) * u_render_res;
         }
         vec3 triangle = GIHistoryTriangleWeights(deltas[0], deltas[1], deltas[2]);
         vec4 weights = vec4(triangle, 0.0);
@@ -265,8 +265,8 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
             vec4 metadata = samples[i];
             float age = GIHistoryAge(metadata);
             if (age < 1.0 || dot(normal_world, GIHistoryNormal(metadata)) < GI_NORMAL_DOT_FLOOR) continue;
-            vec2 sample_uv = GISampleUV(sample_texel, GIHistoryOffset(metadata));
-            vec3 sample_view = GIReceiverView(sample_uv, metadata.b, true);
+            vec2 sample_uv = RepresentativePixelUV(sample_texel, GIHistoryOffset(metadata));
+            vec3 sample_view = ReceiverViewFromUV(sample_uv, metadata.b, true);
             if (!GIHistoryMatchesPlane(sample_view, previous_view, normal_previous_view,
                     plane_tolerance_m, reject_radius_m)) continue;
             vec3 irradiance = texelFetch(colortex9, sample_texel, 0).rgb;

@@ -97,7 +97,7 @@ bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
     if (age < 1.0) return false;
     float normal_dot = dot(normal_world, GIHistoryNormal(metadata));
     if (normal_dot < GI_NORMAL_DOT_FLOOR) return false;
-    vec2 sample_pixel = GIRepresentativePixel(sample_texel, GIHistoryOffset(metadata), block_scale);
+    vec2 sample_pixel = RepresentativePixel(sample_texel, GIHistoryOffset(metadata), block_scale);
     // Project the receiver plane once, rather than reconstructing a view-space
     // position and repeating projection divides for every neighbor.
     float plane_distance = abs(dot(vec3(sample_pixel, 1.0), receiver_plane.xyz)
@@ -119,7 +119,7 @@ bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out
     // Symmetric irradiance reconstruction also filters mature
     // sampling error. Geometry guidance protects block edges; spatial output
     // stays outside the history, avoiding recurrent diffusion of real light.
-    ivec2 gi_size = GIActiveSize();
+    ivec2 gi_size = GIHistorySize();
     vec2 block_scale = u_render_res / vec2(gi_size);
     vec2 receiver_pixel = vec2(scene_texel) + 0.5;
     vec2 filter_position = receiver_pixel / block_scale - 0.5;

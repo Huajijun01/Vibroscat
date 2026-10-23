@@ -109,30 +109,6 @@ vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
 // Bent-light Newton iteration from the presentation; implements its getNoH().
 // ---------------------------------------------------------------------------
 
-// Invert the dielectric Fresnel equation at normal incidence to recover the
-// effective IOR from f0 (Blender EEVEE approach, GPL-2.0-or-later).
-float F0ToIOR(float f0) {
-    float sqrt_f0 = sqrt(f0) * 0.99999;
-    return (1.0 + sqrt_f0) / (1.0 - sqrt_f0);
-}
-
-// Exact unpolarized dielectric Fresnel (standard optics). Returns 1.0 when g
-// is imaginary (total internal reflection).
-vec3 FresnelDielectric(float cos_theta, float f0) {
-    float n = F0ToIOR(f0);
-    float g_sq = n * n + cos_theta * cos_theta - 1.0;
-
-    if (g_sq < 0.0) return vec3(1.0);
-
-    float g = sqrt(g_sq);
-    float a = g - cos_theta;
-    float b = g + cos_theta;
-    float a_over_b = a / b;
-    float b_cos_minus1 = b * cos_theta - 1.0;
-    float a_cos_plus1 = a * cos_theta + 1.0;
-
-    return vec3(0.5 * a_over_b * a_over_b * (1.0 + b_cos_minus1 * b_cos_minus1 / (a_cos_plus1 * a_cos_plus1)));
-}
 
 // Decima [DEC17] getNoH(): returns (N.H)^2 for the bent light direction
 // over the source disc of angular radius light_radius (radians).

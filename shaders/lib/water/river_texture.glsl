@@ -97,14 +97,6 @@ float RiverTextureLayerHeight(vec2 xz, float time, int j, float gain) {
          * (texture(utex_mother_river, uv).r - RIVER_TEX_CENTER);
 }
 
-// Full water height: every layer in the selected mode.
-float RiverTextureHeight(vec2 xz, float time) {
-    float h = 0.0;
-    for (int j = 0; j < RIVER_TEX_LAYER_COUNT; ++j) {
-        h += RiverTextureLayerHeight(xz, time, j, WATER_RIVER_GAIN);
-    }
-    return h;
-}
 
 // POM height: the selected mode's 2 or 3 largest-energy layers.
 float RiverTexturePOMHeight(vec2 xz, float time) {

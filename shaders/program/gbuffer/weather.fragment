@@ -4,14 +4,12 @@
 
 /* RENDERTARGETS: 11 */
 
-// Rain streaks keep this fraction of their authored coverage; snow keeps all of
-// it. Which one is being drawn comes from u_rain_biome, the smoothed
-// camera-biome precipitation weight (1 in a rain biome, 0 in a snow or dry
-// one), so a biome edge fades the opacity over that uniform's half-life instead
-// of popping. The pass writes with the SRC_ALPHA blend, which premultiplies the
-// stored RGB by this alpha, so scaling coverage here fades the sheet's
-// radiance, its occlusion, and its accumulation together.
-const float RAIN_PARTICLE_OPACITY_SCALE = 0.4;
+// Coverage fraction from u_rain_particle_opacity = mix(1.0, 0.4, u_rain_biome):
+// u_rain_biome is the smoothed camera-biome precipitation weight (1 in a rain
+// biome, 0 in a snow or dry one), so a biome edge fades the opacity over that
+// uniform's half-life instead of popping. The pass writes with the SRC_ALPHA
+// blend, so scaling coverage fades the sheet's radiance, occlusion and
+// accumulation together.
 
 in vec2 v_texcoord;
 in vec4 v_color;

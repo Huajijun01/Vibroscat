@@ -96,8 +96,6 @@ const vec2 CLOUD_CURRENT_SCALE = vec2(0.25);
 // 3. FOG - Air and boundary fog
 // ==========================================================================
 const float eyeBrightnessHalflife = 3.0;
-// Minecraft lightmap units: eyeBrightnessSmooth components range 0..240.
-const float EYE_BRIGHTNESS_SCALE = 240.0;
 
 #define AIR_FOG
 #define AIR_FOG_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 5.0]

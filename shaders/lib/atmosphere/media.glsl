@@ -107,7 +107,6 @@ const float ATM_EXPOSURE = 0.05;  // from the 4-wave offline fit
 
 // -- Integration --
 const float ATM_NUM_STEPS = 32.0;
-const vec4 ATM_EPS = vec4(1.0e-5);
 
 // -- Moonlight irradiance (W/m2/nm) --
 const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
@@ -179,13 +178,6 @@ AtmosphereMedia AtmosphereMediaAt(float r) {
     return media;
 }
 
-// Total extinction: Rayleigh + Mie (scattering and absorption in one fitted
-// pair) + ozone absorption. GetScattering below is the scattering-only subset
-// (Rayleigh + Mie) that the sky radiance integration uses.
-vec4 GetExtinction(float r) {
-    AtmosphereMedia media = AtmosphereMediaAt(r);
-    return media.sigma_t;
-}
 
 vec4 GetScattering(float r) {
     AtmosphereMedia media = AtmosphereMediaAt(r);

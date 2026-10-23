@@ -12,7 +12,6 @@ const float ATM_ATMO_R2 = ATM_ATMO_R * ATM_ATMO_R;
 const float ATM_H = sqrt(ATM_ATMO_R2 - ATM_PLANET_R2);
 const float ATM_RCP_H = 1.0 / ATM_H;
 const float ATM_ATMO_MINUS_P = ATM_ATMO_R - ATM_PLANET_R;
-const float ATM_RCP_ATMO_MINUS_P = 1.0 / ATM_ATMO_MINUS_P;
 
 // Multiscatter LUT bake geometry. The asset's V axis spans the signed bake
 // altitude range [-(dip), ATM_ATMO_MINUS_P] linearly, so its 32 row centers

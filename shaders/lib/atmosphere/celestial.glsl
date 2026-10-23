@@ -1,13 +1,13 @@
 #ifndef LIB_ATMOSPHERE_CELESTIAL_GLSL
 #define LIB_ATMOSPHERE_CELESTIAL_GLSL
 
-#include "/lib/color/spaces.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/spectral.glsl"
+#include "/lib/color/spaces.glsl"
 
 // Sun/moon discs in linear HDR: TOA irradiance / disc solid angle,
 // attenuated by the view-ray transmittance (dims + reddens near the
@@ -36,9 +36,6 @@ vec3 LogLuv32ToLinear(vec4 v_log_luv) {
     xyz_prime.x = v_log_luv.x * xyz_prime.z;
     return max(LOGLUV32_INVERSE_M * xyz_prime, vec3(0.0));
 }
-
-const float STAR_FADE_SUNRISE  = -0.05;   // below this sun elevation: full stars
-const float STAR_FADE_SUNSET   = 0.15;    // above this sun elevation: no stars
 
 // Fixed celestial-frame -> map-basis change. Beyond the base labeling (north
 // at v=0, RA increasing toward -u), it carries the art-directed placement:

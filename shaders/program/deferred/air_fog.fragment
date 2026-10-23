@@ -3,6 +3,11 @@
 
 #define EPIPOLAR_POLE_VARYING
 
+// The pole varying this fragment stage owns; the shared epipolar library
+// reads it under this gate.
+flat in vec2 v_epipolar_pole;
+flat in int v_epipolar_pole_in_screen;
+
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"

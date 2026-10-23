@@ -8,12 +8,6 @@ float Pack2x8(float hi, float lo) {
     return (hi8 * 256.0 + lo8) * (1.0 / 65535.0);
 }
 
-vec2 Unpack2x8(float p16) {
-    float v = p16 * 65535.0;
-    float hi8 = floor(v / 256.0);
-    float lo8 = v - hi8 * 256.0;
-    return vec2(hi8 / 255.0, lo8 / 255.0);
-}
 
 // Octahedral normal codec. The caller owns the space: colortex4 RG carries
 // the geometric world normal, shadowcolor0 BA the shadow-view RSM normal, and

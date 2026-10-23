@@ -16,10 +16,6 @@
 #include "/lib/color/spaces.glsl"
 
 #if defined(EPIPOLAR_ACTIVE)
-#ifdef EPIPOLAR_POLE_VARYING
-flat in vec2 v_epipolar_pole;
-flat in int v_epipolar_pole_in_screen;
-#endif
 
 // Underwater occupies a bounded lower-left rectangle of the existing images.
 // Every active texel is rewritten each frame; neither medium consumes history.
@@ -105,24 +101,6 @@ vec2 EpipolarBoundaryHit(vec2 origin, vec2 dir) {
     float t_far = min(tmax.x, tmax.y);
     float t_other = t_far > 1e-4 ? t_far : max(tmin.x, tmin.y);
     return origin + dir * t_other;
-}
-
-// Slice coordinate of a screen point: exit sector of the pole->pixel ray,
-// same parametrization as EpipolarSliceExit; in [0, EPIPOLAR_SLICES).
-float EpipolarSliceOf(vec2 ndc, vec2 pole) {
-    vec2 dir = ndc - pole;
-    if (dot(dir, dir) < 1e-12) return 0.0;
-    vec2 edge_distance = mix(vec2(1.0) - ndc, ndc + vec2(1.0), lessThan(dir, vec2(0.0)));
-    bool hit_x = edge_distance.x * abs(dir.y) < edge_distance.y * abs(dir.x);
-    float s;
-    if (hit_x) {
-        float edge_y = ndc.y + dir.y * (edge_distance.x / abs(dir.x));
-        s = dir.x < 0.0 ? (1.0 - edge_y) * 0.5 : 2.0 + (edge_y + 1.0) * 0.5;
-    } else {
-        float edge_x = ndc.x + dir.x * (edge_distance.y / abs(dir.y));
-        s = dir.y < 0.0 ? 1.0 + (edge_x + 1.0) * 0.5 : 3.0 + (1.0 - edge_x) * 0.5;
-    }
-    return s * (0.25 * float(EpipolarSliceCount()));
 }
 
 // Camera-relative scene point from UV+depth; do NOT add cameraPosition

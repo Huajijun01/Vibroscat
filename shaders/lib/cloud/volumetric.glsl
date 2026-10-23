@@ -125,10 +125,10 @@ float DistanceToShellExit(vec3 position, vec3 dir) {
 // Reproject current-frame point to the previous camera (shared by the
 // compute pass and the temporal compositor).
 bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 previous_uv) {
-    vec3 scene_pos = view_dir_world * (distance_km * 1000.0);
+    vec3 world_pos = view_dir_world * (distance_km * 1000.0);
     vec3 camera_delta = u_camera_delta;
     vec4 previous_view = gbufferPreviousModelView
-        * vec4(scene_pos + camera_delta, 1.0);
+        * vec4(world_pos + camera_delta, 1.0);
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
     if (previous_clip.w <= 0.0) return false;
     vec3 previous_ndc = previous_clip.xyz / previous_clip.w;
@@ -146,8 +146,8 @@ float RemapCloudErosion(float density, float threshold) {
 // per-sample one; the second is the wind scroll, which no sample changes and
 // now arrives precomputed in LayerFrame. Both scale factors are setting
 // literals, so this stays a reciprocal multiply rather than a divide.
-vec2 DistributionUv(vec2 world_km, vec2 wind_offset) {
-    return world_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + wind_offset;
+vec2 DistributionUv(vec2 absolute_km, vec2 wind_offset) {
+    return absolute_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + wind_offset;
 }
 
 // 0 while the sun is up, 1 once it is past the fade window. Written in the
@@ -201,17 +201,18 @@ float DirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
 
 // Per-frame layer constants shared by both density functions. Coverage folds
 // CLOUD_COVERAGE and rainStrength, so it is constant across every sample of
-// every view and light march; the density functions used to rebuild it (and
-// its max() guard) once per sample. distribution_floor is 1 - coverage and
-// inv_coverage is the coverage floor reciprocal, both folded here so a sample
-// spends one divide instead of a divide plus a max. world_km_offset is the
+// every view and light march; the density functions read these fields rather
+// than re-deriving them (with the max() guard) per sample. distribution_floor
+// is 1 - coverage and inv_coverage is the coverage floor reciprocal, both
+// folded here so a sample
+// spends one divide instead of a divide plus a max. absolute_km_offset is the
 // camera term of the distribution-space position plus the wind scroll, which
-// no sample changes: the distribution UV is world_km * scale + this offset.
+// no sample changes: the distribution UV is absolute_km * scale + this offset.
 struct LayerFrame {
     float coverage;
     float distribution_floor;
     float inv_coverage;
-    vec2 world_km_offset;
+    vec2 absolute_km_offset;
     vec2 distribution_offset;
 };
 
@@ -220,17 +221,16 @@ LayerFrame LayerFrameForRay() {
     frame.coverage = CLOUD_COVERAGE * (1.0 - rainStrength) + rainStrength;
     frame.distribution_floor = 1.0 - frame.coverage;
     frame.inv_coverage = 1.0 / max(frame.coverage, 1.0e-5);
-    frame.world_km_offset = u_cloud_world_km_offset;
-    frame.distribution_offset = frame.world_km_offset * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM)
+    frame.absolute_km_offset = u_cloud_absolute_km_offset;
+    frame.distribution_offset = frame.absolute_km_offset * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM)
         + vec2(frameTimeCounter * (CLOUD_WIND_SPEED / CLOUD_DISTRIBUTION_SCALE_KM), 0.0);
     return frame;
 }
 
 // Normalized height in the cloud layer plus the two ramps that depend only on
-// it. Both ramps are frozen baseline expressions: the top pair is the
-// intentionally reversed smoothstep (edge0 > edge1) documented at its call
-// site, kept verbatim. Rebuilding them per sample cost four smoothsteps per
-// accepted sample; they are pure functions of the sample height.
+// it. The top pair is the intentionally reversed smoothstep (edge0 > edge1)
+// documented at its call site. Both are pure functions of the sample height,
+// so callers evaluate them once per sample.
 struct HeightProfile {
     float height_fraction;
     float bottom_ramp;
@@ -246,26 +246,23 @@ HeightProfile HeightProfileFor(float altitude_km) {
     return profile;
 }
 
-// Eroded density in [0, 1] at one point in the cloud layer. The band test the
-// callers used to keep here is now the callers' own (they need the raw
-// altitude for HeightProfileFor anyway), so the cheap rejection and the
-// height profile are evaluated once per sample instead of twice.
+// Eroded density in [0, 1] at one point in the cloud layer. Callers own the
+// altitude band test (they need the raw altitude for HeightProfileFor
+// anyway), so the rejection and the height profile run once per sample.
 float SampleCloudDensity(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile
 ) {
-    vec2 density_world_km = atmosphere_position.xz + frame.world_km_offset;
+    vec2 density_absolute_km = atmosphere_position.xz + frame.absolute_km_offset;
     float distribution_density = saturate((
         texture(utex_cloud_distribution_tex,
-            DistributionUv(density_world_km, frame.distribution_offset)).r
+            DistributionUv(density_absolute_km, frame.distribution_offset)).r
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
     }
     // Reversed edge pair (edge0 > edge1): undefined by the GLSL spec, but the
-    // common clamp((x-e0)/(e1-e0)) implementation is deterministic and the
-    // rendered ramp below is the frozen baseline for the 2026-10 optimization
-    // series. Do not swap or rewrite this pair without a visual re-baseline.
-    // Both ramps now ride HeightProfileFor, which reproduces its
-    // smoothsteps verbatim; only the number of evaluations changed.
+    // common clamp((x-e0)/(e1-e0)) implementation is deterministic. The
+    // caller's other height ramps come from HeightProfileFor, and
+    // SampleCloudDensityLowQuality must keep this pair bit-identical.
     float top_fade = smoothstep(distribution_density * 0.5 + 0.5, distribution_density * 0.4,
         profile.height_fraction);
     float lq_density = distribution_density * profile.bottom_ramp * top_fade;
@@ -273,7 +270,7 @@ float SampleCloudDensity(vec3 atmosphere_position, LayerFrame frame, HeightProfi
         return 0.0;
     }
     float detailed_noise = texture(utex_cloud_voronoise_tex,
-        vec3(density_world_km, length(atmosphere_position) - ATM_PLANET_R) * CLOUD_FINE_EROSION_SCALE).r;
+        vec3(density_absolute_km, length(atmosphere_position) - ATM_PLANET_R) * CLOUD_FINE_EROSION_SCALE).r;
     float hq_density = RemapCloudErosion(lq_density,
         detailed_noise * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
     return hq_density;
@@ -294,7 +291,7 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position, LayerFrame frame, H
 ) {
     float distribution_density = saturate((
         texture(utex_cloud_distribution_tex,
-            DistributionUv(atmosphere_position.xz + frame.world_km_offset,
+            DistributionUv(atmosphere_position.xz + frame.absolute_km_offset,
                 frame.distribution_offset)).r
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
@@ -317,8 +314,8 @@ const float CLOUD_DISTRIBUTION_UV_OFFSET = 0.114514;
 
 float SampleCloudDensityHighQuality(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile
 ) {
-    vec2 density_world_km = atmosphere_position.xz + frame.world_km_offset;
-    vec2 distribution_uv = DistributionUv(density_world_km, frame.distribution_offset);
+    vec2 density_absolute_km = atmosphere_position.xz + frame.absolute_km_offset;
+    vec2 distribution_uv = DistributionUv(density_absolute_km, frame.distribution_offset);
     float large_scale_cloud = texture(utex_cloud_distribution_tex,
         distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
     float distribution_density = saturate((
@@ -339,7 +336,7 @@ float SampleCloudDensityHighQuality(vec3 atmosphere_position, LayerFrame frame, 
 
     // Broad erosion exposure ramps up with height on the shared bottom_ramp.
     float height_exposure = profile.bottom_ramp * 0.95 + 0.05;
-    vec3 erosion_coordinates = vec3(density_world_km, length(atmosphere_position) - ATM_PLANET_R);
+    vec3 erosion_coordinates = vec3(density_absolute_km, length(atmosphere_position) - ATM_PLANET_R);
     float broad_density = RemapCloudErosion(macro_density,
         texture(utex_cloud_erosion_tex,
             erosion_coordinates * (1.0 / CLOUD_HQ_EROSION_SCALE_KM)).r
@@ -358,7 +355,7 @@ float SampleCloudDensityHighQuality(vec3 atmosphere_position, LayerFrame frame, 
 // thresholds equal to the high-end view path.
 float SampleCloudDensityHighQualityLightTrace(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile
 ) {
-    vec2 distribution_uv = DistributionUv(atmosphere_position.xz + frame.world_km_offset,
+    vec2 distribution_uv = DistributionUv(atmosphere_position.xz + frame.absolute_km_offset,
         frame.distribution_offset);
     float large_scale_cloud = texture(utex_cloud_distribution_tex,
         distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
@@ -413,7 +410,7 @@ float LightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_ji
         vec3 sample_position = atmosphere_position + light_dir * sample_distance;
         float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
         float sample_density = 0.0;
-        // Same cheap band rejection the density functions used to open with.
+        // Same cheap altitude-band rejection the density functions open with.
         if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
 #if CLOUD_SHAPE_MODE == 1
             sample_density = SampleCloudDensityHighQualityLightTrace(sample_position, frame,
@@ -498,8 +495,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
         // The band test and the two height ramps are evaluated once per sample
-        // here; both density paths used to repeat them (four smoothsteps per
-        // accepted sample before this change).
+        // here and shared by whichever density path runs.
         float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
         if (sample_altitude_km <= CLOUD_BASE_ALTITUDE || sample_altitude_km >= CLOUD_TOP_ALTITUDE) continue;
         HeightProfile sample_height = HeightProfileFor(sample_altitude_km);
@@ -574,8 +570,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     // Packed output: x = in-scatter, y = second light channel, z = remaining
     // view transmittance.
 #ifdef CLOUD_SINGLE_LIGHT
-    // The folded trace feeds the directional channel; the channel the separate
-    // moon march used to fill stays clear.
+    // The folded trace feeds the directional channel; the second channel
+    // stays clear.
     return vec3(light_radiance, 0.0, view_transmittance);
 #else
     return vec3(sun_radiance, moon_radiance, view_transmittance);

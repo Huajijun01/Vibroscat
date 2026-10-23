@@ -11,7 +11,7 @@ out vec4 v_color;
 flat out int v_material_id;
 out vec3 v_world_normal;
 #if defined(RAIN_WETNESS_ACTIVE)
-out vec3 v_rain_scene_pos;
+out vec3 v_rain_world_pos;
 #endif
 #ifdef HAS_AT_TANGENT
 out vec3 v_world_tangent;
@@ -33,13 +33,13 @@ void SetupGbufferVertex() {
 #if defined(PLANT_WIND_TERRAIN_ACTIVE)
     int block_id = int(mc_Entity.x + 0.5);
     if (block_id >= 256 && block_id < 1280) {
-        vec3 scene_pos = (gbufferModelViewInverse * view_pos).xyz;
-        vec3 offset_world = PlantWindOffset(scene_pos, at_midBlock.xyz / 64.0, block_id);
+        vec3 world_pos = (gbufferModelViewInverse * view_pos).xyz;
+        vec3 offset_world = PlantWindOffset(world_pos, at_midBlock.xyz / 64.0, block_id);
         view_pos.xyz += mat3(gbufferModelView) * offset_world;
     }
 #endif
 #if defined(RAIN_WETNESS_ACTIVE)
-    v_rain_scene_pos = (gbufferModelViewInverse * view_pos).xyz;
+    v_rain_world_pos = (gbufferModelViewInverse * view_pos).xyz;
 #endif
     gl_Position = gl_ProjectionMatrix * view_pos;
 #ifdef TAA

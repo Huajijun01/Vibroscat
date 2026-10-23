@@ -6,7 +6,7 @@
 #include "/lib/material/model.glsl"
 #include "/lib/water/rain_ripples.glsl"
 
-void ApplyRainWetness(vec2 scene_xz, float geo_normal_y, float sky_light,
+void ApplyRainWetness(vec2 world_xz, float geo_normal_y, float sky_light,
         int material_id, inout OpaqueMaterial material,
         inout vec3 normal_world, inout vec3 albedo_srgb) {
     // Reject before either lookup. Plants, emissive blocks and translucent
@@ -27,7 +27,7 @@ void ApplyRainWetness(vec2 scene_xz, float geo_normal_y, float sky_light,
 #ifdef RAIN_PUDDLES
     vec2 camera_xz = vec2(cameraPositionInt.xz & ivec2(RAIN_PUDDLE_SCALE_M - 1))
         + cameraPositionFract.xz;
-    vec2 uv = (scene_xz + camera_xz) / float(RAIN_PUDDLE_SCALE_M);
+    vec2 uv = (world_xz + camera_xz) / float(RAIN_PUDDLE_SCALE_M);
     // Fixed LOD is valid after non-uniform early-outs. Puddle shapes stay
     // stationary and independent of cloud wind, coverage and cloud toggles.
     float distribution = textureLod(utex_cloud_distribution_tex, uv, 0.0).r;
@@ -47,7 +47,7 @@ void ApplyRainWetness(vec2 scene_xz, float geo_normal_y, float sky_light,
 #ifdef RAIN_RIPPLES
     float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH * rain_exposure;
     if (ripple_weight > 0.001) {
-        vec2 slope = SampleRainRippleSlope(scene_xz) * ripple_weight;
+        vec2 slope = SampleRainRippleSlope(world_xz) * ripple_weight;
         puddle_normal = vec3(slope.x, 1.0, slope.y);
     }
 #endif

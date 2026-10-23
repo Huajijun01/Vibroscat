@@ -22,7 +22,7 @@ const float WATER_NORMAL_CLAMP_RANGE = 0.25;
 const float WATER_NORMAL_CLAMP_STRENGTH = 0.75;
 
 // Faces with |world normal.y| above this take the horizontal wave path
-// (height field over world XZ + POM). At or below, the face is vertical:
+// (height field over absolute XZ + POM). At or below, the face is vertical:
 // the same wave field is re-parameterized on the face plane through the
 // geometry TBN, without POM (its march displaces along world vertical).
 // Minecraft water geometry is axis aligned, so 0.5 separates the two.

@@ -7,7 +7,7 @@
 // block.properties: low byte retains the existing material; upper byte owns
 // geometry only (1 rooted, 2 tall lower, 3 tall upper, 4 continuous canopy).
 // Both terrain and shadow call this in feet-player space before projection.
-vec3 PlantWindOffset(vec3 scene_pos, vec3 to_block_center, int block_id) {
+vec3 PlantWindOffset(vec3 world_pos, vec3 to_block_center, int block_id) {
 #if defined(PLANT_WIND)
     int plant_class = block_id >> 8;
     if (plant_class < 1 || plant_class > 4) return vec3(0.0);
@@ -20,11 +20,11 @@ vec3 PlantWindOffset(vec3 scene_pos, vec3 to_block_center, int block_id) {
     // Rooted plants share the root's wind, including both halves of tall
     // plants. Full leaf cubes use a continuous vertex field: a shared corner
     // receives the same offset irrespective of its owning block or face.
-    vec3 sample_pos = canopy ? scene_pos : scene_pos + to_block_center;
+    vec3 sample_pos = canopy ? world_pos : world_pos + to_block_center;
     if (!canopy) sample_pos.y -= plant_class == 3 ? 1.5 : 0.5;
     vec3 periodic_camera = vec3(cameraPositionInt & ivec3(255)) + cameraPositionFract;
-    vec3 world_pos = sample_pos + periodic_camera;
-    vec2 field_m = world_pos.xz + world_pos.y * vec2(0.25, 0.125);
+    vec3 absolute_pos = sample_pos + periodic_camera;
+    vec2 field_m = absolute_pos.xz + absolute_pos.y * vec2(0.25, 0.125);
     // The field and both mechanical responses were solved offline. Exactly
     // ONE bilinear LOD-0 fetch per moving vertex, zero for roots/static blocks.
     // 3600 s clock wrap is seamless: U*3600/32 = (360,270) whole periods.

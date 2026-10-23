@@ -51,7 +51,7 @@ in vec4 v_color;
 flat in int v_material_id;
 in vec3 v_world_normal;
 #if defined(RAIN_WETNESS_ACTIVE)
-in vec3 v_rain_scene_pos;
+in vec3 v_rain_world_pos;
 #endif
 
 #ifdef HAS_AT_TANGENT
@@ -148,15 +148,15 @@ void main() {
 #endif
 
 #if defined(RAIN_WETNESS_ACTIVE) && !defined(PROGRAM_GBUFFERS_PARTICLES)
-    ApplyRainWetness(v_rain_scene_pos.xz, geo_normal_world.y, v_lmcoord.y,
+    ApplyRainWetness(v_rain_world_pos.xz, geo_normal_world.y, v_lmcoord.y,
         mat_id, mat, w_normal, albedo);
 #endif
 
     // -- Write GBuffer --
     out_albedo_material.rgb = albedo;
     out_albedo_material.a   = float(mat_id) / 255.0;
-    // Match the former Pack2x8 floor quantization, including LabPBR selector
-    // category boundaries, before the RGBA8 attachment stores these scalars.
+    // Floor-quantize to the 8-bit attachment grid, preserving the LabPBR
+    // selector category boundaries, before the RGBA8 stores these scalars.
     out_surface_material = floor(clamp(vec4(mat.perceptual_roughness, mat.specular_selector,
         mat.emission, combined_ao), 0.0, 1.0) * 255.0) * (1.0 / 255.0);
     // colortex4 (RGBA8): octahedral world-space geometric normal in RG,

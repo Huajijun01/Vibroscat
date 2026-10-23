@@ -16,22 +16,22 @@
 // across its equal-distance interval.
 // In channel-wise RGB transport the constant whole-ray source cancels from
 // this ratio. The remaining weight is T(start)-T(end), never T alone.
-vec3 AirShadowRatio(vec3 start_scene, vec3 end_scene, AirFogDensityProfile profile,
+vec3 AirShadowRatio(vec3 start_world, vec3 end_world, AirFogDensityProfile profile,
         AirFogMedium medium, float stbn_jitter) {
-    vec3 delta = end_scene - start_scene;
+    vec3 delta = end_world - start_world;
     float length_m = length(delta);
     if (length_m <= 1e-6) return vec3(1.0);
     float direction_y = delta.y / length_m;
-    vec3 shadow_start = ProjectToShadowClip(start_scene);
-    vec3 shadow_end = ProjectToShadowClip(end_scene);
+    vec3 shadow_start = ProjectToShadowClip(start_world);
+    vec3 shadow_end = ProjectToShadowClip(end_world);
     float inv_steps = 1.0 / float(AIR_EPIPOLAR_SHADOW_STEPS);
     float bin_length = length_m * inv_steps;
     vec3 prefix_transmittance = vec3(1.0);
     vec3 numerator = vec3(0.0);
     vec3 denominator = vec3(0.0);
     for (int k = 0; k < AIR_EPIPOLAR_SHADOW_STEPS; ++k) {
-        // Stratified, equal-length bins. One jitter offset per ray retains
-        // exactly equal spacing and never selects the old inverse-CDF march.
+        // Stratified, equal-length bins. One jitter offset per ray keeps
+        // the spacing exactly equal.
         float u = (float(k) + stbn_jitter) * inv_steps;
         AirFogDensityProfile bin_profile = profile;
         bin_profile.eye_height_m += direction_y * (float(k) * bin_length);

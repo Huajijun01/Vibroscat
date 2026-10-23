@@ -91,7 +91,7 @@ void main() {
         // Water surface field (ocean.glsl: river texture basis);
         // normal at the
         // parallax-corrected position, shared by lighting, reflections,
-        // and refraction. Horizontal faces keep the POM path over world XZ;
+        // and refraction. Horizontal faces keep the POM path over absolute XZ;
         // vertical faces re-parameterize the same wave field on the face
         // plane through the geometry TBN (no POM: its march displaces along
         // world vertical).
@@ -100,9 +100,9 @@ void main() {
             OceanSurfacePOM((v_world_pos + cameraPosition).xz, normalize(v_world_pos), frameTimeCounter, world_n);
         } else {
 #ifdef HAS_AT_TANGENT
-            vec3 face_pos = v_world_pos + cameraPosition;
+            vec3 face_absolute_pos = v_world_pos + cameraPosition;
             vec3 ts_n;
-            vec2 face_wave_pos = vec2(dot(face_pos, v_world_tangent), dot(face_pos, v_world_bitangent));
+            vec2 face_wave_pos = vec2(dot(face_absolute_pos, v_world_tangent), dot(face_absolute_pos, v_world_bitangent));
             RiverTextureNormal(RiverTextureWarpPosition(face_wave_pos), frameTimeCounter, ts_n);
             world_n = normalize(mat3(v_world_tangent, geo_n_world, v_world_bitangent) * ts_n);
 #else
@@ -115,9 +115,7 @@ void main() {
         float rain_weight = u_rain_weight;
         if (rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
-            // v_texcoord.w arrives normalized from the vertex stage; this
-            // used to re-apply the vanilla-domain remap here when the
-            // forward chain still passed the raw matrix output.
+            // v_texcoord.w arrives normalized from the vertex stage.
             float rain_sky_light = v_texcoord.w;
             float ripple_weight = rain_weight * RAIN_RIPPLE_STRENGTH
                 * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);

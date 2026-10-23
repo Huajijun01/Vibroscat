@@ -26,10 +26,10 @@ layout(location = 0) out vec3 out_color;
 // Boundary fog: fade near-boundary geometry into the cloud-free sky so the
 // loaded-area edge is masked instead of cutting off. Returns scene blended
 // toward the sky color; sky pixels (depth >= 1.0) are returned unchanged.
-vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float scene_depth, float radius) {
+vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_depth, float radius) {
 #ifdef BOUNDARY_FOG
     if (scene_depth < 1.0) {
-        float boundary_horizontal = length(scene_pos.xz - EyePositionSceneSpace().xz);
+        float boundary_horizontal = length(world_pos.xz - EyePositionWorldSpace().xz);
         float boundary_ratio = boundary_horizontal / radius;
         float boundary_edge = smoothstep(BOUNDARY_FOG_START, 1.0, boundary_ratio);
         boundary_edge *= boundary_edge;
@@ -55,10 +55,6 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 scene_pos, vec3 world_dir, float scene_de
 // weather pass writes neither depth nor the G-buffer, so the sheet owns no
 // normal, material, or depth of its own and is lit as a thin scattering layer
 // instead of a surface. This constant folds its path length into that colour.
-// The value predates both the linear premultiplied sheet write and the
-// u_rain_particle_opacity coverage scale, so treat it as a starting point
-// rather than a calibrated level and re-fit it against the sky if streaks
-// read too bright.
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
@@ -83,18 +79,18 @@ void main() {
 
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
-    vec3 scene_pos = ViewToSceneSpace(view_pos);
+    vec3 world_pos = ViewToWorldSpace(view_pos);
     // Eye-accurate view direction: depth reconstruction is feet-space and
     // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
-    vec3 world_dir = normalize(scene_pos - EyePositionSceneSpace());
+    vec3 world_dir = normalize(world_pos - EyePositionWorldSpace());
 
     // Boundary fog: fade near-boundary geometry into the cloud-free sky so the
     // loaded-area edge is masked instead of cutting off. Sky
     // pixels (depth >= 1.0) keep the actual sky and are left untouched.
-    scene = ApplyBoundaryFog(scene, scene_pos, world_dir, scene_depth, far);
+    scene = ApplyBoundaryFog(scene, world_pos, world_dir, scene_depth, far);
 
 #ifdef AIR_FOG
-    float distance_m = length(scene_pos - EyePositionSceneSpace());
+    float distance_m = length(world_pos - EyePositionWorldSpace());
     float length_m = AirFogSegmentLength(distance_m, far);
     vec3 visibility = vec3(1.0);
 #if defined(AIR_EPIPOLAR_ACTIVE)

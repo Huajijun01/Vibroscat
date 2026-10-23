@@ -4,22 +4,22 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// View space <-> camera-relative player space.
-vec3 ViewToSceneSpace(vec3 view_pos) {
+// View space <-> camera-relative world (player) space.
+vec3 ViewToWorldSpace(vec3 view_pos) {
     return (gbufferModelViewInverse * vec4(view_pos, 1.0)).xyz;
 }
 
-// Eye position in camera-relative scene (feet-player) space. Depth
-// reconstruction (ViewToSceneSpace / DepthToWorldPos) lands in feet-player
+// Eye position in camera-relative world (feet-player) space. Depth
+// reconstruction (ViewToWorldSpace / DepthToWorldPos) lands in feet-player
 // space whose origin sits at the player's head; the eye is offset by
 // gbufferModelViewInverse[3] (head-to-camera translation, ~1.62 m up
 // standing, bobbing/swimming included). Close-range direction and distance
 // math must subtract this offset.
-vec3 EyePositionSceneSpace() {
-    return u_eye_scene_pos;
+vec3 EyePositionWorldSpace() {
+    return u_eye_world_pos;
 }
 
-vec3 SceneToViewSpace(vec3 sp) {
+vec3 WorldToViewSpace(vec3 sp) {
     return (gbufferModelView * vec4(sp, 1.0)).xyz;
 }
 
@@ -62,7 +62,7 @@ vec3 DepthToWorldPos(vec2 uv, float depth) {
 }
 
 // Same reconstruction that also yields the intermediate view-space position,
-// so callers needing both frames skip a SceneToViewSpace round trip through
+// so callers needing both frames skip a WorldToViewSpace round trip through
 // the world matrix.
 vec3 DepthToWorldPosView(vec2 uv, float depth, out vec3 view_pos) {
     view_pos = NDCToView(vec3(uv * 2.0 - 1.0, depth * 2.0 - 1.0));
@@ -245,19 +245,5 @@ void ProjectToShadowPair(vec3 world_pos, float ndotl, out vec3 shadow_proj, out 
 vec2 DistortShadowClip(vec2 clip_pos) {
     return clip_pos / GetDistortFactor(clip_pos) * 0.5 + 0.5;
 }
-
-// -- Custom-light shadow MVP (prepared for a custom End light; not wired) --
-// Matrix producers mirroring the host's shadow map construction
-// (third_party/iris common/src/main/java/net/irisshaders/iris/shadows/
-// ShadowMatrices.java), so a shadow map rendered for an arbitrary light
-// direction keeps Iris's XY extent, depth slab, and texel grid, and the
-// distortion/bias helpers above stay applicable. Both matrices are drop-in
-// replacements for shadowModelView/shadowProjection: they consume the same
-// const directives the host parses, positions go in camera-relative player
-// space, and the light direction points toward the light in world axes.
-// Not applied yet: GetDistortFactor / ProtectShadowDepth remain caller-side,
-// and AxialDistortShadowBias / ShadowDepthGap* still read the Iris uniforms,
-// so the swap must happen on both the shadow-pass and sampling sides at once.
-
 
 #endif // LIB_CORE_COORDINATES_GLSL

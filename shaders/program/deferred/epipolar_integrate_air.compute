@@ -33,7 +33,7 @@ void main() {
     int sample_count = SampleCount();
     float sample_rcp = 1.0 / float(sample_count - 1);
     uint sample_groups = uint((sample_count + 127) / 128);
-    vec3 air_start = EyePositionSceneSpace();
+    vec3 air_start = EyePositionWorldSpace();
     AirFogDensityProfile profile = AirFogProfile();
     AirFogMedium medium = AirFogReferenceMedium();
     for (uint i = 0u; i < sample_groups; ++i) {
@@ -50,7 +50,7 @@ void main() {
                 ivec2 texel = ScreenTexel(uv);
                 float depth0 = texelFetch(depthtex0, texel, 0).r;
                 water_key = LinearDepthFromScreenDepth(depth0);
-                vec3 delta = ScenePosFromScreenUV(uv, depth0) - air_start;
+                vec3 delta = WorldPosFromScreenUV(uv, depth0) - air_start;
                 float distance_m = length(delta);
                 if (distance_m > 1e-6) {
                     float jitter = SampleSTBN(texel, STBNFrame());
@@ -68,7 +68,7 @@ void main() {
             ivec2 texel = ScreenTexel(uv);
             float depth0 = texelFetch(depthtex0, texel, 0).r;
             air_key = LinearDepthFromScreenDepth(depth0);
-            vec3 delta = ScenePosFromScreenUV(uv, depth0) - air_start;
+            vec3 delta = WorldPosFromScreenUV(uv, depth0) - air_start;
             float distance_m = length(delta);
             if (distance_m > 1e-6) {
                 vec3 direction_world = delta / distance_m;

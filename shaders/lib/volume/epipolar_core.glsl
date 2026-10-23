@@ -103,11 +103,11 @@ vec2 BoundaryHit(vec2 origin, vec2 dir) {
     return origin + dir * t_other;
 }
 
-// Camera-relative scene point from UV+depth; do NOT add cameraPosition
+// Camera-relative world point from UV+depth; do NOT add cameraPosition
 // (shadowModelView maps this space).
-vec3 ScenePosFromScreenUV(vec2 uv01, float depth01) {
+vec3 WorldPosFromScreenUV(vec2 uv01, float depth01) {
     vec3 view_pos = NDCToView(vec3(uv01 * 2.0 - 1.0, depth01 * 2.0 - 1.0));
-    return ViewToSceneSpace(view_pos);
+    return ViewToWorldSpace(view_pos);
 }
 
 // Gather order: lower/upper sample on slice0, then on slice1. Iris uses

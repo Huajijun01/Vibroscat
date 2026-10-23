@@ -82,7 +82,7 @@ vec3 CausticLightContribution(vec3 world_pos, vec3 brdf, vec3 transmission, floa
 ) {
     float reach = (sample_y - world_pos.y) / max(light_dir.y, 1.0e-3);
     vec3 entry_pos = world_pos + light_dir * max(reach, 0.0);
-    vec2 uv = CAUSTIC_WORLD_TO_UV
+    vec2 uv = CAUSTIC_ABSOLUTE_TO_UV
         * (entry_pos.xz - u_caustic_advection);
     float sample_time = u_caustic_time;
     // Refraction bends the path toward vertical: path = vertical drop * path
@@ -132,11 +132,11 @@ void main() {
     if (water_shading) {
         view_pos0 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth * 2.0 - 1.0));
         view_len0 = length(view_pos0);
-        // ViewToSceneSpace() is camera-relative; absolute positions add cameraPosition.
-        vec3 world_pos = ViewToSceneSpace(view_pos0);
+        // ViewToWorldSpace() is camera-relative; absolute positions add cameraPosition.
+        vec3 world_pos = ViewToWorldSpace(view_pos0);
         // Eye-accurate view direction: depth reconstruction is feet-space and
         // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
-        vec3 world_dir = normalize(world_pos - EyePositionSceneSpace());
+        vec3 world_dir = normalize(world_pos - EyePositionWorldSpace());
         // One light direction and one refraction path per fragment: every
         // consumer below (phases, caustics, water columns) shares them.
         water_light_dir = normalize(u_world_light_dir);
@@ -171,25 +171,25 @@ void main() {
             // Caustics modulate the refracted opaque receiver.
             float refract_d = texture(depthtex1, SceneTextureUV(refract_coord)).x;
             vec3 view_pos_refr = NDCToView(vec3(refract_coord * 2.0 - 1.0, refract_d * 2.0 - 1.0));
-            vec3 caustic_world_pos = ViewToSceneSpace(view_pos_refr) + cameraPosition;
+            vec3 caustic_absolute_pos = ViewToWorldSpace(view_pos_refr) + cameraPosition;
             vec3 caustic_brdf = textureLod(colortex5, SceneTextureUV(refract_coord), 0.0).rgb;
-            vec3 caustic_surface_world = ViewToSceneSpace(view_pos0) + cameraPosition;
+            vec3 caustic_surface_absolute_pos = ViewToWorldSpace(view_pos0) + cameraPosition;
             float caustic_surface_fade_y;
             float caustic_sample_y;
             if (isEyeInWater == 1) {
                 // Underwater: fade uses the receiver's lightmap sky light
                 // (lmcoord.y); surface height = receiver + (1 - lmcoord.y) * 15.
                 float caustic_lm_sky = texture(colortex4, SceneTextureUV(refract_coord)).w;
-                caustic_surface_fade_y = caustic_world_pos.y + (1.0 - caustic_lm_sky) * 15.0;
+                caustic_surface_fade_y = caustic_absolute_pos.y + (1.0 - caustic_lm_sky) * 15.0;
                 caustic_sample_y = CAUSTIC_PLANE_Y;
             } else {
-                caustic_surface_fade_y = caustic_surface_world.y;
-                caustic_sample_y = caustic_surface_world.y;
+                caustic_surface_fade_y = caustic_surface_absolute_pos.y;
+                caustic_sample_y = caustic_surface_absolute_pos.y;
             }
             // Replace unattenuated direct light with the column-attenuated,
             // caustic-modulated version.
             comp_color -= caustic_brdf * ground_light.rgb;
-            comp_color += CausticLightContribution(caustic_world_pos, caustic_brdf, vec3(1.0),
+            comp_color += CausticLightContribution(caustic_absolute_pos, caustic_brdf, vec3(1.0),
                 caustic_surface_fade_y, caustic_sample_y, water_light_dir, water_path_per_metre);
 
             view_pos1 = view_pos_refr;
@@ -204,12 +204,12 @@ void main() {
             if (!is_water) {
                 // Caustics land on opaque surfaces through the volume, not on
                 // the water surface itself.
-                vec3 caustic_world_pos = ViewToSceneSpace(view_pos0) + cameraPosition;
+                vec3 caustic_absolute_pos = ViewToWorldSpace(view_pos0) + cameraPosition;
                 vec3 caustic_brdf = texelFetch(colortex5, tx, 0).rgb;
                 float caustic_lm_sky = texelFetch(colortex4, tx, 0).w;
-                float caustic_surface_fade_y = caustic_world_pos.y + (1.0 - caustic_lm_sky) * 15.0;
+                float caustic_surface_fade_y = caustic_absolute_pos.y + (1.0 - caustic_lm_sky) * 15.0;
                 comp_color -= caustic_brdf * ground_light.rgb;
-                comp_color += CausticLightContribution(caustic_world_pos, caustic_brdf, vec3(1.0),
+                comp_color += CausticLightContribution(caustic_absolute_pos, caustic_brdf, vec3(1.0),
                     caustic_surface_fade_y, CAUSTIC_PLANE_Y, water_light_dir, water_path_per_metre);
             }
             comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;

@@ -34,7 +34,7 @@ uniform float u_cam_altitude;      // camera altitude in km (cloud shell / sky L
 // -- Frame-constant derives (shaders.properties) --
 uniform vec3 u_camera_delta;      // cameraPosition - previousCameraPosition
 uniform float u_camera_delta_sq;  // |u_camera_delta|^2
-uniform vec3 u_eye_scene_pos;     // gbufferModelViewInverse[3].xyz
+uniform vec3 u_eye_world_pos;     // gbufferModelViewInverse[3].xyz
 uniform vec3 u_ssr_previous_to_view_x; // rows of R_current * transpose(R_previous)
 uniform vec3 u_ssr_previous_to_view_y;
 uniform vec3 u_ssr_previous_to_view_z;
@@ -52,7 +52,7 @@ uniform vec3 u_atmosphere_camera_pos; // (0, u_camera_radius_km, 0)
 uniform float u_sky_lut_horizon_theta; // asin(R / (R + alt)) - pi/2
 uniform vec3 u_sky_lut_sun_dir;      // (0, sun.y, sqrt(1 - sun.y^2))
 uniform float u_cam_sun_dot;        // u_camera_radius_km * u_world_sun_dir.y
-uniform vec2 u_cloud_world_km_offset; // cameraPosition.xz * 0.001
+uniform vec2 u_cloud_absolute_km_offset; // cameraPosition.xz * 0.001
 uniform vec2 u_r2_offset;             // R2 sub-pixel offset for frameCounter
 uniform float u_water_skylight;       // clamp(eyeBrightness.y / 240, 0, 1)
 uniform float u_water_column_depth;   // max((1 - skylight) * 15, 1)

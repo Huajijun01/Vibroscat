@@ -227,7 +227,7 @@ void main() {
     float ndc_depth = scene_depth * 2.0 - 1.0;
     if (is_opaque_hand) ndc_depth /= MC_HAND_DEPTH;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
-    vec3 world_pos = ViewToSceneSpace(view_pos);
+    vec3 world_pos = ViewToWorldSpace(view_pos);
 #if GI_MODE == 2
     // Resolve GI before direct-light BRDF/shadow temporaries become live.
     // The unblurred history is read-only throughout this lighting pass.
@@ -240,7 +240,7 @@ void main() {
 #endif
     // Eye-space receiver position: distance responses and the view vector
     // use the eye, not the feet-space origin.
-    vec3 view_to_eye = normalize(EyePositionSceneSpace() - world_pos);
+    vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
 
     // -- Lightmap remapping (shared curves, see lib/lighting/lightmap.glsl) --
     float block_light = BlockLightFromLm(lm.r);
@@ -406,8 +406,8 @@ void main() {
     // Reconstruct irradiance before receiver BRDF. Spatial filtering stays
     // local to this pass; only deferred3's unblurred temporal result persists.
 #if GI_MODE == 1
-    // Keep SSGI's existing evaluation order; moving this work earlier adds
-    // cost on the measured driver even in the SSGI-only branch.
+    // Keep the SSGI evaluation order; moving this work earlier adds GPU cost
+    // even in the SSGI-only branch.
     vec3 gi_ambient;
     if (is_opaque_hand) {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);

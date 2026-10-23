@@ -14,23 +14,23 @@
 // Authored additive radiance, separate from the analytic water medium. No
 // second attenuation is applied to scene color. The source is constant along
 // the unrefracted world sun direction, including its projection to the pole.
-vec3 WaterRadiance(vec3 start_scene, vec3 direction_world, float distance_m, float ray_jitter) {
+vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, float ray_jitter) {
     float sun_height = u_water_sun_height;
     float sky_access = u_water_skylight;
     if (sun_height <= 0.0 || sky_access <= 0.0) return vec3(0.0);
 
     float length_m = min(distance_m, WATER_GODRAYS_DISTANCE_M);
     vec3 ray_delta = direction_world * length_m;
-    vec3 start_world = start_scene + cameraPosition;
+    vec3 start_absolute_pos = start_world + cameraPosition;
     // No refraction. This projection has zero derivative along worldSunDir.
     vec2 sun_slope = u_sun_slope;
     vec2 entry_xz = start_world.xz + sun_slope * (CAUSTIC_PLANE_Y - start_world.y);
-    vec2 source_uv = CAUSTIC_WORLD_TO_UV * (entry_xz - u_caustic_advection);
-    vec2 source_delta = CAUSTIC_WORLD_TO_UV * (ray_delta.xz - sun_slope * ray_delta.y);
+    vec2 source_uv = CAUSTIC_ABSOLUTE_TO_UV * (entry_xz - u_caustic_advection);
+    vec2 source_delta = CAUSTIC_ABSOLUTE_TO_UV * (ray_delta.xz - sun_slope * ray_delta.y);
     float source_time = u_caustic_source_time;
 
-    vec3 shadow_start = ProjectToShadowClip(start_scene);
-    vec3 shadow_end = ProjectToShadowClip(start_scene + ray_delta);
+    vec3 shadow_start = ProjectToShadowClip(start_world);
+    vec3 shadow_end = ProjectToShadowClip(start_world + ray_delta);
     float inv_steps = 1.0 / float(WATER_GODRAYS_STEPS);
     vec3 transmittance = vec3(1.0);
     vec3 integral = vec3(0.0);

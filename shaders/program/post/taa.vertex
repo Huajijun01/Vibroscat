@@ -1,7 +1,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-flat out int history_frame_valid;
+flat out int v_history_frame_valid;
 
 void main() {
     gl_Position = vec4(float(gl_VertexID == 1) * 4.0 - 1.0, float(gl_VertexID == 2) * 4.0 - 1.0, 0.0, 1.0);
@@ -11,7 +11,7 @@ void main() {
     vec3 previous_forward = vec3(gbufferPreviousModelView[0].z,
         gbufferPreviousModelView[1].z, gbufferPreviousModelView[2].z);
     vec3 camera_delta = u_camera_delta;
-    history_frame_valid = int(frameCounter > 1 && u_camera_delta_sq < 4096.0
+    v_history_frame_valid = int(frameCounter > 1 && u_camera_delta_sq < 4096.0
         && dot(camera_forward, previous_forward) > 0.5
         && abs(gbufferProjection[0].x - gbufferPreviousProjection[0].x) < 0.1
         && abs(gbufferProjection[1].y - gbufferPreviousProjection[1].y) < 0.1);

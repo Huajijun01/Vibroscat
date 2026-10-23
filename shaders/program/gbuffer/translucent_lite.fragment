@@ -52,9 +52,9 @@ void main() {
     EvaluateBRDF(base_color, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
 #endif
 
-    float s = texture(shadowtex1, v_shadow_proj_pos);
+    float shadow = texture(shadowtex1, v_shadow_proj_pos);
     float torch_light = BlockLightFromLm(v_texcoord.z);
-    vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
+    vec3 lit = direct_lighting * v_sun_light_col * shadow + lambert_brdf * v_ambient_col
              + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
 
     // Premultiplied translucent layer: color * alpha + alpha.

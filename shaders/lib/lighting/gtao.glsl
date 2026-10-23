@@ -46,7 +46,7 @@
 // length of the full search radius (projection of GTAO_RADIUS). center_ndc is
 // the caller's hoisted ViewToNDC(center_view).xy, loop-invariant across the
 // slices; the expression matches the inlined form exactly.
-vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float radius_px) {
+vec2 ScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float radius_px) {
     vec3 end_view = center_view + tangent_view * GTAO_RADIUS;
     vec2 end_ndc = ViewToNDC(end_view).xy;
     vec2 delta = (end_ndc - center_ndc) * 0.5 * u_render_res;
@@ -56,7 +56,7 @@ vec2 GTAOScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out flo
 }
 
 // Update one side with the original depth rejection and radius falloff.
-float GTAOUpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
+float UpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
                         float center_depth, vec3 view_axis, float horizon_cos) {
     if (sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7) {
         // Same surface: the height field below the pixel is its horizon,
@@ -85,7 +85,7 @@ float GTAOUpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
 // original screen-edge termination; leaving one edge never stops the other.
 // Issue the independent depth reads together before consuming either result.
 // Returns positive-side / negative-side cosines in [-1,1] (-1 = fully open).
-vec2 GTAOSearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
+vec2 SearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
                         float radius_px, float center_depth, vec3 view_axis,
                         float step_noise) {
     if (radius_px <= 2.0) {
@@ -118,9 +118,9 @@ vec2 GTAOSearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
         if (active_neg) {
             sample_depth_neg = texture(depthtex2, SceneTextureUV(sample_uv_neg)).r;
         }
-        horizon_cos.x = GTAOUpdateHorizon(sample_uv_pos, sample_depth_pos,
+        horizon_cos.x = UpdateHorizon(sample_uv_pos, sample_depth_pos,
             center_view, center_depth, view_axis, horizon_cos.x);
-        horizon_cos.y = GTAOUpdateHorizon(sample_uv_neg, sample_depth_neg,
+        horizon_cos.y = UpdateHorizon(sample_uv_neg, sample_depth_neg,
             center_view, center_depth, view_axis, horizon_cos.y);
     }
     return clamp(horizon_cos, vec2(-1.0), vec2(1.0));
@@ -129,7 +129,7 @@ vec2 GTAOSearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
 // Integral of max(a*cos(theta)+b*sin(theta),0)*sin(theta) on [acos(c),pi].
 // a,b keep the projected normal's magnitude. The back-facing branch handles
 // two-sided geometry whose positive normal interval wraps past pi.
-float GTAOBlockedArc(float a, float b, float normal_angle, float inv_normal_length, float c) {
+float BlockedArc(float a, float b, float normal_angle, float inv_normal_length, float c) {
     if (a >= 0.0) {
         if (c <= -b * inv_normal_length) return 0.0;
         float h = acos(c);
@@ -204,12 +204,12 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
 
         vec2 screen_dir;
         float radius_px;
-        screen_dir = GTAOScreenDir(tangent, center_view, center_ndc, radius_px);
+        screen_dir = ScreenDir(tangent, center_view, center_ndc, radius_px);
 
-        vec2 horizons = GTAOSearchHorizons(uv, center_view, screen_dir, radius_px,
+        vec2 horizons = SearchHorizons(uv, center_view, screen_dir, radius_px,
             center_depth, view_axis, stbn_noise.y);
-        occlusion += GTAOBlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
-            + GTAOBlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
+        occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
+            + BlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
     }
     return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
 }

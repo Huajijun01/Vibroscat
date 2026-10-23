@@ -22,7 +22,7 @@ const float COLOR_JITTER_SEED = 47.0;
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec3 out_scene;
 
-flat in int history_frame_valid;
+flat in int v_history_frame_valid;
 
 ivec2 ClampTexel(ivec2 texel, ivec2 texture_size) {
     return clamp(texel, ivec2(0), texture_size - 1);
@@ -108,7 +108,7 @@ void main() {
 
     vec3 history;
     bool valid = all(greaterThanEqual(history_uv, vec2(0.0))) && all(lessThanEqual(history_uv, vec2(1.0)));
-    valid = valid && history_frame_valid != 0 && (hand || (position.z >= 0.0 && position.z <= 1.0));
+    valid = valid && v_history_frame_valid != 0 && (hand || (position.z >= 0.0 && position.z <= 1.0));
     // Keep implicit-derivative history sampling outside divergent validity
     // branches. Invalid reprojection samples a safe UV and contributes zero.
     history_uv = valid ? clamp(history_uv, 2.0 * u_view_pixel_size, 1.0 - 2.0 * u_view_pixel_size) : texcoord;

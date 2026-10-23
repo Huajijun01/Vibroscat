@@ -68,10 +68,10 @@ void main() {
         vec3 lambert_brdf;
         vec3 diffuse_reflectance;
         EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, light_direction, direct_lighting, lambert_brdf, diffuse_reflectance);
-        float s = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
+        float shadow = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
         float torch_light = BlockLightFromLm(v_texcoord.z);
-        vec3 lit = direct_lighting * v_sun_light_col * s + lambert_brdf * v_ambient_col
+        vec3 lit = direct_lighting * v_sun_light_col * shadow + lambert_brdf * v_ambient_col
                  + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
         out_layer_color = vec4(lit * diffuse.a, diffuse.a);
         PackTranslucentSurface(v_normal * 0.5 + 0.5, 0.0, out_surface_data, out_surface_high);
@@ -164,13 +164,13 @@ void main() {
 
     vec2 screen_texcoord = gl_FragCoord.xy * u_render_pixel_size;
 
-    vec2 rt_coord = screen_texcoord;
-    // rt_pos is written by every traced hit below and only read behind the
-    // rt_hit_flag guard, so it needs no initialization (an untraced or missed
+    vec2 trace_coord = screen_texcoord;
+    // trace_pos is written by every traced hit below and only read behind the
+    // trace_hit guard, so it needs no initialization (an untraced or missed
     // ray never reaches the read).
-    vec3 rt_pos;
-    bool rt_hit_flag = false;
-    bool rt_hit_sky = false;
+    vec3 trace_pos;
+    bool trace_hit = false;
+    bool trace_hit_sky = false;
     vec3 reflect_dir = reflect(view_dir, current_normal);
 
 #ifdef WATER_SSR
@@ -180,20 +180,20 @@ void main() {
 #endif
     {
     SSRHit water_hit = TraceTranslucentSSR(v_view_pos, reflect_dir, dither);
-    rt_hit_flag = water_hit.valid;
-    rt_hit_sky = water_hit.sky;
-    if (water_hit.valid) rt_pos = water_hit.screen;
+    trace_hit = water_hit.valid;
+    trace_hit_sky = water_hit.sky;
+    if (water_hit.valid) trace_pos = water_hit.screen;
     }
 #endif
     vec3 prev_coord = vec3(0.0);
     bool history_hit = false;
-    if (frameCounter > 0 && rt_hit_flag && ScreenUVInside(rt_pos.xy)) {
-        rt_coord = rt_pos.xy;
+    if (frameCounter > 0 && trace_hit && ScreenUVInside(trace_pos.xy)) {
+        trace_coord = trace_pos.xy;
         // Sky hits reproject at their reported far-plane depth: the current
         // frame can carry nearer translucent water over that pixel, which
         // would turn the sky reflection into a water-surface history sample.
-        prev_coord = ToPrevious(vec3(rt_coord, rt_hit_sky ? rt_pos.z
-            : texture(depthtex0, SceneTextureUV(rt_coord)).x));
+        prev_coord = ToPrevious(vec3(trace_coord, trace_hit_sky ? trace_pos.z
+            : texture(depthtex0, SceneTextureUV(trace_coord)).x));
         history_hit = ScreenUVInside(prev_coord.xy);
     }
 
@@ -210,12 +210,12 @@ void main() {
     }
 
     // Sun glint = direct solar reflection; masked off exactly when a history
-    // ray hit geometry (history_hit && !rt_hit_sky) - that hit already
+    // ray hit geometry (history_hit && !trace_hit_sky) - that hit already
     // reflects the ground, with no extra depth fetch.
-    float sun_spec_mask = (history_hit && !rt_hit_sky) ? 0.0 : 1.0;
+    float sun_spec_mask = (history_hit && !trace_hit_sky) ? 0.0 : 1.0;
 
     // Single hardware-PCF shadow sample (no PCSS needed on water).
-    float s = texture(shadowtex1, v_shadow_proj_pos);
+    float shadow = texture(shadowtex1, v_shadow_proj_pos);
 
     vec3 view_to_eye = -view_dir;
     vec3 surface_normal_view = current_normal;
@@ -228,7 +228,7 @@ void main() {
     // The half vector has no other consumer on this path, so build the
     // cosine directly instead of the vector and its dot.
     float ldoth = sqrt(max(1.0 + ldotv, 0.0) * 0.5);
-    vec3 sun_light = v_sun_light_col * s;
+    vec3 sun_light = v_sun_light_col * shadow;
     vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
 
     const float f0 = 0.1;

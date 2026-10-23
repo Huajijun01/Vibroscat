@@ -33,7 +33,7 @@ const float CLOUD_SKYBOX_HISTORY_ALPHA = 0.25;
 
 // 2x2 checkerboard refresh (same coarse-to-fine order as the screen pass);
 // 128x128 cells, one phase-matched texel re-marched per frame.
-const ivec2[4] skybox_checkerboard_2x2 = ivec2[4](
+const ivec2[4] SKYBOX_CHECKERBOARD_2X2 = ivec2[4](
     ivec2(0, 0),
     ivec2(1, 1),
     ivec2(1, 0),
@@ -45,7 +45,7 @@ void main() {
     if (any(greaterThanEqual(cell, ivec2(SKY_RADIANCE_LUT_SIZE / 2)))) return;
 
     uint phase_index = uint(frameCounter) % 4u;
-    ivec2 phase_offset = skybox_checkerboard_2x2[phase_index];
+    ivec2 phase_offset = SKYBOX_CHECKERBOARD_2X2[phase_index];
     bool full_init = (frameCounter == 0);
     vec3 sun_dir = u_world_sun_dir;
     // The skybox clock advances one STBN slice per 4-frame checkerboard cycle.
@@ -57,7 +57,7 @@ void main() {
 #endif
 
     for (int i = 0; i < 4; ++i) {
-        ivec2 offset = skybox_checkerboard_2x2[i];
+        ivec2 offset = SKYBOX_CHECKERBOARD_2X2[i];
         if (!full_init && any(notEqual(offset, phase_offset))) continue;
 
         // Equal-area cylindrical mapping at the texel center: u = azimuth,

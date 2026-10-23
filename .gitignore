@@ -5,6 +5,7 @@
 /iris-src/
 /.codex/
 /.zcode/
+/.zcodeignore
 /research/
 /gpu-trace-1/
 /logs/

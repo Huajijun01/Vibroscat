@@ -208,12 +208,18 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
     // expression out of the slice loop.
     vec2 center_ndc = ViewToNDC(center_view).xy;
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-    // Sky arcs evaluate the world-axis L1 field: rotate the view basis to
-    // world once here; each slice rotates only its tangent.
+    // Sky arcs evaluate the world-axis L1 field. The slice orbit rotates to
+    // world once here; each slice assembles its polynomial and normal
+    // projection from the orbit cos/sin without re-rotating its tangent.
     mat3 view_to_world = mat3(gbufferModelViewInverse);
     vec3 view_axis_world = view_to_world * view_axis;
-    SkyLinearField sky_field = BuildSkyLinearField(view_axis_world);
+    vec3 world_slice_t = view_to_world * slice_t;
+    vec3 world_slice_b = view_to_world * slice_b;
+    SkyLinearField sky_field = BuildSkyLinearField(view_axis_world,
+        world_slice_t, world_slice_b);
     float sky_ndotv = dot(sky_normal_world, view_axis_world);
+    float sky_ndott_t = dot(sky_normal_world, world_slice_t);
+    float sky_ndott_b = dot(sky_normal_world, world_slice_b);
     vec3 blocked_sky = vec3(0.0);
 #endif
     // The slice tangents form one fixed-rotation orbit; a recurrence pair
@@ -237,8 +243,7 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
         // Projected-normal angle in the slice plane.
         float ndott = dot(normal_view, tangent);
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-        vec3 tangent_world = view_to_world * tangent;
-        float sky_ndott = dot(sky_normal_world, tangent_world);
+        float sky_ndott = slice_cos * sky_ndott_t + slice_sin * sky_ndott_b;
         // Skip the search only when the projection degenerates for both
         // normals: a normal-mapped sky normal can still carry sky energy in a
         // slice whose geometric projection is zero.
@@ -267,12 +272,17 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
             occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
                 + BlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
         }
-        // The opposite side parameterizes omega = v*cos - t*sin: only the
-        // sin-coefficient terms change sign.
-        SkyArcPolynomial sky_arc = BuildSkyArcPolynomial(sky_field, tangent_world);
-        blocked_sky += IntegrateSkyBlockedArc(sky_arc, sky_ndotv, sky_ndott, horizons.x);
-        sky_arc.sin_term = -sky_arc.sin_term;
-        blocked_sky += IntegrateSkyBlockedArc(sky_arc, sky_ndotv, -sky_ndott, horizons.y);
+        // Open horizons (cosine -1) make both arcs empty; the pair shares
+        // one atan and the RGB products across the two sides.
+        if (horizons.x > -1.0 || horizons.y > -1.0) {
+            SkyArcPolynomial sky_arc;
+            sky_arc.constant_term = sky_field.constant_term;
+            sky_arc.cos_term = sky_field.cos_term;
+            sky_arc.sin_term = slice_cos * sky_field.sin_term_t
+                + slice_sin * sky_field.sin_term_b;
+            blocked_sky += IntegrateSkyBlockedArcPair(sky_arc, sky_ndotv,
+                sky_ndott, horizons);
+        }
 #else
         occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
             + BlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);

@@ -47,9 +47,9 @@ Vibroscat profile.
   attached or aquatic foliage remain still.
 - Selectable no GI, SSGI, or reflective shadow map GI, rendered at half resolution with
   its own temporal denoising and guided upsampling, including with TAA disabled
-- Optional directional sky light for RSM GI: nearby walls and overhangs tint the
-  sky ambient by the directions they block; requires GTAO in the Overworld and
-  is off by default
+- Directional sky light for RSM GI, on by default: nearby walls and overhangs
+  tint the sky ambient by the directions they block; requires RSM GI with GTAO
+  in the Overworld
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
   sharpening, and filmic color
 - Optional temporal upscaling (TAAU), with 50-85% render scale and the same

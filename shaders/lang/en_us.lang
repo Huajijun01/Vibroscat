@@ -465,7 +465,7 @@ option.SSGI_RADIANCE_LIMIT.comment = Caps the stored bounce light: lower = fewer
 option.RSM_STRENGTH = RSM Strength
 option.RSM_STRENGTH.comment = Intensity of the bounced sunlight. Direct sun and sky ambient are unaffected.
 option.RSM_DIRECTIONAL_SKY = Directional Sky Light
-option.RSM_DIRECTIONAL_SKY.comment = Lets nearby walls and overhangs affect which sky colors reach a surface. Requires RSM GI and GTAO in the Overworld. Adds GPU cost; off by default.
+option.RSM_DIRECTIONAL_SKY.comment = Lets nearby walls and overhangs affect which sky colors reach a surface. Requires RSM GI and GTAO in the Overworld. Adds GPU cost; on by default.
 value.RSM_SAMPLES.8 = 8
 value.RSM_SAMPLES.16 = 16
 value.RSM_SAMPLES.32 = 32

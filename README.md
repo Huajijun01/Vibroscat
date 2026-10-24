@@ -50,10 +50,10 @@ Vibroscat profile.
 - Directional sky light for RSM GI, on by default: nearby walls and overhangs
   tint the sky ambient by the directions they block; requires RSM GI with GTAO
   in the Overworld
-- Optional directional sky light for SSGI, off by default: nearby occluders
-  tint the screen-space GI sky ambient by the directions they block (an
-  approximation: directional L0/L1 visibility with the L2 band scaled by open
-  visibility, at extra GPU cost); requires SSGI in the Overworld
+- Directional sky light for SSGI, on by default: nearby occluders tint the
+  screen-space GI sky ambient by the directions they block (an approximation:
+  directional L0/L1 visibility with the L2 band scaled by open visibility, at
+  extra GPU cost); requires SSGI in the Overworld
 - Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
   sharpening, and filmic color
 - Optional temporal upscaling (TAAU), with 50-85% render scale and the same

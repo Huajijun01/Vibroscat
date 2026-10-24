@@ -204,7 +204,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 1.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
 #define RSM_DIRECTIONAL_SKY // Directional sky visibility for RSM with GTAO; extra shading cost.
-//#define SSGI_DIRECTIONAL_SKY // Directional sky visibility for SSGI; extra GPU cost.
+#define SSGI_DIRECTIONAL_SKY // Directional sky visibility for SSGI; extra GPU cost.
 #define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
 
 // ==========================================================================

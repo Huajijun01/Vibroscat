@@ -18,29 +18,15 @@
 
 // Stratified disk point via polar Hammersley (radius from index, angle
 // from the radical inverse); caller builds the STBN rotation basis once.
-// The angle depends only on i, so the (cos, sin) pairs for i = 0..15 are
-// compile-time constants: one table read replaces the per-tap trig.
-const vec2 SHADOW_DISK_ANGLE[16] = vec2[16](
-    vec2(1.0, 0.0),
-    vec2(-1.0, 1.2246468e-16),
-    vec2(6.123234e-17, 1.0),
-    vec2(-1.8369702e-16, -1.0),
-    vec2(0.707106781, 0.707106781),
-    vec2(-0.707106781, -0.707106781),
-    vec2(-0.707106781, 0.707106781),
-    vec2(0.707106781, -0.707106781),
-    vec2(0.923879533, 0.382683432),
-    vec2(-0.923879533, -0.382683432),
-    vec2(-0.382683432, 0.923879533),
-    vec2(0.382683432, -0.923879533),
-    vec2(0.382683432, 0.923879533),
-    vec2(-0.382683432, -0.923879533),
-    vec2(-0.923879533, 0.382683432),
-    vec2(0.923879533, -0.382683432)
-);
+// The angle is the base-2 radical inverse of the low four bits, recovered
+// by bit reversal into the top nibble. It is computed per tap instead of a
+// const vec2[16] table because the loops index it with a runtime step
+// counter, and this driver lowers a dynamically indexed const array into
+// thread-local memory - one local-memory access per blocker/PCF tap.
 vec2 ShadowDiskPoint(int i, int count) {
     float radius = sqrt((float(i) + 0.5) / float(count));
-    return radius * SHADOW_DISK_ANGLE[i & 15];
+    float angle = float(bitfieldReverse(uint(i) & 15u) >> 28) * (TAU / 16.0);
+    return radius * vec2(cos(angle), sin(angle));
 }
 
 // Rotate the stratified disk point by the precomputed basis.

@@ -31,21 +31,22 @@ layout(rgba16f) uniform image2D uimg_sky_radiance;
 // so the SH probe converges smoothly without re-baking every frame.
 const float CLOUD_SKYBOX_HISTORY_ALPHA = 0.25;
 
-// 2x2 checkerboard refresh (same coarse-to-fine order as the screen pass);
-// 128x128 cells, one phase-matched texel re-marched per frame.
-const ivec2[4] SKYBOX_CHECKERBOARD_2X2 = ivec2[4](
-    ivec2(0, 0),
-    ivec2(1, 1),
-    ivec2(1, 0),
-    ivec2(0, 1)
-);
+// 2x2 checkerboard refresh order (same coarse-to-fine order as the screen
+// pass); 128x128 cells, one phase-matched texel re-marched per frame.
+// The offset for phase k is ((k>>1)^(k&1), k&1) = (0,0),(1,1),(1,0),(0,1);
+// it is computed instead of a const ivec2[4] table because both readers
+// index at runtime and this driver lowers such tables into thread-local
+// memory.
+ivec2 SkyboxCheckerboardOffset(int phase) {
+    return ivec2((phase >> 1) ^ (phase & 1), phase & 1);
+}
 
 void main() {
     ivec2 cell = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(cell, ivec2(SKY_RADIANCE_LUT_SIZE / 2)))) return;
 
     uint phase_index = uint(frameCounter) % 4u;
-    ivec2 phase_offset = SKYBOX_CHECKERBOARD_2X2[phase_index];
+    ivec2 phase_offset = SkyboxCheckerboardOffset(int(phase_index));
     bool full_init = (frameCounter == 0);
     // The skybox clock advances one STBN slice per 4-frame checkerboard cycle.
 #ifdef VOLUMETRIC_CLOUDS
@@ -56,7 +57,7 @@ void main() {
 #endif
 
     for (int i = 0; i < 4; ++i) {
-        ivec2 offset = SKYBOX_CHECKERBOARD_2X2[i];
+        ivec2 offset = SkyboxCheckerboardOffset(i);
         if (!full_init && any(notEqual(offset, phase_offset))) continue;
 
         // Equal-area cylindrical mapping at the texel center: u = azimuth,

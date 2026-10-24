@@ -13,8 +13,8 @@ layout(r11f_g11f_b10f) uniform restrict readonly image2D colorimg5;
 #endif
 
 // 8x8 workgroups: the 17x17 vec4 tile (4.6 KB) lets more blocks fit per SM
-// than the previous 33x33 tile, and the full-resolution source reads stay
-// cache-coherent; 16x16 measured ~6-8 us slower per dispatch.
+// than a 33x33 tile would, and the full-resolution source reads stay
+// cache-coherent; 16x16 workgroups measured ~6-8 us slower per dispatch.
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
@@ -36,8 +36,7 @@ void main() {
     ivec2 group_base = ivec2(gl_WorkGroupID.xy) * ivec2(8, 8);
     ivec2 input_base = group_base * 2 - 1;
 
-    uint idx = gl_LocalInvocationIndex;
-    for (uint i = idx; i < 289u; i += 64u) {
+    for (uint i = gl_LocalInvocationIndex; i < 289u; i += 64u) {
         uint ty = i / 17u;
         uint tx = i % 17u;
         ivec2 coord = clamp(input_base + ivec2(tx, ty), ivec2(0), full_size - 1);

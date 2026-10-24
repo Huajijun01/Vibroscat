@@ -5,12 +5,11 @@ flat out int v_history_frame_valid;
 
 void main() {
     gl_Position = vec4(float(gl_VertexID == 1) * 4.0 - 1.0, float(gl_VertexID == 2) * 4.0 - 1.0, 0.0, 1.0);
-    // These tests depend only on the frame. Evaluate per triangle vertex,
-    // rather than repeating camera-cut checks at every display pixel.
+    // Camera-cut checks depend only on the frame, so they run once per
+    // triangle vertex and reach every pixel through the flat varying.
     vec3 camera_forward = gbufferModelViewInverse[2].xyz;
     vec3 previous_forward = vec3(gbufferPreviousModelView[0].z,
         gbufferPreviousModelView[1].z, gbufferPreviousModelView[2].z);
-    vec3 camera_delta = u_camera_delta;
     v_history_frame_valid = int(frameCounter > 1 && u_camera_delta_sq < 4096.0
         && dot(camera_forward, previous_forward) > 0.5
         && abs(gbufferProjection[0].x - gbufferPreviousProjection[0].x) < 0.1

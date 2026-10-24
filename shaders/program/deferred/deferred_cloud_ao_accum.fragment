@@ -1,7 +1,7 @@
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 // Deferred cloud/AO history fragment: cloud temporal upsampling and guided
 // reconstruction of accumulated screen-space AO (GTAO or SSAO).
-// ════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 // Runs after the deferred1 computes (clouds_render, ao.compute) in the same
 // program: clouds_render produces fresh inputs; ao.compute accumulates AO.
 // This fragment writes one merged full-res history frame to colortex8.
@@ -47,7 +47,7 @@ void main() {
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
 
     if (scene_depth >= 1.0) {
-        // ── Sky: cloud temporal upsampling + accumulation ──
+        // -- Sky: cloud temporal upsampling + accumulation --
 #ifdef VOLUMETRIC_CLOUDS
         vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
             * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
@@ -96,7 +96,7 @@ void main() {
         return;
     }
 
-    // ── Geometry: guided AO reconstruction; cloud history invalid ──
+    // -- Geometry: guided AO reconstruction; cloud history invalid --
 #if defined(GTAO) || defined(SSAO)
     vec2 geo_normal_oct = texelFetch(colortex4, tx, 0).xy;
     // AO history was validated and accumulated at half resolution by the

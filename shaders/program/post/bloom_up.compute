@@ -26,8 +26,7 @@ void main() {
     ivec2 src_limit = src_origin + src_size - 1;
     ivec2 group_base = src_origin + ivec2(gl_WorkGroupID.xy) * 16;
 
-    uint idx = gl_LocalInvocationIndex;
-    for (uint i = idx; i < 441u; i += 256u) {
+    for (uint i = gl_LocalInvocationIndex; i < 441u; i += 256u) {
         uint ty = i / 21u;
         uint tx = i % 21u;
         ivec2 coord = clamp(group_base + ivec2(tx, ty) - 2, src_origin, src_limit);

@@ -69,7 +69,7 @@ void main() {
     if (dot(normal_world, view_to_eye) <= 1e-5) return;
 
     // One STBN pair feeds both the GGX direction sample and the trace start
-    // jitter (the pair's y component), instead of two identical reads.
+    // jitter (the pair's y component).
     vec2 stbn_random = OpaqueSSRSTBNPair(tx);
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(

@@ -48,7 +48,6 @@ void main() {
     // return, because barrier() may not follow a return statement.
     return;
 #else
-    uint tid = gl_LocalInvocationIndex;
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
 
     ivec2 size = imageSize(SCENE_HDR_IMAGE);
@@ -71,12 +70,11 @@ void main() {
     // -log2(0.18): the EV reference folded out of the per-sample log below.
     const float AE_REF_LOG2_INV = 2.4739311883324123;
     float weight_sum = 0.0;
-    if (tid < 64u) histogram_cache[tid] = 0u;
+    if (gl_LocalInvocationIndex < 64u) histogram_cache[gl_LocalInvocationIndex] = 0u;
     barrier();
 
-    // Row-major walk over the sampled grid with an incremental column index:
-    // one integer division up front instead of one per sampled pixel.
-    uint sample_index = start + tid;
+    // Row-major walk over the sampled grid with an incremental column index.
+    uint sample_index = start + gl_LocalInvocationIndex;
     uint row = sample_index / grid_w;
     uint col = sample_index - row * grid_w;
     for (; sample_index < end; sample_index += 1024u) {
@@ -103,24 +101,24 @@ void main() {
         }
     }
 
-    log_cache[tid] = log_sum;
-    weight_cache[tid] = weight_sum;
+    log_cache[gl_LocalInvocationIndex] = log_sum;
+    weight_cache[gl_LocalInvocationIndex] = weight_sum;
     barrier();
 
     for (uint s = 512u; s > 0u; s >>= 1u) {
-        if (tid < s) {
-            log_cache[tid] += log_cache[tid + s];
-            weight_cache[tid] += weight_cache[tid + s];
+        if (gl_LocalInvocationIndex < s) {
+            log_cache[gl_LocalInvocationIndex] += log_cache[gl_LocalInvocationIndex + s];
+            weight_cache[gl_LocalInvocationIndex] += weight_cache[gl_LocalInvocationIndex + s];
         }
         barrier();
     }
 
-    if (tid == 0u) {
+    if (gl_LocalInvocationIndex == 0u) {
         log_lum_sums[wid] = log_cache[0];
         weight_sums[wid] = weight_cache[0];
     }
-    if (tid < 64u) {
-        luminance_histogram[wid * 64u + tid] = histogram_cache[tid];
+    if (gl_LocalInvocationIndex < 64u) {
+        luminance_histogram[wid * 64u + gl_LocalInvocationIndex] = histogram_cache[gl_LocalInvocationIndex];
     }
 #endif
 }

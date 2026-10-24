@@ -39,22 +39,21 @@ void main() {
     // skipped after a return, because barrier() may not follow a return.
     return;
 #else
-    uint tid = gl_LocalInvocationIndex;
 
-    cache[tid] = log_lum_sums[tid];
+    cache[gl_LocalInvocationIndex] = log_lum_sums[gl_LocalInvocationIndex];
     uint histogram_sum = 0u;
     for (uint group = 0u; group < 64u; ++group) {
-        histogram_sum += luminance_histogram[group * 64u + tid];
+        histogram_sum += luminance_histogram[group * 64u + gl_LocalInvocationIndex];
     }
-    histogram_cache[tid] = histogram_sum;
+    histogram_cache[gl_LocalInvocationIndex] = histogram_sum;
     barrier();
 
     for (uint s = 32u; s > 0u; s >>= 1u) {
-        if (tid < s) cache[tid] += cache[tid + s];
+        if (gl_LocalInvocationIndex < s) cache[gl_LocalInvocationIndex] += cache[gl_LocalInvocationIndex + s];
         barrier();
     }
 
-    if (tid == 0u) {
+    if (gl_LocalInvocationIndex == 0u) {
         float total_weight = 0.0;
         for (uint i = 0u; i < 64u; ++i) total_weight += weight_sums[i];
         total_weight = max(total_weight, 1.0);

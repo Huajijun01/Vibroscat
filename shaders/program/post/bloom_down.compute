@@ -33,8 +33,7 @@ void main() {
     ivec2 input_base = src_origin + group_base * 2 - 1;
     ivec2 src_limit  = src_origin + src_size - 1;
 
-    uint idx = gl_LocalInvocationIndex;
-    for (uint i = idx; i < 1089u; i += 256u) {
+    for (uint i = gl_LocalInvocationIndex; i < 1089u; i += 256u) {
         uint ty = i / 33u;
         uint tx = i % 33u;
         ivec2 coord = clamp(input_base + ivec2(tx, ty), src_origin, src_limit);

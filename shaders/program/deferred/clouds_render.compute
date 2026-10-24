@@ -39,8 +39,7 @@ void main() {
     ivec2 render_size = max(ivec2(u_render_res * CLOUD_CURRENT_SCALE), ivec2(1));
     if (any(greaterThanEqual(id, render_size))) return;
 
-    vec2 full_resolution = u_render_res;
-    vec2 cell_size = full_resolution / vec2(render_size);
+    vec2 cell_size = u_render_res / vec2(render_size);
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
 #else
@@ -52,7 +51,7 @@ void main() {
     ivec2 sample_pos_i = clamp(
         ivec2(floor(sample_pos)),
         ivec2(0),
-        ivec2(full_resolution) - ivec2(1)
+        ivec2(u_render_res) - ivec2(1)
     );
     vec2 uv = sample_pos * u_render_pixel_size;
     vec3 view_dir = normalize(

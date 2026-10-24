@@ -78,8 +78,7 @@ void main() {
     out_scene = jittered_result;
     return;
 #else
-    vec2 pixel_size = u_view_pixel_size;
-    vec2 texcoord = gl_FragCoord.xy * pixel_size;
+    vec2 texcoord = gl_FragCoord.xy * u_view_pixel_size;
     vec2 unjitter_uv = texcoord + u_taa_offset * 0.5;
     ivec2 tx = ClampTexel(ivec2(unjitter_uv * u_render_res), ivec2(u_render_res));
 
@@ -97,8 +96,8 @@ void main() {
     if (hand) velocity = vec2(0.0);
     vec2 history_uv = texcoord + velocity;
 
-    vec2 scene_uv = clamp(unjitter_uv * u_render_scale, 0.5 * pixel_size,
-        (u_render_res - 0.5) * pixel_size);
+    vec2 scene_uv = clamp(unjitter_uv * u_render_scale, 0.5 * u_view_pixel_size,
+        (u_render_res - 0.5) * u_view_pixel_size);
 #if TAA_RECONSTRUCTION == 1
     vec3 current_color = max(FastCatmullRom5Tap(colortex0, scene_uv, u_view_pixel_size, 0.5,
         0.5 * u_view_pixel_size, (u_render_res - 0.5) * u_view_pixel_size).rgb, 0.0);
@@ -128,13 +127,12 @@ void main() {
         vec3 b = FetchColorClamped(colortex0, tx + ivec2( 0,  1));
         vec3 c = FetchColorClamped(colortex0, tx + ivec2( 1,  1));
         vec3 d = FetchColorClamped(colortex0, tx + ivec2(-1,  0));
-        vec3 e = current_color;
         vec3 f = FetchColorClamped(colortex0, tx + ivec2( 1,  0));
         vec3 g = FetchColorClamped(colortex0, tx + ivec2(-1, -1));
         vec3 h = FetchColorClamped(colortex0, tx + ivec2( 0, -1));
         vec3 i = FetchColorClamped(colortex0, tx + ivec2( 1, -1));
-        clip_min = min(a, min(b, min(c, min(d, min(e, min(f, min(g, min(h, i))))))));
-        clip_max = max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h, i))))))));
+        clip_min = min(a, min(b, min(c, min(d, min(current_color, min(f, min(g, min(h, i))))))));
+        clip_max = max(a, max(b, max(c, max(d, max(current_color, max(f, max(g, max(h, i))))))));
     }
     vec3 clamped = clamp(history, clip_min, clip_max);
     float current_weight = GetBlendWeight(history, clamped, clip_max - clip_min, velocity);
@@ -150,10 +148,9 @@ void main() {
     // Unsigned R11G11B10F cannot store negative values: RG keep the motion
     // magnitude (small values stay precise near zero) and B holds two sign
     // bits, matching the motion-blur decode at every scene resolution.
-    vec2 motion_velocity = velocity;
-    int motion_sign = (motion_velocity.x < 0.0 ? 1 : 0)
-        + (motion_velocity.y < 0.0 ? 2 : 0);
-    out_color = vec3(abs(motion_velocity), float(motion_sign));
+    int motion_sign = (velocity.x < 0.0 ? 1 : 0)
+        + (velocity.y < 0.0 ? 2 : 0);
+    out_color = vec3(abs(velocity), float(motion_sign));
 #else
     out_color = jittered_result;
 #endif

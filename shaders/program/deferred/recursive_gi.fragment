@@ -39,11 +39,10 @@ float RemapPartialSlice(float x, float sin_view_normal) {
     if (abs(x) >= 1.0 || x == 0.0) return x;
     bool negative = x < 0.0;
     x = abs(x);
-    float s = sin_view_normal;
-    float o = s - s * s;
-    float slope0 = 1.0 / (1.0 + (PI - 1.0) * (s - o * 0.30546));
-    float slope1 = 1.0 / (1.0 - (1.0 - exp2(-20.0)) * (s + o * mix(0.5, 0.785, s)));
-    float k = mix(0.1, 0.25, s);
+    float o = sin_view_normal - sin_view_normal * sin_view_normal;
+    float slope0 = 1.0 / (1.0 + (PI - 1.0) * (sin_view_normal - o * 0.30546));
+    float slope1 = 1.0 / (1.0 - (1.0 - exp2(-20.0)) * (sin_view_normal + o * mix(0.5, 0.785, sin_view_normal)));
+    float k = mix(0.1, 0.25, sin_view_normal);
     float a = 1.0 - (PI - 2.0) / (PI - 1.0);
     float b = 1.0 / (PI - 1.0);
     float d0 = a - slope0 * b;
@@ -152,8 +151,9 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     // Reference march schedule: SSGI_STEPS geometric steps that grow to the
     // clamped march width, with the first step jittered by stbn_noise.y.
     float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
-    // (m^(1/n))^y == m^(y/n): one pow instead of a chained pair; the loop
-    // below keeps multiplying step_size by the same step_scale.
+    // (m^(1/n))^y == m^(y/n): the jittered start is the y-th element of the
+    // geometric progression; the loop below multiplies step_size by
+    // step_scale.
     float step_scale = pow(march_width, 1.0 / float(SSGI_STEPS));
     float step_size = pow(march_width, stbn_noise.y / float(SSGI_STEPS));
     vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
@@ -302,9 +302,9 @@ void main() {
     // bounce enter the same temporal history and guided reconstruction.
     vec2 ao_noise = SampleSTBNPair(tx / 2, frameCounter, STBN_STREAM_3, ivec2(0));
 #if AO_MODE == 1
-    float screen_ao = ComputeGTAO(uv, vec2(tx), ao_noise);
+    float screen_ao = ComputeGTAOFromGeometry(uv, scene_depth, geometry_data.xy, ao_noise);
 #elif AO_MODE == 2
-    float screen_ao = ComputeSSAO(uv, vec2(tx), ao_noise);
+    float screen_ao = ComputeSSAOFromGeometry(uv, scene_depth, geometry_data.xy, ao_noise);
 #else
     float screen_ao = surface_data.a;
 #endif

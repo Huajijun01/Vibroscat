@@ -101,4 +101,4 @@ quality profile in Shader Pack Settings.
 ## License
 
 Vibroscat is released under GPL-3.0. See [LICENSE](LICENSE) and
-[third-party notices](licenses/THIRD_PARTY_NOTICES.md).
+[third-party notices](licenses/THIRD_PARTY_NOTICES.en.md).

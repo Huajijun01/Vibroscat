@@ -446,55 +446,14 @@ Formation and adaptations:
   maximum display-linear error of 1.1e-6. The complete analytical generator
   comparison on 12,248 valid neutral/HDR/signed inputs stayed below 1e-6.
 
-## 24. AMD FidelityFX LPM (MIT)
+## 24. AMD FidelityFX LPM (MIT; removed in V0.4.0)
 
-`TonemapLPM` in `shaders/lib/color/tonemap_lpm.glsl` (`TONEMAP_MODE == 4`) is
+`TonemapLPM` in `shaders/lib/color/tonemap_lpm.glsl` (`TONEMAP_MODE == 4`) was
 ported from AMD's FidelityFX Luma Preserving Mapper, `ffx-lpm/ffx_lpm.h`
-(header tag `[LPM] LUMA PRESERVING MAPPER 1.20200225`):
-
-> Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
-> (the repository's `NOTICES.txt` records the same MIT code as "AMD copyrighted
-> code (MIT) / Copyright (c) 2020 Advanced Micro Devices, Inc. All rights
-> reserved."; the full MIT text is in that file)
-
-Upstream: <https://github.com/GPUOpen-Effects/FidelityFX-LPM>. Retrieved
-2026-10-11; source file SHA-256
-`7a7c0f376c89bcecd51fe8a5d8ba3b34ec59841e9915cb5b3e16ee87e9448c4d`.
-
-The reference is itself the ALU version, so **this port contains and needs no
-lookup table**.
-
-Port adaptations:
-
-- Ported: `LpmSetup`'s toneScaleBias solve (`tone(x) = x^contrast / (x^shoulder
-  * bias.x + bias.y)`, pinned by tone(midIn) = 0.18 and tone(hdrMax) = 1.0;
-  folded into compile-time constants here) and the whole `LpmMap` chain: the
-  ratio/luma split, the saturation power on the ratio, the tone curve applied
-  to the luma of the *original* color (which is what makes the map luma
-  preserving), the ratio re-scale, the crosstalk walk back into gamut and the
-  final luma make-up.
-- `LPM_CONFIG_709_709` with `LPM_COLORS_709_709`: working, output and container
-  gamut are all Rec.709 D65, so the reference's `con`/`con2` matrices are
-  identity and omitted, and its `clip` and `scaleOnly` paths are dead.
-- Not ported: `soft` gamut mapping (the reference needs `con` alongside it and
-  only reaches it when the working and output gamuts differ),
-  `shoulder`/`shoulderContrast` (the reference's own value is 1.0 and its
-  example disables it), the con2/scaleOnly output transforms (FS2, HDR10,
-  scRGB), the FP16 packed path and `LpmSetupOut`. This pack returns
-  display-linear Rec.709 and applies its sRGB OETF in `post/final.fragment`.
-- Two guards cover inputs the reference documents as outside its contract
-  ({0 .. hdrMax}) but can still receive: color == 0 makes its `1/max(rgb)` a
-  division by zero (this port returns black), and once the tone-mapped luma
-  reaches 1.0 every crosstalk cap term is 0, making its `lumaAdd/dot(cap,
-  lumaT)` a 0/0 (this port takes the limit t = 0).
-- Uses the header's fixed Rec.709 setup example: hdrMax 256, exposure 8,
-  contrast 0.25, shoulderContrast 1, saturation 0 and crosstalk
-  (1, 0.5, 1/32). These are authoring/integration parameters, not player
-  controls. The `LPM_CONFIG_*` prefabs describe output formats and gamut
-  conversions; they are not artistic look presets.
-- Actual GLSL is checked against an independent transcription of the full
-  reference mapping on 12,276 neutral, primary, random HDR and signed
-  samples, with a display-linear error budget of 1e-5.
+(header tag `[LPM] LUMA PRESERVING MAPPER 1.20200225`, MIT). Upstream:
+<https://github.com/GPUOpen-Effects/FidelityFX-LPM> (retrieved 2026-10-11).
+The mode was removed with the V0.4.0 tonemap mode list and is no longer
+distributed; removing the code leaves no remaining distribution obligation.
 
 ## 25. OpenDRT (GPL-3.0)
 

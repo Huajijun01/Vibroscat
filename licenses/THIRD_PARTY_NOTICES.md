@@ -372,41 +372,13 @@ guard rail 采用独立代数重建：亮度权重之和为 1 时，对手色补
   最大显示线性误差为 1.1e-6；与完整解析生成器比较 12,248 个有效中性/HDR/带负分量输入，
   误差低于 1e-6。
 
-## 24. AMD FidelityFX LPM（MIT）
+## 24. AMD FidelityFX LPM（MIT；已随 V0.4.0 移除）
 
-`shaders/lib/color/tonemap_lpm.glsl` 的 `TonemapLPM`（`TONEMAP_MODE == 4`）移植自 AMD 的
-FidelityFX Luma Preserving Mapper，`ffx-lpm/ffx_lpm.h`（文件头标记
-`[LPM] LUMA PRESERVING MAPPER 1.20200225`）：
-
-> Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
-> （仓库 `NOTICES.txt` 记为 "AMD copyrighted code (MIT) / Copyright (c) 2020 Advanced Micro
-> Devices, Inc. All rights reserved."，MIT 许可全文见该文件）
-
-上游：<https://github.com/GPUOpen-Effects/FidelityFX-LPM>。取用日期 2026-10-11，源文件 SHA-256
-`7a7c0f376c89bcecd51fe8a5d8ba3b34ec59841e9915cb5b3e16ee87e9448c4d`。
-
-参考实现本身就是 ALU 版本，因此**本移植不含、也不需要任何查找表**。
-
-移植适配说明：
-
-- 移植：`LpmSetup` 的 toneScaleBias 求解（`tone(x) = x^contrast / (x^shoulder * bias.x + bias.y)`，
-  以 tone(midIn) = 0.18 与 tone(hdrMax) = 1.0 约束；本包把该求解折成编译期常量），以及
-  `LpmMap` 的完整链路：比值/亮度分离、比值上的饱和度幂、对**原始颜色**亮度做色调曲线
-  （这正是"亮度保持"的来源）、比值重标定、crosstalk 回入色域、最终亮度补足。
-- 取 `LPM_CONFIG_709_709` + `LPM_COLORS_709_709`：工作、输出与容器色域均为 Rec.709 D65，
-  故参考实现的 `con`/`con2` 矩阵均为单位矩阵并被省略，`clip` 与 `scaleOnly` 分支为死代码。
-- 未移植：`soft` 软色域映射（参考实现要求同时提供 `con`，且仅在工作色域与输出色域不同时生效）、
-  `shoulder`/`shoulderContrast`（参考实现自身取 1.0，示例亦不启用）、con2/scaleOnly 输出变换
-  （FS2、HDR10、scRGB）、FP16 打包路径与 `LpmSetupOut`。本包返回显示线性 Rec.709，
-  sRGB OETF 由 `post/final.fragment` 施加。
-- 两处守护覆盖参考实现契约（{0..hdrMax}）之外但仍可能收到的输入：颜色为 0 时其 `1/max(rgb)`
-  除零（本包返回黑），以及色调后亮度达到 1.0 时 `cap` 全为 0、其 `lumaAdd/dot(cap, lumaT)` 为
-  0/0（本包取其极限 t = 0）。
-- 固定使用官方头文件的 Rec.709 配置样例：hdrMax 256、exposure 8、contrast 0.25、
-  shoulderContrast 1、saturation 0、crosstalk (1, 0.5, 1/32)。这些是内容制作/集成参数，
-  不开放给玩家。`LPM_CONFIG_*` 是显示格式和色域转换配置，并非艺术 look。
-- 实际 GLSL 对照完整参考映射的独立转写，覆盖 12,276 个中性、原色、随机 HDR 与带负分量
-  输入，显示线性误差预算为 1e-5。
+`shaders/lib/color/tonemap_lpm.glsl` 的 `TonemapLPM`（`TONEMAP_MODE == 4`）曾移植自
+AMD 的 FidelityFX Luma Preserving Mapper，`ffx-lpm/ffx_lpm.h`（文件头标记
+`[LPM] LUMA PRESERVING MAPPER 1.20200225`，MIT）。上游：
+<https://github.com/GPUOpen-Effects/FidelityFX-LPM>（2026-10-11 取用）。该模式已随
+V0.4.0 的色调映射模式列表更换一并移除，不再随包分发；代码移除后无剩余分发义务。
 
 ## 25. OpenDRT（GPL-3.0）
 

@@ -17,8 +17,7 @@ const float ATM_ATMO_MINUS_P = ATM_ATMO_R - ATM_PLANET_R;
 // altitude range [-(dip), ATM_ATMO_MINUS_P] linearly, so its 32 row centers
 // sit at -6, -2, 2, ..., 118 km. This is the depth the offline baker used, not
 // the user's ATM_HORIZON_DIP_SCALE: that setting moves the runtime march
-// bound, while this asset addressing must stay fixed. Keep it paired with
-// sky-baker pack finalize and the bake manifest.
+// bound, while this asset addressing must stay fixed.
 const float ATM_MS_BAKE_DIP_KM = 8.0;
 const float ATM_MS_SPAN_KM = ATM_ATMO_MINUS_P + ATM_MS_BAKE_DIP_KM;
 const float ATM_MS_RCP_SPAN = 1.0 / ATM_MS_SPAN_KM;
@@ -34,7 +33,7 @@ vec3 AtmosphereCameraPosition() {
 // scaling by powers of two commutes with IEEE rounding and sqrt exactly
 // (RN(4x) = 4*RN(x), sqrt(4x) = 2*sqrt(x)), so t0/t1 and the disc <= 0
 // predicate are bit-identical to the doubled form. Comparisons keep the
-// original unscaled thresholds: the half-form roots equal the old values.
+// unscaled thresholds, which the half-form roots equal.
 bool RayIntersectSphere(vec3 origin, vec3 dir, float radius, out float t0, out float t1) {
     float b = dot(origin, dir);
     float c = dot(origin, origin) - radius * radius;

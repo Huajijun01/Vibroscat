@@ -59,7 +59,6 @@ const HenyeyGreensteinTripleLobe CIRRUS_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.92, 0.1, // forward silver-lining peak
     0.3, 0.7,  // forward mid
     0.2, 0.2); // backward
-const float NOISE2D_SIZE = 64.0;
 // Effective slab thickness: the shell is sampled once, so slanted view paths
 // integrate extinction over H / |cos| instead of a fixed step.
 const float CIRRUS_LAYER_THICKNESS_KM = 1.0;
@@ -73,29 +72,10 @@ const float CIRRUS_DIRECT_BODY_GAIN = 0.4;
 const float CIRRUS_BODY_DENSITY = 0.8;
 const float CIRRUS_SKY_LIGHT_WEIGHT = 0.4;
 
-// Reference cirrus shape algorithm. TIME -> frameTimeCounter; ps =
-// planet-centered position (km), horizontal zx plane only. Noise lattice
-// baked into the periodic 64x64 R8 texture; uv = fract((pos + 0.5)/64),
-// linear + repeat. pos kept in [0, 64) via mod (octave transforms must not
-// destroy float precision on planet-centered input).
+// Cirrus coverage density. ps = planet-centered position (km), horizontal
+// zx plane only. Two atlas reads at ps.xz * 0.005 (coarse field) and
+// ps.xz * 0.06 (detail field), contrast-shaped below.
 float CirrusCoverageDensity(vec3 ps) {
-    // vec2 pos = ps.zx * 0.15;
-
-    // float noise = 0.0;
-    // float p = 0.5;
-
-    // float wind = 0.02 * frameTimeCounter;
-
-    // pos = mod(pos * vec2(1.0, 2.2) + vec2(0.08, 0.8) * wind, NOISE2D_SIZE);
-
-    // for (int i = 1; i < 6; ++i) {
-    //     noise += add;
-    //     p *= 0.5;
-    //     pos = mod(pos * vec2(3.0, 2.0) + vec2(wind * float(i), 0.0) + vec2(0.0, add), NOISE2D_SIZE);
-    // }
-
-    // return exp(smoothstep(0.0, 1.0, noise) * -5.0);
-
     // A zero coarse field cannot survive subtracting the nonnegative detail.
     // This raw atlas has one bilinear level; explicit LOD is valid in both stages.
     float large = saturate((textureLod(utex_cloud_distribution_tex, ps.xz * 0.005, 0.0).x - 0.15) / 0.85);
@@ -154,8 +134,8 @@ vec3 CirrusPhaseScattering(vec3 sample_position, vec3 view_dir, float sample_den
         in_scattering += GetAmbientColorAt(CIRRUS_RADIUS_KM, sun_mu)
             * (CLOUD_SKY_LIGHT_STRENGTH * CIRRUS_SKY_LIGHT_WEIGHT);
     }
-    // sigma_s == sigma_t, and density > 1e-5 keeps sigma_t above its old
-    // denominator guard: sigma_s * (1 - T) / sigma_t reduces to (1 - T).
+    // sigma_s == sigma_t, so sigma_s * (1 - T) / sigma_t reduces to (1 - T);
+    // density > 1e-5 keeps the extinction away from zero.
     return in_scattering * (1.0 - sample_transmittance);
 }
 

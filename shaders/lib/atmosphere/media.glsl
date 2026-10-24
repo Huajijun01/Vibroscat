@@ -7,15 +7,14 @@
 
 // ===============================================================
 // Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
-// Wavelengths: 450, 510, 580, 650 nm (sky-tracer realtime bands)
+// Wavelengths: 450, 510, 580, 650 nm
 // Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 6).
 // One jointly fitted Mie model replaces the per-species aerosol and
 // stratospheric sulfate evaluation: it carries the visible sulfate
 // contribution, so the runtime medium no longer evaluates a separate sulfate
 // layer. The fit targets the installed transmittance and multiscatter LUTs,
-// which stay unchanged and still hold the pre-merge species bake. The merged
-// Mie fit is labeled "compact75"; only the per-band coefficients follow
-// sky-tracer's OPAC/libRadtran tables. Provenance:
+// and its per-band coefficients follow the OPAC/libRadtran tables.
+// Provenance:
 // licenses/THIRD_PARTY_NOTICES.md section 14.
 // ===============================================================
 
@@ -66,7 +65,7 @@ const vec4 ATM_OZONE_SIGMA = 381.0 * ATM_OZONE_TENT_PEAK
 // fits, and the extinction fit already contains absorption. The coefficients
 // are km^-1 at sea level, ordered [450, 510, 580, 650] nm. The mask is C1 at
 // h = 0 and at Hc; negative altitude follows the signed Rayleigh continuation.
-// Source: the merged "compact75" fit (licenses/THIRD_PARTY_NOTICES.md section 14).
+// Source: the joint aerosol + sulfate fit (licenses/THIRD_PARTY_NOTICES.md section 14).
 const float ATM_MIE_COMPACT_H_KM = 2.3632245061346153;
 const float ATM_MIE_COMPACT_INV_H = 1.0 / ATM_MIE_COMPACT_H_KM;
 // Multiply-add constant -R / Hc for the radius-space height ratio.
@@ -168,8 +167,8 @@ AtmosphereMedia AtmosphereMediaAt(float r) {
     media.sigma_s_mie = ray_density * (ATM_MIE_BG_S + ATM_MIE_NEAR_S * mie_weight);
     media.sigma_e_mie = ray_density * (ATM_MIE_BG_E + ATM_MIE_NEAR_E * mie_weight);
     media.sigma_a_ozone = OzoneTentShape(r) * ATM_OZONE_SIGMA;
-    // Same association as the previous separate sums (Rayleigh + Mie first,
-    // then ozone), so the totals keep one rounding path.
+    // Fixed association: Rayleigh + Mie first, then ozone, so the totals
+    // keep one rounding path.
     media.sigma_t = (media.sigma_s_ray + media.sigma_e_mie) + media.sigma_a_ozone;
     media.sigma_s = media.sigma_s_ray + media.sigma_s_mie;
     return media;

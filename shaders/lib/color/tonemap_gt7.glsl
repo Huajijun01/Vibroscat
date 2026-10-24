@@ -16,7 +16,7 @@
 // highlight, so saturated highlights roll off without the per-channel hue
 // twist. The sample's frame-buffer domain (1.0 = 100 nits, linear
 // Rec.2020, SDR paper white 250 nits) is entered and left through the
-// BT.709 <-> BT.2020 matrices below. The pack's pre-rewrite SDR adaptation
+// BT.709 <-> BT.2020 matrices below. The pack's SDR adaptation
 // anchors scene 18% gray at 18% display-linear and approaches paper white
 // smoothly; see GT7_MID_GREY_SCALE and the alpha-0 shoulder below.
 // ===========================================================================
@@ -85,7 +85,7 @@ vec3 ICtCpToRGB(vec3 ictcp) {
 }
 
 // GT Tone Mapping Curve V2: the official SDR toe and linear section, with
-// the pack's pre-rewrite alpha = 0 shoulder (official sample: 0.25).
+// the pack's alpha = 0 shoulder (official sample: 0.25).
 // Its asymptote is paper white, preserving highlight gradation in SDR
 // instead of overshooting white and relying on the final hard clamp.
 const float GT7_PEAK = 2.5;
@@ -105,7 +105,7 @@ const float GT7_CHROMA_FADE_END = 1.16;
 // value is 0.602561.
 const float GT7_TARGET_LUMA_UCS = 0.6025591550;
 // Solve 0.4 * GT7Curve(scale * 0.18) = 0.18 for the scene exposure key.
-// Fold the input scale into the primaries matrix, as before c1fe8b6.
+// Fold the input scale into the primaries matrix.
 const float GT7_MID_GREY_SCALE = 2.508318700610;
 const mat3 SRGB_TO_BT2020_SCALED = SRGB_TO_BT2020 * GT7_MID_GREY_SCALE;
 

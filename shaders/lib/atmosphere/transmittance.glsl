@@ -55,8 +55,7 @@ void GetTransmittanceLUTUVPair(float r, float r2, float mu, out vec2 uv_pos, out
 // centers; no additional half-texel remap. The normalized denominator stays
 // in [1/8, 1] for mu in [-1, 1]. V spans the bake's signed altitude range
 // [-8, 120] km, so the 32 row centers sit at -6, -2, ..., 118 km; the real
-// radius is passed in, including below the ground line. Keep this paired with
-// sky-baker pack finalize.
+// radius is passed in, including below the ground line.
 vec2 GetMultiScatterLUTUV(float r, float mu) {
     float den = saturate(0.875 * abs(mu) + 0.125);
     float inv_den = 1.0 / den;

@@ -37,11 +37,6 @@
 // ============================================================================
 
 
-// Per-block STBN: x = slice rotation, y = horizon-step dither. Point-sampled
-// Slice-plane tangent at the block-dithered azimuth around the toward-camera
-// axis: built once per pixel in ComputeGTAOFromGeometry (the basis depends
-// only on view_axis) and rotated per slice below.
-
 // Screen-space unit direction along the projected tangent and the pixel
 // length of the full search radius (projection of GTAO_RADIUS). center_ndc is
 // the caller's hoisted ViewToNDC(center_view).xy, loop-invariant across the
@@ -214,7 +209,7 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
 }
 
-// Preserve the existing recursive-GI entry point.
+// Entry point used by the recursive-GI pass.
 float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
     float center_depth = texelFetch(depthtex2, center_texel, 0).r;

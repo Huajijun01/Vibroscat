@@ -22,6 +22,7 @@ float Luminance(vec3 c) {
 }
 
 // Linear sRGB (D65) -> CIE XYZ, shared by colorimetric models (scotopic
+// estimation in /lib/color/purkinje.glsl).
 
 const mat3 SRGB_TO_XYZ = mat3(
     vec3(0.4124564, 0.2126729, 0.0193339),

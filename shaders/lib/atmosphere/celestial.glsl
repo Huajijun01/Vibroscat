@@ -158,8 +158,7 @@ vec2 StarMapEquirectUV(vec3 rd) {
 
 // Per-ray celestial context shared by the star map and the disc renderer:
 // both consume the same sun direction, camera radius, and horizon clip, so a
-// caller that renders both evaluates them once. The individual expressions
-// match the previous per-renderer computations exactly.
+// caller that renders both evaluates them once.
 struct CelestialContext {
     vec3 sun_dir;
     vec3 camera_pos;

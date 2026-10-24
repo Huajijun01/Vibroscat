@@ -89,10 +89,6 @@ float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
         if (sample_depth >= 1.0) {
             continue;  // sky: not an occluder
         }
-        // Cosine-weighted visibility (eq. 1): occludes only inside the
-        // normal hemisphere (offset along the normal, weighted by the
-        // cosine). Flat planes fail (offset in-plane), walls/corners pass.
-        // Faded by a smooth window over the radius.
         vec3 surface_view = NDCToViewSparse(sample_ndc, sample_depth * 2.0 - 1.0);
         vec3 offset = surface_view - center_view;
         float offset_len_sq = dot(offset, offset);
@@ -115,7 +111,7 @@ float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     return saturate(1.0 - occlusion / float(SSAO_SAMPLES));
 }
 
-// Preserve the existing recursive-GI entry point.
+// Entry point used by the recursive-GI pass.
 float ComputeSSAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
     float center_depth = texelFetch(depthtex2, center_texel, 0).r;

@@ -25,9 +25,9 @@
 #include "/lib/lighting/ssao.glsl"
 #include "/lib/lighting/temporal_ao.glsl"
 
-// Keep the original pixel mapping and sample coordinates. Larger neighboring
-// groups reduced the scattered-depth path's GPU time on the profiling target;
-// all half-resolution texels still update every frame.
+// Each invocation covers one 2x2 full-res block regardless of the group
+// shape, so the pixel mapping and sample coordinates below are independent
+// of this size. All half-resolution texels still update every frame.
 layout(local_size_x = 16, local_size_y = 32) in;
 const vec2 workGroupsRender = vec2(0.5, 0.5);
 

@@ -137,8 +137,8 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
 #endif
 
     // Batch four consecutive original steps to expose independent depth reads
-    // before consuming any hit. This reduces deferred4 GPU time on the tested
-    // RTX 5070 Ti; larger batches regressed. Keep scalar stride updates and hit
+    // before consuming any hit. This reduces the deferred4 GPU time; larger
+    // batches regressed. Keep scalar stride updates and hit
     // products ordered to preserve sample positions and plant accumulation.
     for (int i = 0; i < march_steps; i += 4) {
         vec4 sample_t;

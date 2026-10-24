@@ -124,7 +124,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
 
     // Transmitted Milky Way glow, evaluated once and shared by both layers:
     // it is a function of the view ray and the background map alone, so both
-    // layer composites used to evaluate the identical call. Isotropic single
+    // layer composites evaluate the identical call. Isotropic single
     // scattering of a constant background integrates to source * (1 - T) over
     // the marched column, and the deck's scattering albedo is 1, so each
     // layer scales the shared glow by its own (1 - T) share; a missed layer

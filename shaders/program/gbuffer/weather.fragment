@@ -24,9 +24,8 @@ void main() {
     alpha *= u_rain_particle_opacity;
     // Decode before the blend. The attachment holds one value per pixel and the
     // fixed-function blend accumulates into it, so the sheet must enter that
-    // blend already linear: premultiplying in sRGB and decoding afterwards (what
-    // air fog used to do) pushes coverage through an sRGB curve and darkens the
-    // sheet far more than the coverage itself.
+    // blend already linear: premultiplying in sRGB and decoding afterwards
+    // pushes coverage through an sRGB curve and darkens the sheet far more
+    // than the coverage itself.
     out_weather = vec4(ToLinear(tex.rgb * v_color.rgb), alpha);
-    // out_weather = vec4(0.0, 1.0, 0.0, 1.0);
 }

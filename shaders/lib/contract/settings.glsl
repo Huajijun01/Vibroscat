@@ -204,6 +204,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 1.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
 #define RSM_DIRECTIONAL_SKY // Directional sky visibility for RSM with GTAO; extra shading cost.
+//#define SSGI_DIRECTIONAL_SKY // Directional sky visibility for SSGI; extra GPU cost.
 #define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
 
 // ==========================================================================
@@ -515,6 +516,15 @@ const float centerDepthHalflife = 1.0;
 #define RSM_DIRECTIONAL_SKY_ACTIVE
 #endif
 
+// Directional sky ambient for the SSGI fallback reconstructs a directional
+// moment from the trace's own visibility bitmask, so the sky SH is weighted
+// by the directions that stay open instead of the undirected miss fraction.
+// First version applies only to Overworld SSGI (GI_MODE=1), independently of
+// AO_MODE; RSM, no-GI and other dimensions keep their existing paths.
+#if defined(SSGI_DIRECTIONAL_SKY) && GI_MODE == 1 && defined(WORLD_OVERWORLD)
+#define SSGI_DIRECTIONAL_SKY_ACTIVE
+#endif
+
 #if defined(AO_TEMPORAL)
 #define AO_TEMPORAL_ENABLED
 #endif
@@ -588,6 +598,8 @@ const float centerDepthHalflife = 1.0;
 #endif
 // GI
 #ifdef RSM_DIRECTIONAL_SKY
+#endif
+#ifdef SSGI_DIRECTIONAL_SKY
 #endif
 // Water
 #ifdef OPAQUE_REFLECTION

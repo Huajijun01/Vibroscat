@@ -130,6 +130,13 @@ GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Li
 自此不在本包残留；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其
 设计层面采用 2×2 历史模式比较。
 
+追记（2026-10-24）：SSGI 回退的可选方向天空可见性
+（`lib/lighting/ssgi_sky_visibility.glsl`，`SSGI_DIRECTIONAL_SKY`）为本包
+自有数学，不属于 GT-VBGI 参考：它把追踪的占用位掩码经八个四比特组的
+条件方向均值与 Walsh 变换归约为方向矩，并按可见质量缩放天空 SH 的 L2
+波段。各组系数由本项目离线拟合；SH 漫反射传输常数沿用
+`lib/atmosphere/sky_light.glsl` 所引 Ramamoorthi & Hanrahan 2001。
+
 ## 16. Reflective Shadow Maps 与时域重建（算法引用）
 
 `shaders/lib/lighting/rsm_data.glsl`、`reflective_shadow_map.glsl` 和

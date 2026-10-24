@@ -12,6 +12,10 @@
 #include "/lib/lighting/gi_denoise.glsl"
 #include "/lib/lighting/gi_history.glsl"
 #include "/lib/lighting/gi_sampling.glsl"
+#if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
+#include "/lib/lighting/lightmap.glsl"
+#include "/lib/lighting/ssgi_sky_visibility.glsl"
+#endif
 #if GI_MODE == 2
 #include "/lib/lighting/ambient_occlusion.glsl"
 #include "/lib/lighting/gtao.glsl"
@@ -121,8 +125,18 @@ uint VisibilityMaskFromRange(vec2 range01) {
 }
 
 vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise,
-        out float coverage, out float second_moment) {
+        out float coverage, out float second_moment
+#if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
+        , out vec3 sky_direction_moment_view
+#endif
+        ) {
     second_moment = 0.0;
+#if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
+    // Degenerate early exits below report zero coverage, so the directional
+    // moment starts at the full-visibility hemisphere mean (2/3)*n; the
+    // normal path overwrites it after the march.
+    sky_direction_moment_view = (2.0 / 3.0) * origin_normal_view;
+#endif
     vec3 view_dir = -normalize(origin_view_position);
     vec4 q_to_view = QuaternionFromViewDirection(view_dir);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
@@ -253,6 +267,14 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         if (occupied == 0xFFFFFFFFu) break;
     }
     coverage = clamp(hit_coverage, 0.0, 1.0);
+#if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
+    // Directional moment of the visible sectors, in the slice frame the
+    // march already built: v = view_dir, t = ray_direction. Only computed
+    // once the occupancy mask is final; nothing here feeds back into the
+    // march or its CDF.
+    vec2 moment_cs = SSGISkySliceMoment(occupied, 1.0 - coverage, angle_normal);
+    sky_direction_moment_view = view_dir * moment_cs.x + ray_direction * moment_cs.y;
+#endif
     return gi;
 }
 
@@ -332,12 +354,34 @@ void main() {
     raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, gi_noise.xy,
         fallback, ambient_ao, sample_sigma);
 #else
-    fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     float coverage;
     float second_moment;
     // x samples the slice, y jitters march steps, z jitters sector arcs.
     // The screen-space trace builds its slice basis in view space.
     vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
+#if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
+    vec3 sky_direction_moment_view;
+    raw_gi = TraceGI(receiver_view + normal_view * 0.003, normal_view, gi_noise,
+        coverage, second_moment, sky_direction_moment_view);
+    // Directional sky fallback: the trace's visible mass and directional
+    // moment replace the undirected AmbientLight share, so occluders tint
+    // the sky ambient by the directions they block. The L2 band joins
+    // scaled by the visible mass instead of being traced; all bands sum
+    // signed and the single max() below is the receiver's non-negative
+    // limit - there is no open-sky upper bound on this single-slice
+    // estimator. The ambient floor scales with the visible mass. The
+    // fallback response scale stays unused: its sigma has no consumer, and
+    // recomputing a full-sky fallback for it would double the sky
+    // evaluation this path exists to replace.
+    float visible_mass = 1.0 - coverage;
+    vec3 moment_world = mat3(gbufferModelViewInverse) * sky_direction_moment_view;
+    vec3 visible_sky = max(
+        EvalSSGISkyFromMoment(visible_mass, moment_world, fallback_normal), vec3(0.0));
+    raw_gi += visible_sky * SkyLightFromLm(geometry_data.w) * SKY_AMBIENT_STRENGTH
+        + vec3(AMBIENT_FLOOR) * visible_mass;
+    sample_sigma = 0.0;
+#else
+    fallback = AmbientLight(fallback_normal, vec3(1.0), geometry_data.w);
     raw_gi = TraceGI(receiver_view + normal_view * 0.003, normal_view, gi_noise,
         coverage, second_moment);
     float miss_fraction = 1.0 - coverage;
@@ -348,6 +392,7 @@ void main() {
     float mean_luminance = Luminance(raw_gi);
     sample_sigma = sqrt(max(second_moment + fallback_luminance * fallback_luminance * miss_fraction
         - mean_luminance * mean_luminance, 0.0));
+#endif
     raw_gi = clamp(raw_gi, vec3(0.0), vec3(SSGI_RADIANCE_LIMIT));
 #endif
     GIReprojectedHistory history = ReprojectGIHistory(receiver_world, fallback_normal);

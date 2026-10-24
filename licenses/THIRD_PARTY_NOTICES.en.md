@@ -135,6 +135,15 @@ Sundial-Lite expression remains in this pack. The temporal reconstruction in
 `gi_denoise.glsl` is an independent SVGF-style implementation; its
 design-level comparison uses a 2x2 history pattern.
 
+Addendum (2026-10-24): the optional directional sky visibility of the SSGI
+fallback (`lib/lighting/ssgi_sky_visibility.glsl`, `SSGI_DIRECTIONAL_SKY`) is
+this pack's own mathematics, not part of the GT-VBGI reference: it reduces the
+trace's occupancy bitmask to a directional moment through eight conditional
+four-bit group means combined by a Walsh transform, and scales the sky SH's L2
+band by the visible mass. The coefficients are fitted offline by this project;
+the underlying SH diffuse transport follows Ramamoorthi & Hanrahan 2001 as
+cited in `lib/atmosphere/sky_light.glsl`.
+
 ## 16. Reflective Shadow Maps and temporal reconstruction (algorithmic references)
 
 The RSM source encoding, sampling and reconstruction in

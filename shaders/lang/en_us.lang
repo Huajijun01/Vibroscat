@@ -462,6 +462,8 @@ suffix.SSGI_THICKNESS = \ m
 option.SSGI_THICKNESS.comment = Assumed thickness of hit surfaces: higher = thin geometry blocks bounce light (less leak); lower = more light passes through.
 option.SSGI_RADIANCE_LIMIT = SSGI Radiance Limit
 option.SSGI_RADIANCE_LIMIT.comment = Caps the stored bounce light: lower = fewer bright firefly sparkles, dimmer bounce highlights.
+option.SSGI_DIRECTIONAL_SKY = Directional Sky Light
+option.SSGI_DIRECTIONAL_SKY.comment = Lets nearby walls and overhangs tint the sky ambient of the screen-space GI by the directions they block: directional L0/L1 visibility with the L2 band scaled by open visibility. An approximation. Requires SSGI in the Overworld. Adds GPU cost; off by default.
 option.RSM_STRENGTH = RSM Strength
 option.RSM_STRENGTH.comment = Intensity of the bounced sunlight. Direct sun and sky ambient are unaffected.
 option.RSM_DIRECTIONAL_SKY = Directional Sky Light

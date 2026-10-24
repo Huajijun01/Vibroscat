@@ -34,7 +34,15 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     sample_sigma = 0.0;
     float availability = 1.0 - smoothstep(max(shadowDistance - RSM_RADIUS, 0.0),
         shadowDistance, length(receiver_view));
-    if (availability <= 0.0) return sky_fallback * ambient_ao;
+    if (availability <= 0.0) {
+        // Outside the shadow map the fallback is all there is: with
+        // directional sky it already carries its own occlusion and floor.
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+        return sky_fallback;
+#else
+        return sky_fallback * ambient_ao;
+#endif
+    }
 
     vec3 receiver_shadow = (shadowModelView * vec4(receiver_world + normal_world * 0.03, 1.0)).xyz;
     vec3 normal_shadow = normalize(mat3(shadowModelView) * normal_world);
@@ -132,7 +140,13 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     float mean_coverage = sum_coverage / rsm_sample_count;
     // AO belongs to the uncovered environment, not transported RSM bounce.
     // Apply it before the moments so their fallback matches what is returned.
+    // The directional-sky fallback above already includes its occlusion and
+    // floor, so it enters uncovered coverage without a second AO product.
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+    vec3 uncovered_sky = sky_fallback;
+#else
     vec3 uncovered_sky = sky_fallback * ambient_ao;
+#endif
     // A first-surface RSM only approximates receiver visibility; overlapping
     // solid angles and stochastic overshoot cannot remove more than all SH.
     float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;

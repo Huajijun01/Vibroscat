@@ -301,6 +301,19 @@ void main() {
     // Evaluate at the actual GI receiver. Both its AO-weighted sky and RSM
     // bounce enter the same temporal history and guided reconstruction.
     vec2 ao_noise = SampleSTBNPair(tx / 2, frameCounter, STBN_STREAM_3, ivec2(0));
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+    // Directional sky fallback: the fused GTAO/sky call replaces the plain
+    // AO estimate, and the fallback it produces is already occluded and
+    // floor-scaled. raw_ao is saved before ApplySurfaceAO applies its
+    // exponent; the AO-remapped directional gap must use the raw visibility.
+    GTAOSkyResult sky_visibility = ComputeGTAOSkyFromGeometry(
+        uv, scene_depth, geometry_data.xy, ao_noise, sky_normal);
+    float raw_ao = sky_visibility.ao;
+    float screen_ao = raw_ao;
+    vec3 ambient_ao = ApplySurfaceAO(screen_ao, ToLinear(material_data.rgb));
+    fallback = AmbientLightWithSkyVisibility(sky_visibility.open_sky,
+        sky_visibility.visible_sky, raw_ao, ambient_ao, geometry_data.w);
+#else
 #if AO_MODE == 1
     float screen_ao = ComputeGTAOFromGeometry(uv, scene_depth, geometry_data.xy, ao_noise);
 #elif AO_MODE == 2
@@ -314,6 +327,7 @@ void main() {
     vec3 ambient_ao = vec3(screen_ao);
 #endif
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
+#endif
     // GI owns its temporal reconstruction, independently of the final TAA.
     raw_gi = GatherRSM(receiver_world, receiver_view, fallback_normal, gi_noise.xy,
         fallback, ambient_ao, sample_sigma);

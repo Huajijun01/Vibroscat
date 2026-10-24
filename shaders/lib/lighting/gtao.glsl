@@ -6,6 +6,10 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+#include "/lib/atmosphere/sky_light.glsl"
+#include "/lib/lighting/sky_visibility.glsl"
+#endif
 
 // ============================================================================
 // GTAO - horizon-based ambient occlusion (Jimenez et al. 2016)
@@ -143,12 +147,45 @@ float BlockedArc(float a, float b, float normal_angle, float inv_normal_length, 
         + b * (0.5 * (hi - lo) - 0.25 * (sin(2.0 * hi) - sin(2.0 * lo))), 0.0);
 }
 
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+// Combined GTAO and directional sky visibility at one receiver. ao is the raw
+// geometric GTAO before strength and multibounce. open_sky is the full
+// analytic EvalSkyLight at the shading normal; visible_sky is that irradiance
+// with the L1 sky field integrated over the same GTAO blocked arcs,
+// clamped to [0, open_sky] at the receiver only. Neither RGB output carries
+// lightmap, SKY_AMBIENT_STRENGTH, material response or the ambient floor;
+// ambient_light.glsl owns that composition.
+struct GTAOSkyResult {
+    float ao;
+    vec3 open_sky;
+    vec3 visible_sky;
+};
+#endif
+
 // Screen-space GTAO at one receiver (full-res UV, pre-fetched depth and oct
 // normal). stbn_noise is the SampleSTBNPair pair sampled by the pass main.
-// Returns AO in [0,1].
-float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2 stbn_noise) {
+// Returns AO in [0,1]. With RSM_DIRECTIONAL_SKY_ACTIVE the same horizon
+// search also integrates the raw L1 sky field over the blocked arcs: one
+// SearchHorizons call per slice feeds both results, and the function returns
+// the combined GTAOSkyResult.
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+GTAOSkyResult ComputeGTAOSkyFromGeometry(vec2 uv, float center_depth,
+        vec2 normal_oct, vec2 stbn_noise, vec3 sky_normal_world) {
+    GTAOSkyResult result;
+    result.ao = 1.0;
+    result.open_sky = EvalSkyLight(sky_normal_world);
+    result.visible_sky = result.open_sky;
+#else
+float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
+        vec2 normal_oct, vec2 stbn_noise) {
+#endif
     if (center_depth >= 1.0) {
-        return 1.0;  // sky: fully open
+        // sky: fully open
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+        return result;
+#else
+        return 1.0;
+#endif
     }
     vec3 center_view = NDCToViewSparse(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0);
     vec3 view_axis = normalize(-center_view);  // toward camera
@@ -170,6 +207,15 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     // The center projection is identical for every slice; hoist the identical
     // expression out of the slice loop.
     vec2 center_ndc = ViewToNDC(center_view).xy;
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+    // Sky arcs evaluate the world-axis L1 field: rotate the view basis to
+    // world once here; each slice rotates only its tangent.
+    mat3 view_to_world = mat3(gbufferModelViewInverse);
+    vec3 view_axis_world = view_to_world * view_axis;
+    SkyLinearField sky_field = BuildSkyLinearField(view_axis_world);
+    float sky_ndotv = dot(sky_normal_world, view_axis_world);
+    vec3 blocked_sky = vec3(0.0);
+#endif
     // The slice tangents form one fixed-rotation orbit; a recurrence pair
     // replaces the per-slice cos/sin calls. The rotation runs before any
     // slice-level continue so every iteration advances the angle.
@@ -190,11 +236,23 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
 
         // Projected-normal angle in the slice plane.
         float ndott = dot(normal_view, tangent);
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+        vec3 tangent_world = view_to_world * tangent;
+        float sky_ndott = dot(sky_normal_world, tangent_world);
+        // Skip the search only when the projection degenerates for both
+        // normals: a normal-mapped sky normal can still carry sky energy in a
+        // slice whose geometric projection is zero.
+        bool geometric_arc_open = abs(ndott) + abs(ndotv) >= 1.0e-4;
+        if (!geometric_arc_open && abs(sky_ndott) + abs(sky_ndotv) < 1.0e-4) {
+            continue;
+        }
+#else
         if (abs(ndott) + abs(ndotv) < 1.0e-4) {
             continue;  // slice perpendicular to the normal_view: zero contribution
         }
         float theta_n = atan(ndott, ndotv);
         float inv_normal_length = inversesqrt(ndott * ndott + ndotv * ndotv);
+#endif
 
         vec2 screen_dir;
         float radius_px;
@@ -202,12 +260,40 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
 
         vec2 horizons = SearchHorizons(uv, center_view, screen_dir, radius_px,
             center_depth, view_axis, stbn_noise.y);
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+        if (geometric_arc_open) {
+            float theta_n = atan(ndott, ndotv);
+            float inv_normal_length = inversesqrt(ndott * ndott + ndotv * ndotv);
+            occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
+                + BlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
+        }
+        // The opposite side parameterizes omega = v*cos - t*sin: only the
+        // sin-coefficient terms change sign.
+        SkyArcPolynomial sky_arc = BuildSkyArcPolynomial(sky_field, tangent_world);
+        blocked_sky += IntegrateSkyBlockedArc(sky_arc, sky_ndotv, sky_ndott, horizons.x);
+        sky_arc.sin_term = -sky_arc.sin_term;
+        blocked_sky += IntegrateSkyBlockedArc(sky_arc, sky_ndotv, -sky_ndott, horizons.y);
+#else
         occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
             + BlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
+#endif
     }
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+    result.ao = clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
+    // Phi is uniform over [0, pi) across GTAO_SLICES slices, so the arc sum
+    // becomes irradiance with the full PI/GTAO_SLICES measure (the scalar AO
+    // normalization already folds AO's 1/pi into its own definition). The
+    // clamp runs only here: arcs stay linear so raw SH negative lobes cancel
+    // across slices instead of biasing each arc positive.
+    result.visible_sky = clamp(result.open_sky
+        - blocked_sky * (PI / float(GTAO_SLICES)), vec3(0.0), result.open_sky);
+    return result;
+#else
     return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
+#endif
 }
 
+#if !defined(RSM_DIRECTIONAL_SKY_ACTIVE)
 // Entry point used by the recursive-GI pass.
 float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     ivec2 center_texel = ivec2(texel);
@@ -216,5 +302,6 @@ float ComputeGTAO(vec2 uv, vec2 texel, vec2 stbn_noise) {
     vec2 normal_oct = texelFetch(colortex4, center_texel, 0).xy;
     return ComputeGTAOFromGeometry(uv, center_depth, normal_oct, stbn_noise);
 }
+#endif
 
 #endif // LIB_LIGHTING_GTAO_GLSL

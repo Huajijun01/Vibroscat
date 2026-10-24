@@ -203,6 +203,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define RSM_SAMPLES 8 // [8 16 32 64]
 #define RSM_RADIUS 8.0 // [2.0 4.0 8.0 12.0 16.0 24.0]
 #define RSM_STRENGTH 1.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
+//#define RSM_DIRECTIONAL_SKY // Directional sky visibility for RSM with GTAO; extra shading cost.
 #define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
 
 // ==========================================================================
@@ -505,6 +506,15 @@ const float centerDepthHalflife = 1.0;
 #define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
 #endif
 
+// Directional sky ambient for the RSM fallback integrates the raw sky SH
+// over the GTAO horizon arcs, so occluders tint the sky light by direction.
+// First version applies only to Overworld RSM (GI_MODE=2) with GTAO
+// (AO_MODE=1); other AO algorithms, SSGI, no-GI and other dimensions keep
+// their existing paths.
+#if defined(RSM_DIRECTIONAL_SKY) && GI_MODE == 2 && AO_MODE == 1 && defined(WORLD_OVERWORLD)
+#define RSM_DIRECTIONAL_SKY_ACTIVE
+#endif
+
 #if defined(AO_TEMPORAL)
 #define AO_TEMPORAL_ENABLED
 #endif
@@ -575,6 +585,9 @@ const float centerDepthHalflife = 1.0;
 #ifdef AO_TEMPORAL
 #endif
 #ifdef GTAO_MULTIBOUNCE
+#endif
+// GI
+#ifdef RSM_DIRECTIONAL_SKY
 #endif
 // Water
 #ifdef OPAQUE_REFLECTION

@@ -25,7 +25,7 @@ void main() {
     float shadow_ndc_z = shadow_clip.z * 0.5 + 0.5 - 0.0001;
     v_shadow_proj_pos = vec3(shadow_ndc_xy, ProtectShadowDepth(shadow_ndc_z));
 
-    gl_Position = gl_ProjectionMatrix * vec4(view_pos, 1.0);
+    gl_Position = ViewToClip(gl_ProjectionMatrix, view_pos);
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif

@@ -55,6 +55,21 @@ vec3 ViewToNDC(vec3 view_pos) {
     return clip / -view_pos.z;
 }
 
+// View space to clip space for positions (homogeneous w = 1). Sparse forward
+// form of the full mat4 product under the symmetric-perspective structure
+// documented above: rows 0/1 carry only their diagonal entries, row 2 only
+// its z/w entries, and the w row is exactly [0, 0, -1, 0]. Callers pass the
+// pass-local matrix explicitly: gl_ProjectionMatrix carries the MC_HAND_DEPTH
+// clip-Z scale in gbuffers_hand(_water), which Iris applies as a
+// left-multiplied row scale that leaves the w row untouched, while
+// gbufferProjection always holds the unscaled world projection.
+vec4 ViewToClip(mat4 projection, vec3 view_pos) {
+    return vec4(projection[0].x * view_pos.x,
+        projection[1].y * view_pos.y,
+        projection[2].z * view_pos.z + projection[3].z,
+        -view_pos.z);
+}
+
 // Reconstructs a camera-relative player-space position from screen UV and depth.
 vec3 DepthToWorldPos(vec2 uv, float depth) {
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, depth * 2.0 - 1.0));

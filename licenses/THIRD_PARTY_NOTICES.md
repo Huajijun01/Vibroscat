@@ -11,7 +11,7 @@ Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义�
 - `shaders/lib/lighting/brdf.glsl` 的 `GetNdotHSquared`（GGX 球形区域光，Newton 迭代弯曲光方向）曾转录自 Photon 的 `include/lighting/bsdf.glsl`；现已按 Guerrilla Decima Engine 公开讲座材料（Johan Andersson, SIGGRAPH 2017）重新转录，见第 10 节，不再包含 Photon 代码表达。
 - `shaders/lib/lighting/temporal_ao.glsl` 的时序 AO 深度/offcenter 拒绝（GTAO_DEPTH_REJECTION=16.0、GTAO_OFFCENTER_STRENGTH=0.25，与 Photon `d3_ao.fsh` 相同；offcenter 技巧由 Photon 自身标注源自 Zombye/Jessie）已整体重写为独立实现（世界位移 + 法线一致性拒绝，见该文件头注释），原公式与常量已全部删除。
 
-Photon 自定义许可协议中的再分发限制不适用于本包当前代码。历史移植与清理记录保留在 Git 历史中。
+Photon 自定义许可协议中的再分发限制不适用于本包当前代码。
 
 ## 2. AgX（概念；当前实现见第 3 节）
 
@@ -95,7 +95,7 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 
 ## 12. SSR 血统与独立重写（chocapic13）
 
-`lib/raytrace/ssr.glsl` 原实现属 chocapic13 血统（早期来源标注有误，已更正）。当前文件已整体重写为独立实现：线性深度命中判据、覆盖屏幕边界或远平面的常数步长、区间折半细化，未沿用原结构、常量或写法。重写记录保留在 Git 历史中。
+`lib/raytrace/ssr.glsl` 原实现属 chocapic13 血统（早期来源标注有误，已更正）。当前文件已整体重写为独立实现：线性深度命中判据、覆盖屏幕边界或远平面的常数步长、区间折半细化，未沿用原结构、常量或写法。
 
 ## 13. 其它数学/惯例引用
 
@@ -106,9 +106,7 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 
 ## 14. 大气模型出处说明
 
-`lib/atmosphere/` 的 4-波谱大气模型自 2026-10 起改用包作者研究项目 sky-tracer（Rust/wgpu，GPL-3.0）的 OPAC/libRadtran 输入表：波长 450/510/580/650 nm，介质为 US-standard 空气、臭氧与 inso/waso/soot/suso 四种气溶胶的分段线性剖面，密度/相位模型参考 Hillaire 2020（见第 6 节）。透射与多重散射 LUT 由 sky-baker `pack` 子命令在 GPU 上以逐阶迭代多散射解烘焙（含 8 km 地平线下探几何），替换了此前 HSPEAtmosCreator 工具（不入库）的 fms 不动点近似烘焙。运行时直射单散射仍使用包作者调参的三叶 HG Mie 混合相位；烘焙内部使用 sky-tracer 的逐物种 1024-bin Mie 相位表。研究工具不随包分发。
-
-2026-10-18 的 MS LUT 重烘仅更换最终输出的太阳方向节点：采用独立代数推导的有理映射 `q = mu*(0.5 + 4/(1 + 7*abs(mu)))`，32 列包含两端 mu = ±1，运行时 `u = 0.5 + (31/64)*q`。内部输运的三次高度角节点与物理输入保持原样；该寻址公式没有从其他光影包移植代码。
+`lib/atmosphere/` 的 4-波谱大气模型使用 OPAC/libRadtran 的输入表：波长 450/510/580/650 nm，介质为 US-standard 空气、臭氧与 inso/waso/soot/suso 四种气溶胶的分段线性剖面。密度/相位模型参考 Hillaire 2020（见第 6 节）。其余模型、拟合与烘焙均为本包自有实现。
 
 ## 15. GT-VBGI / ReferenceGI（CC0 1.0）
 

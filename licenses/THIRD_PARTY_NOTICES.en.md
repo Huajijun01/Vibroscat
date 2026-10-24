@@ -11,7 +11,7 @@ Photon Shaders (Copyright © 2021-2025 Benjamin Stott "SixthSurge", custom licen
 - `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` (GGX spherical-area light with Newton-iterated bent light direction) was transcribed from Photon's `include/lighting/bsdf.glsl`; it has since been re-transcribed from the Guerrilla Decima Engine public lecture material (Johan Andersson, SIGGRAPH 2017), see section 10, and no longer contains Photon code expression.
 - The temporal AO depth/offcenter rejection in `shaders/lib/lighting/temporal_ao.glsl` (GTAO_DEPTH_REJECTION=16.0, GTAO_OFFCENTER_STRENGTH=0.25, matching Photon's `d3_ao.fsh`; the offcenter trick is itself attributed by Photon to Zombye/Jessie) has been fully rewritten as an independent implementation (world-space displacement + normal-consistency rejection, see the file header comment); the original formulas and constants have been deleted.
 
-The redistribution restrictions of Photon's custom license do not apply to the pack's current code. The historical port and cleanup records remain in the Git history.
+The redistribution restrictions of Photon's custom license do not apply to the pack's current code.
 
 ## 2. AgX (concept; current implementation in section 3)
 
@@ -97,7 +97,7 @@ The index-of-refraction recovery in `F0ToIOR` uses the Blender EEVEE approximati
 
 ## 12. SSR lineage and independent rewrite (chocapic13)
 
-The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage (an earlier source label was corrected). The current file has been fully rewritten as an independent implementation: linear-depth hit criterion, constant-step march covering screen edges or the far plane, interval bisection refinement; no original structure, constants, or wording are retained. The rewrite record remains in the Git history.
+The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage (an earlier source label was corrected). The current file has been fully rewritten as an independent implementation: linear-depth hit criterion, constant-step march covering screen edges or the far plane, interval bisection refinement; no original structure, constants, or wording are retained.
 
 ## 13. Other mathematical/convention references
 
@@ -108,9 +108,7 @@ The original implementation of `lib/raytrace/ssr.glsl` was of chocapic13 lineage
 
 ## 14. Atmosphere model provenance note
 
-Since October 2026, the four-wave atmosphere model in `lib/atmosphere/` uses OPAC/libRadtran input tables from the pack author's sky-tracer research project (Rust/wgpu, GPL-3.0): 450/510/580/650 nm, US-standard air and ozone, and piecewise-linear profiles for inso/waso/soot/suso aerosols. Density/phase models reference Hillaire 2020 (section 6). The GPU `sky-baker pack` mode bakes transmittance and iterative multiple-scattering LUTs with the 8 km below-horizon geometry, replacing the earlier HSPEAtmosCreator fixed-point bake. Runtime direct single scattering retains the author's tuned triple-lobe HG Mie phase; the bake uses sky-tracer's per-species 1024-bin Mie phase tables. The research tool is not distributed with the pack.
-
-The 2026-10-18 MS rebake changes only the final solar-direction output nodes. Its independently derived rational map is `q = mu*(0.5 + 4/(1 + 7*abs(mu)))`, with 32 columns including mu = -1 and +1, and runtime `u = 0.5 + (31/64)*q`. The internal cubic elevation grid and physical inputs are unchanged. This addressing formula does not transplant code from another shader pack.
+The four-wave atmosphere model in `lib/atmosphere/` uses OPAC/libRadtran input tables: 450/510/580/650 nm, US-standard air and ozone, and piecewise-linear profiles for the inso/waso/soot/suso aerosols. Density/phase models reference Hillaire 2020 (section 6). The remaining model, fits, and bakes are this pack's own implementation.
 
 ## 15. GT-VBGI / ReferenceGI (CC0 1.0)
 

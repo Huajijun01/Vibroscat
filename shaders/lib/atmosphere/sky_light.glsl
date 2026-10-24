@@ -105,6 +105,27 @@ vec3 EvalSkyLight(vec3 normal_world) {
     return max(irradiance, 0.0);
 }
 
+// L=2 band alone of the sky irradiance. The directional sky visibility
+// integrates the L0/L1 field over its blocked arcs exactly and estimates the
+// blocked L2 share as this band scaled by the cosine-weighted blocked
+// fraction, so the per-slice arc polynomial stays at three RGB terms. No
+// clamp here: a negative lobe legitimately reduces the correction, and the
+// receiver clamps the composed result once.
+vec3 EvalSkyLightL2(vec3 normal_world) {
+    float x = normal_world.x;
+    float y = normal_world.y;
+    float z = normal_world.z;
+    float basis_y20 = SH_Y20 * (3.0 * y * y - 1.0);
+    float y2yz = SH_Y21 * y * z;
+    float y2xz = SH_Y21 * x * z;
+    float y2xy = SH_Y21 * x * y;
+    float y2x2z2 = SH_Y22 * (x * x - z * z);
+    return SH_A2 * vec3(
+        dot(sky_sh_r1, vec4(basis_y20, y2yz, y2xz, y2xy)) + sky_sh_r2.x * y2x2z2,
+        dot(sky_sh_g1, vec4(basis_y20, y2yz, y2xz, y2xy)) + sky_sh_g2.x * y2x2z2,
+        dot(sky_sh_b1, vec4(basis_y20, y2yz, y2xz, y2xy)) + sky_sh_b2.x * y2x2z2);
+}
+
 // Isotropic component of the SH sky irradiance (L0 only). Used for
 // multiple-scattered air/water fog, where the scattered light is treated as
 // direction-independent instead of using the view-direction irradiance.

@@ -151,8 +151,9 @@ float BlockedArc(float a, float b, float normal_angle, float inv_normal_length, 
 // Combined GTAO and directional sky visibility at one receiver. ao is the raw
 // geometric GTAO before strength and multibounce. open_sky is the full
 // analytic EvalSkyLight at the shading normal; visible_sky is that irradiance
-// with the L1 sky field integrated over the same GTAO blocked arcs,
-// clamped to [0, open_sky] at the receiver only. Neither RGB output carries
+// with the L0/L1 sky field integrated over the same GTAO blocked arcs plus
+// the blocked fraction applied to the L2 band of the same estimate, clamped
+// to [0, open_sky] at the receiver only. Neither RGB output carries
 // lightmap, SKY_AMBIENT_STRENGTH, material response or the ambient floor;
 // ambient_light.glsl owns that composition.
 struct GTAOSkyResult {
@@ -220,6 +221,10 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
     float sky_ndotv = dot(sky_normal_world, view_axis_world);
     float sky_ndott_t = dot(sky_normal_world, world_slice_t);
     float sky_ndott_b = dot(sky_normal_world, world_slice_b);
+    // Hoisted before the slice loop: the same evaluation in the function
+    // epilogue compiled into a far slower register allocation on this pass
+    // (paired A/B: ~106 us vs ~9 us at GTAO_SLICES=2).
+    vec3 sky_l2_blocked = EvalSkyLightL2(sky_normal_world);
     vec3 blocked_sky = vec3(0.0);
 #endif
     // The slice tangents form one fixed-rotation orbit; a recurrence pair
@@ -296,14 +301,20 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
 #endif
     }
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-    result.ao = clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
+    float blocked_fraction = occlusion / float(GTAO_SLICES);
+    result.ao = clamp(1.0 - blocked_fraction, 0.0, 1.0);
     // Phi is uniform over [0, pi) across GTAO_SLICES slices, so the arc sum
     // becomes irradiance with the full PI/GTAO_SLICES measure (the scalar AO
     // normalization already folds AO's 1/pi into its own definition). The
     // clamp runs only here: arcs stay linear so raw SH negative lobes cancel
-    // across slices instead of biasing each arc positive.
+    // across slices instead of biasing each arc positive. The arcs carry the
+    // L0/L1 field only; the blocked L2 share is the same cosine-weighted
+    // blocked fraction the AO accumulates, applied to the L2 band of the
+    // hemisphere estimate instead of a larger arc polynomial.
     result.visible_sky = clamp(result.open_sky
-        - blocked_sky * (PI / float(GTAO_SLICES)), vec3(0.0), result.open_sky);
+        - blocked_sky * (PI / float(GTAO_SLICES))
+        - blocked_fraction * sky_l2_blocked,
+        vec3(0.0), result.open_sky);
     return result;
 #else
     return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);

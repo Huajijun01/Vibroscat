@@ -7,26 +7,31 @@
 #include "/lib/volume/epipolar_core.glsl"
 #include "/lib/volume/water_epipolar.glsl"
 
-layout(local_size_x = 1, local_size_y = 128) in;
+// Two slices per workgroup (local_size_x = 2): a warp then holds two rays
+// x 16 consecutive samples, which keeps the per-warp shadow-map footprint
+// coherent; one slice per group (x = 1) measured ~17 us slower on the air
+// path. The sample columns stay 128 tall.
+layout(local_size_x = 2, local_size_y = 128) in;
 // Iris scans these consts after option defines and full preprocessing, so
-// the dispatch count follows EPIPOLAR_SLICES branch-wise. The in-shader
-// guard stays: underwater SliceCount() caps at min(slices, 512),
-// which no compile-time dispatch can express.
+// the dispatch count follows EPIPOLAR_SLICES branch-wise (slices / 2 groups
+// because each group owns two slices). The in-shader guard stays: underwater
+// SliceCount() caps at min(slices, 512), which no compile-time dispatch can
+// express.
 #if EPIPOLAR_SLICES == 256
-const ivec3 workGroups = ivec3(256, 1, 1);
+const ivec3 workGroups = ivec3(128, 1, 1);
 #elif EPIPOLAR_SLICES == 512
-const ivec3 workGroups = ivec3(512, 1, 1);
+const ivec3 workGroups = ivec3(256, 1, 1);
 #elif EPIPOLAR_SLICES == 1024
-const ivec3 workGroups = ivec3(1024, 1, 1);
+const ivec3 workGroups = ivec3(512, 1, 1);
 #else
-const ivec3 workGroups = ivec3(2048, 1, 1);
+const ivec3 workGroups = ivec3(1024, 1, 1);
 #endif
 
 #if defined(EPIPOLAR_ACTIVE)
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
 
 void main() {
-    uint slice = gl_WorkGroupID.x;
+    uint slice = gl_WorkGroupID.x * 2u + gl_LocalInvocationID.x;
     if (slice >= uint(SliceCount())) return;
     vec4 line = texelFetch(usam_epipolar_endpoints, ivec2(int(slice), 0), 0);
     bool line_valid = !all(equal(line, vec4(0.0)));

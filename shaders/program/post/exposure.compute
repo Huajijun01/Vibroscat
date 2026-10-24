@@ -16,7 +16,11 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/color/spaces.glsl"
 
-layout(local_size_x = 512) in;
+// 1024 threads per group: the dispatch is only 64 blocks, so wider groups
+// are the only way to raise in-flight warps (512 threads left roughly half
+// the warp slots idle and measured 3-4 us slower). The 64-group count stays
+// fixed - it is the ExposureData contract below.
+layout(local_size_x = 1024) in;
 const ivec3 workGroups = ivec3(8, 8, 1);
 
 // Per-axis sampling stride. 1 = every pixel, 2 = every other pixel per axis.
@@ -32,8 +36,8 @@ layout(r11f_g11f_b10f) readonly uniform image2D colorimg5;
 #define SCENE_HDR_IMAGE colorimg5
 #endif
 
-shared float log_cache[512];
-shared float weight_cache[512];
+shared float log_cache[1024];
+shared float weight_cache[1024];
 shared uint histogram_cache[64];
 
 void main() {
@@ -75,7 +79,7 @@ void main() {
     uint sample_index = start + tid;
     uint row = sample_index / grid_w;
     uint col = sample_index - row * grid_w;
-    for (; sample_index < end; sample_index += 512u) {
+    for (; sample_index < end; sample_index += 1024u) {
         ivec2 pos = ivec2(col * AE_SAMPLE_STRIDE + phase_x, row * AE_SAMPLE_STRIDE + phase_y);
         vec3 c = imageLoad(SCENE_HDR_IMAGE, pos).rgb;
         float luminance = max(Luminance(max(c, vec3(0.0))), 1.0e-5);
@@ -92,7 +96,7 @@ void main() {
             0.0, 63.0));
         atomicAdd(histogram_cache[bin], sample_weight);
 
-        col += 512u;
+        col += 1024u;
         while (col >= grid_w) {
             col -= grid_w;
             row += 1u;
@@ -103,7 +107,7 @@ void main() {
     weight_cache[tid] = weight_sum;
     barrier();
 
-    for (uint s = 256u; s > 0u; s >>= 1u) {
+    for (uint s = 512u; s > 0u; s >>= 1u) {
         if (tid < s) {
             log_cache[tid] += log_cache[tid + s];
             weight_cache[tid] += weight_cache[tid + s];

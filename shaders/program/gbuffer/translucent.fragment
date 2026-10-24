@@ -46,7 +46,7 @@ layout(location = 2) out vec4 out_surface_high;
 vec3 WaterFogCol() {
     vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(v_view_pos));
     return FastWaterFogRadiance(v_sun_light_col, v_ambient_col,
-        dot(world_view_dir, normalize(u_world_light_dir)));
+        dot(world_view_dir, u_world_light_dir));
 }
 
 void main() {
@@ -63,11 +63,10 @@ void main() {
         // Same BRDF configuration as deferred4 (shared BRDF helper).
         vec3 surface_normal_view = normalize(v_normal);
         vec3 view_to_eye = -normalize(v_view_pos);
-        vec3 light_dir = u_view_light_dir;
         vec3 direct_lighting;
         vec3 lambert_brdf;
         vec3 diffuse_reflectance;
-        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
+        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
         float shadow = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
         float torch_light = BlockLightFromLm(v_texcoord.z);
@@ -112,12 +111,11 @@ void main() {
 #if defined(WORLD_OVERWORLD) && defined(RAIN_WETNESS) && defined(RAIN_RIPPLES)
         // Add world-space slopes before the existing underwater inversion,
         // grazing clamp, SSR, glint and refraction all consume the normal.
-        float rain_weight = u_rain_weight;
-        if (rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
+        if (u_rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
             // v_texcoord.w arrives normalized from the vertex stage.
             float rain_sky_light = v_texcoord.w;
-            float ripple_weight = rain_weight * RAIN_RIPPLE_STRENGTH
+            float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH
                 * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);
             if (ripple_weight > 0.001) {
                 vec2 slope = SampleRainRippleSlope(v_world_pos.xz) * ripple_weight;
@@ -145,7 +143,7 @@ void main() {
         current_normal = SoftClampWaterNormal(current_normal, to_camera);
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
         // Refraction perturbation stored for blend: the clamped normal minus
-        // the flat-surface reference in the wave field's frame — world up
+        // the flat-surface reference in the wave field's frame: world up
         // for horizontal faces (either side: the up-frame wave normal and
         // its underwater negation both referenced +up), the face normal
         // itself for vertical faces. Flat faces give no offset.
@@ -216,15 +214,12 @@ void main() {
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
 
     vec3 view_to_eye = -view_dir;
-    vec3 surface_normal_view = current_normal;
-    vec3 light_dir = u_view_light_dir;
 
-    float ndotv = saturate(dot(surface_normal_view, view_to_eye));
-    float ndotl = saturate(dot(surface_normal_view, light_dir));
-    float ldotv = dot(light_dir, view_to_eye);
-    // For unit V and L, H = normalize(V+L) gives L·H == sqrt((1 + L·V)/2).
-    // The half vector has no other consumer on this path, so build the
-    // cosine directly instead of the vector and its dot.
+    float ndotv = saturate(dot(current_normal, view_to_eye));
+    float ndotl = saturate(dot(current_normal, u_view_light_dir));
+    float ldotv = dot(u_view_light_dir, view_to_eye);
+    // For unit V and L, H = normalize(V + L) gives ldoth == sqrt((1 + ldotv) / 2);
+    // the half vector has no other consumer on this path.
     float ldoth = sqrt(max(1.0 + ldotv, 0.0) * 0.5);
     vec3 sun_light = v_sun_light_col * shadow;
     vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
@@ -243,7 +238,6 @@ void main() {
     // come from contract/settings.glsl (same constants as the rendered sky
     // discs); the active light is the sun when it is above the horizon (world
     // light direction y > 0), otherwise the moon.
-    float light_radius = u_light_disc_radius;
 
     float sun_f0 = v_id == 1 ? water_f0 : f0;
     vec3 sun_fresnel = FresnelSchlick(ldoth, vec3(sun_f0));
@@ -253,7 +247,7 @@ void main() {
     // angle in both models, so a positive N.L is the only gate the area-light
     // math needs.
     if (ndotl > 1e-4) {
-        float ndoth2 = GetNdotHSquared(ndotl, ndotv, ldotv, light_radius);
+        float ndoth2 = GetNdotHSquared(ndotl, ndotv, ldotv, u_light_disc_radius);
         sun_specular = DistributionGGXNdotH2(ndoth2, sun_roughness)
                * VisibilitySmithGGXCorrelated(ndotv, ndotl, sun_roughness)
                * sun_fresnel;

@@ -23,9 +23,9 @@ flat in int v_epipolar_pole_in_screen;
 
 layout(location = 0) out vec3 out_color;
 
-// Boundary fog: fade near-boundary geometry into the cloud-free sky so the
-// loaded-area edge is masked instead of cutting off. Returns scene blended
-// toward the sky color; sky pixels (depth >= 1.0) are returned unchanged.
+// Boundary fog: fade near-boundary geometry into the cloud-free sky, masking
+// the loaded-area edge. Returns scene blended toward the sky color; sky
+// pixels (depth >= 1.0) are returned unchanged.
 vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_depth, float radius) {
 #ifdef BOUNDARY_FOG
     if (scene_depth < 1.0) {
@@ -40,8 +40,7 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
             1.0);
         if (boundary_amount > 0.0) {
             // Cloud-free sky LUT sampled along the actual view direction.
-            vec3 sun_dir = u_world_sun_dir;
-            vec2 sky_uv = SkyLUTUV(world_dir, sun_dir, ATM_PLANET_R, u_cam_altitude);
+            vec2 sky_uv = SkyLUTUV(world_dir, u_world_sun_dir, ATM_PLANET_R, u_cam_altitude);
             vec3 boundary_color = texture(usam_skylut, sky_uv).rgb;
             scene = mix(scene, boundary_color, boundary_amount);
         }
@@ -84,9 +83,6 @@ void main() {
     // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
     vec3 world_dir = normalize(world_pos - EyePositionWorldSpace());
 
-    // Boundary fog: fade near-boundary geometry into the cloud-free sky so the
-    // loaded-area edge is masked instead of cutting off. Sky
-    // pixels (depth >= 1.0) keep the actual sky and are left untouched.
     scene = ApplyBoundaryFog(scene, world_pos, world_dir, scene_depth, far);
 
 #ifdef AIR_FOG
@@ -98,8 +94,7 @@ void main() {
 #endif
     AirFogResult fog = AirFogRender(world_dir, length_m, AirFogProfile(), AirFogReferenceMedium(), visibility);
     // Eye skylight suppresses the outdoor medium inside caves/interiors.
-    float sky_access = u_eye_sky_access;
-    scene = scene * mix(vec3(1.0), fog.transmittance, sky_access) + fog.in_scattering * sky_access;
+    scene = scene * mix(vec3(1.0), fog.transmittance, u_eye_sky_access) + fog.in_scattering * u_eye_sky_access;
 #endif
 
     out_color = scene;
@@ -122,7 +117,7 @@ void main() {
         float weather_lm_sky = 1.0;
         if (scene_depth < 1.0) weather_lm_sky = texelFetch(colortex4, tx, 0).a;
 
-        float weather_cos_theta = dot(world_dir, normalize(u_world_light_dir));
+        float weather_cos_theta = dot(world_dir, u_world_light_dir);
         // EvalSkyLight(vec3(0,1,0)) with the constant up direction folded:
         // only L0 and the y L1 basis survive here, plus the L2 y^2 self term
         // (2 * Y20); z/x L1 and the mixed L2 monomials vanish on the axis.

@@ -2,6 +2,7 @@
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 
@@ -49,7 +50,7 @@ void main() {
     // Same vanilla lightmap normalization as solid.vertex: the shared
     // lighting curves (AmbientLight, BlockLightFromLm, SkyLightFromLm) are
     // anchored on a [0, 1] domain, not the raw [1/32, 31/32] matrix output.
-    v_texcoord.zw = clamp(v_texcoord.zw * 1.103449 - 0.0689656, 0.0, 1.0);
+    v_texcoord.zw = saturate(v_texcoord.zw * 1.103449 - 0.0689656);
 
 // gbuffers_water also receives glass/ice: the water flag must come from
 // block.properties (block.80), not the program.

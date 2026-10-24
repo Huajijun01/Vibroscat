@@ -158,7 +158,7 @@ void main() {
             // bytes before the xzy swizzle and 0.25-scale decode.
             vec3 surface_data = UnpackTranslucentSurface(refraction_data.rgb,
                 texelFetch(colortex1, tx, 0).rgb);
-            vec3 waves_delta = surface_data.xzy * 4.0 - 2.0;
+            vec3 waves_delta = (surface_data.xzy * 2.0 - 1.0) * 4.0;
             vec3 waves_delta_view = (gbufferModelView * vec4(waves_delta, 0.0)).xyz;
 
             refract_coord = -waves_delta_view.xy;

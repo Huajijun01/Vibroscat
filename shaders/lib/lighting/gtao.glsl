@@ -236,6 +236,15 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
         // pair up to the same residual), and the slice plane consumes only
         // its direction.
         vec3 tangent = slice_t * slice_cos + slice_b * slice_sin;
+#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+        // The recurrence below advances (slice_cos, slice_sin) to the next
+        // slice, so the sky terms must be assembled from this slice's angle:
+        // the horizon search runs along `tangent`, built from the same
+        // pre-advance values.
+        float sky_ndott = slice_cos * sky_ndott_t + slice_sin * sky_ndott_b;
+        vec3 sky_sin_term = slice_cos * sky_field.sin_term_t
+            + slice_sin * sky_field.sin_term_b;
+#endif
         float next_c = slice_cos * slice_step_c - slice_sin * slice_step_s;
         slice_sin = slice_sin * slice_step_c + slice_cos * slice_step_s;
         slice_cos = next_c;
@@ -243,7 +252,6 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
         // Projected-normal angle in the slice plane.
         float ndott = dot(normal_view, tangent);
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-        float sky_ndott = slice_cos * sky_ndott_t + slice_sin * sky_ndott_b;
         // Skip the search only when the projection degenerates for both
         // normals: a normal-mapped sky normal can still carry sky energy in a
         // slice whose geometric projection is zero.
@@ -278,8 +286,7 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
             SkyArcPolynomial sky_arc;
             sky_arc.constant_term = sky_field.constant_term;
             sky_arc.cos_term = sky_field.cos_term;
-            sky_arc.sin_term = slice_cos * sky_field.sin_term_t
-                + slice_sin * sky_field.sin_term_b;
+            sky_arc.sin_term = sky_sin_term;
             blocked_sky += IntegrateSkyBlockedArcPair(sky_arc, sky_ndotv,
                 sky_ndott, horizons);
         }

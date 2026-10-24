@@ -25,9 +25,8 @@ float EncodeSquaredDepth(float screen_depth) {
 float ReadDepthSample(vec2 uv) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
     float encoded_depth = texture(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25)).r;
-    // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX): the constant leaves the
-    // square root as one multiply, and the CPU folds its divide by the
-    // inverse-depth row sum.
+    // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX); the CPU folds the
+    // inverse-depth row-sum divide into u_squared_depth_decode.
     return sqrt(encoded_depth) * u_squared_depth_decode;
 #else
     return textureLod(depthtex1, SceneTextureUV(uv), 0.0).r;

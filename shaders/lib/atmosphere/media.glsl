@@ -9,11 +9,11 @@
 // Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
 // Wavelengths: 450, 510, 580, 650 nm
 // Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 6).
-// One jointly fitted Mie model replaces the per-species aerosol and
-// stratospheric sulfate evaluation: it carries the visible sulfate
-// contribution, so the runtime medium no longer evaluates a separate sulfate
-// layer. The fit targets the installed transmittance and multiscatter LUTs,
-// and its per-band coefficients follow the OPAC/libRadtran tables.
+// The Mie model is a single jointly fitted aerosol that carries the visible
+// stratospheric sulfate contribution, so the medium has no separate sulfate
+// layer evaluation. The fit targets the installed transmittance and
+// multiscatter LUTs, and its per-band coefficients follow the OPAC/libRadtran
+// tables.
 // Provenance:
 // licenses/THIRD_PARTY_NOTICES.md section 14.
 // ===============================================================
@@ -115,8 +115,8 @@ const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 // km. Callers hold the real signed radius (the sky march carries r_mid), so
 // negative altitude below the ground line thickens the horizon dip instead of
 // folding back to sea level. Each height term is a plain a * r + b that the
-// compiler contracts to one FMA, and the march no longer materialises
-// h = r - R for the medium. Only the transmittance LUT radius is clamped at
+// compiler contracts to one FMA, and the march never forms h = r - R for
+// the medium. Only the transmittance LUT radius is clamped at
 // its call site; the multiscatter LUT takes the real signed radius down to
 // the bake's -8 km row. That addressing protection must not truncate density.
 float DensityRayR(float r) {

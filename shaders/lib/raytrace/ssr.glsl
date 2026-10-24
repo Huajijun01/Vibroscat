@@ -78,11 +78,10 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_dir, bool toward_eye) {
     // roughly far * 4.0 (ShaderDoc, uniform far). The no-crossing fallback
     // must exceed the oblique distance to the true far plane, or chords stop
     // short of it and their sky end never classifies.
-    float clip_far_distance = u_clip_far_distance;
     vec2 edge_near_t = ClipRayScreenCoordT(origin_clip, direction_clip,
-        1.0, clip_far_distance * 4.0);
+        1.0, u_clip_far_distance * 4.0);
     vec2 edge_far_t = ClipRayScreenCoordT(origin_clip, direction_clip,
-        -1.0, clip_far_distance * 4.0);
+        -1.0, u_clip_far_distance * 4.0);
     float trace_length = min(min(edge_near_t.x, edge_near_t.y),
         min(edge_far_t.x, edge_far_t.y));
     // Choose the forward NDC depth boundary; the far exit is behind
@@ -186,6 +185,7 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
         bracket.previous_ray_depth);
     float behind_delta = DepthResidual(bracket.surface_sample,
         bracket.ray_depth);
+    vec3 hit_pos;
 #ifdef SSR_INTERPOLATION
     for (int j = 0; j < OPAQUE_SSR_BISECT_STEPS; ++j) {
         vec3 mid_pos = 0.5 * (front_pos + behind_pos);
@@ -201,9 +201,9 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
     }
     float hit_fraction = clamp(-front_delta
         / max(behind_delta - front_delta, 1e-20), 0.0, 1.0);
-    vec3 hit_pos = mix(front_pos, behind_pos, hit_fraction);
+    hit_pos = mix(front_pos, behind_pos, hit_fraction);
 #else
-    vec3 hit_pos = behind_pos;
+    hit_pos = behind_pos;
 #endif
     float hit_surface = ReadDepthSample(hit_pos.xy);
     bool hit_sky = DepthSampleIsSky(hit_surface);
@@ -225,7 +225,7 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
 }
 
 // Refine the accepted crossing: unconditional bisection localizes the depth
-// flip inside the march bracket — planar faces and silhouette steps alike —
+// flip inside the march bracket (planar faces and silhouette steps alike),
 // then one chord-domain correction reads the surface at the bisected
 // position and projects the hit onto it, which restores the interpolation's
 // exact landing on planar surfaces without clamping the jittered endpoint.

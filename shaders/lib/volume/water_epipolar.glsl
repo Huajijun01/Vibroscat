@@ -15,19 +15,15 @@
 // second attenuation is applied to scene color. The source is constant along
 // the unrefracted world sun direction, including its projection to the pole.
 vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, float ray_jitter) {
-    float sun_height = u_water_sun_height;
-    float sky_access = u_water_skylight;
-    if (sun_height <= 0.0 || sky_access <= 0.0) return vec3(0.0);
+    if (u_water_sun_height <= 0.0 || u_water_skylight <= 0.0) return vec3(0.0);
 
     float length_m = min(distance_m, WATER_GODRAYS_DISTANCE_M);
     vec3 ray_delta = direction_world * length_m;
     vec3 start_absolute_pos = start_world + cameraPosition;
     // No refraction. This projection has zero derivative along worldSunDir.
-    vec2 sun_slope = u_sun_slope;
-    vec2 entry_xz = start_world.xz + sun_slope * (CAUSTIC_PLANE_Y - start_world.y);
+    vec2 entry_xz = start_world.xz + u_sun_slope * (CAUSTIC_PLANE_Y - start_world.y);
     vec2 source_uv = CAUSTIC_ABSOLUTE_TO_UV * (entry_xz - u_caustic_advection);
-    vec2 source_delta = CAUSTIC_ABSOLUTE_TO_UV * (ray_delta.xz - sun_slope * ray_delta.y);
-    float source_time = u_caustic_source_time;
+    vec2 source_delta = CAUSTIC_ABSOLUTE_TO_UV * (ray_delta.xz - u_sun_slope * ray_delta.y);
 
     vec3 shadow_start = ProjectToShadowClip(start_world);
     vec3 shadow_end = ProjectToShadowClip(start_world + ray_delta);
@@ -46,7 +42,7 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
         vec3 next_transmittance = exp(-FAST_WATERFOG_EXTINCTION * (length_m * b));
         vec3 weight = transmittance - next_transmittance;
         float irradiance = textureLod(utex_godray_caustics,
-            vec3(source_uv + source_delta * u, source_time), 0.0).r;
+            vec3(source_uv + source_delta * u, u_caustic_source_time), 0.0).r;
         // Positive caustic excess forms shafts without another uniform fog.
         float source = max(irradiance - 0.9, 0.0) * 4.0;
         float visibility = ShadowVisibility(shadow_start, shadow_end, u);
@@ -56,7 +52,7 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
     vec3 incident = ground_light.rgb * u_water_ambient_transmittance;
     float phase = PhaseCornetteShanks(dot(direction_world, u_world_sun_dir), 0.35);
     return integral * (FAST_WATERFOG_SCATTERING / FAST_WATERFOG_EXTINCTION) * incident
-        * (phase * sky_access * sky_access * sun_height * u_water_wetness_gain * WATER_GODRAYS_STRENGTH);
+        * (phase * u_water_skylight * u_water_skylight * u_water_sun_height * u_water_wetness_gain * WATER_GODRAYS_STRENGTH);
 }
 #endif // WATER_EPIPOLAR_ACTIVE
 

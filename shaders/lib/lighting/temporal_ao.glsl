@@ -24,8 +24,7 @@
 // AOHistoryWeight (the forward push the reprojection already computed).
 // Returns false when the point is behind the previous camera or off-screen.
 bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiver_prev_view) {
-    vec3 camera_delta = u_camera_delta;
-    vec4 previous_view = gbufferPreviousModelView * vec4(world_pos + camera_delta, 1.0);
+    vec4 previous_view = gbufferPreviousModelView * vec4(world_pos + u_camera_delta, 1.0);
     receiver_prev_view = previous_view.xyz;
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
     vec3 previous_ndc = previous_clip.xyz / previous_clip.w;

@@ -41,11 +41,10 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     ivec2 shadow_size = ivec2(shadowMapResolution);
     vec2 shadow_size_f = vec2(shadow_size);
     float rsm_sample_count = float(RSM_SAMPLES);
-    vec2 projection_xy = u_shadow_projection_xy;
     // The texel-extent denominator is loop-invariant; carry its reciprocal
     // so each sample trades the division for a multiply.
     vec2 texel_extent_inv_denom = 1.0
-        / ((1.0 - DISTORT_FACTOR) * abs(projection_xy) * vec2(shadow_size));
+        / ((1.0 - DISTORT_FACTOR) * abs(u_shadow_projection_xy) * vec2(shadow_size));
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
     vec3 transport_moments = vec3(0.0);
@@ -75,7 +74,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float next_azimuth_c = sample_azimuth_c * cos_step - sample_azimuth_s * sin_step;
         sample_azimuth_s = sample_azimuth_s * cos_step + sample_azimuth_c * sin_step;
         sample_azimuth_c = next_azimuth_c;
-        vec2 sample_clip = projection_xy * sample_shadow_xy + shadowProjection[3].xy;
+        vec2 sample_clip = u_shadow_projection_xy * sample_shadow_xy + shadowProjection[3].xy;
         if (any(greaterThanEqual(abs(sample_clip), vec2(1.0)))) continue;
         vec2 distort_factor = GetDistortFactor(sample_clip);
         vec2 sample_uv = sample_clip / distort_factor * 0.5 + 0.5;

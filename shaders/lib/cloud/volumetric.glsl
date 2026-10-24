@@ -14,9 +14,8 @@
 // directional phase. See licenses/THIRD_PARTY_NOTICES.md section 18.
 //
 // The direct term keeps this pack's three-octave directional sum on a
-// 1 / (1 + tau) transmittance, and the light colour holds the sun through the
-// band just below the horizon where the cloud layer still catches it. Those are
-// this pack's own choices; they are described where they are implemented.
+// 1 / (1 + tau) transmittance, and the light color holds the sun through the
+// band just below the horizon where the cloud layer still catches it.
 
 // This layer's multiple-scattering reference length, in meters. The full
 // extinction of a dense sample is 100 km^-1, so one optical depth is reached
@@ -126,9 +125,8 @@ float DistanceToShellExit(vec3 position, vec3 dir) {
 // compute pass and the temporal compositor).
 bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 previous_uv) {
     vec3 world_pos = view_dir_world * (distance_km * 1000.0);
-    vec3 camera_delta = u_camera_delta;
     vec4 previous_view = gbufferPreviousModelView
-        * vec4(world_pos + camera_delta, 1.0);
+        * vec4(world_pos + u_camera_delta, 1.0);
     vec4 previous_clip = gbufferPreviousProjection * previous_view;
     if (previous_clip.w <= 0.0) return false;
     vec3 previous_ndc = previous_clip.xyz / previous_clip.w;
@@ -144,8 +142,7 @@ float RemapCloudErosion(float density, float threshold) {
 
 // Distribution-space UV of a world-space XZ position. The first term is the
 // per-sample one; the second is the wind scroll, which no sample changes and
-// now arrives precomputed in LayerFrame. Both scale factors are setting
-// literals, so this stays a reciprocal multiply rather than a divide.
+// arrives precomputed in LayerFrame.
 vec2 DistributionUv(vec2 absolute_km, vec2 wind_offset) {
     return absolute_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + wind_offset;
 }
@@ -203,11 +200,10 @@ float DirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
 // CLOUD_COVERAGE and rainStrength, so it is constant across every sample of
 // every view and light march; the density functions read these fields rather
 // than re-deriving them (with the max() guard) per sample. distribution_floor
-// is 1 - coverage and inv_coverage is the coverage floor reciprocal, both
-// folded here so a sample
-// spends one divide instead of a divide plus a max. absolute_km_offset is the
-// camera term of the distribution-space position plus the wind scroll, which
-// no sample changes: the distribution UV is absolute_km * scale + this offset.
+// is 1 - coverage and inv_coverage is the coverage floor reciprocal.
+// absolute_km_offset is the camera term of the distribution-space position
+// plus the wind scroll, which no sample changes: the distribution UV is
+// absolute_km * scale + this offset.
 struct LayerFrame {
     float coverage;
     float distribution_floor;
@@ -433,14 +429,13 @@ float LightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_ji
 vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_jitter,
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
-    vec3 sun_dir = u_world_sun_dir;
     // The phase terms depend only on the fixed cosines and the constant octave
     // factors, so they are evaluated once per light per ray.
 #ifdef CLOUD_SINGLE_LIGHT
     // One traced direction: the antisolar fold. The sun keeps its colour through
     // the handover, see TwilightWeight at the relight.
-    float moonlight_factor = MoonlightFactor(sun_dir.y);
-    vec3 light_dir = LightDirection(sun_dir, moonlight_factor);
+    float moonlight_factor = MoonlightFactor(u_world_sun_dir.y);
+    vec3 light_dir = LightDirection(u_world_sun_dir, moonlight_factor);
     float light_cos_theta = clamp(dot(view_dir, light_dir), -1.0, 1.0);
     float light_phase_weight[CLOUD_MS_OCTAVES];
     PhaseOctaves(light_cos_theta, light_phase_weight);
@@ -448,8 +443,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     // Moon direction is u_world_moon_dir, the host-built antipode of the sun;
     // its view cosine is the exact negation of the sun's. Each light keeps its
     // own march and its own earth-occlusion gate.
-    vec3 moon_dir = u_world_moon_dir;
-    float sun_cos_theta = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
+    float sun_cos_theta = clamp(dot(view_dir, u_world_sun_dir), -1.0, 1.0);
     float sun_phase_weight[CLOUD_MS_OCTAVES];
     float moon_phase_weight[CLOUD_MS_OCTAVES];
     PhaseOctaves(sun_cos_theta, sun_phase_weight);
@@ -471,8 +465,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float view_jitter = stbn_jitter.x;
     float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;
-    // Coverage folds rainStrength, which no sample of this ray changes; build
-    // the layer constants once instead of once per sample in each density call.
+    // Coverage folds rainStrength, which no sample of this ray changes, so the
+    // layer constants are built once per ray and read by both density calls.
     LayerFrame layer_frame = LayerFrameForRay();
 #ifdef CLOUD_SINGLE_LIGHT
     float light_radiance = 0.0;
@@ -532,18 +526,18 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 #else
         float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
         float sample_sun = 0.0;
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, sun_dir, ATM_PLANET_R2)) {
+        if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = LightOpticalDepth(
-                sample_position, sun_dir, light_jitter, layer_frame);
+                sample_position, u_world_sun_dir, light_jitter, layer_frame);
             sample_sun = DirectionalScattering(sun_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
         float sample_moon = 0.0;
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, moon_dir, ATM_PLANET_R2)) {
+        if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_moon_dir, ATM_PLANET_R2)) {
             // Half-period offset decorrelates the moon march from the sun's.
             float moon_light_jitter = fract(light_jitter + 0.5);
             float light_optical_depth = LightOpticalDepth(
-                sample_position, moon_dir, moon_light_jitter, layer_frame);
+                sample_position, u_world_moon_dir, moon_light_jitter, layer_frame);
             sample_moon = DirectionalScattering(moon_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }

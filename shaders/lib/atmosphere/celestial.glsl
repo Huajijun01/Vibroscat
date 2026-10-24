@@ -54,9 +54,8 @@ float CelestialAngularMask(float cos_view, float disc_radius, float glow_radius)
 }
 
 // Fast Catmull-Rom (5-tap, "Bicubic filtering in fewer taps"): the w1/w2
-// pair is one bilinear sample at their midpoint (5 fetches instead of 16).
-// Wraps horizontally at RA 0/360; v clamped so the filter never bleeds
-// across the poles.
+// pair is one bilinear sample at their midpoint. Wraps horizontally at
+// RA 0/360; v clamped so the filter never bleeds across the poles.
 vec4 SampleStarMapFastBicubic(vec2 uv) {
     // Baked map is 4096x2048 (customTexture.utex_starmap).
     const vec2 resolution = vec2(4096.0, 2048.0);
@@ -66,13 +65,12 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
     vec2 cell_fract = fract(texel - 0.5);
     vec2 base = (floor(texel - 0.5) + 0.5) * rcp_resolution;
 
-    vec2 t = cell_fract;
-    vec2 t2 = t * t;
-    vec2 t3 = t2 * t;
+    vec2 t2 = cell_fract * cell_fract;
+    vec2 t3 = t2 * cell_fract;
     const float s = 0.5;
-    vec2 w0 = -s * t3 + 2.0 * s * t2 - s * t;
+    vec2 w0 = -s * t3 + 2.0 * s * t2 - s * cell_fract;
     vec2 w1 = (2.0 - s) * t3 + (s - 3.0) * t2 + 1.0;
-    vec2 w2 = (s - 2.0) * t3 + (3.0 - 2.0 * s) * t2 + s * t;
+    vec2 w2 = (s - 2.0) * t3 + (3.0 - 2.0 * s) * t2 + s * cell_fract;
     vec2 w3 = s * t3 - s * t2;
 
     vec2 s0 = w1 + w2;
@@ -91,7 +89,7 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
     // (w0 + w1 + w2 + w3 == 1, s0 == w1 + w2), so the outer-tap coefficients
     // collapse to 0.5*(1 -+ s0) forms and the row mix needs roughly a third
     // fewer multiplies than the expanded expression.
-    float half_outer = 0.5 * w0.x + 0.5 * w3.x;          // 0.5*(w0.x + w3.x)
+    float half_outer = 0.5 * w0.x + 0.5 * w3.x;
     vec4 row0 = (sample_a + sample_b) * half_outer + sample_a * s0.x;
     vec4 row1 = sample_b * w0.x + sample_c * s0.x + sample_d * w3.x;
     vec4 row2 = sample_b * (0.5 * w0.x) + sample_e * (0.5 * w0.x + s0.x)
@@ -171,7 +169,6 @@ CelestialContext CelestialContextFor(vec3 view_dir) {
     context.sun_dir = u_world_sun_dir;
     context.camera_pos = AtmosphereCameraPosition();
     // Same +y pin as AtmosphereCameraPosition: the radius is R + altitude.
-    float camera_r = u_camera_radius_km;
     context.camera_r2 = u_camera_radius_sq;
     context.horizon_occluded = PlanetHorizonOccluded(context.camera_pos,
         context.camera_r2, view_dir, ATM_PLANET_R2);
@@ -184,16 +181,14 @@ CelestialContext CelestialContextFor(vec3 view_dir) {
 vec3 StarMapDirection(vec3 view_dir, vec3 sun_dir) {
     const float path_cos = cos(radians(sunPathRotation));
     const float path_sin = sin(radians(sunPathRotation));
-    float cos_theta = u_star_cos_theta;
-    float sin_theta = u_star_sin_theta;
 
     // World -> celestial frame: R_z(-T) * R_y(+90).
     vec3 d = vec3(view_dir.z * path_cos + view_dir.y * path_sin,
                   view_dir.y * path_cos - view_dir.z * path_sin,
                   -view_dir.x);
     // Undo the celestial rotation about the frame's pole axis.
-    vec3 celestial = vec3(d.x, d.y * cos_theta + d.z * sin_theta,
-                          d.z * cos_theta - d.y * sin_theta);
+    vec3 celestial = vec3(d.x, d.y * u_star_cos_theta + d.z * u_star_sin_theta,
+                          d.z * u_star_cos_theta - d.y * u_star_sin_theta);
     // Celestial frame -> baked map labeling (see STAR_MAP_ALIGNMENT).
     return STAR_MAP_ALIGNMENT * celestial;
 }
@@ -225,8 +220,7 @@ vec3 StarMapGrade(vec3 star_color) {
 // cloud transmittance.
 vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext context) {
     // Day/night fade based on sun elevation (smoothstep transition).
-    float night_fade = u_star_night_fade;
-    if (night_fade <= 0.0) return vec3(0.0);
+    if (u_star_night_fade <= 0.0) return vec3(0.0);
 
     if (context.horizon_occluded) return vec3(0.0);
 
@@ -243,7 +237,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext cont
     // View-ray transmittance: dims and reddens stars toward the horizon.
     vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, vec4(1.0));
 
-    return star_color * transmittance * night_fade * STAR_MAP_INTENSITY;
+    return star_color * transmittance * u_star_night_fade * STAR_MAP_INTENSITY;
 }
 
 // Low-res Milky Way glow for area-source consumers (the clouded reflection
@@ -255,8 +249,7 @@ vec3 RenderStarMap(vec3 view_dir, vec4 view_transmittance, CelestialContext cont
 // pass vec4(1.0) transmittance when the consumer handles atmospheric
 // propagation through its own fades.
 vec3 RenderMilkyWayGlow(vec3 view_dir, vec4 view_transmittance, CelestialContext context) {
-    float night_fade = u_star_night_fade;
-    if (night_fade <= 0.0) return vec3(0.0);
+    if (u_star_night_fade <= 0.0) return vec3(0.0);
 
     if (context.horizon_occluded) return vec3(0.0);
 
@@ -264,7 +257,7 @@ vec3 RenderMilkyWayGlow(vec3 view_dir, vec4 view_transmittance, CelestialContext
     vec3 glow_color = LogLuv32ToLinear(SampleStarMapLowresBspline(uv));
     return StarMapGrade(glow_color)
         * TransmittanceToLinearSRGB(view_transmittance, vec4(1.0))
-        * night_fade * STAR_MAP_INTENSITY;
+        * u_star_night_fade * STAR_MAP_INTENSITY;
 }
 
 vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance,
@@ -277,7 +270,6 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     if (context.horizon_occluded) return sky_color;
 
     vec3 sun_dir = context.sun_dir;
-    vec3 moon_dir = u_world_moon_dir;
 
     vec3 contribution = vec3(0.0);
 
@@ -292,9 +284,9 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
             * CelestialAngularMask(sun_cos, SUN_DISC_RADIUS, SUN_GLOW_RADIUS);
     }
 
-    // moon_dir above is the exact IEEE negation of sun_dir, and negation
-    // distributes exactly through the dot product, so this is bit-identical
-    // to dot(view_dir, moon_dir).
+    // The host's moon direction is the exact IEEE negation of the sun
+    // direction, and negation distributes exactly through the dot product,
+    // so this is bit-identical to dot(view_dir, moon_dir).
     float moon_cos = -sun_cos;
     if (moon_cos > cos(MOON_GLOW_RADIUS)) {
         vec3 transmittance = TransmittanceToLinearSRGB(view_transmittance, ATM_MOON_IRR);

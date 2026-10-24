@@ -179,11 +179,10 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     const float slice_step_s = sin(PI / float(GTAO_SLICES));
     float occlusion = 0.0;
     for (int s = 0; s < GTAO_SLICES; ++s) {
-        // tangent = slice_t*cos + slice_b*sin is already a unit vector
-        // orthogonal to view_axis up to ~1e-7 (slice_t/slice_b are an exact
-        // orthonormal pair up to the same residual), and the slice plane only
-        // consumes its direction, so the old re-orthonormalization round trip
-        // is redundant.
+        // tangent = slice_t*cos + slice_b*sin stays unit and orthogonal to
+        // view_axis up to ~1e-7 (slice_t/slice_b are an exact orthonormal
+        // pair up to the same residual), and the slice plane consumes only
+        // its direction.
         vec3 tangent = slice_t * slice_cos + slice_b * slice_sin;
         float next_c = slice_cos * slice_step_c - slice_sin * slice_step_s;
         slice_sin = slice_sin * slice_step_c + slice_cos * slice_step_s;

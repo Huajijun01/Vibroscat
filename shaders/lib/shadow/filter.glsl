@@ -5,8 +5,7 @@
 
 // Separable cubic B-spline over a sampler2DShadow (Sigg-style 4 taps/axis);
 // each tap uses hardware PCF, so the 16-tap result is smoother than a single
-// lookup. Direct-shadow filtering, so it lives with the shadow domain next to
-// the PCSS/PCF family rather than in the domain-neutral core library.
+// lookup.
 float Shadow2DFastBspline(sampler2DShadow tex0, vec3 sp, float res, float texel) {
     vec2 uv = sp.xy;
 

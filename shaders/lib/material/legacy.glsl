@@ -21,7 +21,6 @@ Material MaterialDefaults(vec4 spec) {
     m.emission   = spec.b;
     m.reserved    = spec.a;
 
-    // class-based overrides disabled; the spec map alone drives the material.
     return m;
 }
 

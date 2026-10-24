@@ -58,6 +58,7 @@ int STBNFrame() {
 #endif
 }
 
+// Interleaved gradient noise (Jimenez et al. 2016).
 float InterleavedGradientNoise(vec2 pixel) {
     return fract(52.9829189
         * fract(dot(pixel, vec2(0.06711056, 0.00583715))));

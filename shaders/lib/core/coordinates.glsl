@@ -25,7 +25,7 @@ vec3 WorldToViewSpace(vec3 sp) {
 
 // NDCToView specialized to the symmetric perspective projection the game
 // builds: rows 0/1 of the inverse carry only their diagonal entries (clip
-// x/y never mix in eye z), and rows 2/3 only their z/w entries — the four
+// x/y never mix in eye z), and rows 2/3 only their z/w entries; the four
 // dropped products per component are exact zeros, so this is bit-identical
 // to the full form above. The same structure is already load-bearing in
 // LinearDepthFromScreenDepth and PreviousScreenToView. This pack's TAA
@@ -221,9 +221,8 @@ vec3 ProjectToShadowClip(vec3 world_pos) {
 }
 
 // Both shadow projections for one world position in a single sweep. The view
-// transform and diagonal clip projection are shared verbatim and the bias path
-// keeps the WithBias evaluation order, so each output is bit-identical to the
-// matching single call above.
+// transform and diagonal clip projection are shared verbatim, so the clip
+// output is bit-identical to ProjectToShadowClip.
 void ProjectToShadowPair(vec3 world_pos, float ndotl, out vec3 shadow_proj, out vec3 shadow_clip) {
     vec3 view_pos = mat3(shadowModelView) * world_pos + shadowModelView[3].xyz;
 

@@ -119,8 +119,7 @@ float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius)
     float rdotl = 2.0 * ndotl * ndotv - ldotv;
     if (rdotl >= cos_radius) return 1.0;
 
-    // cos(r) * tan(r) == sin(r) identically (|r| < pi/2), so the disc scale
-    // needs one sin instead of a cos + tan pair.
+    // cos(r) * tan(r) == sin(r) identically (|r| < pi/2).
     float scaled = sin(light_radius) * inversesqrt(1.0 - rdotl * rdotl);
     float ndott = scaled * (ndotv - rdotl * ndotl);
     float vdott = scaled * (2.0 * ndotv * ndotv - 1.0 - rdotl * ldotv);
@@ -182,9 +181,8 @@ void EvaluateBRDF(vec3 albedo, vec4 spec_tex, vec3 normal_view, vec3 view_dir, v
     float vdoth = saturate(dot(view_dir, half_dir));
     // V and L are unit and H is their normalized sum, so V.H and L.H both
     // equal (1 + V.L)/|V + L|; callers pass normalized directions.
-    float ldoth = vdoth;
 
-    direct_lighting = EvaluateDirectBRDF(albedo, mat.roughness, mat.metalness, ndotv, ndotl, ndoth, vdoth, ldoth) * ndotl;
+    direct_lighting = EvaluateDirectBRDF(albedo, mat.roughness, mat.metalness, ndotv, ndotl, ndoth, vdoth, vdoth) * ndotl;
     lambert_brdf = EvaluateLambertBRDF(albedo, mat.metalness);
     diffuse_reflectance = EvaluateDiffuseReflectance(albedo, mat.metalness);
 }

@@ -18,10 +18,10 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
     ivec2 upper_pixel = min(min(base_texel + 1, half_size - 1) * 2, full_max);
     // Clamp the final footprint to the actual scene, including odd sizes.
     vec2 fraction = clamp(vec2(texel - lower_pixel) / vec2(max(upper_pixel - lower_pixel, 1)), 0.0, 1.0);
-    // These depth/workspace reads are independent. Issue the complete footprint
-    // before receiver math and tap rejection instead of serializing each fetch
-    // behind the preceding tap's checks. Keep all addresses bounded, including
-    // zero-weight taps; the UNORM8 workspace contains only finite values.
+    // These depth/workspace reads are independent of the rejection weights:
+    // all four taps are fetched unconditionally (the UNORM8 workspace holds
+    // only finite values) and every address stays bounded, zero-weight taps
+    // included.
     float fetched_depth[4];
     vec4 fetched_data[4];
     for (int i = 0; i < 4; ++i) {

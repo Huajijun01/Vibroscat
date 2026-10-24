@@ -37,7 +37,6 @@ vec3 EvalSkyRadiance(vec3 direction, float perceptual_roughness) {
     float y = unit_direction.y;
     float z = unit_direction.z;
 
-    float basis_y0 = SH_Y0;
     float basis_y1 = SH_Y1 * y * sh_l1_weight;
     float basis_y2 = SH_Y1 * z * sh_l1_weight;
     float basis_y3 = SH_Y1 * x * sh_l1_weight;
@@ -50,13 +49,13 @@ vec3 EvalSkyRadiance(vec3 direction, float perceptual_roughness) {
     float y2x2z2 = SH_Y22 * (x * x - z * z) * sh_l2_weight;
 
     vec3 radiance = vec3(
-        dot(sky_sh_r0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
+        dot(sky_sh_r0, vec4(SH_Y0, basis_y1, basis_y2, basis_y3))
       + dot(sky_sh_r1, vec4(basis_y20, y2yz, y2xz, y2xy))
       + sky_sh_r2.x * y2x2z2,
-        dot(sky_sh_g0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
+        dot(sky_sh_g0, vec4(SH_Y0, basis_y1, basis_y2, basis_y3))
       + dot(sky_sh_g1, vec4(basis_y20, y2yz, y2xz, y2xy))
       + sky_sh_g2.x * y2x2z2,
-        dot(sky_sh_b0, vec4(basis_y0, basis_y1, basis_y2, basis_y3))
+        dot(sky_sh_b0, vec4(SH_Y0, basis_y1, basis_y2, basis_y3))
       + dot(sky_sh_b1, vec4(basis_y20, y2yz, y2xz, y2xy))
       + sky_sh_b2.x * y2x2z2);
     // Low-order SH truncation can produce negative lobes. Keep each channel
@@ -84,7 +83,6 @@ vec3 EvalSkyLight(vec3 normal_world) {
     float z = normal_world.z;
 
     // L=0,1 basis
-    float basis_y0 = SH_Y0;
     float basis_y1 = SH_Y1 * y;
     float basis_y2 = SH_Y1 * z;
     float basis_y3 = SH_Y1 * x;
@@ -97,11 +95,11 @@ vec3 EvalSkyLight(vec3 normal_world) {
     float y2x2z2 = SH_Y22 * (x * x - z * z);
 
     // Full-sphere irradiance (radiance coeffs x A_l convolution)
-    vec3 irradiance = vec3(dot(sky_sh_r0, vec4(basis_y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
+    vec3 irradiance = vec3(dot(sky_sh_r0, vec4(SH_Y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
       + dot(sky_sh_r1, vec4(basis_y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + sky_sh_r2.x * y2x2z2 * SH_A2,
-        dot(sky_sh_g0, vec4(basis_y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
+        dot(sky_sh_g0, vec4(SH_Y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
       + dot(sky_sh_g1, vec4(basis_y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + sky_sh_g2.x * y2x2z2 * SH_A2,
-        dot(sky_sh_b0, vec4(basis_y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
+        dot(sky_sh_b0, vec4(SH_Y0 * SH_A0, basis_y1 * SH_A1, basis_y2 * SH_A1, basis_y3 * SH_A1))
       + dot(sky_sh_b1, vec4(basis_y20 * SH_A2, y2yz * SH_A2, y2xz * SH_A2, y2xy * SH_A2)) + sky_sh_b2.x * y2x2z2 * SH_A2);
 
     return max(irradiance, 0.0);

@@ -66,8 +66,6 @@ float AgXCurveComponent(float value) {
     bool toe = value <= AGX_INPUT_PIVOT;
     float power = toe ? AGX_TOE_POWER : AGX_SHOULDER_POWER;
     float coefficient = toe ? AGX_TOE_A : AGX_SHOULDER_A;
-    // Both exponents are fixed constants, so select the negated reciprocal
-    // of each constant instead of dividing the runtime-selected power.
     float inverse_power = toe ? -1.0 / AGX_TOE_POWER
                               : -1.0 / AGX_SHOULDER_POWER;
     float pivot_offset = value - AGX_INPUT_PIVOT;

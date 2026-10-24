@@ -40,9 +40,8 @@ vec2 PlantDiffuseResponse(vec3 normal_world, vec3 light_dir, vec3 view_to_eye,
     float broad_target = blade ? 0.9 + 0.1 * abs(ndotl) : 1.0;
     float transmission = max(broad_target - reflection, 0.0);
     if (transmission > 0.0 && strength > 0.0) {
-        // The directional lobe adds a restrained highlight; side views keep
-        // their broad response instead of being dimmed by a narrow phase term.
-        // Leaf targets already reach the cap, so skip their phase evaluation.
+        // The directional lobe adds a restrained highlight. Leaf targets
+        // already reach the cap, so they skip the phase evaluation.
         if (broad_target < 1.0) {
             float directional = PI * PhaseHenyeyGreensteinSurfaceNormalized(
                 -dot(light_dir, view_to_eye), SHADOW_SSS_PHASE_G);

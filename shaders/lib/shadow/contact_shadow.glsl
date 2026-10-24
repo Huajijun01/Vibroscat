@@ -63,7 +63,6 @@ const float CONTACT_SHADOW_PLANT_PATH_DEPTH_SCALE = 0.5;
 // blockers: the map and skylight retain large-scale sheltering for plants.
 float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float stbn_dither, float sss_amount) {
-    vec3 light_view = u_view_light_dir;
     float receiver_distance = -receiver_view.z;
 
     // Opaque normal bias uses one pixel of world size at this depth,
@@ -124,7 +123,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         gbufferProjection[2][0], gbufferProjection[3][0]);
     vec4 clip_row_y = vec4(gbufferProjection[0][1], gbufferProjection[1][1],
         gbufferProjection[2][1], gbufferProjection[3][1]);
-    vec3 ray_step = light_view * step_scale;
+    vec3 ray_step = u_view_light_dir * step_scale;
     vec2 clip_origin = vec2(dot(clip_row_x, vec4(ray_origin, 1.0)),
         dot(clip_row_y, vec4(ray_origin, 1.0)));
     vec2 clip_step = vec2(dot(clip_row_x, vec4(ray_step, 0.0)),
@@ -136,10 +135,10 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     if (plant_receiver) depth_jitter = u_taa_offset * 0.5;
 #endif
 
-    // Batch four consecutive original steps to expose independent depth reads
-    // before consuming any hit. This reduces the deferred4 GPU time; larger
-    // batches regressed. Keep scalar stride updates and hit
-    // products ordered to preserve sample positions and plant accumulation.
+    // Batch four consecutive steps to expose the four depth reads as
+    // independent work before any hit consumes them. Stride updates and hit
+    // products stay scalar and ordered to preserve sample positions and
+    // plant accumulation.
     for (int i = 0; i < march_steps; i += 4) {
         vec4 sample_t;
         sample_t.x = travelled + stbn_dither * stride;

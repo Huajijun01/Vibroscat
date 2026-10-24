@@ -48,10 +48,8 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float sur
 // sRGB-domain white balance (the same conversion as the sky LUT), so cloud
 // and sky hues stay locked as transmittance changes through the day.
 vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
-    vec3 sun_dir = u_world_sun_dir;
-    vec3 moon_dir = u_world_moon_dir;
     float surface_r2 = surface_r * surface_r;
-    float sun_mu = dot(surface_position, sun_dir) / surface_r;
+    float sun_mu = dot(surface_position, u_world_sun_dir) / surface_r;
     // moon_mu is just -sun_mu; the host's moon_dir is the antipode of sun_dir.
     float moon_mu = -sun_mu;
     vec3 sun_color = SpectralToLinearSRGBWhiteBalanced(
@@ -69,8 +67,8 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
     // it has crossed the sea-level horizon but the layer still catches it over
     // its own dipped one, and is released once the antisolar side has taken
     // over.
-    vec3 light_color = sun_color * TwilightWeight(sun_dir.y)
-        + moon_color * MoonlightFactor(sun_dir.y);
+    vec3 light_color = sun_color * TwilightWeight(u_world_sun_dir.y)
+        + moon_color * MoonlightFactor(u_world_sun_dir.y);
     return cloud_data.x * light_color + ambient_cloud_radiance;
 #else
     return cloud_data.x * sun_color + cloud_data.y * moon_color + ambient_cloud_radiance;
@@ -91,7 +89,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     bool volumetric_hit = volumetric_radiance.z < 0.99999;
     float volumetric_transmittance = volumetric_hit ? volumetric_radiance.z : 1.0;
 
-    // Cirrus layer composite over pure sky. CIRRUS off: neutral layer — the
+    // Cirrus layer composite over pure sky. CIRRUS off: neutral layer; the
     // composite degenerates to the sky, the transmittance to 1, and the
     // surface position to the no-hit sentinel.
     vec3 cirrus_surface_pos = vec3(0.0);
@@ -146,13 +144,12 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
         }
     }
 
-    float camera_r = u_camera_radius_km;
     bool ground_hit = PlanetHorizonOccluded(AtmosphereCameraPosition(),
         u_camera_radius_sq, view_dir, ATM_PLANET_R2);
     vec4 camera_transmittance = view_transmittance;
     if (ground_hit || !view_transmittance_cached) {
         camera_transmittance = SampleTransmittance(utex_tslut,
-            camera_r, camera_r * camera_r, ground_hit ? -view_dir.y : view_dir.y);
+            u_camera_radius_km, u_camera_radius_km * u_camera_radius_km, ground_hit ? -view_dir.y : view_dir.y);
     }
     view_transmittance = camera_transmittance;
     // Ground-hit paths use the reciprocal direction, unsuitable for celestial light.

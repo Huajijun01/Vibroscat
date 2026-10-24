@@ -23,14 +23,11 @@ float WaterLightPathPerMetre() {
 // The lightmap proxy matches caustics; 1 m represents near-surface lighting.
 // Shared with the underwater reflection fallback.
 vec3 FastWaterFogRadiance(vec3 light_color, vec3 ambient_color, float light_view_cosine) {
-    float skylight = u_water_skylight;
     // A collimated beam loses both absorption and out-scattering. Diffuse
     // sky light uses an absorption-only approximation for angular redistribution.
-    vec3 direct_transmittance = u_water_direct_transmittance;
-    vec3 ambient_transmittance = u_water_ambient_transmittance;
     float phase = PhaseCornetteShanks(light_view_cosine, FAST_WATERFOG_PHASE_G);
-    vec3 illumination = ambient_color * ambient_transmittance * (PHASE_ISOTROPIC * skylight)
-        + light_color * direct_transmittance * (phase * skylight * skylight);
+    vec3 illumination = ambient_color * u_water_ambient_transmittance * (PHASE_ISOTROPIC * u_water_skylight)
+        + light_color * u_water_direct_transmittance * (phase * u_water_skylight * u_water_skylight);
     return FAST_WATERFOG_SCATTERING / FAST_WATERFOG_EXTINCTION
         * illumination * u_water_wetness_gain;
 }

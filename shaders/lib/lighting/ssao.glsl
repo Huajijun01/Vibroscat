@@ -49,9 +49,9 @@ float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
     vec3 bitangent = cross(normal_view, tangent);
 
     // The golden-angle azimuth sequence phi_k = TAU*fract(x0 + k*g) is the
-    // orbit of one fixed rotation (cos/sin have period TAU), so a single
-    // sin/cos pair seeds a rotation recurrence instead of two SFU calls per
-    // sample. Drift over SSAO_SAMPLES steps stays near 1e-6 rad.
+    // orbit of one fixed rotation (cos/sin have period TAU), so a rotation
+    // recurrence seeded by one sin/cos pair reproduces it. Drift over
+    // SSAO_SAMPLES steps stays near 1e-6 rad.
     float azimuth_c = cos(stbn_noise.x * TAU);
     float azimuth_s = sin(stbn_noise.x * TAU);
     const float azimuth_step_c = cos(TAU * GOLDEN_RATIO_CONJUGATE);

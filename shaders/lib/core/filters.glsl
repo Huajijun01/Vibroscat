@@ -61,7 +61,7 @@ vec4 FastCatmullRom5TapLod0(sampler2D tex, vec2 uv, vec2 texel_size, float sharp
         vec2(-1.0e30), vec2(1.0e30), true);
 }
 
-// Existing callers retain their original sampler wrap/clamp behavior.
+// No uv bounds: taps outside the texture follow the sampler's wrap mode.
 vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness) {
     return FastCatmullRom5Tap(tex, uv, texel_size, sharpness, vec2(-1.0e30), vec2(1.0e30));
 }

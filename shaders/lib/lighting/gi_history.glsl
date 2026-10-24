@@ -180,12 +180,11 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     result.weight = 0.0;
     result.change_count = 0.0;
     result.second_moment = 0.0;
-    vec3 camera_delta = u_camera_delta;
-    if (frameCounter < 2 || dot(camera_delta, camera_delta) > 64.0) return result;
+    if (frameCounter < 2 || dot(u_camera_delta, u_camera_delta) > 64.0) return result;
     // Sprint/flight FOV changes do not invalidate world-space history. Use
     // the actual previous projection and validate each previous surface;
     // rejecting a projection-scale change would reset the whole screen.
-    vec3 previous_view = (gbufferPreviousModelView * vec4(receiver_world + camera_delta, 1.0)).xyz;
+    vec3 previous_view = (gbufferPreviousModelView * vec4(receiver_world + u_camera_delta, 1.0)).xyz;
     vec4 previous_clip = gbufferPreviousProjection * vec4(previous_view, 1.0);
     if (previous_clip.w <= 0.0) return result;
     vec2 previous_uv = previous_clip.xy / previous_clip.w * 0.5 + 0.5;

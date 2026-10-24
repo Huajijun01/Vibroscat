@@ -24,9 +24,8 @@ ivec2 CloudCurrentImageSize() {
 // The low-res texel centers are at (id + r2_offset) * cell_size in full-res
 // pixel coordinates, so integer lattice coordinates are valid sample centers.
 vec2 CurrentGridPosition(ivec2 full_res_texel) {
-    vec2 full_size = u_render_res;
     vec2 low_size = vec2(CloudCurrentImageSize());
-    vec2 cell_size = full_size / low_size;
+    vec2 cell_size = u_render_res / low_size;
 #if CLOUD_TEMPORAL_UPSCALING == 1
     vec2 r2_offset = vec2(0.5);
 #else
@@ -69,11 +68,10 @@ bool CloudHistoryInvalid(CloudFrame history) {
 // blend in as a small positive distance), so the gate rejects exactly at the
 // reprojected position. Caller falls back to the fresh trace on a NaN frame.
 CloudFrame CloudHistorySample(vec2 previous_uv) {
-    vec2 history_size = u_render_res;
-    vec2 texel = 1.0 / history_size;
+    vec2 texel = 1.0 / u_render_res;
     vec2 clamped_uv = clamp(previous_uv, 2.0 * texel, 1.0 - 2.0 * texel);
 
-    ivec2 center_texel = ivec2(clamped_uv * history_size);
+    ivec2 center_texel = ivec2(clamped_uv * u_render_res);
     if (!(texelFetch(colortex8, center_texel, 0).a > 0.0)) {
         CloudFrame invalid;
         invalid.radiance = vec3(HISTORY_NO_CLOUD_DATA);

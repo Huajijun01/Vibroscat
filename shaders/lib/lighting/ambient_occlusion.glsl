@@ -10,8 +10,6 @@
 // irradiance together with its bounce instead of filtering AO separately.
 vec3 ApplySurfaceAO(inout float screen_ao, vec3 albedo) {
     screen_ao = clamp(screen_ao, 0.0, 1.0);
-    // The strengths are setting literals: at the default 1.0 the pow is an
-    // SFU round trip on the identity, so gate it on the constant instead.
 #if AO_MODE == 2
     if (SSAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, SSAO_STRENGTH);
 #else

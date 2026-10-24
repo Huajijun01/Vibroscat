@@ -132,14 +132,15 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 // World-space normal (y up) at the parallax-corrected position.
 void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
     xz = RiverTextureWarpPosition(xz);
+    vec2 xz_offset;
 #ifdef WATER_POM
 #if POM_BISECTION_ENABLED
-    vec2 xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
+    xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
 #else
-    vec2 xz_offset = OceanPOMOffset(xz, view_world, time);
+    xz_offset = OceanPOMOffset(xz, view_world, time);
 #endif
 #else
-    vec2 xz_offset = xz;
+    xz_offset = xz;
 #endif
     RiverTextureNormal(xz_offset, time, normal);
 }

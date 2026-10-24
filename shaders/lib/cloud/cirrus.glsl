@@ -30,7 +30,6 @@ const float CIRRUS_RADIUS_KM = ATM_PLANET_R + CIRRUS_HEIGHT_KM;
 // ice barely absorbs. Everything a thicker deck returns past the first bounce
 // is the multiple-scattering series, not a gain applied to this pair.
 const float CIRRUS_SCATTERING = 2.0;
-const float CIRRUS_EXTINCTION = CIRRUS_SCATTERING;
 // This layer's multiple-scattering reference length, in km: the length over
 // which one scattering order spreads inside this deck, and the scale the
 // series' knee is measured against. At 2 km^-1 the knee sits at a density of
@@ -60,7 +59,7 @@ const HenyeyGreensteinTripleLobe CIRRUS_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.3, 0.7,  // forward mid
     0.2, 0.2); // backward
 // Effective slab thickness: the shell is sampled once, so slanted view paths
-// integrate extinction over H / |cos| instead of a fixed step.
+// integrate extinction over H / |cos|.
 const float CIRRUS_LAYER_THICKNESS_KM = 1.0;
 // Grazing clamp for the slanted paths (sin of ~3.4 degrees): caps the path
 // where a ray skims the deck.
@@ -103,11 +102,10 @@ float CirrusCoverageDensity(vec3 ps) {
 vec3 CirrusPhaseScattering(vec3 sample_position, vec3 view_dir, float sample_density,
     float sample_extinction, float sample_transmittance
 ) {
-    vec3 sun_dir = u_world_sun_dir;
-    float sun_mu = dot(sample_position, sun_dir) / CIRRUS_RADIUS_KM;
+    float sun_mu = dot(sample_position, u_world_sun_dir) / CIRRUS_RADIUS_KM;
     float sun_visible = smoothstep(-0.05, 0.0, sun_mu);
     float moon_visible = smoothstep(-0.05, 0.0, -sun_mu);
-    float sun_cos = clamp(dot(view_dir, sun_dir), -1.0, 1.0);
+    float sun_cos = clamp(dot(view_dir, u_world_sun_dir), -1.0, 1.0);
     float direct_gain = mix(CIRRUS_DIRECT_EDGE_GAIN, CIRRUS_DIRECT_BODY_GAIN,
         smoothstep(0.0, CIRRUS_BODY_DENSITY, sample_density));
     float reference_optical_depth = sample_extinction * CIRRUS_MS_REFERENCE_LENGTH_KM;
@@ -146,8 +144,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color,
     cirrus_entry_km = 1.0e9;
     cirrus_transmittance = vec3(1.0);
     vec3 ray_start = AtmosphereCameraPosition();
-    float ci_height_diff = u_cirrus_height_diff;
-    if (sign(ci_height_diff) != sign(view_dir.y)) return sky_color;
+    if (sign(u_cirrus_height_diff) != sign(view_dir.y)) return sky_color;
 
     float t_near;
     float t_far;
@@ -159,7 +156,7 @@ vec3 RenderCirrusClouds(vec3 view_dir, vec3 sky_color,
     float sample_density = CirrusCoverageDensity(sample_position);
     if (sample_density <= 1.0e-5) return sky_color;
 
-    float sample_extinction = CIRRUS_EXTINCTION * sample_density;
+    float sample_extinction = CIRRUS_SCATTERING * sample_density;
     // For a normalized sphere ray, |dot(view, normal)| = (t_far-t_near)/(2R).
     float view_mu = (t_far - t_near) * (0.5 / CIRRUS_RADIUS_KM);
     float view_path_km = min(ci_offset,

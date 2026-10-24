@@ -76,10 +76,9 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma,
     }
     // Bound both the real history age and its EMA window. Mature history must
     // keep replacing old illumination even when change detection is uncertain.
-    float accumulation_window = age;
     reprojected.second_moment = mix(reprojected.second_moment,
-        current_luminance * current_luminance, 1.0 / accumulation_window);
-    return mix(reprojected.irradiance, current_irradiance, 1.0 / accumulation_window);
+        current_luminance * current_luminance, 1.0 / age);
+    return mix(reprojected.irradiance, current_irradiance, 1.0 / age);
 }
 
 // One guided tap: reject other surfaces using actual current representative
@@ -98,8 +97,9 @@ bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
     float normal_dot = dot(normal_world, GIHistoryNormal(metadata));
     if (normal_dot < GI_NORMAL_DOT_FLOOR) return false;
     vec2 sample_pixel = RepresentativePixel(sample_texel, GIHistoryOffset(metadata), block_scale);
-    // Project the receiver plane once, rather than reconstructing a view-space
-    // position and repeating projection divides for every neighbor.
+    // Receiver-plane distance in the per-pixel plane form built in
+    // ReconstructGI: the pixel evaluation times the sample's stored view
+    // depth (metadata.b) recovers the sample's n . v.
     float plane_distance = abs(dot(vec3(sample_pixel, 1.0), receiver_plane.xyz)
         * metadata.b - receiver_plane.w) * inverse_tolerance;
     if (plane_distance >= 1.0) return false;

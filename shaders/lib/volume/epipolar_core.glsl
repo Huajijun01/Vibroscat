@@ -81,9 +81,9 @@ vec2 SliceExit(int slice) {
 // boundary crossing; the ray enters forward or leaves backward; zero dir
 // components -> +/-inf, tolerated by the slab test).
 vec2 BoundaryHit(vec2 origin, vec2 dir) {
-    // Avoid 0 * inf when a line starts on an edge and is parallel to it.
-    // Such NaNs used to leak into endpoint lines near horizontal/vertical
-    // light directions and made the corresponding slice invalid.
+    // Avoid 0 * inf when a line starts on an edge and is parallel to it:
+    // a NaN here would leak into an endpoint line near horizontal/vertical
+    // light directions and invalidate the whole slice.
     vec2 tmin = vec2(-1e30);
     vec2 tmax = vec2( 1e30);
     if (abs(dir.x) > 1e-6) {
@@ -155,12 +155,13 @@ void SelectKey(vec4 keys, float pixel_key, int slice0, int row,
 }
 
 vec3 SampleEpipolarTerm(vec2 ndc, float pixel_key, vec3 fallback) {
-#ifdef EPIPOLAR_POLE_VARYING
-    bool pole_in_screen = v_epipolar_pole_in_screen != 0;
-    vec2 pole = v_epipolar_pole;
-#else
     bool pole_in_screen;
-    vec2 pole = LightNDC(pole_in_screen);
+    vec2 pole;
+#ifdef EPIPOLAR_POLE_VARYING
+    pole_in_screen = v_epipolar_pole_in_screen != 0;
+    pole = v_epipolar_pole;
+#else
+    pole = LightNDC(pole_in_screen);
     if (pole_in_screen) pole = unpackHalf2x16(packHalf2x16(pole));
 #endif
     vec2 delta = ndc - pole;

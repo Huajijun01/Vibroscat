@@ -16,14 +16,13 @@
 vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir, float planet_r, float altitude) {
     // Precondition: every caller passes ATM_PLANET_R and the camera altitude,
     // so the CPU derives this horizon angle once per frame.
-    float theta_h = u_sky_lut_horizon_theta;
     float theta = asin(view_dir.y);
     float v = 0.0;
-    if (theta >= theta_h) {
-        float t = (theta - theta_h) / (PI * 0.5 - theta_h);
+    if (theta >= u_sky_lut_horizon_theta) {
+        float t = (theta - u_sky_lut_horizon_theta) / (PI * 0.5 - u_sky_lut_horizon_theta);
         v = sqrt(t) * float(SKY_LUT_SKY - 1) + float(SKY_LUT_GND) + 0.5;
     } else {
-        float t = (theta_h - theta) / (PI * 0.5 + theta_h);
+        float t = (u_sky_lut_horizon_theta - theta) / (PI * 0.5 + u_sky_lut_horizon_theta);
         v = float(SKY_LUT_GND) - 0.5 - sqrt(sqrt(t)) * float(SKY_LUT_GND - 1);
     }
     vec2 view_xz = view_dir.xz;

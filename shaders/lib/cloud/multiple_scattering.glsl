@@ -48,7 +48,6 @@
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
 
 // fms / (1 - fms): every scattering order past the first, isotropized.
-// saturation_albedo is the layer's own, not a shared constant; see the header.
 float MultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {
     float fms = saturation_albedo
         * (1.0 - exp2(-max(reference_optical_depth, 0.0)));

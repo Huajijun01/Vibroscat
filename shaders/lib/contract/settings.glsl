@@ -234,8 +234,7 @@ const float ambientOcclusionLevel = 1.0;
 // resolves to open AO rather than another full-resolution history lookup.
 #define AO_HISTORY_FRAMES 12 // [2 4 6 8 10 12 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
 // Rejection lifts the fresh-sample weight toward 1, so an untrusted history
-// is replaced quickly instead of lingering (vanished objects' AO does not
-// fade out slowly).
+// (a vanished object's AO) is replaced within a few frames.
 // History rejection: the reprojected history is
 // trusted only when the previous surface stays within the receiver plane's
 // distance limit and its normal proxy, projected into the current frame,
@@ -369,7 +368,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define AE_ADAPTATION_STRENGTH 0.70 // [0.0 0.25 0.40 0.55 0.70 0.85 1.0] Scene-key EV compensation; 0=fixed exposure, 1=full compensation
 
 // Tonemap operator (0 = AgX, 1 = ACES 2.0, 2 = Blender AgX, 3 = OpenDRT,
-// 5 = GT7; value 4 was AMD LPM and is retired)
+// 5 = GT7)
 #define TONEMAP_MODE 5 // [0 1 2 3 5] Tonemap: 0=AgX-HSV 1=ACES 2.0 2=Blender AgX 3=OpenDRT 5=GT7
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 

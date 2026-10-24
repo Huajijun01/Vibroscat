@@ -98,7 +98,6 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     vec3 delta_previous = old_view - guide.previous_receiver_view;
     float depth_error = 0.0006 * depth_view;
     float plane_tolerance = 0.015 + depth_error;
-    // Move the normal once per receiver instead of every tap displacement.
     float plane_error = abs(dot(delta_previous, guide.geo_previous_view));
     if (plane_error > plane_tolerance * 2.0) return 0.0;
     vec3 predicted_view = guide.receiver_view + vec3(

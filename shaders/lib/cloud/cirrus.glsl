@@ -2,8 +2,8 @@
 #define LIB_CLOUD_CIRRUS_GLSL
 
 // Cirrus layer.
-// Shape: shared 1024x1024 R8 worley-fBm distribution atlas, sampled at
-// ps.xz * 0.005 and ps.xz * 0.06, once at the shell crossing.
+// Shape: base-only 1024x1024 R8 feather body plus 128x128 R8 strand noise.
+// Two density reads maximum at the existing shell crossing; 12 km XZ tile.
 // Light: single shell sample with density-graded direct light, triple-lobe HG
 // silver lining, shared isotropic multiple scattering and sky ambient.
 // View extinction retains grazing-path thickening and above/below ordering.
@@ -71,20 +71,28 @@ const float CIRRUS_DIRECT_BODY_GAIN = 0.4;
 const float CIRRUS_BODY_DENSITY = 0.8;
 const float CIRRUS_SKY_LIGHT_WEIGHT = 0.4;
 
-// Cirrus coverage density. ps = planet-centered position (km), horizontal
-// zx plane only. Two atlas reads at ps.xz * 0.005 (coarse field) and
-// ps.xz * 0.06 (detail field), contrast-shaped below.
+// Two reads maximum: one base-only R8 body and one base-only R8 detail.
+// ps is the existing planet-centered position in km.
 float CirrusCoverageDensity(vec3 ps) {
-    // A zero coarse field cannot survive subtracting the nonnegative detail.
-    // This raw atlas has one bilinear level; explicit LOD is valid in both stages.
-    float large = saturate((textureLod(utex_cloud_distribution_tex, ps.xz * 0.005, 0.0).x - 0.15) / 0.85);
-    if (large == 0.0) return 0.0;
-    float small = 1.0 - textureLod(utex_cloud_distribution_tex, ps.xz * 0.06, 0.0).x;
-    // Square the contrast-stretched ratio: the raw field saturates into
-    // plateaus (0 or 0.5-0.9), and the square widens it into a ramp so the
-    // optical depth reads as a gradual thin-to-thick transition.
-    float density = saturate((large - small) / (1.0 - small * 0.8));
-    return density * density;
+#if defined(CIRRUS)
+    vec2 uv = ps.xz * (1.0 / 12.0) + 0.5;
+    float encoded = textureLod(utex_cirrus_body, uv, 0.0).r;
+    if (encoded == 0.0) return 0.0;
+
+    vec2 q = fract(uv);
+    vec2 bend = q * (1.0 - q);
+    bend *= bend;
+    float phase = uv.y + 0.125 * uv.x
+        + dot(bend, vec2(0.28, 0.18));
+    float strand = textureLod(utex_cirrus_noise,
+        vec2(uv.x + 0.317, 16.0 * phase + 0.231), 0.0).r - 0.49894876;
+    float body = encoded * encoded;
+    float modulation = 1.0 + (1.0 - 0.6 * body) * strand;
+    float tau_vertical = 2.0 * body * modulation;
+    return tau_vertical / (CIRRUS_SCATTERING * CIRRUS_LAYER_THICKNESS_KM);
+#else
+    return 0.0;
+#endif
 }
 
 // Slab source at one shell crossing, which the caller turns into radiance with

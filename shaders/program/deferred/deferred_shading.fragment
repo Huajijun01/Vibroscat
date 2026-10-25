@@ -107,10 +107,7 @@ void main() {
             volumetric_entry = cloud_entry;
         }
 #endif
-        float cloud_angular_footprint = 2.0 * max(
-            u_render_pixel_size.x / abs(gbufferProjection[0][0]),
-            u_render_pixel_size.y / abs(gbufferProjection[1][1]));
-        sky_color = RenderCloudLayers(view_dir, cloud_angular_footprint, sky_color, volumetric_radiance,
+        sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_radiance,
             volumetric_surface_pos, volumetric_entry,
             cloud_transmittance, view_transmittance, view_transmittance_cached);
         // Sun/moon occluded by real cloud transmittance: an opaque column

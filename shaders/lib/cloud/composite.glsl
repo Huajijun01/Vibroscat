@@ -78,7 +78,7 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
 // Compose volumetric + cirrus over the sky. Layer order follows the ray:
 // the first-entered layer draws in front (correct occlusion from below,
 // between layers, above the cirrus shell).
-vec3 RenderCloudLayers(vec3 view_dir, float angular_footprint, vec3 sky_color,
+vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 volumetric_radiance,   // packed march output: x = sun, y = moon, z = T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
@@ -103,7 +103,7 @@ vec3 RenderCloudLayers(vec3 view_dir, float angular_footprint, vec3 sky_color,
         && u_camera_radius_km < CIRRUS_BOTTOM_RADIUS_KM
         && ATM_PLANET_R + CLOUD_TOP_ALTITUDE < CIRRUS_BOTTOM_RADIUS_KM;
     if (!cirrus_occluded) {
-        CirrusLayerSample cirrus = RenderCirrusLayer(view_dir, angular_footprint, sky_color);
+        CirrusLayerSample cirrus = RenderCirrusLayer(view_dir, sky_color);
         cirrus_scattering = cirrus.radiance;
         cirrus_surface_pos = cirrus.surface_pos_km;
         cirrus_entry_km = cirrus.entry_km;

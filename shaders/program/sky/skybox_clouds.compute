@@ -118,7 +118,6 @@ void main() {
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         sky_color = RenderCloudLayers(
             view_dir,
-            max(TAU * cos_theta, 2.0 / max(cos_theta, 0.05)) / float(SKY_RADIANCE_LUT_SIZE),
             sky_color,
             cloud_data,
             surface_position,

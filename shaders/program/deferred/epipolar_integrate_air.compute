@@ -58,7 +58,11 @@ void main() {
                 vec3 delta = WorldPosFromScreenUV(uv, depth0) - air_start;
                 float distance_m = length(delta);
                 if (distance_m > 1e-6) {
+#ifdef TAA
                     float jitter = SampleSTBN(texel, STBNFrame());
+#else
+                    float jitter = SampleSTBN(texel, 0);
+#endif
                     radiance = WaterRadiance(air_start, delta / distance_m, distance_m, jitter);
                 }
             }
@@ -78,7 +82,11 @@ void main() {
             if (distance_m > 1e-6) {
                 vec3 direction_world = delta / distance_m;
                 float length_m = AirFogSegmentLength(distance_m, far);
+#ifdef TAA
                 float jitter = SampleSTBN(texel, STBNFrame());
+#else
+                float jitter = SampleSTBN(texel, 0);
+#endif
                 air_transmittance = AirShadowRatio(air_start, air_start + direction_world * length_m,
                     profile, medium, jitter);
             }

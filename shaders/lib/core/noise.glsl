@@ -46,17 +46,16 @@ vec2 SampleSTBNPair(ivec2 texel, int frame, int slice_offset, ivec2 spatial_shif
         texelFetch(utex_stbn_scalar, ivec3(p1, (z + slice_offset) & (STBN_SCALAR_SIZE.z - 1)), 0).r);
 }
 
-// Shared STBN time slice for effects without their own temporal accumulation:
-// with TAA off the slice pins to 0 so the dither stays static instead of
-// shimmering. Effects with a dedicated accumulator (AO, GI) keep advancing
-// with frameCounter and must not use this.
-int STBNFrame() {
+// Shared STBN time slice for effects without their own temporal accumulation.
+// Exists only with TAA: without temporal accumulation an advancing slice would
+// shimmer, so consumers pass 0 and keep a static spatial pattern. Effects with
+// a dedicated accumulator (AO, GI) keep advancing with frameCounter and must
+// not use this.
 #ifdef TAA
+int STBNFrame() {
     return frameCounter;
-#else
-    return 0;
-#endif
 }
+#endif
 
 // Interleaved gradient noise (Jimenez et al. 2016).
 float InterleavedGradientNoise(vec2 pixel) {

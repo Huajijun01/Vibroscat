@@ -281,7 +281,11 @@ void main() {
     // Lit receivers share one STBN read between map filtering and contact.
     float stbn_dither = 0.0;
     if (shadow_needed) {
+#ifdef TAA
         stbn_dither = SampleSTBN(tx, STBNFrame());
+#else
+        stbn_dither = SampleSTBN(tx, 0);
+#endif
         vec3 shadow_proj;
         vec3 shadow_clip;
         float bias_cosine = plant_receiver ? max(abs(geo_ndotl), 0.3) : geo_ndotl;

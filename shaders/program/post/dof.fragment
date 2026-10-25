@@ -36,9 +36,13 @@ vec3 DepthOfField(vec2 uv) {
     // golden spiral (Fibonacci) sampling
     const float golden_ratio = 1.61803398875;
     // The dither is static in screen space, so only its temporal variation
-    // gives TAA something to average; STBNFrame() pins the slice when TAA is
-    // off, leaving a fixed spatial blue-noise pattern instead of shimmering.
+    // gives TAA something to average; without TAA the slice stays 0, leaving
+    // a fixed spatial blue-noise pattern instead of shimmering.
+#ifdef TAA
     float dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
+#else
+    float dither = SampleSTBN(ivec2(gl_FragCoord.xy), 0);
+#endif
 
     vec3 dof = vec3(0.0);
     float inv_n = 1.0 / float(DOF_SAMPLES);

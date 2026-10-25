@@ -24,10 +24,10 @@ flat in int v_epipolar_pole_in_screen;
 layout(location = 0) out vec3 out_color;
 
 // Boundary fog: fade near-boundary geometry into the cloud-free sky, masking
-// the loaded-area edge. Returns scene blended toward the sky color; sky
-// pixels (depth >= 1.0) are returned unchanged.
-vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_depth, float radius) {
+// the loaded-area edge. Blends toward the sky color; sky pixels
+// (depth >= 1.0) are returned unchanged. Exists only under BOUNDARY_FOG.
 #ifdef BOUNDARY_FOG
+vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_depth, float radius) {
     if (scene_depth < 1.0) {
         float boundary_horizontal = length(world_pos.xz - EyePositionWorldSpace().xz);
         float boundary_ratio = boundary_horizontal / radius;
@@ -45,9 +45,9 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
             scene = mix(scene, boundary_color, boundary_amount);
         }
     }
-#endif
     return scene;
 }
+#endif
 
 // Effective optical depth of the weather sheet. colortex11 carries the linear
 // sheet colour premultiplied by coverage in RGB, and the coverage in A; the
@@ -85,7 +85,9 @@ void main() {
     // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
     vec3 world_dir = normalize(world_pos - EyePositionWorldSpace());
 
+#ifdef BOUNDARY_FOG
     scene = ApplyBoundaryFog(scene, world_pos, world_dir, scene_depth, far);
+#endif
 
 #ifdef AIR_FOG
     float distance_m = length(world_pos - EyePositionWorldSpace());
@@ -111,14 +113,6 @@ void main() {
     // boundary fog because it hangs within a few blocks of the camera.
     vec4 weather = texelFetch(colortex11, tx, 0);
     if (weather.a > 0.0) {
-        // Sky access behind the sheet: the opaque G-buffer still owns the
-        // lightmap here, and sky pixels (depth >= 1.0) keep stale data there
-        // while being unobstructed by definition. No AMBIENT_FLOOR floor is
-        // added, so a sheet the sky does not reach stays dark, which is what
-        // keeps rain out of caves and interiors.
-        float weather_lm_sky = 1.0;
-        if (scene_depth < 1.0) weather_lm_sky = texelFetch(colortex4, tx, 0).a;
-
         float weather_cos_theta = dot(world_dir, u_world_light_dir);
         // EvalSkyLight(vec3(0,1,0)) with the constant up direction folded:
         // only L0 and the y L1 basis survive here, plus the L2 y^2 self term
@@ -127,8 +121,7 @@ void main() {
         vec3 weather_scattering = max(
                 vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * (SH_Y0 * SH_A0)
               + vec3(sky_sh_r0.y, sky_sh_g0.y, sky_sh_b0.y) * (SH_Y1 * SH_A1),
-                vec3(0.0))
-                * SkyLightFromLm(weather_lm_sky) * PHASE_ISOTROPIC
+                vec3(0.0)) * PHASE_ISOTROPIC
             + ground_light.rgb * PhaseHenyeyGreenstein(weather_cos_theta, 0.5);
         vec3 weather_radiance = weather.rgb * weather_scattering
             * WEATHER_SHEET_OPTICAL_DEPTH;

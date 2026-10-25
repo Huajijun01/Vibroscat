@@ -64,6 +64,11 @@ void main() {
         // v = sin(elevation) (constant solid angle 4pi/N2, no per-pixel
         // Jacobian for SH). World-aligned: +X at u = 0.5, zenith at v = 1.
         ivec2 texel = cell * 2 + offset;
+        // Hoisted before the march: this history read's address is known
+        // here, and loading it after the cloud march left the fetch exposed
+        // in the epilogue (backend placement cliff; same rule as gtao.glsl's
+        // sky_l2_blocked).
+        vec4 previous = imageLoad(uimg_sky_radiance, texel);
         float mu = 2.0 * (float(texel.y) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
         float cos_theta = sqrt(max(1.0 - mu * mu, 0.0));
         float phi = (float(texel.x) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
@@ -137,8 +142,7 @@ void main() {
         );
 #endif
         // Fixed-ratio history blend; the first write (fresh start/reload)
-        // replaces unconditionally.
-        vec4 previous = imageLoad(uimg_sky_radiance, texel);
+        // replaces unconditionally. `previous` was loaded before the march.
         vec3 fresh = sky_color;
         if (texel.x == SKY_RADIANCE_LUT_SIZE - 1 && !full_init) {
             // Manual repeat for the clamped image: the rightmost column

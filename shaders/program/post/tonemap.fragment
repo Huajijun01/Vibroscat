@@ -46,6 +46,10 @@ void main() {
 #endif
 #endif
     vec3 ldr = Tonemap(hdr);
+#ifdef COLOR_DITHER
     vec3 jittered_ldr = JitterRGBA16F(ldr, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+    vec3 jittered_ldr = ldr;
+#endif
     out_color = vec4(jittered_ldr, 1.0);
 }

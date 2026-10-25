@@ -18,8 +18,12 @@ bool IsOpaqueHand(ivec2 texel) {
 }
 
 vec3 PassthroughColor() {
-    return JitterR11G11B10F(texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz,
-        gl_FragCoord.xy, COLOR_JITTER_SEED);
+    vec3 scene = texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).xyz;
+#ifdef COLOR_DITHER
+    return JitterR11G11B10F(scene, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+    return scene;
+#endif
 }
 
 void main() {
@@ -46,13 +50,21 @@ void main() {
     bool is_opaque_hand = IsOpaqueHand(tx);
     if (is_opaque_hand) {
         // The view-model has no world-space motion vector; keep it sharp.
+#ifdef COLOR_DITHER
         out_color = JitterR11G11B10F(scene, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+        out_color = scene;
+#endif
         return;
     }
 
     float vel_len = length(velocity * u_screen_res);
     if (vel_len < 0.5) {
+#ifdef COLOR_DITHER
         out_color = JitterR11G11B10F(scene, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+        out_color = scene;
+#endif
         return;
     }
 
@@ -70,5 +82,9 @@ void main() {
 
     float blend = clamp(vel_len * 0.1, 0.0, 1.0);
     vec3 motion_blurred_scene = mix(scene, blurred, blend);
+#ifdef COLOR_DITHER
     out_color = JitterR11G11B10F(motion_blurred_scene, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+    out_color = motion_blurred_scene;
+#endif
 }

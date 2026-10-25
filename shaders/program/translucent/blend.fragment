@@ -225,5 +225,9 @@ void main() {
         color = color * (1.0 - trans_color.a) + trans_color.rgb;
     }
 
+#ifdef COLOR_DITHER
     out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+    out_color = color;
+#endif
 }

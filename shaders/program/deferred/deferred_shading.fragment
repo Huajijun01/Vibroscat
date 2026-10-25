@@ -137,7 +137,11 @@ void main() {
             celestial_context);
         sky_color += celestial;
 #endif
+#ifdef COLOR_DITHER
         out_color = JitterR11G11B10F(sky_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+        out_color = sky_color;
+#endif
         return;
 #endif
     }
@@ -508,5 +512,9 @@ void main() {
     // -- Emissive --
     color += albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 
+#ifdef COLOR_DITHER
     out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+    out_color = color;
+#endif
 }

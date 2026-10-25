@@ -81,5 +81,9 @@ void main() {
     vec2 uv = gl_FragCoord.xy * u_render_pixel_size;
     scene_color = DepthOfField(uv);
 #endif
+#ifdef COLOR_DITHER
     out_color = JitterR11G11B10F(scene_color, gl_FragCoord.xy, COLOR_JITTER_SEED);
+#else
+    out_color = scene_color;
+#endif
 }

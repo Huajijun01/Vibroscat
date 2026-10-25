@@ -21,5 +21,9 @@ void main() {
 #endif
 
     vec3 srgb = FromLinear(ldr);
+#ifdef COLOR_DITHER
     out_color = vec4(JitterSRGB8(srgb, gl_FragCoord.xy, COLOR_JITTER_SEED), 1.0);
+#else
+    out_color = vec4(srgb, 1.0);
+#endif
 }

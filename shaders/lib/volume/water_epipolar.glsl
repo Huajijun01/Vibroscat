@@ -27,6 +27,10 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
 
     vec3 shadow_start = ProjectToShadowClip(start_world);
     vec3 shadow_end = ProjectToShadowClip(start_world + ray_delta);
+    // Hoisted before the march: this SSBO read is loop-invariant, and its
+    // epilogue placement left the dependent product exposed after the godrays
+    // march (backend placement cliff; same rule as gtao.glsl's sky_l2_blocked).
+    vec3 incident = ground_light.rgb * u_water_ambient_transmittance;
     float inv_steps = 1.0 / float(WATER_GODRAYS_STEPS);
     vec3 transmittance = vec3(1.0);
     vec3 integral = vec3(0.0);
@@ -49,7 +53,6 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
         integral += weight * (source * visibility);
         transmittance = next_transmittance;
     }
-    vec3 incident = ground_light.rgb * u_water_ambient_transmittance;
     float phase = PhaseCornetteShanks(dot(direction_world, u_world_sun_dir), 0.35);
     return integral * (FAST_WATERFOG_SCATTERING / FAST_WATERFOG_EXTINCTION) * incident
         * (phase * u_water_skylight * u_water_skylight * u_water_sun_height * u_water_wetness_gain * WATER_GODRAYS_STRENGTH);

@@ -118,8 +118,10 @@ void main() {
     float ndotv = saturate(dot(normal_world, view_to_eye));
     vec3 throughput = VisibleGGXThroughput(material.f0, saturate(dot(view_to_eye, half_vector)),
         ndotv, valid_direction ? saturate(dot(normal_world, reflection_direction)) : 0.0, material.alpha);
-    vec3 factor = SpecularMaterialFactor(material.f0, ndotv, roughness);
-    vec3 sample_z = reflection_radiance * throughput / factor;
+    vec3 sample_z = reflection_radiance * throughput;
+#if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
+    sample_z /= SpecularMaterialFactor(material.f0, ndotv, roughness);
+#endif
 #if OPAQUE_SSR_FILTER > 0
     out_reflection_radiance = AccumulateOpaqueHistory(tx, sample_z, world_pos, view_pos,
         view_to_eye, normal_world, geo_normal_world, geo_view_normal, material_data.rg, material_id, out_history_metadata);

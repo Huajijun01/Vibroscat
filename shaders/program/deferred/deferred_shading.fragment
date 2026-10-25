@@ -253,7 +253,11 @@ void main() {
     float ndotl = saturate(dot(normal_world, u_world_light_dir));
     float ndotv = saturate(dot(normal_world, view_to_eye));
 #if OPAQUE_SSR_DEBUG == 12
+#if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
     out_color = SpecularMaterialFactor(material.f0, ndotv, material.perceptual_roughness);
+#else
+    out_color = vec3(1.0);
+#endif
     return;
 #endif
     float geo_ndotl = dot(geo_normal, u_world_light_dir);
@@ -487,7 +491,11 @@ void main() {
 #if defined(OPAQUE_SSR)
     if (ssr_weight > 0.0) {
         vec3 ssr_z = texelFetch(colortex3, tx, 0).rgb;
+#if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
         vec3 ssr_specular = ssr_z * SpecularMaterialFactor(material.f0, ndotv, material.perceptual_roughness);
+#else
+        vec3 ssr_specular = ssr_z;
+#endif
         ssr_specular *= specular_occlusion;
         indirect_specular = mix(sh_specular, ssr_specular, ssr_weight);
     }

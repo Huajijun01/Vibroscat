@@ -74,7 +74,7 @@ Also referenced (concept): Bruneton & Neyret, "Precomputed Atmospheric Scatterin
 
 ## 7. NASA Deep Star Maps 2020 (public domain)
 
-`shaders/textures/starmap_2020_4k_logluv32.png` is baked from the linear EXR of NASA SVS #4851 "Deep Star Maps 2020" (Plate Carrée projection, LogLuv32 encoding).
+`shaders/textures/starmap_2020_4k_logluv32.dat` is baked from the linear EXR of NASA SVS #4851 "Deep Star Maps 2020" (Plate Carrée projection, LogLuv32 encoding, raw RGBA8).
 
 > Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
 > Source: https://svs.gsfc.nasa.gov/4851/ . NASA material is a work of the US government and is in the public domain.

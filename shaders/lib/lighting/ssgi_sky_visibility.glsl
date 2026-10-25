@@ -85,9 +85,12 @@ vec2 SSGISkySliceMoment(uint occupied, float m, float angle_normal) {
 
 // Visible sky irradiance from the raw radiance SH, the visible mass m, and
 // the directional moment. m and moment_world use the normalized cosine
-// measure; moment_world must not be normalized. normal_world is the
-// receiver's unit geometric world normal - the L2 band is evaluated there,
-// never at the moment. The L0/L1 bands take the moment directly as
+// measure; moment_world must not be normalized. l2_band is the receiver's
+// EvalSkyLightL2(fallback_normal), hoisted by the caller ahead of its march:
+// the band depends only on the receiver normal, and evaluating it after the
+// march left its SSBO reads exposed in the epilogue (backend placement
+// cliff; same rule as the sky_l2_blocked hoist in gtao.glsl). The L0/L1
+// bands take the moment directly as
 // PI*[Y0*L0*m + Y1*(L1 . D)]; EvalSkyLightL2 already carries the SH_A2
 // convolution and keeps its sign, so the L2 share is simply scaled by m and
 // the ignored L2/visibility correlation stays a model approximation of the
@@ -97,11 +100,11 @@ vec2 SSGISkySliceMoment(uint occupied, float m, float angle_normal) {
 // are part of the estimator and average out over frames, so truncating them
 // per frame would bias the result down. No second AO/multiplication on the
 // returned value; the ambient floor joins after, scaled by m.
-vec3 EvalSSGISkyFromMoment(float m, vec3 moment_world, vec3 normal_world) {
+vec3 EvalSSGISkyFromMoment(float m, vec3 moment_world, vec3 l2_band) {
     vec4 basis = vec4(SH_Y0 * m, SH_Y1 * moment_world.yzx);
     vec3 visible_l01 = PI * vec3(dot(sky_sh_r0, basis), dot(sky_sh_g0, basis),
         dot(sky_sh_b0, basis));
-    return visible_l01 + m * EvalSkyLightL2(normal_world);
+    return visible_l01 + m * l2_band;
 }
 
 #endif // LIB_LIGHTING_SSGI_SKY_VISIBILITY_GLSL

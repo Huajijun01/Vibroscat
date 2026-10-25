@@ -13,6 +13,7 @@
 #include "/lib/lighting/gi_history.glsl"
 #include "/lib/lighting/gi_sampling.glsl"
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
+#include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/ssgi_sky_visibility.glsl"
 #endif
@@ -371,6 +372,11 @@ void main() {
     vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
     vec3 sky_direction_moment_view;
+    // Hoisted before the trace: the L2 band depends only on the receiver
+    // normal, and evaluating it after the march left its SSBO reads exposed
+    // in the epilogue, where the driver's backend allocation is placement
+    // sensitive (same rule as the sky_l2_blocked hoist in gtao.glsl).
+    vec3 sky_l2_band = EvalSkyLightL2(fallback_normal);
     raw_gi = TraceGI(receiver_view + normal_view * 0.003, normal_view, gi_noise,
         coverage, second_moment, sky_direction_moment_view);
     // Directional sky fallback: the trace's visible mass and directional
@@ -386,7 +392,7 @@ void main() {
     float visible_mass = 1.0 - coverage;
     vec3 moment_world = mat3(gbufferModelViewInverse) * sky_direction_moment_view;
     vec3 visible_sky = max(
-        EvalSSGISkyFromMoment(visible_mass, moment_world, fallback_normal), vec3(0.0));
+        EvalSSGISkyFromMoment(visible_mass, moment_world, sky_l2_band), vec3(0.0));
     raw_gi += visible_sky * SkyLightFromLm(geometry_data.w) * SKY_AMBIENT_STRENGTH
         + vec3(AMBIENT_FLOOR) * visible_mass;
     sample_sigma = 0.0;

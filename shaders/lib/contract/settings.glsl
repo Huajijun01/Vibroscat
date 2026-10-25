@@ -78,8 +78,10 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_MS_ISOTROPIC 0.2 // [0.0 0.1 0.2 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment strength for both cloud layers; higher = brighter cloud shadow regions.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
-#define CLOUD_MILKYWAY_TRANSMISSION 0.1 // [0.0 0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the volumetric layer scatters into a glow; 1.0 is the isotropic single-scatter total.
-#define CIRRUS_MILKYWAY_TRANSMISSION 0.6 // [0.0 0.1 0.2 0.3 0.5 0.6 0.75 1.0] Share of the Milky Way background the cirrus shell scatters into a glow; 1.0 is the isotropic single-scatter total.
+#define CLOUD_MILKYWAY_GLOW // Milky Way glow scattered inside the volumetric layer; the transmission slider below owns its share.
+#define CIRRUS_MILKYWAY_GLOW // Artistic Milky Way glow inside the cirrus sheet; independent of the background transmission.
+#define CLOUD_MILKYWAY_TRANSMISSION 0.1 // [0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the volumetric layer scatters into a glow; 1.0 is the isotropic single-scatter total.
+#define CIRRUS_MILKYWAY_TRANSMISSION 0.3 // [0.1 0.2 0.3 0.5 0.6 0.75 1.0] Share of the Milky Way background the cirrus sheet scatters into a glow; 1.0 is the isotropic single-scatter total.
 
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 // Active cloud rectangle in the existing colortex12 alt workspace. Compute
@@ -572,6 +574,10 @@ const float centerDepthHalflife = 1.0;
 #ifdef CIRRUS
 #endif
 #ifdef CLOUD_SINGLE_LIGHT
+#endif
+#ifdef CLOUD_MILKYWAY_GLOW
+#endif
+#ifdef CIRRUS_MILKYWAY_GLOW
 #endif
 // Fog
 #ifdef AIR_FOG

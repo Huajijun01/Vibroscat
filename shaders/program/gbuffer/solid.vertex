@@ -42,7 +42,13 @@ void SetupGbufferVertex() {
 #if defined(RAIN_WETNESS_ACTIVE)
     v_rain_world_pos = (gbufferModelViewInverse * view_pos).xyz;
 #endif
+#if defined(PROGRAM_GBUFFERS_HAND)
+    // The hand keeps the exact full projection product: the sparse form lost
+    // the walking hand sway here and the cause was never isolated.
+    gl_Position = gl_ProjectionMatrix * view_pos;
+#else
     gl_Position = ViewToClip(gl_ProjectionMatrix, view_pos.xyz);
+#endif
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif

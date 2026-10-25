@@ -268,11 +268,15 @@ option.CLOUD_MS_ISOTROPIC.comment = Direction-independent fill light that keeps 
 option.CLOUD_SKY_LIGHT_STRENGTH = Cloud Sky Light Strength
 option.CLOUD_SKY_LIGHT_STRENGTH.comment = Ambient sky light received by both cloud layers: higher = brighter shadowed sides and undersides, a softer look.
 option.CIRRUS_MS_ISOTROPIC = Cirrus Fill Light
-option.CIRRUS_MS_ISOTROPIC.comment = Fill light bouncing inside the cirrus sheet, scaled by its density: higher = fuller, brighter cirrus with less contrast.
+option.CIRRUS_MS_ISOTROPIC.comment = Multiple scattering inside the cirrus sheet, scaled by optical depth: higher = brighter, fuller bodies. Sky fill is controlled separately by Cloud Sky Light Strength.
+option.CLOUD_MILKYWAY_GLOW = Milky Way Cloud Glow
+option.CLOUD_MILKYWAY_GLOW.comment = Night glow of the Milky Way scattered inside the volumetric clouds. The transmission slider below controls its strength.
 option.CLOUD_MILKYWAY_TRANSMISSION = Milky Way Cloud Transmission
-option.CLOUD_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the clouds glows inside the layer: 1.0 = the physical total, 0 = off.
+option.CLOUD_MILKYWAY_TRANSMISSION.comment = Share of the Milky Way behind the clouds that glows inside the layer: 1.0 = the isotropic single-scatter total.
+option.CIRRUS_MILKYWAY_GLOW = Milky Way Cirrus Glow
+option.CIRRUS_MILKYWAY_GLOW.comment = Optional artistic night glow from the background galaxy inside the cirrus sheet. The strength slider below controls it; ordinary background transmission stays active.
 option.CIRRUS_MILKYWAY_TRANSMISSION = Milky Way Cirrus Transmission
-option.CIRRUS_MILKYWAY_TRANSMISSION.comment = How much of the Milky Way behind the cirrus glows inside the sheet: 1.0 = the physical total, 0 = off.
+option.CIRRUS_MILKYWAY_TRANSMISSION.comment = Share of the Milky Way behind the cirrus that glows inside the sheet: 1.0 = the isotropic single-scatter total.
 
 #Shadows
 option.SHADOW_PCSS = PCSS Shadows

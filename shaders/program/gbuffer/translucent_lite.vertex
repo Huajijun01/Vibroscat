@@ -25,7 +25,13 @@ void main() {
     float shadow_ndc_z = shadow_clip.z * 0.5 + 0.5 - 0.0001;
     v_shadow_proj_pos = vec3(shadow_ndc_xy, ProtectShadowDepth(shadow_ndc_z));
 
+#if defined(PROGRAM_GBUFFERS_HAND_WATER)
+    // The hand keeps the exact full projection product: the sparse form lost
+    // the walking hand sway here and the cause was never isolated.
+    gl_Position = gl_ProjectionMatrix * vec4(view_pos, 1.0);
+#else
     gl_Position = ViewToClip(gl_ProjectionMatrix, view_pos);
+#endif
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif

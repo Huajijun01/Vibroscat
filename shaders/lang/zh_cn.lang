@@ -268,11 +268,15 @@ option.CLOUD_MS_ISOTROPIC.comment = 不依赖方向的补光，防止云的阴�
 option.CLOUD_SKY_LIGHT_STRENGTH = 云层天光强度
 option.CLOUD_SKY_LIGHT_STRENGTH.comment = 体积云与卷云共同接收的天光强度：越高背光面和底面越亮，整体更柔。
 option.CIRRUS_MS_ISOTROPIC = 卷云补光
-option.CIRRUS_MS_ISOTROPIC.comment = 卷云内部反弹的补光，随云层浓密度缩放：越高卷云越饱满明亮，反差越小。
-option.CLOUD_MILKYWAY_TRANSMISSION = 体积云银河透光
-option.CLOUD_MILKYWAY_TRANSMISSION.comment = 云后银河透入云层的辉光比例：1.0 = 物理总量，0 = 关闭。
-option.CIRRUS_MILKYWAY_TRANSMISSION = 卷云银河透光
-option.CIRRUS_MILKYWAY_TRANSMISSION.comment = 卷云后银河透入云层的辉光比例：1.0 = 物理总量，0 = 关闭。
+option.CIRRUS_MS_ISOTROPIC.comment = 卷云内随光学厚度变化的多次散射：越高云体越饱满明亮。背光面的天空补光由云层天光强度单独控制。
+option.CLOUD_MILKYWAY_GLOW = 体积云银河透光
+option.CLOUD_MILKYWAY_GLOW.comment = 夜间银河在体积云内散射的辉光开关；强度由下方透光比例滑条控制。
+option.CLOUD_MILKYWAY_TRANSMISSION = 体积云银河透光比例
+option.CLOUD_MILKYWAY_TRANSMISSION.comment = 云后银河透入云层的辉光比例：1.0 = 物理总量（各向同性单散射）。
+option.CIRRUS_MILKYWAY_GLOW = 卷云银河辉光
+option.CIRRUS_MILKYWAY_GLOW.comment = 背景银河在卷云内产生的艺术辉光；强度由下方比例滑条控制，正常的背景透射不受影响。
+option.CIRRUS_MILKYWAY_TRANSMISSION = 卷云银河辉光比例
+option.CIRRUS_MILKYWAY_TRANSMISSION.comment = 背景银河在卷云内散射的辉光比例：1.0 = 物理总量（各向同性单散射）。
 
 #Shadows
 option.SHADOW_PCSS = PCSS 软阴影

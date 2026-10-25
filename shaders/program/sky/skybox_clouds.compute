@@ -81,22 +81,8 @@ void main() {
             u_cam_altitude
         )).rgb;
 
-        // Milky Way in the reflection skybox: the same graded, transmittance-
-        // attenuated radiance the main star render draws, so reflections and
-        // the SH probe share the night sky the pixels see. RenderCloudLayers
-        // below attenuates it behind clouds through the real transmittance.
         vec4 cloud_view_transmittance = vec4(1.0);
         bool cloud_view_transmittance_cached = false;
-        if (u_star_night_fade > 0.0) {
-            CelestialContext celestial_context = CelestialContextFor(view_dir);
-            if (!celestial_context.horizon_occluded) {
-                cloud_view_transmittance = SampleTransmittance(utex_tslut,
-                    u_camera_radius_km, u_camera_radius_sq, view_dir.y);
-                cloud_view_transmittance_cached = true;
-                sky_color += RenderMilkyWayGlow(view_dir, cloud_view_transmittance,
-                    celestial_context);
-            }
-        }
 
         vec3 cloud_data = vec3(0.0, 0.0, 1.0);
         vec3 surface_position = vec3(0.0);
@@ -132,6 +118,7 @@ void main() {
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         sky_color = RenderCloudLayers(
             view_dir,
+            max(TAU * cos_theta, 2.0 / max(cos_theta, 0.05)) / float(SKY_RADIANCE_LUT_SIZE),
             sky_color,
             cloud_data,
             surface_position,
@@ -141,6 +128,19 @@ void main() {
             cloud_view_transmittance_cached
         );
 #endif
+        // Match the screen: cloud fill receives only clear sky. Add the
+        // background galaxy afterwards, attenuated once by the real cloud T.
+        if (u_star_night_fade > 0.0 && !all(equal(cloud_transmittance, vec3(0.0)))) {
+            CelestialContext celestial_context = CelestialContextFor(view_dir);
+            if (!celestial_context.horizon_occluded) {
+                if (!cloud_view_transmittance_cached) {
+                    cloud_view_transmittance = SampleTransmittance(utex_tslut,
+                        u_camera_radius_km, u_camera_radius_sq, view_dir.y);
+                }
+                sky_color += RenderMilkyWayGlow(view_dir, cloud_view_transmittance,
+                    celestial_context) * cloud_transmittance;
+            }
+        }
         // Fixed-ratio history blend; the first write (fresh start/reload)
         // replaces unconditionally. `previous` was loaded before the march.
         vec3 fresh = sky_color;

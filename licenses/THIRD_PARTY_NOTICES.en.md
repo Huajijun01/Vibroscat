@@ -236,11 +236,10 @@ every order past the first. The source writes it as
 `fms = omega * (1 - exp2(-300 * sigma_t))`, driven by the extinction in m^-1.
 This pack rewrites the argument as a DIMENSIONLESS reference optical depth whose
 knee is one optical depth over a reference length owned by the layer itself: 300 m
-for the volumetric layer, which is equivalent to its previous value, and 0.5 km
-for the cirrus shell, which is that deck's own scale. It is not a shareable
-constant, because the 300 in `300 * sigma_t` carries a length: a length
-calibrated on a 100 km^-1 medium never reaches its knee in a 3 km^-1 shell, and
-the series then contributes nothing.
+for the volumetric layer and 0.5 km for cirrus, half of its 1 km thickness.
+Cirrus uses `tau_vertical * 0.5 km / 1 km` with a default series strength of 1.0.
+These lengths and strengths are per-layer calibrations. They do not replace
+view-path extinction or multiply the first scattering by density again.
 
 The `omega` in that formula is per-layer as well: it is the medium's
 single-scattering albedo, and water and ice are not the same medium. The

@@ -2,8 +2,8 @@
 
 #Profiles
 profile.LOW = §aLow
-profile.MEDIUM = §aMedium
-profile.HIGH = §eHigh (Recommended)
+profile.MEDIUM = §eMedium (Recommended)
+profile.HIGH = §eHigh
 profile.ULTRA = §4Ultra
 profile.comment = One-click quality presets. Each tier only changes settings that affect performance (shadow resolution, cloud sampling, ambient occlusion, reflection quality); your other custom settings stay untouched.
 

@@ -2,8 +2,8 @@
 
 #Profiles
 profile.LOW = §a低
-profile.MEDIUM = §a中
-profile.HIGH = §e高（推荐）
+profile.MEDIUM = §e中（推荐）
+profile.HIGH = §e高
 profile.ULTRA = §4极高
 profile.comment = 一键画质预设。每档只改动影响性能的设置（阴影分辨率、云采样、环境光遮蔽、反射质量），其余自定义设置保持不变。
 

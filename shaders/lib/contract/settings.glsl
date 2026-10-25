@@ -346,7 +346,8 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 
 // Water surface quality: 0 = small waves (3 normal / 2 POM layers),
-// 1 = medium-large waves (5 normal / 3 POM layers). Independent of profiles.
+// 1 = medium-large waves (5 normal / 3 POM layers). Profiles set 1 from
+// HIGH up; the shipped default keeps the small-wave shape.
 #define WATER_SURFACE_QUALITY 0 // [0 1]
 
 // Normal gain for both sea states; also controls small-wave POM height.

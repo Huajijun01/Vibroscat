@@ -21,7 +21,7 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
     vec3 ray_delta = direction_world * length_m;
     vec3 start_absolute_pos = start_world + cameraPosition;
     // No refraction. This projection has zero derivative along worldSunDir.
-    vec2 entry_xz = start_world.xz + u_sun_slope * (CAUSTIC_PLANE_Y - start_world.y);
+    vec2 entry_xz = start_absolute_pos.xz + u_sun_slope * (CAUSTIC_PLANE_Y - start_absolute_pos.y);
     vec2 source_uv = CAUSTIC_ABSOLUTE_TO_UV * (entry_xz - u_caustic_advection);
     vec2 source_delta = CAUSTIC_ABSOLUTE_TO_UV * (ray_delta.xz - u_sun_slope * ray_delta.y);
 

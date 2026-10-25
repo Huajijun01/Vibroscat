@@ -44,8 +44,7 @@ void main() {
     vec4 albedo_data = texelFetch(colortex1, tx, 0);
     int material_id = int(albedo_data.a * 255.0 + 0.5);
     bool is_hand = material_id == 64;
-    float roughness = material_data.r;
-    if (roughness >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
+    if (material_data.r >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
     vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
 
     // Move the ray origin off the rasterized geometric surface before
@@ -75,7 +74,7 @@ void main() {
     vec2 stbn_random = OpaqueSSRSTBNPair(tx);
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
-        normal_world, view_to_eye, roughness, stbn_random, half_vector);
+        normal_world, view_to_eye, material_data.r, stbn_random, half_vector);
     // Below-surface VNDF samples are valid zero contributions, not invalid
     // receivers. They must reach the temporal update with a zero sample.
     bool valid_direction = dot(reflection_direction, reflection_direction) > 1e-10;
@@ -84,15 +83,14 @@ void main() {
     // Keep the normal separation for self-intersection, but do not advance
     // along the ray: nearby corner hits can be less than 5 cm away.
     vec3 trace_origin = view_pos + geo_view_normal * 0.03;
-    float trace_jitter = stbn_random.y;
     SSRHit shared_hit = Miss();
-    if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_dir, trace_jitter);
+    if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_dir, stbn_random.y);
     // History hits replace the sky-radiance environment sample entirely, so
     // the environment fetch only runs when no history was accepted.
     vec3 reflection_radiance;
     vec3 history;
     bool history_accepted = shared_hit.valid && SampleOpaqueHistory(
-        shared_hit, trace_origin, roughness, history);
+        shared_hit, trace_origin, material_data.r, history);
     if (history_accepted) {
         float recursion_decay = min(OPAQUE_SSR_RECURSION_DECAY, 0.989);
         reflection_radiance = recursion_decay * history;
@@ -110,17 +108,17 @@ void main() {
     // B = receiver roughness. Reuses the reflection target only for diagnosis.
     out_reflection_radiance = history_accepted
         ? vec3(OpaqueHistoryLod(shared_hit, ToPrevious(shared_hit.screen),
-            trace_origin, roughness), 1.0, roughness)
+            trace_origin, material_data.r), 1.0, material_data.r)
         : vec3(0.0);
 #else
     PBRMaterial material = ResolveOpaquePBR(ToLinear(albedo_data.rgb),
-        roughness, material_data.g, material_data.b, 0.0);
+        material_data.r, material_data.g, material_data.b, 0.0);
     float ndotv = saturate(dot(normal_world, view_to_eye));
     vec3 throughput = VisibleGGXThroughput(material.f0, saturate(dot(view_to_eye, half_vector)),
         ndotv, valid_direction ? saturate(dot(normal_world, reflection_direction)) : 0.0, material.alpha);
     vec3 sample_z = reflection_radiance * throughput;
 #if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
-    sample_z /= SpecularMaterialFactor(material.f0, ndotv, roughness);
+    sample_z /= SpecularMaterialFactor(material.f0, ndotv, material_data.r);
 #endif
 #if OPAQUE_SSR_FILTER > 0
     out_reflection_radiance = AccumulateOpaqueHistory(tx, sample_z, world_pos, view_pos,

@@ -20,11 +20,10 @@ vec3 DepthOfField(vec2 uv) {
 
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
 
-    float center_depth = centerDepthSmooth;
     // The focus point sits on the view axis, so the reconstruction only needs
     // the inverse projection's z/w entries; the dropped products are exact
     // zeros in this pack's projection (see NDCToViewSparse).
-    float focus_ndc_z = center_depth * 2.0 - 1.0;
+    float focus_ndc_z = centerDepthSmooth * 2.0 - 1.0;
     vec3 focus_pos = vec3(0.0, 0.0,
         (gbufferProjectionInverse[2][2] * focus_ndc_z + gbufferProjectionInverse[3][2])
             / (gbufferProjectionInverse[2][3] * focus_ndc_z + gbufferProjectionInverse[3][3]));

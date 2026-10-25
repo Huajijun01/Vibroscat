@@ -26,9 +26,6 @@ shared float row_weight[SH_SKY_ROWS];
 shared vec4 reduce_sh[SH_WORKGROUP_THREADS];
 
 void main() {
-    uint col = gl_LocalInvocationID.x;
-    uint stripe = gl_LocalInvocationID.y;
-    uint term = gl_WorkGroupID.x;
     if (gl_LocalInvocationIndex < uint(SH_SKY_ROWS)) {
         float sy = SKY_RADIANCE_LUT_ROW_CENTER(gl_LocalInvocationIndex + uint(SH_SKY_ROWS));
         float cy = sqrt(max(1.0 - sy * sy, 0.0));
@@ -37,30 +34,30 @@ void main() {
         // Its raw SH increments are 2*PI*Y0*L_ground and -PI*Y1*L_ground.
         // Linearity folds both into these sky weights, without reading other
         // groups' results or sampling the synthetic ground hemisphere.
-        if (term == 0u) weight = SH_Y0 * (1.0 + 2.0 * SKY_GROUND_REFLECTANCE * sy);
-        else if (term == 1u) weight = SH_Y1 * sy * (1.0 - SKY_GROUND_REFLECTANCE);
-        else if (term == 2u || term == 3u) weight = SH_Y1 * cy;
-        else if (term == 4u) weight = SH_Y20 * (3.0 * sy * sy - 1.0);
-        else if (term == 5u || term == 7u) weight = SH_Y21 * sy * cy;
-        else if (term == 6u) weight = SH_Y21 * cy * cy;
+        if (gl_WorkGroupID.x == 0u) weight = SH_Y0 * (1.0 + 2.0 * SKY_GROUND_REFLECTANCE * sy);
+        else if (gl_WorkGroupID.x == 1u) weight = SH_Y1 * sy * (1.0 - SKY_GROUND_REFLECTANCE);
+        else if (gl_WorkGroupID.x == 2u || gl_WorkGroupID.x == 3u) weight = SH_Y1 * cy;
+        else if (gl_WorkGroupID.x == 4u) weight = SH_Y20 * (3.0 * sy * sy - 1.0);
+        else if (gl_WorkGroupID.x == 5u || gl_WorkGroupID.x == 7u) weight = SH_Y21 * sy * cy;
+        else if (gl_WorkGroupID.x == 6u) weight = SH_Y21 * cy * cy;
         else weight = SH_Y22 * cy * cy;
         row_weight[gl_LocalInvocationIndex] = weight;
     }
-    float phi = (float(col) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
+    float phi = (float(gl_LocalInvocationID.x) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
     float cs = cos(phi);
     float sn = sin(phi);
     float col_weight = 1.0;
-    if (term == 2u || term == 5u) col_weight = sn;
-    else if (term == 3u || term == 7u) col_weight = cs;
-    else if (term == 6u) col_weight = cs * sn;
-    else if (term == 8u) col_weight = cs * cs - sn * sn;
+    if (gl_WorkGroupID.x == 2u || gl_WorkGroupID.x == 5u) col_weight = sn;
+    else if (gl_WorkGroupID.x == 3u || gl_WorkGroupID.x == 7u) col_weight = cs;
+    else if (gl_WorkGroupID.x == 6u) col_weight = cs * sn;
+    else if (gl_WorkGroupID.x == 8u) col_weight = cs * cs - sn * sn;
     barrier();
     vec3 sum_sh = vec3(0.0);
-    uint row_begin = stripe * uint(SH_ROWS_PER_STRIPE);
+    uint row_begin = gl_LocalInvocationID.y * uint(SH_ROWS_PER_STRIPE);
     uint row_end = row_begin + uint(SH_ROWS_PER_STRIPE);
     for (uint y = row_begin; y < row_end; y += uint(SH_ROW_SAMPLE_STRIDE)) {
         vec3 color = imageLoad(uimg_sky_radiance,
-            ivec2(int(col), int(y) + SH_SKY_ROWS)).rgb;
+            ivec2(int(gl_LocalInvocationID.x), int(y) + SH_SKY_ROWS)).rgb;
         sum_sh += color * row_weight[y];
     }
     reduce_sh[gl_LocalInvocationIndex] = vec4(sum_sh * col_weight, 0.0);
@@ -71,28 +68,27 @@ void main() {
     }
     if (gl_LocalInvocationIndex == 0u) {
         vec3 sh = reduce_sh[0].rgb * SH_SAMPLE_WEIGHT;
-        if (term < 4u) {
-            sky_sh_r0[term] = sh.r;
-            sky_sh_g0[term] = sh.g;
-            sky_sh_b0[term] = sh.b;
-        } else if (term < 8u) {
-            sky_sh_r1[term - 4u] = sh.r;
-            sky_sh_g1[term - 4u] = sh.g;
-            sky_sh_b1[term - 4u] = sh.b;
+        if (gl_WorkGroupID.x < 4u) {
+            sky_sh_r0[gl_WorkGroupID.x] = sh.r;
+            sky_sh_g0[gl_WorkGroupID.x] = sh.g;
+            sky_sh_b0[gl_WorkGroupID.x] = sh.b;
+        } else if (gl_WorkGroupID.x < 8u) {
+            sky_sh_r1[gl_WorkGroupID.x - 4u] = sh.r;
+            sky_sh_g1[gl_WorkGroupID.x - 4u] = sh.g;
+            sky_sh_b1[gl_WorkGroupID.x - 4u] = sh.b;
         } else {
             sky_sh_r2.x = sh.r;
             sky_sh_g2.x = sh.g;
             sky_sh_b2.x = sh.b;
         }
     }
-    if (gl_LocalInvocationIndex == 0u && term == 0u) {
+    if (gl_LocalInvocationIndex == 0u && gl_WorkGroupID.x == 0u) {
         // Direct sun/moon light arrives at the camera, not at a fixed sea-level
         // plane: use the actual camera altitude, so the air mass above the eye
         // shrinks as the player climbs and the direct color reddens less.
-        float mu_light = u_world_sun_dir.y;
-        vec4 trans = SampleTransmittance(utex_tslut, u_camera_radius_km, u_camera_radius_sq, abs(mu_light));
+        vec4 trans = SampleTransmittance(utex_tslut, u_camera_radius_km, u_camera_radius_sq, abs(u_world_sun_dir.y));
         vec3 ground_color;
-        ground_color = SpectralToLinearSRGBWhiteBalanced(trans * (mu_light > 0.0 ? ATM_SOLAR : ATM_MOON_IRR)) * ATM_EXPOSURE;
+        ground_color = SpectralToLinearSRGBWhiteBalanced(trans * (u_world_sun_dir.y > 0.0 ? ATM_SOLAR : ATM_MOON_IRR)) * ATM_EXPOSURE;
         ground_light.rgb = ground_color * (1.0 - rainStrength * 0.9);
         ground_light.a = 0.0;
     }

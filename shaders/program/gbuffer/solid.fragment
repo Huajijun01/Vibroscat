@@ -74,11 +74,10 @@ void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
     vec4 albedo_tex = texture(gtexture, v_texcoord);
-    float alpha = albedo_tex.a;
 
     // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
 #ifdef USE_DISCARD
-    if (alpha < 0.1) discard;
+    if (albedo_tex.a < 0.1) discard;
 #endif
 
     // -- albedo = texture x vertex color --
@@ -95,7 +94,7 @@ void main() {
     mat_id = 64;  // player hand / held item
 #endif
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
-    if (alpha < 0.5) discard;
+    if (albedo_tex.a < 0.5) discard;
     mat_id = 112; // emissive class
 #endif
 #ifdef PROGRAM_GBUFFERS_SPIDEREYES

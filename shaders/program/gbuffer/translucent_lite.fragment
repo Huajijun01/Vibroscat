@@ -28,7 +28,6 @@ void main() {
     vec4 albedo = texture(gtexture, v_texcoord.xy) * v_color;
     if(albedo.a < 0.01) discard;
     vec3 base_color = ToLinear(albedo.rgb);
-    float alpha = albedo.a;
 
     // Same BRDF configuration as deferred4 (shared BRDF helper).
     // v_normal is flat and already unit length at the vertex; interpolation
@@ -59,7 +58,7 @@ void main() {
              + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
 
     // Premultiplied translucent layer: color * alpha + alpha.
-    out_layer_color = vec4(lit * alpha, alpha);
+    out_layer_color = vec4(lit * albedo.a, albedo.a);
     // Non-water normal/flag: (0,0,1) packed, water flag 0. Particles write
     // the dummy view normal; their lighting normal is world up, not a
     // gbuffer surface normal.

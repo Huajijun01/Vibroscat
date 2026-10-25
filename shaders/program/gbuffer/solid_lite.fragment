@@ -27,7 +27,6 @@ void main() {
     if (albedo.a < 0.01) discard;
 
     vec3 base_color = ToLinear(albedo.rgb);
-    float alpha = albedo.a;
     // v_normal is flat and already unit length at the vertex; interpolation
     // of a per-primitive constant keeps those bits, so no renormalization.
     vec3 surface_normal_view = v_normal;
@@ -50,7 +49,7 @@ void main() {
     float torch_light = BlockLightFromLm(v_texcoord.z);
     vec3 lit = direct_lighting * v_sun_light_col * shadow + lambert_brdf * v_ambient_col
              + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
-    out_layer_color = vec4(lit * alpha, alpha);
+    out_layer_color = vec4(lit * albedo.a, albedo.a);
     // Non-water normal/flag: dummy (0,0,1) view normal, water flag 0; the
     // world-up lighting normal is not a gbuffer surface normal.
     out_surface_data = vec4(0.5, 0.5, 1.0, 0.0);

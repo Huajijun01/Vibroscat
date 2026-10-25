@@ -199,12 +199,12 @@ void main() {
     return;
 #endif
     vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
-    float ao = g2.a; // vanilla/material ambient occlusion (screen-AO-off fallback)
+    // g2.a: vanilla/material ambient occlusion (screen-AO-off fallback).
     float screen_ao;
-    vec3 ao_effective = ResolveSurfaceAO(tx, albedo, ao, is_opaque_hand, screen_ao);
+    vec3 ao_effective = ResolveSurfaceAO(tx, albedo, g2.a, is_opaque_hand, screen_ao);
     // colortex4 carries the world-space geometric normal (octahedral RG).
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
-    vec2 lm       = geometry_data.zw;      // (blockLight, skyLight)
+    // geometry_data.zw: (blockLight, skyLight).
     // Plant translucency from the materialID stored in colortex1.a.
 #if defined(SHADOW_SSS) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     float sss_amount = SSSAmountForId(material_id);
@@ -212,7 +212,7 @@ void main() {
     // Compile-time off: the literal zero folds every SSS branch below out.
     float sss_amount = 0.0;
 #endif
-    float sss_skylight = lm.g;
+    float sss_skylight = geometry_data.w;
 #if defined(WORLD_END)
     // The End has directional light but no vanilla sky-light channel.
     sss_skylight = 1.0;
@@ -236,9 +236,9 @@ void main() {
     // The unblurred history is read-only throughout this lighting pass.
     vec3 gi_ambient;
     if (is_opaque_hand) {
-        gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
+        gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
     } else if (!ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) {
-        gi_ambient = AmbientLight(normal_world, ao_effective, lm.g);
+        gi_ambient = AmbientLight(normal_world, ao_effective, geometry_data.w);
     }
 #endif
     // Eye-space receiver position: distance responses and the view vector
@@ -246,7 +246,7 @@ void main() {
     vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
 
     // -- Lightmap remapping (shared curves, see lib/lighting/lightmap.glsl) --
-    float block_light = BlockLightFromLm(lm.r);
+    float block_light = BlockLightFromLm(geometry_data.z);
 
     // -- Directional light (sun or moon) --
     // Unit normal/view/light inputs bound these cosines to [0,1].
@@ -320,7 +320,7 @@ void main() {
         }
         plant_map_visibility = shadow_filtered;
         if (plant_receiver) {
-            float distant_visibility = PlantDistantVisibility(sss_skylight, ao, material_id);
+            float distant_visibility = PlantDistantVisibility(sss_skylight, g2.a, material_id);
             shadow_occlusion = mix(distant_visibility, shadow_filtered, map_confidence)
                 * plant_sky_access;
         } else {
@@ -390,10 +390,9 @@ void main() {
     }
     // colortex5 feeds underwater caustics; exclude transmitted diffuse light.
     out_direct_brdf = direct_visibility;
-    vec3 sun_color = ground_light.rgb;
-    vec3 color = (direct_visibility + sss_lighting) * sun_color;
+    vec3 color = (direct_visibility + sss_lighting) * ground_light.rgb;
 #if SHADOW_SSS_DEBUG == 1
-    out_color = sss_lighting * sun_color;
+    out_color = sss_lighting * ground_light.rgb;
     return;
 #elif SHADOW_SSS_DEBUG == 2
     out_color = plant_receiver ? vec3(1.0 - sss_map_coverage, sss_map_coverage, 0.0) : vec3(0.0);
@@ -420,9 +419,9 @@ void main() {
     // even in the SSGI-only branch.
     vec3 gi_ambient;
     if (is_opaque_hand) {
-        gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
+        gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
     } else if (!ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) {
-        gi_ambient = AmbientLight(geo_normal, vec3(1.0), lm.g);
+        gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
     }
 #endif
 #if GI_MODE == 2 && RSM_DEBUG > 0
@@ -436,7 +435,7 @@ void main() {
     // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor
     // (AmbientLight). The no-GI term owns this call; the GI paths keep it as
     // a fallback.
-    vec3 sky_ambient = AmbientLight(normal_world, ao_effective, lm.g);
+    vec3 sky_ambient = AmbientLight(normal_world, ao_effective, geometry_data.w);
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif
     color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * screen_ao;
@@ -474,7 +473,7 @@ void main() {
         // uniform plastic specular sheen.
         vec3 sh_environment = EvalSkyRadiance(
             sh_reflection_direction, material.perceptual_roughness)
-            * SkyLightFromLm(lm.g);
+            * SkyLightFromLm(geometry_data.w);
         // Broad SH reflections retain Fresnel lift at grazing angles. The
         // environment has already been roughness-convolved in SH space.
         vec3 sh_fresnel = FresnelSchlick(
@@ -503,8 +502,7 @@ void main() {
     // Rough-material gate: dielectric reflection reaches zero at the
     // configured roughness cutoff, while metalness moves that cutoff toward
     // rougher materials. The same weight applies to SH and SSR.
-    float reflection_roughness = material.perceptual_roughness;
-    float reflection_smoothness = 1.0 - reflection_roughness;
+    float reflection_smoothness = 1.0 - material.perceptual_roughness;
     float reflection_threshold = clamp(
         OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD, 1e-3, 1.0);
     float threshold_ratio = (1.0 - reflection_threshold)
@@ -512,9 +510,9 @@ void main() {
     float reflection_metalness = 1.0 - clamp(
         material.diffuse_weight, 0.0, 1.0);
     float reflection_gate = reflection_smoothness
-        - reflection_roughness * threshold_ratio
+        - material.perceptual_roughness * threshold_ratio
             * (1.0 - 0.6666 * reflection_metalness);
-    float reflection_strength = (1.0 - Pow5(reflection_roughness))
+    float reflection_strength = (1.0 - Pow5(material.perceptual_roughness))
         * sqrt(clamp(reflection_gate, 0.0, 1.0));
     indirect_specular *= reflection_strength;
 #if OPAQUE_SSR_DEBUG == 8

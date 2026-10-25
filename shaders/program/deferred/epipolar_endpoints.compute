@@ -21,11 +21,10 @@ const ivec3 workGroups = ivec3(16, 1, 1);
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_endpoints;
 
 void main() {
-    uint slice = gl_GlobalInvocationID.x;
-    if (slice >= uint(SliceCount())) return;
+    if (gl_GlobalInvocationID.x >= uint(SliceCount())) return;
     bool pole_in_screen;
     vec2 pole = LightNDC(pole_in_screen);
-    int sector = int(slice) / (SliceCount() / 4);
+    int sector = int(gl_GlobalInvocationID.x) / (SliceCount() / 4);
     // A boundary sector is a valid EXIT edge only when it faces away from
     // the pole (else it is the entry crossing, never addressed by the
     // unwarp).
@@ -35,7 +34,7 @@ void main() {
                     || (sector == 3 && pole.y <  1.0);
     vec4 line = vec4(0.0);
     if (sector_valid) {
-        vec2 exit = SliceExit(int(slice));
+        vec2 exit = SliceExit(int(gl_GlobalInvocationID.x));
         vec2 pole_delta = pole - exit;
         float pole_delta_len2 = dot(pole_delta, pole_delta);
         if (pole_in_screen) {
@@ -45,7 +44,7 @@ void main() {
             line = vec4(entry, exit);
         }
     }
-    imageStore(uimg_epipolar_endpoints, ivec2(int(slice), 0), line);
+    imageStore(uimg_epipolar_endpoints, ivec2(int(gl_GlobalInvocationID.x), 0), line);
 }
 #else
 void main() {}

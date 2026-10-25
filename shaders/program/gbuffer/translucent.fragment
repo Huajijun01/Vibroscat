@@ -120,9 +120,8 @@ void main() {
         if (u_rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
             // v_texcoord.w arrives normalized from the vertex stage.
-            float rain_sky_light = v_texcoord.w;
             float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH
-                * smoothstep(15.0 / 16.0, 1.0, rain_sky_light);
+                * smoothstep(15.0 / 16.0, 1.0, v_texcoord.w);
             if (ripple_weight > 0.001) {
                 vec2 slope = SampleRainRippleSlope(v_world_pos.xz) * ripple_weight;
                 world_n = normalize(world_n + vec3(slope.x, 0.0, slope.y) * world_n.y);

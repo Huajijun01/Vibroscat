@@ -269,11 +269,9 @@ vec3 RenderCelestialDiscs(vec3 view_dir, vec3 sky_color, vec4 view_transmittance
     // pop the disc out at the horizon.
     if (context.horizon_occluded) return sky_color;
 
-    vec3 sun_dir = context.sun_dir;
-
     vec3 contribution = vec3(0.0);
 
-    float sun_cos = dot(view_dir, sun_dir);
+    float sun_cos = dot(view_dir, context.sun_dir);
     if (sun_cos > cos(SUN_GLOW_RADIUS)) {
         // The raw sRGB ratio is clamped in the display space, then the scene
         // white balance is applied to the summed disc contribution below.

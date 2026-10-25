@@ -25,9 +25,8 @@ vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir, float planet_r, float altitude) {
         float t = (u_sky_lut_horizon_theta - theta) / (PI * 0.5 + u_sky_lut_horizon_theta);
         v = float(SKY_LUT_GND) - 0.5 - sqrt(sqrt(t)) * float(SKY_LUT_GND - 1);
     }
-    vec2 view_xz = view_dir.xz;
-    vec2 sun_xz = sun_dir.xz;
-    float cos_phi = clamp(dot(view_xz, sun_xz) * inversesqrt(max(dot(view_xz, view_xz) * dot(sun_xz, sun_xz), 1e-5)), -0.99999, 0.99999);
+    float cos_phi = clamp(dot(view_dir.xz, sun_dir.xz)
+        * inversesqrt(max(dot(view_dir.xz, view_dir.xz) * dot(sun_dir.xz, sun_dir.xz), 1e-5)), -0.99999, 0.99999);
     float u = (asin(cos_phi) / PI + 0.5) * float(SKY_LUT_W - 1) + 0.5;
     return vec2(u * SKY_LUT_RCP_W, v * SKY_LUT_RCP_H);
 }

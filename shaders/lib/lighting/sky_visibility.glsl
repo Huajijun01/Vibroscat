@@ -151,30 +151,28 @@ vec3 IntegrateSkyBlockedArcPair(SkyArcPolynomial sky_arc, float ndotv,
     if (horizon_cos.x <= -1.0 && horizon_cos.y <= -1.0) {
         return vec3(0.0);
     }
-    float a = ndotv;
-    float b = ndott;
-    float projected_length2 = a * a + b * b;
+    float projected_length2 = ndotv * ndotv + ndott * ndott;
     if (projected_length2 < 1.0e-8) {
         return vec3(0.0);  // normal perpendicular to the slice plane
     }
     float inv_r = inversesqrt(projected_length2);
-    float beta_raw = atan(b, a);
+    float beta_raw = atan(ndott, ndotv);
     // Wrapped angles in [-pi/2, 3*pi/2): one atan serves both sides.
     float beta = beta_raw < -0.5 * PI ? beta_raw + TAU : beta_raw;
     float beta_neg = -beta_raw;
     if (beta_neg < -0.5 * PI) beta_neg += TAU;
-    float sin_beta = b * inv_r;
-    float cos_beta = a * inv_r;
-    vec3 p0a = sky_arc.constant_term * a;
-    vec3 p0b = sky_arc.constant_term * b;
-    vec3 pca = sky_arc.cos_term * a;
-    vec3 pcb = sky_arc.cos_term * b;
-    vec3 psa = sky_arc.sin_term * a;
-    vec3 psb = sky_arc.sin_term * b;
+    float sin_beta = ndott * inv_r;
+    float cos_beta = ndotv * inv_r;
+    vec3 p0a = sky_arc.constant_term * ndotv;
+    vec3 p0b = sky_arc.constant_term * ndott;
+    vec3 pca = sky_arc.cos_term * ndotv;
+    vec3 pcb = sky_arc.cos_term * ndott;
+    vec3 psa = sky_arc.sin_term * ndotv;
+    vec3 psb = sky_arc.sin_term * ndott;
     return SkySideArc(p0a, p0b, pca, pcb, psa, psb,
-               a, sin_beta, cos_beta, beta, horizon_cos.x)
+               ndotv, sin_beta, cos_beta, beta, horizon_cos.x)
          + SkySideArc(p0a, -p0b, pca, -pcb, -psa, psb,
-               a, -sin_beta, cos_beta, beta_neg, horizon_cos.y);
+               ndotv, -sin_beta, cos_beta, beta_neg, horizon_cos.y);
 }
 
 #endif // LIB_LIGHTING_SKY_VISIBILITY_GLSL

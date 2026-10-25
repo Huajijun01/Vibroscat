@@ -56,10 +56,6 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     vec3 sum_irradiance = vec3(0.0);
     float sum_coverage = 0.0;
     vec3 transport_moments = vec3(0.0);
-    // Loop-invariant SSBO payload: the gather never writes sky_light_data,
-    // so hoist the ground light out of the sample loop. The strength stays at
-    // the use site to keep the original multiplication order bit-identical.
-    vec3 ground_light_payload = ground_light.rgb;
     // The azimuth sequence TAU * fract(seed + k * GOLDEN_RATIO_CONJUGATE) is the orbit of
     // one fixed rotation (TAU-periodic), so one sin/cos pair per pixel seeds a
     // rotation recurrence and the per-sample angle never needs fract, a float
@@ -125,7 +121,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         float geometry_term = receiver_cosine_distance * emitter_cosine_distance
             / (distance_squared * softened_distance_squared);
         float transport_weight = geometry_term * inverse_pdf;
-        vec3 sample_irradiance = reflectance * transport_weight * ground_light_payload * RSM_STRENGTH;
+        vec3 sample_irradiance = reflectance * transport_weight * ground_light.rgb * RSM_STRENGTH;
         // Convert projected area to surface area for cosine-weighted solid
         // angle coverage. Unlike flux, this has no incident-cosine factor.
         float sample_coverage = transport_weight / projected_cosine;

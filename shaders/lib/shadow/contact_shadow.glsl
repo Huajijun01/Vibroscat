@@ -89,8 +89,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             (plant_receiver ? CONTACT_SHADOW_PLANT_REACH_FRACTION : CONTACT_SHADOW_REACH_FRACTION)
                 * receiver_distance));
 
-    int march_steps = CONTACT_SHADOW_STEPS;
-    float step_count = float(march_steps);
+    float step_count = float(CONTACT_SHADOW_STEPS);
 
     // Step pattern: linear strides that grow by 0.3 per step, each sample
     // dithered inside its stride. The normal bias and minimum gap guard the
@@ -139,7 +138,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     // independent work before any hit consumes them. Stride updates and hit
     // products stay scalar and ordered to preserve sample positions and
     // plant accumulation.
-    for (int i = 0; i < march_steps; i += 4) {
+    for (int i = 0; i < CONTACT_SHADOW_STEPS; i += 4) {
         vec4 sample_t;
         sample_t.x = travelled + stbn_dither * stride;
         travelled += stride;
@@ -164,7 +163,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             min(sample_v, 1.0 - sample_v));
         bvec4 valid;
         for (int j = 0; j < 4; ++j) {
-            valid[j] = i + j < march_steps && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
+            valid[j] = i + j < CONTACT_SHADOW_STEPS && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
         }
         // Stop at the first invalid sample, including a partial final batch.
         valid.y = valid.x && valid.y;
@@ -196,7 +195,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             textureLod(depthtex0, sample_uv_0, 0.0).r,
             textureLod(depthtex0, sample_uv_1, 0.0).r,
             1.0, 1.0);
-        if (i + 2 < march_steps) {
+        if (i + 2 < CONTACT_SHADOW_STEPS) {
             sample_z.z = textureLod(depthtex0, sample_uv_2, 0.0).r;
             sample_z.w = textureLod(depthtex0, sample_uv_3, 0.0).r;
         }

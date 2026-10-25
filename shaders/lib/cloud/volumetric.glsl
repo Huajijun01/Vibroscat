@@ -462,8 +462,6 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     // (view texel, frameCounter), the skybox with (skybox texel,
     // frameCounter / 4). x = view march jitter, y = light march base; the two
     // streams are decorrelated by the STBN stream offset (STBN_STREAM_3).
-    float view_jitter = stbn_jitter.x;
-    float light_jitter_base = stbn_jitter.y;
     float interval_length = march_end - march_start;
     // Coverage folds rainStrength, which no sample of this ray changes, so the
     // layer constants are built once per ray and read by both density calls.
@@ -485,7 +483,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         if (i >= step_count) break;
         // Shift the complete ray-march sequence by one shared jittered step;
         // independent per-segment offsets can line up with cloud height bands.
-        float sample_distance = march_start + (float(i) + view_jitter) * step_length;
+        float sample_distance = march_start + (float(i) + stbn_jitter.x) * step_length;
 
         vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
         // The band test and the two height ramps are evaluated once per sample
@@ -517,14 +515,14 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // The jitter only feeds the light trace, so compute it after the
         // horizon test has skipped erased samples.
         if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
-            float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
+            float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
             float light_optical_depth = LightOpticalDepth(
                 sample_position, light_dir, light_jitter, layer_frame);
             sample_light = DirectionalScattering(light_phase_weight,
                 octave_attenuation, light_optical_depth, isotropic_orders);
         }
 #else
-        float light_jitter = fract(light_jitter_base + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
+        float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
         float sample_sun = 0.0;
         if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_sun_dir, ATM_PLANET_R2)) {
             float light_optical_depth = LightOpticalDepth(
@@ -544,9 +542,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
 #endif
         float optical_depth = sample_density * extinction_per_step;
         float segment_transmittance = exp(-optical_depth);
-        float step_transmittance = view_transmittance;
         float segment_absorption = 1.0 - segment_transmittance;
-        float segment_weight = step_transmittance * segment_absorption;
+        float segment_weight = view_transmittance * segment_absorption;
         surface_position_accumulator += sample_position * segment_weight;
         surface_weight += segment_weight;
 #ifdef CLOUD_SINGLE_LIGHT

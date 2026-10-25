@@ -339,11 +339,11 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_dir, float jitter) {
     vec3 hit_pos = RefineSSRBisection(bracket.previous_pos,
         bracket.sample_pos, bracket.previous_ray_depth, bracket.ray_depth,
         false, WATER_SSR_BISECT_STEPS);
+    return ClassifyScreenHit(hit_pos);
 #else
     // Raw trace: report the accepted march sample without refinement.
-    vec3 hit_pos = bracket.sample_pos;
+    return ClassifyScreenHit(bracket.sample_pos);
 #endif
-    return ClassifyScreenHit(hit_pos);
 }
 
 #endif // LIB_RAYTRACE_SSR_GLSL

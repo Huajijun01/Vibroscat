@@ -86,10 +86,6 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // the scattering sum; rs/ms_raw fold in the transmittance,
         // ms is the multi-scatter LUT sample, xs their product.
         AtmosphereMedia media = AtmosphereMediaAt(r_mid);
-        vec4 sr_mid = media.sigma_s_ray;
-        vec4 sm_mid = media.sigma_s_mie;
-        vec4 sigma_t_mid = media.sigma_t;
-        vec4 ss_mid = media.sigma_s;
 
         // dot(camera_pos + view_dir*t, sun) splits into two loop-invariant
         // dots plus one scalar FMA; the real-number value is identical.
@@ -105,15 +101,15 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // moonlight: opposite direction, shared extinction
         vec4 ts_moon_mid = textureLod(utex_tslut, tslut_uv_moon, 0.0);
 
-        vec4 rs_mid      = trans_mid * sr_mid;
-        vec4 ms_raw_mid  = trans_mid * sm_mid;
-        vec4 xs_mid      = ss_mid * ms_mid;
+        vec4 rs_mid      = trans_mid * media.sigma_s_ray;
+        vec4 ms_raw_mid  = trans_mid * media.sigma_s_mie;
+        vec4 xs_mid      = media.sigma_s * ms_mid;
 
-        vec4 rs_moon_mid = ts_moon_mid * sr_mid;
-        vec4 ms_moon_mid = ts_moon_mid * sm_mid;
+        vec4 rs_moon_mid = ts_moon_mid * media.sigma_s_ray;
+        vec4 ms_moon_mid = ts_moon_mid * media.sigma_s_mie;
 
         // -- analytic integral with midpoint extinction --
-        vec4 optical_depth_mid = sigma_t_mid * dt_seg;
+        vec4 optical_depth_mid = media.sigma_t * dt_seg;
         vec4 step_trans = exp(-optical_depth_mid);
         vec4 integral  = (vec4(1.0) - step_trans) * (dt_seg / optical_depth_mid);
 

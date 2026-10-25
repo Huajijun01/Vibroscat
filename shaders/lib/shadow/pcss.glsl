@@ -109,9 +109,8 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     vec2 texel_scale = ShadowFilterTexelScale(clip_pos);
 
     float blocker_depth;
-    int blocker_steps = SHADOW_BLOCKER_SAMPLES;
     bool blocker_found = ShadowFindBlocker(sp, clip_pos, texel_scale, rot_x, rot_y,
-        blocker_steps, blocker_depth);
+        SHADOW_BLOCKER_SAMPLES, blocker_depth);
     if (!blocker_found && !leaf_receiver) {
         return 1.0;
     }

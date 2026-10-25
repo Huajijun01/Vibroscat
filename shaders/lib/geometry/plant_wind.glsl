@@ -7,8 +7,9 @@
 // block.properties: low byte retains the existing material; upper byte owns
 // geometry only (1 rooted, 2 tall lower, 3 tall upper, 4 continuous canopy).
 // Both terrain and shadow call this in feet-player space before projection.
+// Exists only under PLANT_WIND; the *_ACTIVE call-site gates already imply it.
+#ifdef PLANT_WIND
 vec3 PlantWindOffset(vec3 world_pos, vec3 to_block_center, int block_id) {
-#if defined(PLANT_WIND)
     int plant_class = block_id >> 8;
     if (plant_class < 1 || plant_class > 4) return vec3(0.0);
 
@@ -59,9 +60,7 @@ vec3 PlantWindOffset(vec3 world_pos, vec3 to_block_center, int block_id) {
     // seams have the same height, shape and wind, hence identical XYZ offsets.
     float drop_m = -0.5 * dot(bend, bend) / max(height_m, 0.01);
     return vec3(bend.x, drop_m, bend.y);
-#else
-    return vec3(0.0);
-#endif
 }
+#endif // PLANT_WIND
 
 #endif // LIB_GEOMETRY_PLANT_WIND_GLSL

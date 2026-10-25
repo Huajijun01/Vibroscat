@@ -79,7 +79,11 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
         return invalid;
     }
 
+#if defined(TAAU_ACTIVE)
     vec4 col = FastCatmullRom5Tap(colortex8, SceneTextureUV(clamped_uv), u_view_pixel_size, 0.5);
+#else
+    vec4 col = FastCatmullRom5Tap(colortex8, clamped_uv, u_view_pixel_size, 0.5);
+#endif
     CloudFrame frame;
     frame.radiance = col.rgb;
     frame.surface_distance = col.a;

@@ -112,10 +112,18 @@ vec2 SearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
         float sample_depth_pos = 1.0;
         float sample_depth_neg = 1.0;
         if (active_pos) {
+#if defined(TAAU_ACTIVE)
             sample_depth_pos = texture(depthtex2, SceneTextureUV(sample_uv_pos)).r;
+#else
+            sample_depth_pos = texture(depthtex2, sample_uv_pos).r;
+#endif
         }
         if (active_neg) {
+#if defined(TAAU_ACTIVE)
             sample_depth_neg = texture(depthtex2, SceneTextureUV(sample_uv_neg)).r;
+#else
+            sample_depth_neg = texture(depthtex2, sample_uv_neg).r;
+#endif
         }
         horizon_cos.x = UpdateHorizon(sample_uv_pos, sample_depth_pos,
             center_view, center_depth, view_axis, horizon_cos.x);

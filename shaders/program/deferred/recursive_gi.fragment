@@ -213,7 +213,11 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         vec2 sample_uv = origin_coord + step_dir * step_size;
         step_size *= step_scale;
         if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThanEqual(sample_uv, vec2(1.0)))) break;
+#if defined(TAAU_ACTIVE)
         float sample_depth = texture(depthtex2, SceneTextureUV(sample_uv)).r;
+#else
+        float sample_depth = texture(depthtex2, sample_uv).r;
+#endif
         if (sample_depth >= 1.0) continue;
         vec3 sample_view = vec3(sample_uv * 2.0 - 1.0, 1.0);
 #ifdef TAA

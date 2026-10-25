@@ -50,7 +50,9 @@ vec3 WaterFogCol() {
 }
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     vec4 diffuse = texture(gtexture, v_texcoord.xy);
 
     diffuse.rgb *= v_color.rgb;
@@ -188,8 +190,14 @@ void main() {
         // Sky hits reproject at their reported far-plane depth: the current
         // frame can carry nearer translucent water over that pixel, which
         // would turn the sky reflection into a water-surface history sample.
-        prev_coord = ToPrevious(vec3(trace_coord, trace_hit_sky ? trace_pos.z
-            : texture(depthtex0, SceneTextureUV(trace_coord)).x));
+#if defined(TAAU_ACTIVE)
+        float trace_scene_depth = trace_hit_sky ? trace_pos.z
+            : texture(depthtex0, SceneTextureUV(trace_coord)).x;
+#else
+        float trace_scene_depth = trace_hit_sky ? trace_pos.z
+            : texture(depthtex0, trace_coord).x;
+#endif
+        prev_coord = ToPrevious(vec3(trace_coord, trace_scene_depth));
         history_hit = ScreenUVInside(prev_coord.xy);
     }
 

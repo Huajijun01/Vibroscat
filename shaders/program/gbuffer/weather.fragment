@@ -1,3 +1,4 @@
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/color/spaces.glsl"
@@ -16,7 +17,9 @@ in vec4 v_color;
 layout(location = 0) out vec4 out_weather;
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     vec4 tex = texture(gtexture, v_texcoord);
     float alpha = tex.a * v_color.a;
     if (alpha < 0.0001) discard;

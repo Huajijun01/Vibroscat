@@ -70,7 +70,9 @@ layout(early_fragment_tests) in;
 #endif
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     vec4 albedo_tex = texture(gtexture, v_texcoord);
     float alpha = albedo_tex.a;
 

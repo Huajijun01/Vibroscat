@@ -97,7 +97,11 @@ float AOHistoryWeight(vec3 sample_prev_view, vec3 receiver_prev_view, vec3 recei
 // Geometric validation runs once at this continuous sample position.
 vec3 SampleAOHistory(vec3 receiver_prev_view, vec3 receiver_view, vec3 normal_world, vec2 history_uv) {
     vec2 sample_uv = clamp(history_uv, 0.5 * u_render_pixel_size, 1.0 - 0.5 * u_render_pixel_size);
+#if defined(TAAU_ACTIVE)
     vec4 history = textureLod(colortex8, SceneTextureUV(sample_uv), 0.0);
+#else
+    vec4 history = textureLod(colortex8, sample_uv, 0.0);
+#endif
     if (!isnan(history.a) || history.g < 1.0 || history.b <= 0.0
             || any(isnan(history.rgb)) || any(isinf(history.rgb))) return vec3(1.0, 0.0, 0.0);
     vec3 sample_prev_view = AOHistoryViewPosition(sample_uv, history);

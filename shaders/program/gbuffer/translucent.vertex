@@ -42,7 +42,9 @@ void main() {
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif
+#if defined(TAAU_ACTIVE)
     gl_Position = ScaleSceneClipPosition(gl_Position);
+#endif
 
     v_color = gl_Color;
     v_texcoord.xy = gl_MultiTexCoord0.xy;

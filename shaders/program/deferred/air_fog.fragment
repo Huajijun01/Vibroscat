@@ -57,7 +57,9 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     vec2 uv = gl_FragCoord.xy * u_render_pixel_size;
     ivec2 tx = ivec2(gl_FragCoord.xy);
     vec3 scene = texelFetch(colortex0, tx, 0).rgb;

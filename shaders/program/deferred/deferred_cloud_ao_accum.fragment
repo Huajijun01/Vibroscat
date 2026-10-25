@@ -41,7 +41,9 @@ layout(r8) uniform image2D uimg_clouds_age;
 #endif
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     ivec2 tx = ivec2(gl_FragCoord.xy);
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
     float scene_depth = texelFetch(depthtex0, tx, 0).r;

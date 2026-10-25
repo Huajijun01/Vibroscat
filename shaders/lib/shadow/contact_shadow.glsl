@@ -174,21 +174,31 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         // deferred4 precedes translucent geometry: depthtex0 and depthtex1
         // contain the same opaque/hand depth here. Reuse the receiver's
         // depthtex0 resource instead of sampling a second depth texture.
+        vec2 sample_uv_0 = vec2(sample_u.x, sample_v.x);
+        vec2 sample_uv_1 = vec2(sample_u.y, sample_v.y);
+        vec2 sample_uv_2 = vec2(sample_u.z, sample_v.z);
+        vec2 sample_uv_3 = vec2(sample_u.w, sample_v.w);
+#if defined(TAAU_ACTIVE)
+        sample_uv_0 = SceneTextureUV(sample_uv_0);
+        sample_uv_1 = SceneTextureUV(sample_uv_1);
+        sample_uv_2 = SceneTextureUV(sample_uv_2);
+        sample_uv_3 = SceneTextureUV(sample_uv_3);
+#endif
 #if CONTACT_SHADOW_STEPS % 4 == 0
         vec4 sample_z = vec4(
-            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.x, sample_v.x)), 0.0).r,
-            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.y, sample_v.y)), 0.0).r,
-            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.z, sample_v.z)), 0.0).r,
-            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.w, sample_v.w)), 0.0).r);
+            textureLod(depthtex0, sample_uv_0, 0.0).r,
+            textureLod(depthtex0, sample_uv_1, 0.0).r,
+            textureLod(depthtex0, sample_uv_2, 0.0).r,
+            textureLod(depthtex0, sample_uv_3, 0.0).r);
 #else
         // The six-step option has only two samples in its final batch.
         vec4 sample_z = vec4(
-            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.x, sample_v.x)), 0.0).r,
-            textureLod(depthtex0, SceneTextureUV(vec2(sample_u.y, sample_v.y)), 0.0).r,
+            textureLod(depthtex0, sample_uv_0, 0.0).r,
+            textureLod(depthtex0, sample_uv_1, 0.0).r,
             1.0, 1.0);
         if (i + 2 < march_steps) {
-            sample_z.z = textureLod(depthtex0, SceneTextureUV(vec2(sample_u.z, sample_v.z)), 0.0).r;
-            sample_z.w = textureLod(depthtex0, SceneTextureUV(vec2(sample_u.w, sample_v.w)), 0.0).r;
+            sample_z.z = textureLod(depthtex0, sample_uv_2, 0.0).r;
+            sample_z.w = textureLod(depthtex0, sample_uv_3, 0.0).r;
         }
 #endif
         // Keep the original view-depth subtraction and strict slab bounds.

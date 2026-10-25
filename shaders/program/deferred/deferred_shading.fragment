@@ -54,7 +54,9 @@ layout(location = 2) out vec3 out_direct_brdf; // direct-light BRDF * NoL * shad
 layout(location = 3) out vec4 out_translucent_clear;
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     out_direct_brdf = vec3(0.0);
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float scene_depth = texelFetch(depthtex0, tx, 0).r;

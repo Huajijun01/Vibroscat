@@ -20,7 +20,9 @@ layout(location = 0) out vec4 out_layer_color;
 layout(location = 1) out vec4 out_surface_data;
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     vec4 albedo = texture(gtexture, v_texcoord.xy) * v_color;
     if (albedo.a < 0.01) discard;
 

@@ -52,7 +52,9 @@ void SetupGbufferVertex() {
 #ifdef TAA
     gl_Position.xy += u_taa_offset * gl_Position.w;
 #endif
+#if defined(TAAU_ACTIVE)
     gl_Position = ScaleSceneClipPosition(gl_Position);
+#endif
 
     // Particles are camera-facing billboards: their mesh normal points at the
     // eye, which would flip sky/ground ambient with camera pitch and store a

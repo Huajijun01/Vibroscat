@@ -28,7 +28,9 @@ layout(location = 1) out uvec4 out_history_metadata;
 #endif
 
 void main() {
+#if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
     out_reflection_radiance = vec3(0.0);
 #if OPAQUE_SSR_FILTER > 0
     out_history_metadata = uvec4(0u);

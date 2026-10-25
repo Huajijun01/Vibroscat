@@ -1,3 +1,3 @@
 #version 430 compatibility
 #define WORLD_OVERWORLD
-#include "/program/gbuffer/skytextured.vertex"
+#include "/program/common/disabled_draw.vertex"

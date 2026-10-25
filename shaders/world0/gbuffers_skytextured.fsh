@@ -1,3 +1,3 @@
 #version 430 compatibility
 #define WORLD_OVERWORLD
-#include "/program/gbuffer/skytextured.fragment"
+#include "/program/gbuffer/clouds.fragment"

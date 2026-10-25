@@ -98,7 +98,11 @@ void main() {
         // world vertical).
         vec3 world_n;
         if (abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y) {
+#ifdef WATER_POM
             OceanSurfacePOM((v_world_pos + cameraPosition).xz, normalize(v_world_pos), frameTimeCounter, world_n);
+#else
+            OceanFlatNormal((v_world_pos + cameraPosition).xz, frameTimeCounter, world_n);
+#endif
         } else {
 #ifdef HAS_AT_TANGENT
             vec3 face_absolute_pos = v_world_pos + cameraPosition;

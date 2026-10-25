@@ -7,8 +7,8 @@
 
 // Parallax occlusion mapping for the water surface: the normal is
 // evaluated at the parallax-corrected position. The WATER_POM option lives
-// in contract/settings.glsl (LOW profile disables it; the normal then falls
-// back to the plane position).
+// in contract/settings.glsl (LOW profile disables it; the normal then comes
+// from the flat-surface variant without a march).
 
 // POM search mode: 0 = fixed-step linear, 1 = coarse + bisection (same or
 // fewer height samples, tighter root; wave field and normals unchanged).
@@ -129,20 +129,25 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 }
 #endif
 
-// World-space normal (y up) at the parallax-corrected position.
+// World-space normal (y up) at the parallax-corrected position. WATER_POM
+// owns the parallax march; without it the flat-surface variant evaluates the
+// normal directly at the warped plane position.
+#ifdef WATER_POM
 void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
     xz = RiverTextureWarpPosition(xz);
     vec2 xz_offset;
-#ifdef WATER_POM
 #if POM_BISECTION_ENABLED
     xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
 #else
     xz_offset = OceanPOMOffset(xz, view_world, time);
 #endif
-#else
-    xz_offset = xz;
-#endif
     RiverTextureNormal(xz_offset, time, normal);
 }
+#else
+void OceanFlatNormal(vec2 xz, float time, out vec3 normal) {
+    xz = RiverTextureWarpPosition(xz);
+    RiverTextureNormal(xz, time, normal);
+}
+#endif
 
 #endif // LIB_WATER_OCEAN_GLSL

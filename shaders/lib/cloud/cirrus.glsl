@@ -43,8 +43,10 @@ struct CirrusLayerSample {
     float entry_km;
 };
 
-float SampleCirrusOpticalDepth(vec3 sample_pos_km) {
+// Both entry points below exist only under CIRRUS; the sole RenderCirrusLayer
+// call site already sits behind its own #ifdef CIRRUS gate.
 #ifdef CIRRUS
+float SampleCirrusOpticalDepth(vec3 sample_pos_km) {
     vec2 absolute_km = sample_pos_km.xz + (cameraPosition.xz) * 0.001;
     vec2 uv = absolute_km.yx / CIRRUS_TILE_SIZE_KM;
     float encoded = textureLod(utex_cirrus_body, uv, 0.0).r;
@@ -60,10 +62,8 @@ float SampleCirrusOpticalDepth(vec3 sample_pos_km) {
     float body = encoded * encoded;
     return CIRRUS_OPTICAL_DEPTH_SCALE * body
         * (1.0 + (1.0 - 0.6 * body) * strand);
-#else
-    return 0.0;
-#endif
 }
+#endif
 
 // Source radiance: extinction is already integrated by RenderCirrusLayer.
 // Single scattering has no extra density factor, so thin edges respond linearly.
@@ -104,6 +104,7 @@ vec3 EvaluateCirrusLighting(vec3 sample_pos_km, vec3 view_dir, float tau_vertica
     return source_radiance;
 }
 
+#ifdef CIRRUS
 CirrusLayerSample RenderCirrusLayer(vec3 view_dir, vec3 sky_color) {
     CirrusLayerSample result = CirrusLayerSample(vec3(0.0), 1.0, vec3(0.0), 1.0e9);
     vec3 ray_start_km = AtmosphereCameraPosition();
@@ -137,5 +138,6 @@ CirrusLayerSample RenderCirrusLayer(vec3 view_dir, vec3 sky_color) {
     result.transmittance = segment_transmittance;
     return result;
 }
+#endif // CIRRUS
 
 #endif // LIB_CLOUD_CIRRUS_GLSL

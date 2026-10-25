@@ -81,8 +81,9 @@ vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
 // Visibility and normal proxy at a historical tap's CURRENT projected location.
 float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 data,
         OpaqueHistoryGuide guide) {
+    // Nonzero age certifies a positive finite depth from PackOpaqueHistory.
+    if (OpaqueHistoryAge(data) < 1.0) return 0.0;
     float depth_view = OpaqueHistoryDepth(data);
-    if (OpaqueHistoryAge(data) < 1.0 || !(depth_view > 0.0) || isinf(depth_view)) return 0.0;
     if (abs(OpaqueHistoryRoughness(data) - guide.material.x) > 0.025) return 0.0;
     if (abs(float(data.g >> 8) / 255.0 - guide.material.y) > 1.5 / 255.0) return 0.0;
     if (u_ssr_history_static) {
@@ -165,6 +166,11 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
 vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
         vec3 receiver_view, vec3 view_to_eye, vec3 normal_world, vec3 geo_normal_world, vec3 geo_view,
         vec2 material, int material_id, out uvec4 metadata) {
+    // View-model samples cannot become history for newly uncovered world surfaces.
+    if (material_id == 64) {
+        metadata = uvec4(0u);
+        return sample_z;
+    }
     float age = 1.0;
     float variance = 0.0;
     int change_state = 0;
@@ -176,7 +182,7 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
     vec3 previous_forward = transpose(mat3(gbufferPreviousModelView)) * vec3(0.0, 0.0, 1.0);
     bool camera_valid = u_camera_delta_sq < 16.0 && dot(current_forward, previous_forward) > 0.85
         && abs(gbufferPreviousProjection[1][1] / gbufferProjection[1][1] - 1.0) < 0.15;
-    if (frameCounter > 1 && material_id != 64 && camera_valid) {
+    if (frameCounter > 1 && camera_valid) {
         // Reproject a displacement, not a view -> world -> view round trip.
         // This preserves exact zero pixel motion for identical camera frames;
         // round-off must not activate three almost-zero bilinear taps.

@@ -8,7 +8,8 @@
 // No external coefficients, LUT texture, or historical material factor.
 // Demodulation concept: NVIDIA NRD README, MATERIAL DEMODULATION.
 vec3 SpecularMaterialFactor(vec3 f0, float ndotv, float roughness) {
-#if defined(OPAQUE_SSR_DEMODULATION)
+    // Without temporal filtering, both the trace and shading use raw contributions.
+#if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
     float n = clamp(ndotv, 1e-5, 1.0);
     float y = 2.0 * (max(roughness, sqrt(0.002)) - sqrt(0.002))
         / (1.0 - sqrt(0.002)) - 1.0;

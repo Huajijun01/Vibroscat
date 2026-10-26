@@ -5,7 +5,8 @@
 // Generated from the official ACES-OUTPUT builtin; source:
 // https://github.com/AcademySoftwareFoundation/OpenColorIO/tree/v2.6.0
 // Modified for Vibroscat: immutable hue tables replace texture bindings;
-// the final RGB-to-XYZ conversion is omitted to return display-linear Rec.709.
+// the final RGB-to-XYZ conversion is omitted to return display-linear Rec.709;
+// the pack's saturate() helper replaces the explicit min/max range clamps.
 // These tables contain gamut boundaries, not sampled tone curves.
 // See licenses/THIRD_PARTY_NOTICES.md, section 22.
 // Copyright Contributors to the OpenColorIO Project.
@@ -34,6 +35,8 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#include "/lib/core/math_scalar.glsl"
 
 const float ACES2_REACH_M_TABLE[363] = float[363](
     165.075684, 166.790771, 168.481445, 170.135498, 171.759033, 173.345947,
@@ -657,7 +660,7 @@ vec3 ocio_gamut_compress0(vec3 JMh, float Jx, vec3 JMGcusp, float reachMaxM)
   else
   {
     vec2 JMcusp = JMGcusp.rg;
-    float focusJ = mix(JMcusp.r, 34.096539, min(1.0, 1.300000 - (JMcusp.r / 100.000000)));
+    float focusJ = mix(JMcusp.r, 34.096539, saturate(1.300000 - (JMcusp.r / 100.000000)));
     float slope_gain = 135. * ocio_get_focus_gain0(Jx, JMcusp.r);
     float J_intersect_source = ocio_solve_J_intersect0(JMh.r, JMh.g, focusJ, slope_gain);
     float gamut_slope = (J_intersect_source < focusJ) ? J_intersect_source : (100. - J_intersect_source);
@@ -761,7 +764,7 @@ vec4 ACES2Official(vec4 inPixel)
       if (M != 0.0)
       {
         float nJ = J_ts / 100.;
-        float snJ = max(0.0, 1.0 - nJ);
+        float snJ = saturate(1.0 - nJ);
         float Mnorm;
         {
           float cos_hr2 = 2.0 * cos_hr * cos_hr - 1.0;
@@ -814,8 +817,7 @@ vec4 ACES2Official(vec4 inPixel)
   // Add Range processing
 
   {
-    outColor.rgb = max(vec3(0., 0., 0.), outColor.rgb);
-    outColor.rgb = min(vec3(1., 1., 1.), outColor.rgb);
+    outColor.rgb = saturate(outColor.rgb);
   }
 
   return outColor;

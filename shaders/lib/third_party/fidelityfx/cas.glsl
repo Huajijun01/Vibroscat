@@ -34,6 +34,7 @@
 // Sharpen-only GLSL adaptation used after tonemapping. The luma helper uses
 // the pack-wide Rec.709 Luminance from color/spaces.glsl (identical to the
 // original CAS dot product).
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 
 vec3 CASSharpen(sampler2D source, vec2 uv, vec2 pixel_size, float sharpness) {
@@ -50,7 +51,7 @@ vec3 CASSharpen(sampler2D source, vec2 uv, vec2 pixel_size, float sharpness) {
     float east_luma = Luminance(east);
     float min_luma = min(min(min(center_luma, north_luma), min(south_luma, west_luma)), east_luma);
     float max_luma = max(max(max(center_luma, north_luma), max(south_luma, west_luma)), east_luma);
-    float amplitude = sqrt(clamp(min(min_luma, 1.0 - max_luma) / max(max_luma, 1.0e-6), 0.0, 1.0));
+    float amplitude = sqrt(saturate(min(min_luma, 1.0 - max_luma) / max(max_luma, 1.0e-6)));
     float weight = amplitude * sharpness;
     vec3 sharpened = center * (1.0 + 4.0 * weight) - (north + south + west + east) * weight;
     vec3 minimum = min(min(min(north, south), min(west, east)), center);

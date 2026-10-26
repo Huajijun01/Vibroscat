@@ -7,13 +7,14 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 
+#ifndef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
 flat out vec3 v_normal;
-flat out vec3 v_sun_light_col;
+#endif
 out vec3 v_view_pos;
 out vec3 v_ambient_col;
 out vec3 v_shadow_proj_pos;
 out vec4 v_color;
-out vec4 v_texcoord;
+out vec3 v_texcoord;
 
 void main() {
     vec3 view_pos = (gl_ModelViewMatrix * gl_Vertex).xyz;
@@ -41,30 +42,29 @@ void main() {
 
     v_color = gl_Color;
     v_texcoord.xy = gl_MultiTexCoord0.xy;
-    v_texcoord.zw = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
     // Same vanilla lightmap normalization as solid.vertex: the shared
     // lighting curves (AmbientLight, BlockLightFromLm) are anchored on a
-    // [0, 1] domain, not the raw [1/32, 31/32] matrix output.
-    v_texcoord.zw = saturate(v_texcoord.zw * 1.103449 - 0.0689656);
+    // [0, 1] domain, not the raw [1/32, 31/32] matrix output. The sky
+    // component stays local: AmbientLight applies its nonlinear curve here,
+    // so only the block component crosses the stage.
+    vec2 lmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
+    lmcoord = saturate(lmcoord * 1.103449 - 0.0689656);
+    v_texcoord.z = lmcoord.x;
 
+#ifndef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
     vec3 normal_view = gl_NormalMatrix * gl_Normal;
     // Squared-length normalize with a degenerate-normal guard.
     float normal_view_sq = dot(normal_view, normal_view);
     v_normal = normal_view_sq < 1.0e-8
         ? vec3(0.0, 0.0, 1.0)
         : normal_view * inversesqrt(normal_view_sq);
-
-    // Particles shade as world-up surfaces: ambient must not use the
-    // billboard normal, which points at the eye and swaps zenith/ground sky
-    // ambient with camera pitch.
-#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
-    vec3 normal_world = vec3(0.0, 1.0, 0.0);
-#else
     // v_normal is unit and the camera rotation preserves its length.
     vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
+#else
+    // Translucent particles shade as world-up surfaces: ambient must not use
+    // the billboard normal, which points at the eye and swaps zenith/ground
+    // sky ambient with camera pitch. No surface normal crosses the stage.
+    vec3 normal_world = vec3(0.0, 1.0, 0.0);
 #endif
-    v_sun_light_col = ground_light.rgb;
-    // Same sky ambient + lightmap remap as deferred4 (no AO in the gbuffer
-    // stage).
-    v_ambient_col = AmbientLight(normal_world, vec3(1.0), v_texcoord.w);
+    v_ambient_col = AmbientLight(normal_world, vec3(1.0), lmcoord.y);
 }

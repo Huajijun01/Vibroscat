@@ -7,6 +7,7 @@
 #define WATER_SSR_SKY_SKIP 1
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -27,7 +28,6 @@
 flat in int v_id;
 flat in int v_glass;
 flat in vec3 v_normal;
-flat in vec3 v_sun_light_col;
 #ifdef HAS_AT_TANGENT
 in vec3 v_world_tangent;
 in vec3 v_world_bitangent;
@@ -45,7 +45,7 @@ layout(location = 2) out vec4 out_surface_high;
 
 vec3 WaterFogCol() {
     vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(v_view_pos));
-    return FastWaterFogRadiance(v_sun_light_col, v_ambient_col,
+    return FastWaterFogRadiance(ground_light.rgb, v_ambient_col,
         dot(world_view_dir, u_world_light_dir));
 }
 
@@ -72,7 +72,7 @@ void main() {
         float shadow = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
         float torch_light = BlockLightFromLm(v_texcoord.z);
-        vec3 lit = direct_lighting * v_sun_light_col * shadow + lambert_brdf * v_ambient_col
+        vec3 lit = direct_lighting * ground_light.rgb * shadow + lambert_brdf * v_ambient_col
                  + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
         out_layer_color = vec4(lit * diffuse.a, diffuse.a);
         PackTranslucentSurface(v_normal * 0.5 + 0.5, 0.0, out_surface_data, out_surface_high);
@@ -236,7 +236,7 @@ void main() {
     // For unit V and L, H = normalize(V + L) gives ldoth == sqrt((1 + ldotv) / 2);
     // the half vector has no other consumer on this path.
     float ldoth = sqrt(max(1.0 + ldotv, 0.0) * 0.5);
-    vec3 sun_light = v_sun_light_col * shadow;
+    vec3 sun_light = ground_light.rgb * shadow;
     vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
 
     const float f0 = 0.1;

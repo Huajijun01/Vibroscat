@@ -242,15 +242,16 @@ HeightProfile HeightProfileFor(float altitude_km) {
     return profile;
 }
 
-// Eroded density in [0, 1] at one point in the cloud layer. Callers own the
-// altitude band test (they need the raw altitude for HeightProfileFor
-// anyway), so the rejection and the height profile run once per sample.
-float SampleCloudDensity(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile
+// Eroded density in [0, 1] at one point in the cloud layer. The caller owns
+// the altitude band test (it needs the raw altitude for HeightProfileFor
+// anyway) and the distribution read: the view march issues that 2D fetch one
+// sample ahead, so this decode consumes it from a register and only the
+// fine-detail volume read happens here, behind the density gates.
+float DecodeCloudDensity(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile,
+    float distribution_fetch
 ) {
     vec2 density_absolute_km = atmosphere_position.xz + frame.absolute_km_offset;
-    float distribution_density = saturate((
-        texture(utex_cloud_distribution_tex,
-            DistributionUv(density_absolute_km, frame.distribution_offset)).r
+    float distribution_density = saturate((distribution_fetch
         - frame.distribution_floor) * frame.inv_coverage);
     if(distribution_density < 0.001) {
         return 0.0;
@@ -479,81 +480,100 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     float step_length = interval_length * inverse_step_count;
     float extinction_per_step = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * step_length;
 
+    // One-deep prefetch of the distribution read: the next sample's position
+    // is the pure step recurrence (the whole sequence shares one jittered
+    // step, so independent per-segment offsets cannot line up with height
+    // bands), so its 2D read issues before this sample's density decode and
+    // light trace. Reads prefetched past a break, the altitude-band skip, or
+    // the final step are discarded; the height profile still decodes only
+    // for in-band samples.
+    float sample_distance = march_start + stbn_jitter.x * step_length;
+    vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
+    float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
+    float sample_distribution = texture(utex_cloud_distribution_tex,
+        DistributionUv(sample_position.xz + layer_frame.absolute_km_offset,
+            layer_frame.distribution_offset)).r;
     for (int i = 0; i < CLOUD_VIEW_MAX_STEPS; ++i) {
         if (i >= step_count) break;
-        // Shift the complete ray-march sequence by one shared jittered step;
-        // independent per-segment offsets can line up with cloud height bands.
-        float sample_distance = march_start + (float(i) + stbn_jitter.x) * step_length;
+        float next_distance = march_start + (float(i + 1) + stbn_jitter.x) * step_length;
+        vec3 next_position = camera_atmosphere_pos + view_dir * next_distance;
+        float next_altitude_km = length(next_position) - ATM_PLANET_R;
+        float next_distribution = texture(utex_cloud_distribution_tex,
+            DistributionUv(next_position.xz + layer_frame.absolute_km_offset,
+                layer_frame.distribution_offset)).r;
 
-        vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
         // The band test and the two height ramps are evaluated once per sample
         // here and shared by whichever density path runs.
-        float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
-        if (sample_altitude_km <= CLOUD_BASE_ALTITUDE || sample_altitude_km >= CLOUD_TOP_ALTITUDE) continue;
-        HeightProfile sample_height = HeightProfileFor(sample_altitude_km);
+        if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
+            HeightProfile sample_height = HeightProfileFor(sample_altitude_km);
 #if CLOUD_SHAPE_MODE == 1
-        float sample_density = SampleCloudDensityHighQuality(sample_position, layer_frame, sample_height);
+            float sample_density = SampleCloudDensityHighQuality(sample_position, layer_frame, sample_height);
 #else
-        float sample_density = SampleCloudDensity(sample_position, layer_frame, sample_height);
+            float sample_density = DecodeCloudDensity(sample_position, layer_frame,
+                sample_height, sample_distribution);
 #endif
-        if (sample_density < 1.0e-4) continue;
+            if (sample_density >= 1.0e-4) {
+                // Only PlanetHorizonOccluded consumes the squared radius below;
+                // keep it off the erased-sample path.
+                float sample_r2 = dot(sample_position, sample_position);
 
-        // Only PlanetHorizonOccluded consumes the squared radius below;
-        // keep it off the erased-sample path.
-        float sample_r2 = dot(sample_position, sample_position);
-
-        // Per-sample scattering material, shared by both light channels. The
-        // three constants are folded into one per-sample multiply.
-        float reference_optical_depth = sample_density
-            * (CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M
-                * CLOUD_MS_REFERENCE_LENGTH_M);
-        float isotropic_orders = IsotropicOrders(
-            reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
+                // Per-sample scattering material, shared by both light channels. The
+                // three constants are folded into one per-sample multiply.
+                float reference_optical_depth = sample_density
+                    * (CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M
+                        * CLOUD_MS_REFERENCE_LENGTH_M);
+                float isotropic_orders = IsotropicOrders(
+                    reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
 
 #ifdef CLOUD_SINGLE_LIGHT
-        float sample_light = 0.0;
-        // The jitter only feeds the light trace, so compute it after the
-        // horizon test has skipped erased samples.
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
-            float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
-            float light_optical_depth = LightOpticalDepth(
-                sample_position, light_dir, light_jitter, layer_frame);
-            sample_light = DirectionalScattering(light_phase_weight,
-                octave_attenuation, light_optical_depth, isotropic_orders);
-        }
+                float sample_light = 0.0;
+                // The jitter only feeds the light trace, so compute it after the
+                // horizon test has skipped erased samples.
+                if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
+                    float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
+                    float light_optical_depth = LightOpticalDepth(
+                        sample_position, light_dir, light_jitter, layer_frame);
+                    sample_light = DirectionalScattering(light_phase_weight,
+                        octave_attenuation, light_optical_depth, isotropic_orders);
+                }
 #else
-        float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
-        float sample_sun = 0.0;
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_sun_dir, ATM_PLANET_R2)) {
-            float light_optical_depth = LightOpticalDepth(
-                sample_position, u_world_sun_dir, light_jitter, layer_frame);
-            sample_sun = DirectionalScattering(sun_phase_weight,
-                octave_attenuation, light_optical_depth, isotropic_orders);
-        }
-        float sample_moon = 0.0;
-        if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_moon_dir, ATM_PLANET_R2)) {
-            // Half-period offset decorrelates the moon march from the sun's.
-            float moon_light_jitter = fract(light_jitter + 0.5);
-            float light_optical_depth = LightOpticalDepth(
-                sample_position, u_world_moon_dir, moon_light_jitter, layer_frame);
-            sample_moon = DirectionalScattering(moon_phase_weight,
-                octave_attenuation, light_optical_depth, isotropic_orders);
-        }
+                float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
+                float sample_sun = 0.0;
+                if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_sun_dir, ATM_PLANET_R2)) {
+                    float light_optical_depth = LightOpticalDepth(
+                        sample_position, u_world_sun_dir, light_jitter, layer_frame);
+                    sample_sun = DirectionalScattering(sun_phase_weight,
+                        octave_attenuation, light_optical_depth, isotropic_orders);
+                }
+                float sample_moon = 0.0;
+                if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_moon_dir, ATM_PLANET_R2)) {
+                    // Half-period offset decorrelates the moon march from the sun's.
+                    float moon_light_jitter = fract(light_jitter + 0.5);
+                    float light_optical_depth = LightOpticalDepth(
+                        sample_position, u_world_moon_dir, moon_light_jitter, layer_frame);
+                    sample_moon = DirectionalScattering(moon_phase_weight,
+                        octave_attenuation, light_optical_depth, isotropic_orders);
+                }
 #endif
-        float optical_depth = sample_density * extinction_per_step;
-        float segment_transmittance = exp(-optical_depth);
-        float segment_absorption = 1.0 - segment_transmittance;
-        float segment_weight = view_transmittance * segment_absorption;
-        surface_position_accumulator += sample_position * segment_weight;
-        surface_weight += segment_weight;
+                float optical_depth = sample_density * extinction_per_step;
+                float segment_transmittance = exp(-optical_depth);
+                float segment_absorption = 1.0 - segment_transmittance;
+                float segment_weight = view_transmittance * segment_absorption;
+                surface_position_accumulator += sample_position * segment_weight;
+                surface_weight += segment_weight;
 #ifdef CLOUD_SINGLE_LIGHT
-        light_radiance += segment_weight * sample_light;
+                light_radiance += segment_weight * sample_light;
 #else
-        sun_radiance += segment_weight * sample_sun;
-        moon_radiance += segment_weight * sample_moon;
+                sun_radiance += segment_weight * sample_sun;
+                moon_radiance += segment_weight * sample_moon;
 #endif
-        view_transmittance *= segment_transmittance;
-        if (view_transmittance < 1.0e-4) break;
+                view_transmittance *= segment_transmittance;
+                if (view_transmittance < 1.0e-4) break;
+            }
+        }
+        sample_position = next_position;
+        sample_altitude_km = next_altitude_km;
+        sample_distribution = next_distribution;
     }
 
     hit = surface_weight > 1.0e-5;

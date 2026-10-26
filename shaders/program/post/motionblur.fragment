@@ -2,6 +2,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/color/dither.glsl"
 
@@ -80,7 +81,7 @@ void main() {
     }
     blurred /= sample_count;
 
-    float blend = clamp(vel_len * 0.1, 0.0, 1.0);
+    float blend = saturate(vel_len * 0.1);
     vec3 motion_blurred_scene = mix(scene, blurred, blend);
 #ifdef COLOR_DITHER
     out_color = JitterR11G11B10F(motion_blurred_scene, gl_FragCoord.xy, COLOR_JITTER_SEED);

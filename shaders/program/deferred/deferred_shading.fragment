@@ -352,7 +352,7 @@ void main() {
         sss_contact_visibility = contact_shadow;
 #if CONTACT_SHADOW_DEBUG > 0
         out_color = vec3(CONTACT_SHADOW_DEBUG == 1
-            ? contact_shadow : min((1.0 - contact_shadow) * 4.0, 1.0));
+            ? contact_shadow : saturate((1.0 - contact_shadow) * 4.0));
         return;
 #endif
     }
@@ -507,13 +507,12 @@ void main() {
         OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD, 1e-3, 1.0);
     float threshold_ratio = (1.0 - reflection_threshold)
         / reflection_threshold;
-    float reflection_metalness = 1.0 - clamp(
-        material.diffuse_weight, 0.0, 1.0);
+    float reflection_metalness = 1.0 - saturate(material.diffuse_weight);
     float reflection_gate = reflection_smoothness
         - material.perceptual_roughness * threshold_ratio
             * (1.0 - 0.6666 * reflection_metalness);
     float reflection_strength = (1.0 - Pow5(material.perceptual_roughness))
-        * sqrt(clamp(reflection_gate, 0.0, 1.0));
+        * sqrt(saturate(reflection_gate));
     indirect_specular *= reflection_strength;
 #if OPAQUE_SSR_DEBUG == 8
     color = indirect_specular;

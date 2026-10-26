@@ -42,6 +42,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
@@ -226,8 +227,8 @@ void main() {
     out_albedo_material.a   = float(mat_id) / 255.0;
     // Floor-quantize to the 8-bit attachment grid, preserving the LabPBR
     // selector category boundaries, before the RGBA8 stores these scalars.
-    out_surface_material = floor(clamp(vec4(mat.perceptual_roughness, mat.specular_selector,
-        mat.emission, combined_ao), 0.0, 1.0) * 255.0) * (1.0 / 255.0);
+    out_surface_material = floor(saturate(vec4(mat.perceptual_roughness, mat.specular_selector,
+        mat.emission, combined_ao)) * 255.0) * (1.0 / 255.0);
     // colortex4 (RGBA8): octahedral world-space geometric normal in RG,
     // lightmap in BA. World space keeps the stored value camera-independent:
     // a view-space normal requantizes whenever the view turns, and that

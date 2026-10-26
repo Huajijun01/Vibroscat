@@ -12,6 +12,7 @@ flat in int v_epipolar_pole_in_screen;
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/atmosphere/air_fog.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
@@ -34,10 +35,11 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
         float boundary_edge = smoothstep(BOUNDARY_FOG_START, 1.0, boundary_ratio);
         boundary_edge *= boundary_edge;
         float boundary_up = smoothstep(0.0, 0.15, world_dir.y);
-        float boundary_amount = min(
+        // The smoothstep product stays non-negative: STRENGTH's floor is 0.0
+        // and HEIGHT_FADE never exceeds 1.0.
+        float boundary_amount = saturate(
             boundary_edge * BOUNDARY_FOG_STRENGTH *
-                (1.0 - boundary_up * BOUNDARY_FOG_HEIGHT_FADE),
-            1.0);
+                (1.0 - boundary_up * BOUNDARY_FOG_HEIGHT_FADE));
         if (boundary_amount > 0.0) {
             // Cloud-free sky LUT sampled along the actual view direction.
             vec2 sky_uv = SkyLUTUV(world_dir, u_world_sun_dir, ATM_PLANET_R, u_cam_altitude);

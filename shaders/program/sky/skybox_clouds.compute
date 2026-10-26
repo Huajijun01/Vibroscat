@@ -70,7 +70,7 @@ void main() {
         // sky_l2_blocked).
         vec4 previous = imageLoad(uimg_sky_radiance, texel);
         float mu = 2.0 * (float(texel.y) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) - 1.0;
-        float cos_theta = sqrt(max(1.0 - mu * mu, 0.0));
+        float cos_theta = sqrt(saturate(1.0 - mu * mu));
         float phi = (float(texel.x) + 0.5) / float(SKY_RADIANCE_LUT_SIZE) * TAU - PI;
         vec3 view_dir = vec3(cos_theta * cos(phi), mu, cos_theta * sin(phi));
 

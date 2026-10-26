@@ -68,7 +68,7 @@ float CausticDepthBlend(vec4 lin, float path) {
     if (path <= d1) return lin.r;
     if (path <= d2) return mix(lin.r, lin.g, (path - d1) / (d2 - d1));
     if (path <= d3) return mix(lin.g, lin.b, (path - d2) / (d3 - d2));
-    return mix(lin.b, lin.a, clamp((path - d3) / (d4 - d3), 0.0, 1.0));
+    return mix(lin.b, lin.a, saturate((path - d3) / (d4 - d3)));
 }
 
 // Shared sampler: trace the light back to the surface plane, un-map, return

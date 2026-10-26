@@ -28,7 +28,7 @@ shared vec4 reduce_sh[SH_WORKGROUP_THREADS];
 void main() {
     if (gl_LocalInvocationIndex < uint(SH_SKY_ROWS)) {
         float sy = SKY_RADIANCE_LUT_ROW_CENTER(gl_LocalInvocationIndex + uint(SH_SKY_ROWS));
-        float cy = sqrt(max(1.0 - sy * sy, 0.0));
+        float cy = sqrt(saturate(1.0 - sy * sy));
         float weight;
         // E_up = integral(L_sky * sy); L_ground = rho * E_up / PI.
         // Its raw SH increments are 2*PI*Y0*L_ground and -PI*Y1*L_ground.

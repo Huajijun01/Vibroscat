@@ -7,6 +7,7 @@
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 
 layout(local_size_x = 64) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
@@ -85,7 +86,7 @@ void main() {
             // keeps one hitch from snapping the exposure in a single step.
             float step_seconds = clamp(frameTime, 0.0, 0.1);
             float w = 1.0 - exp(-step_seconds * rate_per_sec);
-            adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, clamp(w, 0.0, 1.0));
+            adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, saturate(w));
         }
         exposure = exp2(adapted_exposure_ev);
     }

@@ -14,6 +14,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/filters.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/tonemap.glsl"
 #include "/lib/color/dither.glsl"
 
@@ -61,12 +62,13 @@ float GetBlendWeight(vec3 previous_color, vec3 clipped_color, vec3 color_extent,
     // division. The floor bounds sensitivity in near-black, quantized history.
     vec3 color_scale = max(color_extent, max(0.1 * max(previous_color, clipped_color), vec3(0.002)));
     vec3 outside = abs(previous_color - clipped_color) / color_scale;
-    float rejection = clamp(2.0 * TAA_REACTIVE_STRENGTH * max(outside.r, max(outside.g, outside.b)), 0.0, 1.0);
+    float rejection = saturate(2.0 * TAA_REACTIVE_STRENGTH * max(outside.r, max(outside.g, outside.b)));
     // A valid jittered sample inside the bounds keeps its history. Motion is a
     // gentle ceiling in display pixels/frame, independent of render scale.
     float speed = length(velocity * u_screen_res);
     float movement = speed / (1.0 + speed);
-    float history_weight = max(TAA_HISTORY_WEIGHT - 0.2 * TAA_MOTION_REJECTION * movement, 0.0);
+    // HISTORY_WEIGHT (at most 0.97) minus at most 0.2 stays within [0, 1].
+    float history_weight = saturate(TAA_HISTORY_WEIGHT - 0.2 * TAA_MOTION_REJECTION * movement);
     return 1.0 - history_weight * (1.0 - rejection);
 }
 

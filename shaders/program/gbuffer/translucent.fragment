@@ -292,7 +292,7 @@ void main() {
         } else {
             // (1.33*s)^2 == 1.33^2 * s: fold the refracted-angle squash into
             // one scaled term and keep a single sqrt round trip.
-            float refracted_sq = min(1.7689 * (1.0 - ndotv * ndotv), 1.0);
+            float refracted_sq = saturate(1.7689 * (1.0 - ndotv * ndotv));
             float new_ndotv = sqrt(1.0 - refracted_sq);
             out_alpha = Pow5(1.0 - new_ndotv);
         }

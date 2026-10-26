@@ -29,7 +29,7 @@ void main() {
         t = t * 0.99999 + 0.00001;
         theta = u_sky_lut_horizon_theta + t * (PI * 0.5 - u_sky_lut_horizon_theta);
     } else {
-        float t = clamp(1.0 - y / float(SKY_LUT_GND - 1), 0.0, 1.0);
+        float t = saturate(1.0 - y / float(SKY_LUT_GND - 1));
         t = t * t;
         t = t * t;
         t = t * 0.99999 + 0.00001;

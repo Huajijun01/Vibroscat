@@ -79,7 +79,8 @@ vec2 SampleSliceDirection(vec3 normal_view, float random_value) {
 vec4 QuaternionFromViewDirection(vec3 view_dir) {
     vec3 xyz = vec3(view_dir.y, -view_dir.x, 0.0);
     float scalar = -view_dir.z;
-    float inverse_scale = inversesqrt(max(scalar * 0.5 + 0.5, 0.0));
+    // view_dir is unit at the caller, so scalar * 0.5 + 0.5 stays in [0, 1].
+    float inverse_scale = inversesqrt(saturate(scalar * 0.5 + 0.5));
     return vec4(xyz * inverse_scale * 0.5, 1.0 / inverse_scale);
 }
 
@@ -164,7 +165,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     vec2 step_dir = sample_range * inv_range * u_render_pixel_size;
     // Reference march schedule: SSGI_STEPS geometric steps that grow to the
     // clamped march width, with the first step jittered by stbn_noise.y.
-    float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(clamp(inv_range, 0.0, 1.0), 1.0e-6));
+    float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(saturate(inv_range), 1.0e-6));
     // (m^(1/n))^y == m^(y/n): the jittered start is the y-th element of the
     // geometric progression; the loop below multiplies step_size by
     // step_scale.
@@ -185,7 +186,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     // The slice CDF and w0 assume a front-facing projected normal. A
     // back-facing one (silhouette, thin surface) pushes the CDF denominator
     // through zero and inverts the sector order, so clamp it at the horizon.
-    float cos_normal = clamp(dot(projected_normal, view_dir), 0.0, 1.0);
+    float cos_normal = saturate(dot(projected_normal, view_dir));
     float angle_normal = (dot(view_dir, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
     float sin_normal = sin(angle_normal);
     // The slice CDF denominator is a per-pixel constant: hoist it and its
@@ -196,7 +197,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     float cdf_rcp = 1.0 / cdf_denominator;
     // Share of the cosine-weighted slice the march cannot use, and the
     // [w0, 1] remap of the slice-relative CDF (reference w0_remap_*).
-    float w0 = clamp((sin_normal * cdf_rcp) * (PI * 0.25) + 0.5, 0.0, 1.0);
+    float w0 = saturate((sin_normal * cdf_rcp) * (PI * 0.25) + 0.5);
     // A horizon-edge-on normal leaves the whole slice below the surface
     // horizon (w0 == 1): no usable cosine mass, so no hit can occlude SH and
     // the [w0, 1] remap would divide by zero.
@@ -240,12 +241,12 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         // Reference hor01 pipeline: shift the horizon angles from V to N,
         // evaluate the slice-relative cosine CDF, keep only the [w0, 1]
         // share, then jitter both arc ends by one sector.
-        vec2 horizontal01 = clamp((horizontal + angle_normal) / PI + 0.5, vec2(0.0), vec2(1.0));
+        vec2 horizontal01 = saturate((horizontal + angle_normal) / PI + 0.5);
         horizontal01 = vec2(
             SliceRelativeCDF(horizontal01.x, angle_normal, cos_normal, sin_normal, cdf_inv_denominator),
             SliceRelativeCDF(horizontal01.y, angle_normal, cos_normal, sin_normal, cdf_inv_denominator));
         horizontal01 = horizontal01 * remap_mul + vec2(remap_add);
-        horizontal01 = clamp(horizontal01 + vec2(stbn_noise.z * (1.0 / 32.0)), vec2(0.0), vec2(1.0));
+        horizontal01 = saturate(horizontal01 + vec2(stbn_noise.z * (1.0 / 32.0)));
         uint sample_mask = VisibilityMaskFromRange(horizontal01);
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
@@ -277,7 +278,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         occupied |= sample_mask;
         if (occupied == 0xFFFFFFFFu) break;
     }
-    coverage = clamp(hit_coverage, 0.0, 1.0);
+    coverage = saturate(hit_coverage);
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
     // Directional moment of the visible sectors, in the slice frame the
     // march already built: v = view_dir, t = ray_direction. Only computed
@@ -352,7 +353,7 @@ void main() {
 #else
     float screen_ao = surface_data.a;
 #endif
-    vec3 ambient_ao = vec3(clamp(screen_ao, 0.0, 1.0));
+    vec3 ambient_ao = vec3(saturate(screen_ao));
     fallback = AmbientLight(sky_normal, ambient_ao, geometry_data.w);
 #endif
     // GI owns its temporal reconstruction, independently of the final TAA.

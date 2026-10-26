@@ -313,7 +313,6 @@ void main() {
     }
     if (scene_depth >= 1.0) return;
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
-    vec4 material_data = texelFetch(colortex1, tx, 0);
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
     // colortex4 carries the world-space geometric normal, which the SH
     // fallback consumes directly.

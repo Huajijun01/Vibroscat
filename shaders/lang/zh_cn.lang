@@ -586,7 +586,7 @@ option.AIR_FOG_SHADOWS = 雾阴影
 screen.TERRAIN = 地形
 screen.TERRAIN.comment = 地形表面着色选项。
 option.TERRAIN_DERIVATIVE_TBN = 地形片元 TBN
-option.TERRAIN_DERIVATIVE_TBN.comment = 在片元中重建地形表面基，使法线随风动形变变化。高视距下可能受益，但会增加片元计算。默认关闭，请按场景比较性能。
+option.TERRAIN_DERIVATIVE_TBN.comment = 在片元中重建地形表面基，使法线随风动形变变化。默认开启：高视距下节省地形顶点开销，低视距下代价很小；关闭可保留逐面平面基。
 
 screen.PLANTS = 植物
 screen.PLANTS.comment = 植物与树叶方块的风力晃动。

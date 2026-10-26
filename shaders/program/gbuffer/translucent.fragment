@@ -259,7 +259,7 @@ void main() {
     const float water_f0 = 0.02;
     const float sun_roughness = 0.02;
 
-    // Sun/moon glint: Decima spherical area light GGX plus Schlick Fresnel.
+    // Sun/moon glint: small-disc area light GGX plus Schlick Fresnel.
     // Schlick meets the exact unpolarized dielectric solve at normal incidence
     // and at grazing, for one Pow5 instead of two sqrts and three divisions.
     // Its deviation peaks at 0.06 absolute reflectance near cos_theta 0.1 (a

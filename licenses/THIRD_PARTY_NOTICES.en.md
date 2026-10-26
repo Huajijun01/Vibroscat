@@ -8,7 +8,7 @@ This file is the single declaration point for all third-party code, assets, and 
 
 Photon Shaders (Copyright © 2021-2025 Benjamin Stott "SixthSurge", custom license) was an early source for two features, both removed and replaced in 2026-08:
 
-- `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` (GGX spherical-area light with Newton-iterated bent light direction) was transcribed from Photon's `include/lighting/bsdf.glsl`; it has since been re-transcribed from the Guerrilla Decima Engine public lecture material (Johan Andersson, SIGGRAPH 2017), see section 10, and no longer contains Photon code expression.
+- `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` was originally transcribed from Photon's `include/lighting/bsdf.glsl`, then replaced using the Guerrilla Decima Engine public lecture (Johan Andersson, SIGGRAPH 2017). The current small-disc approximation uses reflection-chord shrinkage without Newton iteration; see section 10. It contains no Photon code expression.
 - The temporal AO depth/offcenter rejection in `shaders/lib/lighting/temporal_ao.glsl` (GTAO_DEPTH_REJECTION=16.0, GTAO_OFFCENTER_STRENGTH=0.25, matching Photon's `d3_ao.fsh`; the offcenter trick is itself attributed by Photon to Zombye/Jessie) has been fully rewritten as an independent implementation (world-space displacement + normal-consistency rejection, see the file header comment); the original formulas and constants have been deleted.
 
 The redistribution restrictions of Photon's custom license do not apply to the pack's current code.
@@ -89,7 +89,7 @@ LogLuv32 decoding (`LogLuv32ToLinear` in color.glsl) follows: Ericson, Christer.
 
 ## 10. Guerrilla Decima Engine (algorithmic reference)
 
-The GGX spherical-area light approximation in `GetNdotHSquared` (including Newton-iterated bent light direction) is from: Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa (PDF: https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf)
+The reference for the spherical-area highlight target in `GetNdotHSquared` is Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa (PDF: https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf). The current implementation approximates the small sun/moon discs by shrinking the half-vector angular distance using the reflection-to-light chord; it does not retain the lecture's bent-light Newton solve.
 
 ## 11. Blender EEVEE (GPL-2.0-or-later, algorithmic reference)
 

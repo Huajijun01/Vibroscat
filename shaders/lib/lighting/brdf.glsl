@@ -102,58 +102,16 @@ vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
         * VisibleGGXVisibility(ndotv, ndotl, alpha);
 }
 
-// ---------------------------------------------------------------------------
-// GGX spherical area light approximation (Guerrilla's Decima Engine, SIGGRAPH
-// 2017 "Advances in Lighting and AA" - Johan Andersson [DEC17]):
-//   https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf
-// Bent-light Newton iteration from the presentation; implements its getNoH().
-// ---------------------------------------------------------------------------
-
-
-// Decima [DEC17] getNoH(): returns (N.H)^2 for the bent light direction
-// over the source disc of angular radius light_radius (radians).
+// Small-disc approximation to the Decima area-light target (see license notices).
+// Shrink sin(angle(N,H)) by the fraction of the reflection-to-light chord
+// outside the disc. Radius is in radians; the sun/moon use r <= 0.005.
 float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius) {
-    float cos_radius = cos(light_radius);
-
-    // Early out when the reflection ray already falls within the disc.
+    float ndoth = ndotl + ndotv;
+    // Opposing light/view directions make H undefined at the grazing horizon.
+    float ndoth2 = saturate(ndoth * ndoth / max(2.0 + 2.0 * ldotv, 1e-6));
     float rdotl = 2.0 * ndotl * ndotv - ldotv;
-    if (rdotl >= cos_radius) return 1.0;
-
-    // cos(r) * tan(r) == sin(r) identically (|r| < pi/2).
-    float scaled = sin(light_radius) * inversesqrt(1.0 - rdotl * rdotl);
-    float ndott = scaled * (ndotv - rdotl * ndotl);
-    float vdott = scaled * (2.0 * ndotv * ndotv - 1.0 - rdotl * ldotv);
-
-    // Triple product dot(cross(N, L), V). The radicand is the Gram
-    // determinant of the three unit directions, so it cannot exceed 1.
-    float triple = sqrt(saturate(1.0 - ndotl * ndotl - ndotv * ndotv - ldotv * ldotv + 2.0 * ndotl * ndotv * ldotv));
-    float ndotb = scaled * triple;
-    float vdotb = scaled * (2.0 * triple * ndotv);
-
-    // One Newton iteration to improve the bent light direction.
-    float nl_rot = ndotl * cos_radius + ndotv + ndott;
-    float lv_rot = ldotv * cos_radius + 1.0 + vdott;
-    float p = ndotb * lv_rot;
-    float q = nl_rot * lv_rot;
-    float s = vdotb * nl_rot;
-    float x_num = q * (-0.5 * p + 0.25 * vdotb * nl_rot);
-    float x_den = p * p + s * (s - 2.0 * p) + nl_rot * ((ndotl * cos_radius + ndotv) * lv_rot * lv_rot
-            + q * (-0.5 * (lv_rot + ldotv * cos_radius) - 0.5));
-    // two_x is twice the Newton step; (sin_theta, cos_theta) rotate the
-    // bent direction by that step's angle.
-    float two_x = 2.0 * x_num / (x_den * x_den + x_num * x_num);
-    float sin_theta = two_x * x_den;
-    float cos_theta = 1.0 - two_x * x_num;
-    ndott = cos_theta * ndott + sin_theta * ndotb;
-    vdott = cos_theta * vdott + sin_theta * vdotb;
-
-    // (N.H)^2 from the bent light direction.
-    float new_ndotl = ndotl * cos_radius + ndott;
-    float new_ldotv = ldotv * cos_radius + vdott;
-    float ndoth = ndotv + new_ndotl;
-    float hdoth = 2.0 * new_ldotv + 2.0;
-
-    return saturate(ndoth * ndoth / hdoth);
+    float edge = 1.0 - light_radius * inversesqrt(max(2.0 - 2.0 * rdotl, light_radius * light_radius));
+    return 1.0 - (1.0 - ndoth2) * edge * edge;
 }
 
 // Same distribution as DistributionGGX, but takes (N.H)^2 directly so the

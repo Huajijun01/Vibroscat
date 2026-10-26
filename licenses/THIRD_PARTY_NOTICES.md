@@ -8,7 +8,7 @@
 
 Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义许可协议）曾是两个功能的早期来源，均已于 2026-08 移除并替换：
 
-- `shaders/lib/lighting/brdf.glsl` 的 `GetNdotHSquared`（GGX 球形区域光，Newton 迭代弯曲光方向）曾转录自 Photon 的 `include/lighting/bsdf.glsl`；现已按 Guerrilla Decima Engine 公开讲座材料（Johan Andersson, SIGGRAPH 2017）重新转录，见第 10 节，不再包含 Photon 代码表达。
+- `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` was originally transcribed from Photon's `include/lighting/bsdf.glsl`, then replaced using the Guerrilla Decima Engine public lecture (Johan Andersson, SIGGRAPH 2017). The current small-disc approximation uses reflection-chord shrinkage without Newton iteration; see section 10. It contains no Photon code expression.
 - `shaders/lib/lighting/temporal_ao.glsl` 的时序 AO 深度/offcenter 拒绝（GTAO_DEPTH_REJECTION=16.0、GTAO_OFFCENTER_STRENGTH=0.25，与 Photon `d3_ao.fsh` 相同；offcenter 技巧由 Photon 自身标注源自 Zombye/Jessie）已整体重写为独立实现（世界位移 + 法线一致性拒绝，见该文件头注释），原公式与常量已全部删除。
 
 Photon 自定义许可协议中的再分发限制不适用于本包当前代码。
@@ -87,7 +87,7 @@ LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer
 
 ## 10. Guerrilla Decima Engine（算法引用）
 
-`GetNdotHSquared` 的 GGX 球形区域光近似（含 Newton 迭代弯曲光方向）来自：Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa （PDF：https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf）
+The reference for the spherical-area highlight target in `GetNdotHSquared` is Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa (PDF: https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf). The current implementation approximates the small sun/moon discs by shrinking the half-vector angular distance using the reflection-to-light chord; it does not retain the lecture's bent-light Newton solve.
 
 ## 11. Blender EEVEE（GPL-2.0-or-later，算法引用）
 

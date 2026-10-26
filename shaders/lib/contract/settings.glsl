@@ -502,6 +502,18 @@ const float centerDepthHalflife = 1.0;
 #define WATER_SURFACE_TANGENT_ACTIVE
 #endif
 
+// Shadow payload consumers: the reflective shadow map reads reflectance and
+// shadow-view normals for every non-water caster; water writes a constant.
+// Without RSM, only the cutout alpha test needs the atlas, so texture
+// coordinates exist solely for USE_DISCARD casters then, and depth-only
+// solid/water casters carry no user varyings at all.
+#if GI_MODE == 2 && !defined(PROGRAM_SHADOW_WATER)
+#define SHADOW_RSM_PAYLOAD_ACTIVE
+#endif
+#if defined(SHADOW_RSM_PAYLOAD_ACTIVE) || defined(USE_DISCARD)
+#define SHADOW_TEXCOORD_ACTIVE
+#endif
+
 #if defined(TAAU) && defined(TAA)
 #define TAAU_ACTIVE
 #endif

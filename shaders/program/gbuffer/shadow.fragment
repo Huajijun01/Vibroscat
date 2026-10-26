@@ -10,16 +10,18 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
-#if GI_MODE == 2
+#if defined(SHADOW_RSM_PAYLOAD_ACTIVE)
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/shadow/rsm_data.glsl"
 #include "/lib/material/model.glsl"
 #endif
 
+#if defined(SHADOW_TEXCOORD_ACTIVE)
 in vec2 v_texcoord;
-in vec4 v_color;
-#if GI_MODE == 2
+#endif
+#if defined(SHADOW_RSM_PAYLOAD_ACTIVE)
+in vec3 v_color;
 in vec3 v_normal_shadow;
 #endif
 
@@ -36,7 +38,7 @@ void main() {
     // cutout alpha test alone, so solid and water casters skip both the fetch
     // and the RGBA8 write; shadow.vertex still owns the depth that
     // shadowtex0/shadowtex1 store, and no consumer input changes.
-#if GI_MODE == 2 || defined(USE_DISCARD)
+#if defined(SHADOW_TEXCOORD_ACTIVE)
     vec4 albedo = texture(gtexture, v_texcoord);
 #endif
 
@@ -44,12 +46,9 @@ void main() {
     if (albedo.a < 0.5) discard;
 #endif
 
-#if GI_MODE == 2
+#if defined(SHADOW_RSM_PAYLOAD_ACTIVE)
     // Translucent depth in shadowtex0 must never pick up an opaque VPL's payload.
-#ifdef PROGRAM_SHADOW_WATER
-    out_color = vec4(0.0);
-#else
-    vec3 tinted_albedo = albedo.rgb * v_color.rgb;
+    vec3 tinted_albedo = albedo.rgb * v_color;
 #ifdef PROGRAM_SHADOW_ENTITIES
     tinted_albedo = mix(tinted_albedo, entityColor.rgb, entityColor.a);
 #endif
@@ -62,9 +61,12 @@ void main() {
     // Back-facing surfaces do not reflect the directional source toward a VPL.
     reflectance *= float(dot(normal_shadow, u_shadow_light_dir) > 0.0);
     out_color = EncodeRSMSource(reflectance, normal_shadow);
-#endif
+#elif defined(PROGRAM_SHADOW_WATER) && GI_MODE == 2
+    // GI_MODE == 2 water: the payload stays a constant zero; no material
+    // texture is fetched and no user varying crosses the stage.
+    out_color = vec4(0.0);
 #else
-    // GI_MODE != 2: nothing samples shadowcolor0, so the payload stays unwritten.
+    // No RSM payload consumer: shadowcolor0 stays unwritten.
 #endif
 
     // Depth protection lives in shadow.vertex (clip-z scale); no fragment

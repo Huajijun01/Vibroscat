@@ -17,7 +17,7 @@
 //
 // GBuffer layout:
 //   colortex1.rgb = albedo (sRGB, decoded to linear in deferred pass)
-//   colortex1.a   = v_material_id / 255.0  (see lib/material/model.glsl for ranges)
+//   colortex1.a   = material id / 255.0  (see lib/material/model.glsl for ranges)
 //   colortex2 (RGBA8) = roughness / raw specular selector / emission / combined AO
 //   colortex12.rg = octahedral-encoded shading world normal (FP16 workspace)
 //   colortex12.ba = roughness / selector proxy; B=-1 marks the hand
@@ -30,7 +30,11 @@
 //
 // Attribute availability matrix:
 //   at_tangent -> terrain, entities, block (but NOT hand, basic, textured, particles)
-//   mc_Entity  -> terrain, block (NOT entities - use entityId uniform instead)
+//   mc_Entity  -> terrain, block (NOT entities - the host supplies the batch
+//                 entity id the vertex stage folds into the material id)
+//
+// The material id crosses the stage only for terrain, block and entities;
+// every other class owns a compile-time constant below.
 //
 // Vertex variants (solid.vertex) selected by the same #defines.
 
@@ -47,16 +51,32 @@
 
 in vec2 v_texcoord;
 in vec2 v_lmcoord;
+#ifdef PROGRAM_GBUFFERS_PARTICLES
+in vec3 v_color;
+#else
 in vec4 v_color;
-flat in int v_material_id;
-in vec3 v_world_normal;
-#if defined(RAIN_WETNESS_ACTIVE)
-in vec3 v_rain_world_pos;
 #endif
-
+#if defined(GBUFFER_MATERIAL_ID_VARYING)
+flat in int v_material_id;
+#endif
+#if !defined(PROGRAM_GBUFFERS_PARTICLES)
+#if defined(GBUFFER_TERRAIN_ACTIVE)
+flat in vec3 v_world_normal;
+#else
+in vec3 v_world_normal;
+#endif
+#endif
 #ifdef HAS_AT_TANGENT
+#if defined(GBUFFER_TERRAIN_ACTIVE)
+flat in vec3 v_world_tangent;
+flat in vec3 v_world_bitangent;
+#else
 in vec3 v_world_tangent;
 in vec3 v_world_bitangent;
+#endif
+#endif
+#if defined(RAIN_WETNESS_ACTIVE)
+in vec3 v_rain_world_pos;
 #endif
 
 layout(location = 0) out vec4 out_albedo_material;
@@ -83,26 +103,37 @@ void main() {
     // -- albedo = texture x vertex color --
     vec3 albedo = albedo_tex.rgb * v_color.rgb;
 
+#if defined(GBUFFER_MATERIAL_ID_VARYING)
     int mat_id = v_material_id;
+#elif defined(PROGRAM_GBUFFERS_HAND)
+    int mat_id = 64;  // player hand / held item
+#elif defined(PROGRAM_GBUFFERS_BEACONBEAM) || defined(PROGRAM_GBUFFERS_SPIDEREYES)
+    int mat_id = 112; // emissive class
+#else
+    // basic, line, textured, textured_lit and particles share the generic
+    // opaque class: no SSS, wetness, metal or emissive classification.
+    int mat_id = 0;
+#endif
 
     // -- program-specific overrides --
 #ifdef PROGRAM_GBUFFERS_ENTITIES
     // entityColor is a tint overlay (e.g. sheep wool, dyed leather armor)
     albedo = mix(albedo, entityColor.rgb, entityColor.a);
 #endif
-#ifdef PROGRAM_GBUFFERS_HAND
-    mat_id = 64;  // player hand / held item
-#endif
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
     if (albedo_tex.a < 0.5) discard;
-    mat_id = 112; // emissive class
-#endif
-#ifdef PROGRAM_GBUFFERS_SPIDEREYES
-    mat_id = 112; // emissive class
 #endif
 
     // -- Surface normal and material inputs --
+#if defined(PROGRAM_GBUFFERS_PARTICLES)
+    // Particles are camera-facing sprites from a dedicated atlas: their mesh
+    // normal would point at the eye, and the block normal and specular
+    // atlases say nothing about them. Both their geometric and shading
+    // normal are the world-up constant, so the deferred lighting agrees.
+    vec3 geo_normal_world = vec3(0.0, 1.0, 0.0);
+#else
     vec3 geo_normal_world = normalize(v_world_normal);
+#endif
     vec3 w_normal = geo_normal_world;
 #ifndef PROGRAM_GBUFFERS_PARTICLES
     // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
@@ -124,12 +155,10 @@ void main() {
 #endif
     float combined_ao = min(v_color.a, material_ao);
 #else
-    // Particles are camera-facing sprites from a dedicated atlas: the block
-    // normal and specular atlases say nothing about them, and their shading
-    // normal is already world up (solid.vertex). Shade them as rough,
-    // non-metallic, non-emissive opaque surfaces with no material AO and no
-    // wetness layer, so only the albedo, lightmap and world-up normal carry
-    // real data and neither atlas is sampled at the sprite UV.
+    // Particles shade as rough, non-metallic, non-emissive opaque surfaces
+    // with no material AO and no wetness layer, so only the albedo, lightmap
+    // and world-up normal carry real data and neither atlas is sampled at
+    // the sprite UV.
     float combined_ao = 1.0;
 #endif
 

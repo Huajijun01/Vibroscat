@@ -467,6 +467,18 @@ const float centerDepthHalflife = 1.0;
 #define PLANT_WIND_SHADOW_ACTIVE
 #endif
 
+// Opaque gbuffer programs whose vertex stage carries a real per-primitive
+// material id: chunk terrain block ids, block-entity ids, and host entity ids.
+// Every other opaque class (hand, beaconbeam, spidereyes, particles, generic)
+// writes a compile-time fragment constant instead.
+#if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
+#define GBUFFER_TERRAIN_ACTIVE
+#endif
+
+#if defined(GBUFFER_TERRAIN_ACTIVE) || defined(PROGRAM_GBUFFERS_BLOCK) || defined(PROGRAM_GBUFFERS_ENTITIES)
+#define GBUFFER_MATERIAL_ID_VARYING
+#endif
+
 #if defined(TAAU) && defined(TAA)
 #define TAAU_ACTIVE
 #endif

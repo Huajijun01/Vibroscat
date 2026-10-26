@@ -5,18 +5,35 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/geometry/plant_wind.glsl"
 
-// GBuffer vertex interface and the shared setup for this pass.
+// GBuffer vertex interface and the shared setup for this pass. Terrain N/T/B
+// are per-face constants from the chunk vertex writer, so they travel flat;
+// entity and block models keep smooth normals. Particles carry no normal and
+// no alpha: the fragment stage shades them world-up with combined AO 1.
 out vec2 v_texcoord;
 out vec2 v_lmcoord;
+#ifdef PROGRAM_GBUFFERS_PARTICLES
+out vec3 v_color;
+#else
 out vec4 v_color;
+#endif
+#if defined(GBUFFER_MATERIAL_ID_VARYING)
 flat out int v_material_id;
+#endif
+#if !defined(PROGRAM_GBUFFERS_PARTICLES)
+#if defined(GBUFFER_TERRAIN_ACTIVE)
+flat out vec3 v_world_normal;
+#else
 out vec3 v_world_normal;
-#if defined(RAIN_WETNESS_ACTIVE)
-out vec3 v_rain_world_pos;
+#endif
 #endif
 #ifdef HAS_AT_TANGENT
+#if defined(GBUFFER_TERRAIN_ACTIVE)
+flat out vec3 v_world_tangent;
+flat out vec3 v_world_bitangent;
+#else
 out vec3 v_world_tangent;
 out vec3 v_world_bitangent;
+#endif
 #endif
 
 #ifdef HAS_MC_ENTITY
@@ -56,16 +73,12 @@ void SetupGbufferVertex() {
     gl_Position = ScaleSceneClipPosition(gl_Position);
 #endif
 
-    // Particles are camera-facing billboards: their mesh normal points at the
-    // eye, which would flip sky/ground ambient with camera pitch and store a
-    // meaningless geometric normal. Both their geometric and shading normal
-    // are world up, so the gbuffer and the deferred lighting agree.
-    vec3 normal_world;
 #ifdef PROGRAM_GBUFFERS_PARTICLES
-    normal_world = vec3(0.0, 1.0, 0.0);
+    v_color = gl_Color.rgb;
 #else
-    normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
-#endif
+    v_color = gl_Color;
+
+    vec3 normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
     v_world_normal = normal_world;
 
 #ifdef HAS_AT_TANGENT
@@ -74,31 +87,24 @@ void SetupGbufferVertex() {
     v_world_tangent = tangent;
     v_world_bitangent = bitangent;
 #endif
+#endif
 
     v_texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
     v_lmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
     v_lmcoord = saturate(v_lmcoord * 1.103449 - 0.0689656);
-    v_color = gl_Color;
 }
 
 void main() {
     SetupGbufferVertex();
 
+#if defined(GBUFFER_MATERIAL_ID_VARYING)
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
     v_material_id = int(mc_Entity.x + 0.5) & 255;
 #elif defined(PROGRAM_GBUFFERS_BLOCK)
     v_material_id = int(mc_Entity.x + 0.5);
-#elif defined(PROGRAM_GBUFFERS_ENTITIES)
-    v_material_id = entityId - 10000;
-#elif defined(PROGRAM_GBUFFERS_HAND)
-    v_material_id = 64;
-#elif defined(PROGRAM_GBUFFERS_BEACONBEAM)
-    v_material_id = 112;
-#elif defined(PROGRAM_GBUFFERS_SPIDEREYES)
-    v_material_id = 112;
 #else
-    // basic, line, textured, textured_lit and particles share the generic
-    // opaque class: no SSS, wetness, metal or emissive classification.
-    v_material_id = 0;
+    // PROGRAM_GBUFFERS_ENTITIES: the host entity id minus its base offset.
+    v_material_id = entityId - 10000;
+#endif
 #endif
 }

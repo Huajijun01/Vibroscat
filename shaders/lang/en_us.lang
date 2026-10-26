@@ -70,11 +70,9 @@ screen.SKY.comment = Stars and the atmosphere at the horizon.
 screen.CLOUDS = Clouds
 screen.CLOUDS.comment = True 3D volumetric clouds: shape, motion and lighting.
 screen.CLOUD_SHAPE = Cloud Shape
-screen.CLOUD_SHAPE.comment = Layer height, sky coverage, weather pattern size and wind drift. Erosion detail lives in the per-mode sub-screens.
-screen.CLOUD_SHAPE_LIGHT = Light Shape
-screen.CLOUD_SHAPE_LIGHT.comment = Detail erosion of the light cloud field: one voronoise stage.
-screen.CLOUD_SHAPE_HIGH = High-End Shape
-screen.CLOUD_SHAPE_HIGH.comment = Two-stage erosion: a composite Worley volume shapes the broad forms, then voronoise adds detail.
+screen.CLOUD_SHAPE.comment = Layer height, sky coverage, weather pattern size and wind drift. Erosion detail lives in the detail sub-screen.
+screen.CLOUD_SHAPE_LIGHT = Shape Detail
+screen.CLOUD_SHAPE_LIGHT.comment = Detail erosion of the cloud field: one voronoise stage.
 screen.CLOUD_LIGHTING = Cloud Lighting
 screen.CLOUD_LIGHTING.comment = Which light is traced and how far, plus the scattering that makes edges glow.
 screen.CLOUD_MULTISCATTER = Cloud Multiple Scattering
@@ -231,21 +229,6 @@ option.CLOUD_FINE_EROSION_SCALE = Voronoise Scale
 option.CLOUD_FINE_EROSION_SCALE.comment = Size of the fine erosion detail inside clouds: higher = smaller, denser detail.
 option.CLOUD_FINE_EROSION_STRENGTH = Voronoise Shadow Strength
 option.CLOUD_FINE_EROSION_STRENGTH.comment = Strength of that fine detail in the sunlight shading.
-option.CLOUD_SHAPE_MODE = Cloud Shape Mode
-option.CLOUD_SHAPE_MODE.comment = Light: one voronoise detail stage on the shared distribution (the current field). High-End: broad composite erosion first, voronoise detail second, at two extra 3D reads per sample.
-value.CLOUD_SHAPE_MODE.0 = Light
-value.CLOUD_SHAPE_MODE.1 = High-End
-option.CLOUD_HQ_EROSION_SCALE_KM = Broad Erosion Scale
-suffix.CLOUD_HQ_EROSION_SCALE_KM = \ km
-option.CLOUD_HQ_EROSION_SCALE_KM.comment = World-space wrap of the composite erosion volume: higher = broader, smoother cloud bodies.
-option.CLOUD_HQ_EROSION_STRENGTH = Broad Erosion Strength
-option.CLOUD_HQ_EROSION_STRENGTH.comment = How strongly the composite volume erodes the broad forms: higher = more torn, sculpted bodies.
-option.CLOUD_HQ_FINE_EROSION_SCALE = Voronoise Scale (High-End)
-option.CLOUD_HQ_FINE_EROSION_SCALE.comment = Size of the fine detail inside high-end clouds: higher = smaller, denser detail.
-option.CLOUD_HQ_FINE_EROSION_STRENGTH = Voronoise Strength (High-End)
-option.CLOUD_HQ_FINE_EROSION_STRENGTH.comment = Strength of that fine detail in high-end shading.
-option.CLOUD_HQ_FINE_EROSION_HEIGHT = Detail Height Ramp
-option.CLOUD_HQ_FINE_EROSION_HEIGHT.comment = Normalized height at which high-end fine detail reaches full strength; keeps the cloud base smooth.
 option.CLOUD_MS_SAT_ALBEDO = Scatter Saturation
 option.CLOUD_MS_SAT_ALBEDO.comment = Brightness cap of the multiple-scattering approximation: higher = brighter, milkier cloud interiors.
 option.CLOUD_ALPHA_EXTINCTION_SRGB_GRAY = Cloud Density

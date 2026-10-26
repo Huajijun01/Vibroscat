@@ -273,12 +273,11 @@ float DecodeCloudDensity(vec3 atmosphere_position, LayerFrame frame, HeightProfi
     return hq_density;
 }
 
-// Baked R8 volume means, sum(bytes) / (255 * sample count): the convention
-// the bakes quantify in. The low-quality light-trace paths replace their
-// per-point 3D reads with these, keeping the expected erosion threshold
-// equal to the view path while dropping the 3D reads per light step.
+// Baked R8 volume mean of the voronoise texture, sum(bytes) / (255 * sample
+// count): the convention the bake quantifies in. The low-quality light-trace
+// path replaces its per-point 3D read with this, keeping the expected erosion
+// threshold equal to the view path while dropping the 3D read per light step.
 const float CLOUD_VORONOISE_MEAN = 0.484805118;
-const float CLOUD_EROSION_COMPOSITE_MEAN = 0.533126322;
 
 // Low-quality density for the light-transport trace: the same field with the
 // voronoise threshold replaced by the baked texture mean times the same
@@ -304,79 +303,6 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position, LayerFrame frame, H
         CLOUD_VORONOISE_MEAN * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
     return hq_density;
 }
-
-#if CLOUD_SHAPE_MODE == 1
-
-const float CLOUD_DISTRIBUTION_UV_OFFSET = 0.114514;
-
-float SampleCloudDensityHighQuality(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile
-) {
-    vec2 density_absolute_km = atmosphere_position.xz + frame.absolute_km_offset;
-    vec2 distribution_uv = DistributionUv(density_absolute_km, frame.distribution_offset);
-    float large_scale_cloud = texture(utex_cloud_distribution_tex,
-        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
-    float distribution_density = saturate((
-        texture(utex_cloud_distribution_tex, distribution_uv).r
-        - frame.distribution_floor) * frame.inv_coverage);
-    if(distribution_density < 0.001) {
-        return 0.0;
-    }
-    float bottom_ramp = smoothstep(0.0, 0.2 - large_scale_cloud * 0.1,
-        profile.height_fraction);
-    float height_penalty = saturate((profile.height_fraction - 0.15) / 0.85) * 0.5;
-    float top_fade = 1.0 - smoothstep(0.2 + large_scale_cloud * large_scale_cloud * 0.4, 1.0,
-        profile.height_fraction);
-    float macro_density = saturate(distribution_density - height_penalty) * bottom_ramp * top_fade;
-    if(macro_density < 0.001) {
-        return 0.0;
-    }
-
-    // Broad erosion exposure ramps up with height on the shared bottom_ramp.
-    float height_exposure = profile.bottom_ramp * 0.95 + 0.05;
-    vec3 erosion_coordinates = vec3(density_absolute_km, length(atmosphere_position) - ATM_PLANET_R);
-    float broad_density = RemapCloudErosion(macro_density,
-        texture(utex_cloud_erosion_tex,
-            erosion_coordinates * (1.0 / CLOUD_HQ_EROSION_SCALE_KM)).r
-            * CLOUD_HQ_EROSION_STRENGTH * height_exposure);
-
-    // Fine detail fades in with height so the condensation base stays smooth.
-    float fine_weight = smoothstep(0.0, CLOUD_HQ_FINE_EROSION_HEIGHT, profile.height_fraction) * 0.9 + 0.1;
-    return RemapCloudErosion(broad_density,
-        texture(utex_cloud_voronoise_tex,
-            erosion_coordinates * CLOUD_HQ_FINE_EROSION_SCALE).r
-            * CLOUD_HQ_FINE_EROSION_STRENGTH * fine_weight);
-}
-
-// Cheap high-end density for the light-transport trace: the same field with
-// both 3D reads replaced by their baked means, keeping both expected erosion
-// thresholds equal to the high-end view path.
-float SampleCloudDensityHighQualityLightTrace(vec3 atmosphere_position, LayerFrame frame, HeightProfile profile
-) {
-    vec2 distribution_uv = DistributionUv(atmosphere_position.xz + frame.absolute_km_offset,
-        frame.distribution_offset);
-    float large_scale_cloud = texture(utex_cloud_distribution_tex,
-        distribution_uv + vec2(CLOUD_DISTRIBUTION_UV_OFFSET, 0.0)).r;
-    float distribution_density = saturate((
-        texture(utex_cloud_distribution_tex, distribution_uv).r
-        - frame.distribution_floor) * frame.inv_coverage);
-    if(distribution_density < 0.001) {
-        return 0.0;
-    }
-    float bottom_ramp = smoothstep(0.0, 0.2 - large_scale_cloud * 0.1,
-        profile.height_fraction);
-    float height_penalty = saturate((profile.height_fraction - 0.15) / 0.85) * 0.5;
-    float top_fade = 1.0 - smoothstep(0.2 + large_scale_cloud * large_scale_cloud * 0.4, 1.0,
-        profile.height_fraction);
-    float macro_density = saturate(distribution_density - height_penalty) * bottom_ramp * top_fade;
-
-    float height_exposure = profile.bottom_ramp * 0.95 + 0.05;
-    float broad_density = RemapCloudErosion(macro_density,
-        CLOUD_EROSION_COMPOSITE_MEAN * CLOUD_HQ_EROSION_STRENGTH * height_exposure);
-    float fine_weight = smoothstep(0.0, CLOUD_HQ_FINE_EROSION_HEIGHT, profile.height_fraction) * 0.9 + 0.1;
-    return RemapCloudErosion(broad_density,
-        CLOUD_VORONOISE_MEAN * CLOUD_HQ_FINE_EROSION_STRENGTH * fine_weight);
-}
-#endif // CLOUD_SHAPE_MODE == 1
 
 // Optical depth toward the light, starting past a configurable near segment.
 // CLOUD_LIGHT_STEPS quadratic strata are densest near that start; each is
@@ -409,13 +335,8 @@ float LightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_ji
         float sample_density = 0.0;
         // Same cheap altitude-band rejection the density functions open with.
         if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
-#if CLOUD_SHAPE_MODE == 1
-            sample_density = SampleCloudDensityHighQualityLightTrace(sample_position, frame,
-                HeightProfileFor(sample_altitude_km));
-#else
             sample_density = SampleCloudDensityLowQuality(sample_position, frame,
                 HeightProfileFor(sample_altitude_km));
-#endif
         }
         optical_depth += sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
@@ -506,12 +427,8 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
         // here and shared by whichever density path runs.
         if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
             HeightProfile sample_height = HeightProfileFor(sample_altitude_km);
-#if CLOUD_SHAPE_MODE == 1
-            float sample_density = SampleCloudDensityHighQuality(sample_position, layer_frame, sample_height);
-#else
             float sample_density = DecodeCloudDensity(sample_position, layer_frame,
                 sample_height, sample_distribution);
-#endif
             if (sample_density >= 1.0e-4) {
                 // Only PlanetHorizonOccluded consumes the squared radius below;
                 // keep it off the erased-sample path.

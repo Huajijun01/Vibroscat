@@ -217,23 +217,17 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
     // expression out of the slice loop.
     vec2 center_ndc = ViewToNDC(center_view).xy;
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-    // Sky arcs evaluate the world-axis L1 field. The slice orbit rotates to
-    // world once here; each slice assembles its polynomial and normal
-    // projection from the orbit cos/sin without re-rotating its tangent.
-    mat3 view_to_world = mat3(gbufferModelViewInverse);
-    vec3 view_axis_world = view_to_world * view_axis;
-    vec3 world_slice_t = view_to_world * slice_t;
-    vec3 world_slice_b = view_to_world * slice_b;
-    SkyLinearField sky_field = BuildSkyLinearField(view_axis_world,
-        world_slice_t, world_slice_b);
-    float sky_ndotv = dot(sky_normal_world, view_axis_world);
-    float sky_ndott_t = dot(sky_normal_world, world_slice_t);
-    float sky_ndott_b = dot(sky_normal_world, world_slice_b);
+    // n dot (R*u) = (transpose(R)*n) dot u. Project the sky normal
+    // once; accumulate geometry in the view-space slice orbit below.
+    vec3 sky_normal_view = transpose(mat3(gbufferModelViewInverse)) * sky_normal_world;
+    float sky_ndotv = dot(sky_normal_view, view_axis);
+    float sky_ndott_t = dot(sky_normal_view, slice_t);
+    float sky_ndott_b = dot(sky_normal_view, slice_b);
     // Hoisted before the slice loop: the same evaluation in the function
     // epilogue compiled into a far slower register allocation on this pass
     // (paired A/B: ~106 us vs ~9 us at GTAO_SLICES=2).
     vec3 sky_l2_blocked = EvalSkyLightL2(sky_normal_world);
-    vec3 blocked_sky = vec3(0.0);
+    vec4 blocked_moments = vec4(0.0);
 #endif
     // The slice tangents form one fixed-rotation orbit; a recurrence pair
     // replaces the per-slice cos/sin calls. The rotation runs before any
@@ -250,13 +244,10 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
         // its direction.
         vec3 tangent = slice_t * slice_cos + slice_b * slice_sin;
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-        // The recurrence below advances (slice_cos, slice_sin) to the next
-        // slice, so the sky terms must be assembled from this slice's angle:
-        // the horizon search runs along `tangent`, built from the same
-        // pre-advance values.
-        float sky_ndott = slice_cos * sky_ndott_t + slice_sin * sky_ndott_b;
-        vec3 sky_sin_term = slice_cos * sky_field.sin_term_t
-            + slice_sin * sky_field.sin_term_b;
+        // Keep this slice's orbit: the recurrence advances before the search
+        // and before any continue, but its returned moment uses this tangent.
+        vec2 sky_slice_orbit = vec2(slice_cos, slice_sin);
+        float sky_ndott = dot(sky_slice_orbit, vec2(sky_ndott_t, sky_ndott_b));
 #endif
         float next_c = slice_cos * slice_step_c - slice_sin * slice_step_s;
         slice_sin = slice_sin * slice_step_c + slice_cos * slice_step_s;
@@ -293,15 +284,11 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
             occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
                 + BlockedArc(ndotv, -ndott, -theta_n, inv_normal_length, horizons.y);
         }
-        // Open horizons (cosine -1) make both arcs empty; the pair shares
-        // one atan and the RGB products across the two sides.
+        // One shared atan integrates both blocked half-slices geometrically.
         if (horizons.x > -1.0 || horizons.y > -1.0) {
-            SkyArcPolynomial sky_arc;
-            sky_arc.constant_term = sky_field.constant_term;
-            sky_arc.cos_term = sky_field.cos_term;
-            sky_arc.sin_term = sky_sin_term;
-            blocked_sky += IntegrateSkyBlockedArcPair(sky_arc, sky_ndotv,
-                sky_ndott, horizons);
+            vec3 arc_moments = IntegrateSkyBlockedArcPairMoments(sky_ndotv, sky_ndott, horizons);
+            blocked_moments.xy += arc_moments.xy;
+            blocked_moments.zw += arc_moments.z * sky_slice_orbit;
         }
 #else
         occlusion += BlockedArc(ndotv, ndott, theta_n, inv_normal_length, horizons.x)
@@ -309,6 +296,10 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
 #endif
     }
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
+    vec3 blocked_direction_view = view_axis * blocked_moments.y
+        + slice_t * blocked_moments.z + slice_b * blocked_moments.w;
+    vec3 blocked_sky = EvalSkyBlockedMoments(blocked_moments.x,
+        mat3(gbufferModelViewInverse) * blocked_direction_view);
     float blocked_fraction = occlusion / float(GTAO_SLICES);
     result.ao = clamp(1.0 - blocked_fraction, 0.0, 1.0);
     // Phi is uniform over [0, pi) across GTAO_SLICES slices, so the arc sum

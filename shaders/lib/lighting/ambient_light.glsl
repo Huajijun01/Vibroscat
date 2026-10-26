@@ -30,33 +30,12 @@ vec3 AmbientLight(vec3 normal_world, vec3 ao, float lm_sky) {
 }
 
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-// Blocked fractions below this are treated as unoccluded for the directional
-// remap: dividing by a near-zero blocked fraction would amplify SH-truncation
-// noise, while the skipped correction is at most the same tiny fraction of
-// the open-to-visible gap.
-const float SKY_VISIBILITY_GAIN_EPSILON = 1.0e-4;
-
-// RSM ambient fallback with directional sky visibility (gtao.glsl supplies
-// the arc integral). raw_ao is the geometric GTAO visibility before artistic
-// response; surface_ao is the same value after ApplySurfaceAO strength and
-// multibounce. The remap scales the directional occlusion
-// (open_sky - visible_sky) by how much artistic surface AO actually darkens,
-// so GTAO_STRENGTH and GTAO_MULTIBOUNCE keep their existing control: at
-// strength 1 with multibounce off, surface_ao equals raw_ao, the gain is 1,
-// and the sky term is exactly the physical visible_sky. The returned
-// fallback already carries sky occlusion and the AO-scaled ambient floor;
-// GatherRSM must not multiply it by ambient_ao again.
-vec3 AmbientLightWithSkyVisibility(vec3 open_sky, vec3 visible_sky,
-        float raw_ao, vec3 surface_ao, float lm_sky) {
-    float blocked_fraction = 1.0 - clamp(raw_ao, 0.0, 1.0);
-    vec3 occlusion_gain = vec3(1.0);
-    if (blocked_fraction > SKY_VISIBILITY_GAIN_EPSILON) {
-        occlusion_gain = max(vec3(1.0) - surface_ao, vec3(0.0)) / blocked_fraction;
-    }
-    vec3 adjusted_sky = clamp(open_sky - (open_sky - visible_sky) * occlusion_gain,
-        vec3(0.0), open_sky);
-    return adjusted_sky * SkyLightFromLm(lm_sky) * SKY_AMBIENT_STRENGTH
-        + vec3(AMBIENT_FLOOR) * surface_ao;
+// The directional integral already contains geometric sky occlusion. GI does
+// not apply artistic AO strength or multibounce; raw AO attenuates only the
+// ambient floor here. GatherRSM must not multiply this fallback by AO again.
+vec3 AmbientLightWithSkyVisibility(vec3 visible_sky, float raw_ao, float lm_sky) {
+    return visible_sky * SkyLightFromLm(lm_sky) * SKY_AMBIENT_STRENGTH
+        + vec3(AMBIENT_FLOOR * raw_ao);
 }
 #endif
 

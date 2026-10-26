@@ -190,40 +190,6 @@ float ShadowDepthGapFromWorld(float world_gap) {
     return 0.5 * SHADOW_DEPTH_SCALE * abs(shadowProjection[2].z) * world_gap;
 }
 
-// -- Distort-branch shadow bias --
-// Texel size from the distortion Jacobian
-// (uv = clip/(2*factor)+0.5, so d(uv)/d(clip) = (1-D)/(2*factor^2)),
-// then slope-scaled + constant bias -> NDC depth offset.
-float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels) {
-    float shadow_e = shadowProjection[2].z;
-    float shadow_a = shadowProjection[0].x;
-    float shadow_b = shadowProjection[1].y;
-    float shadow_c = shadowProjection[3].x;
-    float shadow_d = shadowProjection[3].y;
-
-    float x = shadow_a * view_pos.x + shadow_c;
-    float y = shadow_b * view_pos.y + shadow_d;
-
-    float one_minus_d = 1.0 - DISTORT_FACTOR;
-    float fx = one_minus_d + DISTORT_FACTOR * abs(x);
-    float fy = one_minus_d + DISTORT_FACTOR * abs(y);
-
-    float dx_view = (2.0 * fx * fx) / (abs(shadow_a) * one_minus_d * real_shadow_map_resolution + 1e-5);
-    float dy_view = (2.0 * fy * fy) / (abs(shadow_b) * one_minus_d * real_shadow_map_resolution + 1e-5);
-    float texel_world_size = max(dx_view, dy_view);
-
-    float clamped_ndotl = saturate(ndotl);
-    float slope_world = texel_world_size
-        * sqrt(saturate(1.0 - clamped_ndotl * clamped_ndotl))
-        / max(clamped_ndotl, 1e-4);
-    float const_world = texel_world_size * const_bias_texels;
-
-    float depth_scale = 0.5 * abs(shadow_e);    // view-space m -> NDC depth
-
-    return (slope_world + const_world) * depth_scale * smoothstep(0.0, 0.05, ndotl);
-}
-
-
 // Undistorted shadow clip space [-1,1]^3. PCSS offset math works in clip
 // space; the distortion is re-applied per sample via DistortShadowClip().
 vec3 ProjectToShadowClip(vec3 world_pos) {
@@ -239,7 +205,7 @@ vec3 ProjectToShadowClip(vec3 world_pos) {
 // Both shadow projections for one world position in a single sweep. The view
 // transform and diagonal clip projection are shared verbatim, so the clip
 // output is bit-identical to ProjectToShadowClip.
-void ProjectToShadowPair(vec3 world_pos, float ndotl, out vec3 shadow_proj, out vec3 shadow_clip) {
+void ProjectToShadowPair(vec3 world_pos, out vec3 shadow_proj, out vec3 shadow_clip) {
     vec3 view_pos = mat3(shadowModelView) * world_pos + shadowModelView[3].xyz;
 
     vec3 clip_pos;
@@ -248,11 +214,10 @@ void ProjectToShadowPair(vec3 world_pos, float ndotl, out vec3 shadow_proj, out 
     clip_pos.z = shadowProjection[2].z * view_pos.z + shadowProjection[3].z;
     shadow_clip = clip_pos;
 
-    float bias = AxialDistortShadowBias(ndotl, view_pos, 3.0);
     vec2 distort_factor = GetDistortFactor(clip_pos.xy);
     clip_pos.xy /= distort_factor;
-    // Bias applied in NDC space, then remapped into the protected range.
-    float ndc_z = clip_pos.z * 0.5 + 0.5 - bias;
+    // The shadow filter owns receiver bias for its actual sampling footprint.
+    float ndc_z = clip_pos.z * 0.5 + 0.5;
     shadow_proj = vec3(clip_pos.xy * 0.5 + 0.5, ProtectShadowDepth(ndc_z));
 }
 

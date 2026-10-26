@@ -292,14 +292,7 @@ void main() {
 #endif
         vec3 shadow_proj;
         vec3 shadow_clip;
-        float bias_cosine = plant_receiver ? max(abs(geo_ndotl), 0.3) : geo_ndotl;
-        ProjectToShadowPair(world_pos, bias_cosine, shadow_proj, shadow_clip);
-        if (plant_receiver) {
-            // Thin surfaces need less offset than solid blocks. A light-facing
-            // bias avoids backface acne without erasing a canopy's shadow core.
-            float raw_depth = ProtectShadowDepth(shadow_clip.z * 0.5 + 0.5);
-            shadow_proj.z = mix(raw_depth, shadow_proj.z, material_id == 129 ? 0.3 : 0.55);
-        }
+        ProjectToShadowPair(world_pos, shadow_proj, shadow_clip);
         float clip_edge = max(abs(shadow_clip.x), abs(shadow_clip.y));
         float xy_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, clip_edge);
         float z_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, abs(shadow_clip.z));
@@ -311,11 +304,12 @@ void main() {
         float map_confidence = plant_receiver ? sss_map_coverage : shadow_coverage;
         float shadow_filtered = 1.0;
         if (map_confidence > 1.0e-3) {
+            vec2 depth_gradient = ShadowReceiverGradient(geo_normal);
 #ifdef SHADOW_PCSS
-            shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, stbn_dither,
+            shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, depth_gradient, stbn_dither,
                 sss_amount, ndotl, plant_receiver && material_id == 129);
 #else
-            shadow_filtered = ShadowFilterHardwarePCF(shadow_proj);
+            shadow_filtered = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, depth_gradient);
 #endif
         }
         plant_map_visibility = shadow_filtered;

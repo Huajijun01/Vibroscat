@@ -491,6 +491,17 @@ const float centerDepthHalflife = 1.0;
 #define TERRAIN_DERIVATIVE_TBN_ACTIVE
 #endif
 
+// Water normal evaluation: 0 = geometry normal only (no POM, no wave field,
+// no surface position/tangent). Internal, not a user option; the delivered
+// value is 1, and a temporary 0 exists to verify the gated consumers.
+#define WATER_NORMAL_ENABLED 1
+#if defined(PROGRAM_GBUFFERS_WATER) && WATER_NORMAL_ENABLED != 0
+#define WATER_SURFACE_POSITION_ACTIVE
+#endif
+#if defined(WATER_SURFACE_POSITION_ACTIVE) && defined(HAS_AT_TANGENT)
+#define WATER_SURFACE_TANGENT_ACTIVE
+#endif
+
 #if defined(TAAU) && defined(TAA)
 #define TAAU_ACTIVE
 #endif

@@ -1,8 +1,6 @@
 /* RENDERTARGETS: 12,2,1 */
 
 // -- Water shading switches --
-// Water normal evaluation (0 = geometry normal only, no POM/noise).
-#define WATER_NORMAL_ENABLED 1
 // Skip SSR for skyward reflections (view-space z > 0).
 #define WATER_SSR_SKY_SKIP 1
 
@@ -13,6 +11,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/render_scale.glsl"
+#include "/lib/geometry/fragment_position.glsl"
 #include "/lib/atmosphere/skybox_uv.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
@@ -25,46 +24,53 @@
 #include "/lib/water/rain_ripples.glsl"
 #include "/lib/water/river_texture.glsl"
 
-flat in int v_id;
-flat in int v_glass;
-flat in vec3 v_normal;
-#ifdef HAS_AT_TANGENT
-in vec3 v_world_tangent;
-in vec3 v_world_bitangent;
+#if defined(PROGRAM_GBUFFERS_WATER)
+flat in int v_surface_flags;
 #endif
-in vec3 v_world_pos;
-in vec3 v_view_pos;
+flat in vec3 v_normal;
+#if defined(WATER_SURFACE_TANGENT_ACTIVE)
+flat in vec3 v_world_tangent;
+#endif
 in vec3 v_ambient_col;
 in vec3 v_shadow_proj_pos;
-in vec4 v_color;
+in vec3 v_color;
 in vec4 v_texcoord;
 
 layout(location = 0) out vec4 out_layer_color;
 layout(location = 1) out vec4 out_surface_data;
 layout(location = 2) out vec4 out_surface_high;
 
-vec3 WaterFogCol() {
-    vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(v_view_pos));
+#if defined(PROGRAM_GBUFFERS_WATER)
+vec3 WaterFogCol(vec3 view_pos) {
+    vec3 world_view_dir = normalize(mat3(gbufferModelViewInverse) * normalize(view_pos));
     return FastWaterFogRadiance(ground_light.rgb, v_ambient_col,
         dot(world_view_dir, u_world_light_dir));
 }
+#endif
 
 void main() {
 #if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
+    // The surface position crosses the stage nowhere: every view-direction
+    // consumer below uses this reconstruction from the window coordinates.
+    vec3 view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
     vec4 diffuse = texture(gtexture, v_texcoord.xy);
 
     diffuse.rgb *= v_color.rgb;
     diffuse.rgb = ToLinear(diffuse.rgb);
 
+#if defined(PROGRAM_GBUFFERS_WATER)
+    bool is_water = (v_surface_flags & 1) != 0;
+    bool is_glass = (v_surface_flags & 2) != 0;
     // Non-glass/non-water translucent objects (slime, honey, ...) shade inline
     // with the full direct BRDF: no SSR/Fresnel/water data.
-    if (v_id != 1 && v_glass != 1) {
+    if (!is_water && !is_glass) {
+#endif
         if (diffuse.a < 0.01) discard;
         // Same BRDF configuration as deferred4 (shared BRDF helper).
         vec3 surface_normal_view = normalize(v_normal);
-        vec3 view_to_eye = -normalize(v_view_pos);
+        vec3 view_to_eye = -normalize(view_pos);
         vec3 direct_lighting;
         vec3 lambert_brdf;
         vec3 diffuse_reflectance;
@@ -77,39 +83,49 @@ void main() {
         out_layer_color = vec4(lit * diffuse.a, diffuse.a);
         PackTranslucentSurface(v_normal * 0.5 + 0.5, 0.0, out_surface_data, out_surface_high);
         return;
+#if defined(PROGRAM_GBUFFERS_WATER)
     }
 
     vec3 surface_normal = vec3(0.0, 0.0, 1.0);
     vec3 current_normal = v_normal;
     // Flat geometry normal in world space: owns the vertical-face wave
     // domain below and the refraction perturbation stored for blend. Only
-    // the water branch (v_id == 1) consumes it, so non-water translucent
-    // geometry never pays the transform.
+    // the water branch consumes it, so non-water translucent geometry never
+    // pays the transform.
     vec3 geo_n_world = vec3(0.0);
-    if(v_id == 1) {
+    if (is_water) {
         geo_n_world = normalize(mat3(gbufferModelViewInverse) * v_normal);
 #if WATER_NORMAL_ENABLED
-        // Water surface field (ocean.glsl: river texture basis);
-        // normal at the
-        // parallax-corrected position, shared by lighting, reflections,
-        // and refraction. Horizontal faces keep the POM path over absolute XZ;
-        // vertical faces re-parameterize the same wave field on the face
+        // Water surface field (ocean.glsl: river texture basis); normal at
+        // the parallax-corrected position, shared by lighting, reflections,
+        // and refraction. Horizontal faces keep the POM path over absolute
+        // XZ; vertical faces re-parameterize the same wave field on the face
         // plane through the geometry TBN (no POM: its march displaces along
-        // world vertical).
+        // world vertical). The world position exists only while the wave
+        // field consumes it; every other consumer stays in view space.
+#if defined(WATER_SURFACE_POSITION_ACTIVE)
+        vec3 world_pos = ViewToWorldSpace(view_pos);
+#endif
         vec3 world_n;
         if (abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y) {
 #ifdef WATER_POM
-            OceanSurfacePOM((v_world_pos + cameraPosition).xz, normalize(v_world_pos), frameTimeCounter, world_n);
+            OceanSurfacePOM((world_pos + cameraPosition).xz, normalize(world_pos), frameTimeCounter, world_n);
 #else
-            OceanFlatNormal((v_world_pos + cameraPosition).xz, frameTimeCounter, world_n);
+            OceanFlatNormal((world_pos + cameraPosition).xz, frameTimeCounter, world_n);
 #endif
         } else {
-#ifdef HAS_AT_TANGENT
-            vec3 face_absolute_pos = v_world_pos + cameraPosition;
+#if defined(WATER_SURFACE_TANGENT_ACTIVE)
+            // Same handed bitangent the vertex stage used to carry: the flat
+            // tangent plus the flags' handedness bit reproduce it here, only
+            // on the side-face path that consumes it.
+            float tangent_handedness = (v_surface_flags & 4) != 0 ? -1.0 : 1.0;
+            vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
+            vec3 world_bitangent = cross(v_world_tangent, normal_world) * tangent_handedness;
+            vec3 face_absolute_pos = world_pos + cameraPosition;
             vec3 ts_n;
-            vec2 face_wave_pos = vec2(dot(face_absolute_pos, v_world_tangent), dot(face_absolute_pos, v_world_bitangent));
+            vec2 face_wave_pos = vec2(dot(face_absolute_pos, v_world_tangent), dot(face_absolute_pos, world_bitangent));
             RiverTextureNormal(RiverTextureWarpPosition(face_wave_pos), frameTimeCounter, ts_n);
-            world_n = normalize(mat3(v_world_tangent, geo_n_world, v_world_bitangent) * ts_n);
+            world_n = normalize(mat3(v_world_tangent, geo_n_world, world_bitangent) * ts_n);
 #else
             world_n = geo_n_world; // no tangent attribute: flat side face
 #endif
@@ -123,7 +139,7 @@ void main() {
             float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH
                 * smoothstep(15.0 / 16.0, 1.0, v_texcoord.w);
             if (ripple_weight > 0.001) {
-                vec2 slope = SampleRainRippleSlope(v_world_pos.xz) * ripple_weight;
+                vec2 slope = SampleRainRippleSlope(world_pos.xz) * ripple_weight;
                 world_n = normalize(world_n + vec3(slope.x, 0.0, slope.y) * world_n.y);
             }
         }
@@ -140,10 +156,10 @@ void main() {
     }
 
     // Shared by the normal clamp below, the water branch, and the ray trace.
-    vec3 view_dir = normalize(v_view_pos);
+    vec3 view_dir = normalize(view_pos);
     current_normal = normalize(mix(current_normal, v_normal, (1.0 - Pow4(dot(-view_dir, v_normal))) * 0.7));
 
-    if (v_id == 1) {
+    if (is_water) {
         vec3 to_camera = -view_dir;
         current_normal = SoftClampWaterNormal(current_normal, to_camera);
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
@@ -179,12 +195,12 @@ void main() {
     vec3 reflect_dir = reflect(view_dir, current_normal);
 
 #ifdef WATER_SSR
-    bool ssr_allowed = (v_id == 1 || v_glass == 1);
+    bool ssr_allowed = is_water || is_glass;
 #if WATER_SSR_SKY_SKIP
     if (ssr_allowed && reflect_dir.z < 0.0)
 #endif
     {
-    SSRHit water_hit = TraceTranslucentSSR(v_view_pos, reflect_dir, dither);
+    SSRHit water_hit = TraceTranslucentSSR(view_pos, reflect_dir, dither);
     trace_hit = water_hit.valid;
     trace_hit_sky = water_hit.sky;
     if (water_hit.valid) trace_pos = water_hit.screen;
@@ -213,7 +229,7 @@ void main() {
         reflect_color = textureLod(colortex5, prev_coord.xy, 0.0).rgb;
     } else {
         if(isEyeInWater == 1) {
-            reflect_color = WaterFogCol();
+            reflect_color = WaterFogCol(view_pos);
         } else {
             vec3 view_refl_dir = normalize(mat3(gbufferModelViewInverse) * reflect_dir);
             reflect_color = SkyLightFromLm(v_texcoord.w) * texture(usam_sky_radiance, SkyRadianceUV(view_refl_dir)).rgb;
@@ -237,7 +253,7 @@ void main() {
     // the half vector has no other consumer on this path.
     float ldoth = sqrt(max(1.0 + ldotv, 0.0) * 0.5);
     vec3 sun_light = ground_light.rgb * shadow;
-    vec3 base_color = v_id == 1 ? ToLinear(0.2 * normalize(v_color.rgb)) : diffuse.rgb;
+    vec3 base_color = is_water ? ToLinear(0.2 * normalize(v_color)) : diffuse.rgb;
 
     const float f0 = 0.1;
     const float water_f0 = 0.02;
@@ -254,7 +270,7 @@ void main() {
     // discs); the active light is the sun when it is above the horizon (world
     // light direction y > 0), otherwise the moon.
 
-    float sun_f0 = v_id == 1 ? water_f0 : f0;
+    float sun_f0 = is_water ? water_f0 : f0;
     vec3 sun_fresnel = FresnelSchlick(ldoth, vec3(sun_f0));
 
     vec3 sun_specular = vec3(0.0);
@@ -270,7 +286,7 @@ void main() {
 
     float out_alpha = 0.0;
 
-    if(v_id == 1) {
+    if(is_water) {
         if(isEyeInWater == 0) {
             out_alpha = Pow5(1.0 - ndotv) * 0.98 + 0.02;
         } else {
@@ -289,7 +305,7 @@ void main() {
     // v_ambient_col is cosine-convolved sky irradiance; this diffuse ambient
     // term needs the same Lambert E/pi conversion the plain path's
     // lambert_brdf already carries, or it reads pi times too bright.
-    vec3 env_reflect = v_id == 1 ? vec3(0.0) : v_ambient_col * base_color * (1.0 / PI);
+    vec3 env_reflect = is_water ? vec3(0.0) : v_ambient_col * base_color * (1.0 / PI);
 
     // The sun glint stays at full strength; the sky and environment
     // reflections are weighted by out_alpha, which is also the layer alpha
@@ -299,6 +315,7 @@ void main() {
 
     // Split the original UNORM16 perturbation across colortex1/2 RGB; both
     // use nearest-fragment replacement. colortex1 alpha retains the opaque ID.
-    PackTranslucentSurface(surface_normal * 0.25 + 0.5, v_id == 1 ? 1.0 : 0.0,
+    PackTranslucentSurface(surface_normal * 0.25 + 0.5, is_water ? 1.0 : 0.0,
         out_surface_data, out_surface_high);
+#endif
 }

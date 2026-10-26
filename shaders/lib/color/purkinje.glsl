@@ -2,6 +2,7 @@
 #define LIB_COLOR_PURKINJE_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 
 // ============================================================================
@@ -30,10 +31,9 @@
 
 vec3 ApplyPurkinjeEffect(vec3 color, float adaptation_luma) {
     float key = max(adaptation_luma, 1.0e-6);
-    float rod_weight = clamp(
+    float rod_weight = saturate(
         (log2(PURKINJE_PHOTOPIC_KEY) - log2(key))
-            / (log2(PURKINJE_PHOTOPIC_KEY) - log2(PURKINJE_SCOTOPIC_KEY)),
-        0.0, 1.0);
+            / (log2(PURKINJE_PHOTOPIC_KEY) - log2(PURKINJE_SCOTOPIC_KEY)));
     rod_weight *= PURKINJE_STRENGTH;
     if (rod_weight <= 0.0) {
         return color;

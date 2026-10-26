@@ -3,6 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 
 // block.properties: low byte retains the existing material; upper byte owns
 // geometry only (1 rooted, 2 tall lower, 3 tall upper, 4 continuous canopy).
@@ -45,7 +46,7 @@ vec3 PlantWindOffset(vec3 world_pos, vec3 to_block_center, int block_id) {
     }
 
     float length_m = plant_class == 1 ? 1.0 : 2.0;
-    float h = clamp(height_m / length_m, 0.0, 1.0);
+    float h = saturate(height_m / length_m);
     // Euler-Bernoulli cantilever under uniform drag, normalized at the tip:
     // h^2*(6-4*h+h^2)/3. Root displacement AND slope are zero.
     float shape = h * h * (6.0 - 4.0 * h + h * h) / 3.0;

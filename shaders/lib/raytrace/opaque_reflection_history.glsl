@@ -36,8 +36,8 @@ uvec4 PackOpaqueHistory(float depth_view, vec2 material,
     uint depth_bits = packHalf2x16(vec2(depth_view, 0.0)) & 65535u;
     // Reject unrepresentable depths, including half overflow and underflow.
     if (depth_bits == 0u || depth_bits >= 0x7c00u) return uvec4(0u);
-    uint roughness = uint(round(clamp(material.x, 0.0, 1.0) * 255.0));
-    uint selector = uint(round(clamp(material.y, 0.0, 1.0) * 255.0));
+    uint roughness = uint(round(saturate(material.x) * 255.0));
+    uint selector = uint(round(saturate(material.y) * 255.0));
     uint state = change_state < 0 ? uint(3 - change_state) : uint(change_state);
     uint variance_bits = packHalf2x16(vec2(log2(1.0 + max(variance, 0.0)), 0.0)) & 65535u;
     // A nonzero age certifies finite RGB and a finite decoded variance.
@@ -236,7 +236,7 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 vec3 old_z = gather.sum_z / gather.weight_sum;
                 float old_y = Luminance(old_z);
                 float old_variance = max(gather.sum_second / gather.weight_sum - old_y * old_y, 0.0);
-                float old_age = gather.sum_age / gather.weight_sum * min(gather.weight_sum, 1.0);
+                float old_age = gather.sum_age / gather.weight_sum * saturate(gather.weight_sum);
                 float angle_motion = 0.0;
                 if (!u_ssr_history_static) {
                     vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);

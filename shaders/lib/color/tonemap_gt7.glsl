@@ -2,6 +2,7 @@
 #define LIB_COLOR_TONEMAP_GT7_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/core/math_scalar.glsl"
 
 
 // ===========================================================================
@@ -68,8 +69,8 @@ float InverseEotfST2084(float framebuffer) {
 float EotfST2084(float pq) {
     // The official EOTF limits PQ to its normalized signal domain before
     // decoding; above 1 its rational denominator can become negative.
-    float shaped = pow(clamp(pq, 0.0, 1.0), 1.0 / 78.84375);
-    return 100.0 * pow(max(shaped - 0.8359375, 0.0) / (18.8515625 - 18.6875 * shaped), 6.277394636015);
+    float shaped = pow(saturate(pq), 1.0 / 78.84375);
+    return 100.0 * pow(saturate(shaped - 0.8359375) / (18.8515625 - 18.6875 * shaped), 6.277394636015);
 }
 
 vec3 RGBToICtCp(vec3 rgb) {
@@ -140,7 +141,7 @@ vec3 TonemapGT7(vec3 linear_rgb) {
     vec3 blended = mix(skewed, faded, GT7_BLEND);
     // Rec.2020's SDR cube is larger than Rec.709's. Apply the display clamp
     // after converting primaries, before the pack's sharpening and OETF.
-    return clamp(BT2020_TO_SRGB * (min(blended, vec3(GT7_PEAK)) * GT7_SDR_CORRECTION), 0.0, 1.0);
+    return saturate(BT2020_TO_SRGB * (min(blended, vec3(GT7_PEAK)) * GT7_SDR_CORRECTION));
 }
 
 #endif // LIB_COLOR_TONEMAP_GT7_GLSL

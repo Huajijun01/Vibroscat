@@ -33,12 +33,14 @@ vec2 PlantDiffuseResponse(vec3 normal_world, vec3 light_dir, vec3 view_to_eye,
     float amount_scale = blade ? 1.0 / PLANT_BLADE_REFERENCE_AMOUNT : 1.0;
     float strength = saturate(sss_amount * amount_scale * SHADOW_SSS_SCALE)
         * saturate(SHADOW_SSS_ENERGY);
-    float reflection = max(ndotl, 0.0);
+    // Unit normal and light directions keep ndotl in [-1, 1]: exact for this
+    // saturate, and it caps the blade's 0.9 + 0.1 * |ndotl| target at 1.
+    float reflection = saturate(ndotl);
     // Leaf cubes keep their geometric normals, so their angular compensation
     // must be stronger than grass (whose normal already bends toward the sky).
     // Canopy shape comes from map shelter, not artificially dim leaf backfaces.
     float broad_target = blade ? 0.9 + 0.1 * abs(ndotl) : 1.0;
-    float transmission = max(broad_target - reflection, 0.0);
+    float transmission = saturate(broad_target - reflection);
     if (transmission > 0.0 && strength > 0.0) {
         // The directional lobe adds a restrained highlight. Leaf targets
         // already reach the cap, so they skip the phase evaluation.
@@ -47,7 +49,7 @@ vec2 PlantDiffuseResponse(vec3 normal_world, vec3 light_dir, vec3 view_to_eye,
                 -dot(light_dir, view_to_eye), SHADOW_SSS_PHASE_G);
             broad_target *= 1.0 + 0.15 * max(min(directional, PLANT_FORWARD_PEAK_LIMIT) - 1.0, 0.0);
         }
-        transmission = max(min(broad_target, 1.0) - reflection, 0.0) * strength;
+        transmission = saturate(saturate(broad_target) - reflection) * strength;
     } else {
         transmission = 0.0;
     }

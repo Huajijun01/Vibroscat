@@ -72,10 +72,9 @@ float UpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
     float offset_len = offset_len_sq * inv_offset_len;
     // Near-field fade (Jimenez section4.3): linear band [GTAO_FALLOFF_START*R, R]
     // applied to the sample cosine (no hard cut at the radius).
-    float fade = clamp(
+    float fade = saturate(
         (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
-            / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4),
-        0.0, 1.0);
+            / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4));
     float sample_cos = dot(view_axis, offset) * inv_offset_len * (1.0 - fade) - fade;
     return max(horizon_cos, sample_cos);
 }
@@ -140,7 +139,7 @@ float BlockedArc(float a, float b, float normal_angle, float inv_normal_length, 
     if (a >= 0.0) {
         if (c <= -b * inv_normal_length) return 0.0;
         float h = acos(c);
-        float s = sqrt(max(1.0 - c * c, 0.0));
+        float s = sqrt(saturate(1.0 - c * c));
         return max(0.5 * (a * c * c
             + b * (normal_angle + PI * 0.5 - h + s * c)), 0.0);
     }
@@ -301,7 +300,7 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
     vec3 blocked_sky = EvalSkyBlockedMoments(blocked_moments.x,
         mat3(gbufferModelViewInverse) * blocked_direction_view);
     float blocked_fraction = occlusion / float(GTAO_SLICES);
-    result.ao = clamp(1.0 - blocked_fraction, 0.0, 1.0);
+    result.ao = saturate(1.0 - blocked_fraction);
     // Phi is uniform over [0, pi) across GTAO_SLICES slices, so the arc sum
     // becomes irradiance with the full PI/GTAO_SLICES measure (the scalar AO
     // normalization already folds AO's 1/pi into its own definition). The
@@ -316,7 +315,7 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
         vec3(0.0), result.open_sky);
     return result;
 #else
-    return clamp(1.0 - occlusion / float(GTAO_SLICES), 0.0, 1.0);
+    return saturate(1.0 - occlusion / float(GTAO_SLICES));
 #endif
 }
 

@@ -3,6 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
 
 // ============================================================================
@@ -207,7 +208,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             + gbufferProjectionInverse[3][3]);
         vec4 gap = ray_depth - sample_linear;
         vec4 confidence = max(vec4(edge_confidence_floor),
-            clamp(edge_distance * 16.0, 0.0, 1.0));
+            saturate(edge_distance * 16.0));
         vec4 retention = mix(vec4(1.0), vec4(step_visibility), confidence);
         for (int j = 0; j < 4; ++j) {
             bool hit = valid[j] && gap[j] > minimum_gap && gap[j] < thickness;

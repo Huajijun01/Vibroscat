@@ -108,7 +108,7 @@ bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
     float plane_weight = 1.0 - plane_distance;
     // A one-frame estimate is not almost a third of a converged estimate.
     // Keep its real age and let stable geometry-matched neighbors dominate.
-    float confidence = min(age / 64.0, 1.0);
+        float confidence = saturate(age / 64.0);
     confidence *= confidence;
     weight = exp2(-spatial_falloff * dot(spatial_delta, spatial_delta))
         * plane_weight * plane_weight * confidence;
@@ -166,7 +166,7 @@ bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out
         // Disocclusion can cover more than the immediate ring. Search a
         // bounded 8/16-display-pixel support only while that footprint is
         // young; reuse real current history, without inventing history age.
-        float support_strength = max(1.0 - maximum_age / 32.0, 0.0);
+        float support_strength = saturate(1.0 - maximum_age / 32.0);
         support_strength *= support_strength;
         for (int i = 0; i < 16 && maximum_age < 8.0; ++i) {
             int radius = i < 8 ? 4 : 8;

@@ -2,6 +2,7 @@
 #define LIB_COLOR_DITHER_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 
 // Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
@@ -34,7 +35,7 @@ vec3 JitterRGBA16F(vec3 color, vec2 pixel, float seed) {
 
 vec3 JitterSRGB8(vec3 color, vec2 pixel, float seed) {
     float noise = ColorDitherNoise(pixel, seed);
-    return clamp(color + noise * (1.0 / 255.0) * COLOR_DITHER_STRENGTH, 0.0, 1.0);
+    return saturate(color + noise * (1.0 / 255.0) * COLOR_DITHER_STRENGTH);
 }
 
 #endif // COLOR_DITHER

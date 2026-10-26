@@ -79,11 +79,11 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
     vec2 tc0 = base - rcp_resolution;
     vec2 tc3 = base + 2.0 * rcp_resolution;
 
-    vec4 sample_a = textureLod(utex_starmap, vec2(m0.x, clamp(tc0.y, 0.0, 1.0)), 0.0);
-    vec4 sample_b = textureLod(utex_starmap, vec2(tc0.x, clamp(m0.y, 0.0, 1.0)), 0.0);
-    vec4 sample_c = textureLod(utex_starmap, vec2(m0.x, clamp(m0.y, 0.0, 1.0)), 0.0);
-    vec4 sample_d = textureLod(utex_starmap, vec2(tc3.x, clamp(m0.y, 0.0, 1.0)), 0.0);
-    vec4 sample_e = textureLod(utex_starmap, vec2(m0.x, clamp(tc3.y, 0.0, 1.0)), 0.0);
+    vec4 sample_a = textureLod(utex_starmap, vec2(m0.x, saturate(tc0.y)), 0.0);
+    vec4 sample_b = textureLod(utex_starmap, vec2(tc0.x, saturate(m0.y)), 0.0);
+    vec4 sample_c = textureLod(utex_starmap, vec2(m0.x, saturate(m0.y)), 0.0);
+    vec4 sample_d = textureLod(utex_starmap, vec2(tc3.x, saturate(m0.y)), 0.0);
+    vec4 sample_e = textureLod(utex_starmap, vec2(m0.x, saturate(tc3.y)), 0.0);
 
     // Weight-sum factorization: the Catmull-Rom weights partition unity
     // (w0 + w1 + w2 + w3 == 1, s0 == w1 + w2), so the outer-tap coefficients
@@ -132,8 +132,8 @@ vec4 SampleStarMapLowresBspline(vec2 uv) {
 
     vec2 coord_a = base - 1.0 + offset_a + 0.5;
     vec2 coord_b = base + 1.0 + offset_b + 0.5;
-    vec2 uv_a = vec2(coord_a.x * rcp_resolution.x, clamp(coord_a.y * rcp_resolution.y, 0.0, 1.0));
-    vec2 uv_b = vec2(coord_b.x * rcp_resolution.x, clamp(coord_b.y * rcp_resolution.y, 0.0, 1.0));
+    vec2 uv_a = vec2(coord_a.x * rcp_resolution.x, saturate(coord_a.y * rcp_resolution.y));
+    vec2 uv_b = vec2(coord_b.x * rcp_resolution.x, saturate(coord_b.y * rcp_resolution.y));
 
     vec4 sample_aa = textureLod(utex_starmap_lowres, uv_a, 0.0);
     vec4 sample_ba = textureLod(utex_starmap_lowres, vec2(uv_b.x, uv_a.y), 0.0);
@@ -151,7 +151,7 @@ vec2 StarMapEquirectUV(vec3 rd) {
     float a = atan(rd.z, rd.x);
     float u = mix(a, 0.0, float(isnan(a))) * INV_TWO_PI + 0.5;
     float v = 0.5 - asin(clamp(rd.y, -1.0, 1.0)) * (1.0 / PI);
-    return vec2(u, clamp(v, 0.0, 1.0));
+    return vec2(u, saturate(v));
 }
 
 // Per-ray celestial context shared by the star map and the disc renderer:

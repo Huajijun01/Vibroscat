@@ -123,7 +123,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
     // Step 2: penumbra. width = gap * tan(angular radius); gap from the NDC
     // delta + ortho z scale -> texels (blur tracks shadow length, not the
     // absolute blocker depth).
-    float depth_delta = blocker_found ? max(sp.z - blocker_depth, 0.0) : 0.0;
+    float depth_delta = blocker_found ? saturate(sp.z - blocker_depth) : 0.0;
     float ortho_width_scale = abs(u_shadow_projection_xy.x);
     float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
     float texel_world_size = 2.0 / (max(ortho_width_scale, 1e-6) * real_shadow_map_resolution);
@@ -186,7 +186,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, float stbn_dither,
             vec2 offset = filter_offset_scale
                 * ShadowRotateDisk(
                 ShadowDiskPoint(i, step_count), rot_x, rot_y);
-            vec2 uv = clamp(DistortShadowClip(clip_pos.xy + offset), vec2(0.0), vec2(1.0));
+            vec2 uv = saturate(DistortShadowClip(clip_pos.xy + offset));
             shadow += texture(shadowtex1, vec3(uv, sp.z));
         }
     }

@@ -2,6 +2,7 @@
 #define LIB_COLOR_TONEMAP_AGX_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 
 
@@ -42,7 +43,6 @@ const float AGX_SHOULDER_A = 2568.7503334098;  // curve_coefficient(0.39394, 0.5
 const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.3958121374360396);
 
 const float AGX_WHITE_HUE_RETENTION = 0.5;
-const float AGX_MAXIMUM_LOG_COORDINATE = 1.0;
 // Reference `AgxParameters` hue retention at black; the highlight end is the
 // fixed AGX_WHITE_HUE_RETENTION constant.
 const float AGX_BLACK_HUE_RETENTION = 1.0;
@@ -79,7 +79,7 @@ float AgXCurveComponent(float value) {
 vec3 AgXRepairHue(vec3 original_linear, vec3 mapped) {
     vec3 original_hsv = RGBToHSV(pow(max(original_linear, 0.0), vec3(1.0 / 2.2)));
     vec3 mapped_hsv = RGBToHSV(mapped);
-    float normalized_value = clamp(mapped_hsv.z, 0.0, 1.0);
+    float normalized_value = saturate(mapped_hsv.z);
 
     if (original_hsv.y > 1.0e-7 && mapped_hsv.y > 1.0e-7) {
         float retention = mix(AGX_BLACK_HUE_RETENTION, AGX_WHITE_HUE_RETENTION, normalized_value);
@@ -88,7 +88,7 @@ vec3 AgXRepairHue(vec3 original_linear, vec3 mapped) {
         mapped_hsv.x = fract(mapped_hsv.x + retention * hue_offset);
     }
 
-    return HSVToRGB(vec3(mapped_hsv.x, clamp(mapped_hsv.y, 0.0, 1.0), mapped_hsv.z));
+    return HSVToRGB(vec3(mapped_hsv.x, saturate(mapped_hsv.y), mapped_hsv.z));
 }
 
 vec3 TonemapAGX(vec3 linear_rgb) {
@@ -97,7 +97,7 @@ vec3 TonemapAGX(vec3 linear_rgb) {
     // Inset and the normalized log2 shaper (min EV -12.4739 .. max EV +4.0261).
     vec3 working = AgXInset(original);
     working = (log2(max(working, 2e-10)) - AGX_MIN_LOG2) * AGX_INVERSE_DYNAMIC_RANGE;
-    working = clamp(working, 0.0, AGX_MAXIMUM_LOG_COORDINATE);
+    working = saturate(working);
 
     // Toe/shoulder power curve, then back out of the working gamut.
     working = vec3(AgXCurveComponent(working.x), AgXCurveComponent(working.y),
@@ -109,7 +109,7 @@ vec3 TonemapAGX(vec3 linear_rgb) {
 
     // The reference clamps its final display signal, then the pack decodes
     // it for the shared display-linear sharpening / final sRGB output.
-    return ToLinear(clamp(working, 0.0, 1.0));
+    return ToLinear(saturate(working));
 }
 
 #endif // LIB_COLOR_TONEMAP_AGX_GLSL

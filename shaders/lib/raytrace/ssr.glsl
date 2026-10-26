@@ -142,9 +142,9 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
             // Accept segment/thickness overlap before spending work on
             // refinement.
             float segment_start_depth = LinearDepthFromScreenDepth(
-                clamp(bracket.previous_pos.z, 0.0, 1.0));
+                saturate(bracket.previous_pos.z));
             float segment_end_depth = LinearDepthFromScreenDepth(
-                clamp(sample_pos.z, 0.0, 1.0));
+                saturate(sample_pos.z));
             float hit_ray_depth = clamp(surface_view_depth,
                 min(segment_start_depth, segment_end_depth),
                 max(segment_start_depth, segment_end_depth));
@@ -199,8 +199,8 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
             front_delta = mid_delta;
         }
     }
-    float hit_fraction = clamp(-front_delta
-        / max(behind_delta - front_delta, 1e-20), 0.0, 1.0);
+    float hit_fraction = saturate(-front_delta
+        / max(behind_delta - front_delta, 1e-20));
     hit_pos = mix(front_pos, behind_pos, hit_fraction);
 #else
     hit_pos = behind_pos;
@@ -212,7 +212,7 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
 #if !defined(SSR_QUARTER_DEPTH_ACTIVE)
     surface_view_depth = LinearDepthFromScreenDepth(hit_surface);
 #endif
-    float hit_view_depth = LinearDepthFromScreenDepth(clamp(hit_pos.z, 0.0, 1.0));
+    float hit_view_depth = LinearDepthFromScreenDepth(saturate(hit_pos.z));
     float travelled = abs(hit_view_depth - ray_start_depth);
     if (abs(hit_view_depth - surface_view_depth)
             > SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS) return Miss();
@@ -254,11 +254,11 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
     // A zero span collapses hit_frac to the bracket's front sample; nonzero spans retain their sign.
     float hit_surface = ReadDepthSample(hit_pos.xy);
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
-    float hit_frac = clamp((1.0 / hit_surface - previous_ray_depth)
-        * inverse_span, 0.0, 1.0);
+    float hit_frac = saturate((1.0 / hit_surface - previous_ray_depth)
+        * inverse_span);
 #else
-    float hit_frac = clamp((hit_surface - previous_ray_depth)
-        * inverse_span, 0.0, 1.0);
+    float hit_frac = saturate((hit_surface - previous_ray_depth)
+        * inverse_span);
 #endif
     return mix(previous_pos, sample_pos, hit_frac);
 }

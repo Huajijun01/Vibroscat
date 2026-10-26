@@ -2,6 +2,7 @@
 #define LIB_COLOR_TONEMAP_OPENDRT_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/core/math_scalar.glsl"
 
 #if TONEMAP_MODE == 3
 #include "/lib/color/tonemap_opendrt_presets.glsl"
@@ -301,7 +302,7 @@ vec3 TonemapOpenDRT(vec3 linear_rgb) {
     // The display scale ts_dsc is 1 at the fixed SDR peak, so only the
     // inverse-toe gain and the toe itself remain.
     tsn = ODTToeQuadratic(tsn * ts_m2, ODT_TOE);
-    return clamp(rgb * tsn, 0.0, 1.0);
+    return saturate(rgb * tsn);
 }
 
 #endif // TONEMAP_MODE == 3

@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
 
 // Squaring normalized view depth halves FP16 relative distance error. Scale
@@ -17,7 +18,9 @@ const float SQUARED_DEPTH_HALF_RCP_SQRT = 0.0039072041399776936;  // inversesqrt
 float EncodeSquaredDepth(float screen_depth) {
     // Iris 'far' is render distance, not the clipping plane. Use the inverse
     // projection at screen depth 1 so visible geometry is never truncated.
-    float normalized_depth = min(LinearDepthFromScreenDepth(screen_depth) * u_inv_clip_depth, 1.0);
+    // Linear depth is |view z| and the clip-depth reciprocal is positive, so
+    // the ratio never goes negative.
+    float normalized_depth = saturate(LinearDepthFromScreenDepth(screen_depth) * u_inv_clip_depth);
     return max(SQUARED_DEPTH_HALF_MIN,
         SQUARED_DEPTH_HALF_MAX * normalized_depth * normalized_depth);
 }

@@ -13,6 +13,7 @@
 // composite1 -> composite2 compute -> composite2 fragment use Iris barriers.
 
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 
 #if defined(EPIPOLAR_ACTIVE)
@@ -199,7 +200,7 @@ vec3 SampleEpipolarTerm(vec2 ndc, float pixel_key, vec3 fallback) {
         float entry_weight = entry_bound * exit_magnitude;
         t = entry_weight / max(entry_weight + exit_bound * entry_magnitude, 1e-20);
     }
-    float sample_f = clamp(t, 0.0, 1.0) * float(SampleCount() - 1);
+    float sample_f = saturate(t) * float(SampleCount() - 1);
     int row = min(int(sample_f), SampleCount() - 2);
     vec2 blend = vec2(fract(slice_f), sample_f - float(row));
     vec4 keys = GatherKeys(slice0, row);

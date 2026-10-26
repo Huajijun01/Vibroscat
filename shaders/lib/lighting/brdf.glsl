@@ -82,7 +82,7 @@ float SmithGGXLambda(float ndotx, float alpha) {
 
 float SpecularOcclusion(float ndotv, float ao, float roughness) {
     float exponent = exp2(-16.0 * roughness - 1.0);
-    return clamp(pow(ndotv + ao, exponent) - 1.0 + ao, 0.0, 1.0);
+    return saturate(pow(ndotv + ao, exponent) - 1.0 + ao);
 }
 
 float VisibleGGXVisibility(float ndotv, float ndotl, float alpha) {
@@ -93,7 +93,7 @@ float VisibleGGXVisibility(float ndotv, float ndotl, float alpha) {
     // one quotient instead of the three the factored forms carry.
     float lambda_v = SmithGGXLambda(ndotv, alpha);
     float lambda_l = SmithGGXLambda(ndotl, alpha);
-    return clamp((1.0 + lambda_v) / (1.0 + lambda_v + lambda_l), 0.0, 1.0);
+    return saturate((1.0 + lambda_v) / (1.0 + lambda_v + lambda_l));
 }
 
 vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
@@ -124,8 +124,9 @@ float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius)
     float ndott = scaled * (ndotv - rdotl * ndotl);
     float vdott = scaled * (2.0 * ndotv * ndotv - 1.0 - rdotl * ldotv);
 
-    // Triple product dot(cross(N, L), V).
-    float triple = sqrt(max(1.0 - ndotl * ndotl - ndotv * ndotv - ldotv * ldotv + 2.0 * ndotl * ndotv * ldotv, 0.0));
+    // Triple product dot(cross(N, L), V). The radicand is the Gram
+    // determinant of the three unit directions, so it cannot exceed 1.
+    float triple = sqrt(saturate(1.0 - ndotl * ndotl - ndotv * ndotv - ldotv * ldotv + 2.0 * ndotl * ndotv * ldotv));
     float ndotb = scaled * triple;
     float vdotb = scaled * (2.0 * triple * ndotv);
 
@@ -152,7 +153,7 @@ float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius)
     float ndoth = ndotv + new_ndotl;
     float hdoth = 2.0 * new_ldotv + 2.0;
 
-    return clamp(ndoth * ndoth / hdoth, 0.0, 1.0);
+    return saturate(ndoth * ndoth / hdoth);
 }
 
 // Same distribution as DistributionGGX, but takes (N.H)^2 directly so the

@@ -7,6 +7,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/celestial.glsl"
 #include "/lib/atmosphere/media.glsl"
@@ -39,8 +40,9 @@ vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float sur
         denominator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, surface_mu);
     }
     // The caller shares the camera lookup and horizon test across both layers.
-    vec4 segment_transmittance = min(numerator / max(denominator, vec4(1.0e-5)), vec4(1.0));
-    return clamp(SpectralFractionToLinearSRGB(segment_transmittance), vec3(0.0), vec3(1.0));
+    // tslut transmittances decode in [0,1], so the ratio never goes negative.
+    vec4 segment_transmittance = saturate(numerator / max(denominator, vec4(1.0e-5)));
+    return saturate(SpectralFractionToLinearSRGB(segment_transmittance));
 }
 
 // Re-light unlit cloud radiance with the current sun/moon; the consumer

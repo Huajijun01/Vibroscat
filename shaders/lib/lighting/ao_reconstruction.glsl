@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/coordinates.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 
 // Four-tap bilateral upsampling on the generator's fixed pixel lattice:
@@ -17,7 +18,7 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
     ivec2 lower_pixel = min(base_texel * 2, full_max);
     ivec2 upper_pixel = min(min(base_texel + 1, half_size - 1) * 2, full_max);
     // Clamp the final footprint to the actual scene, including odd sizes.
-    vec2 fraction = clamp(vec2(texel - lower_pixel) / vec2(max(upper_pixel - lower_pixel, 1)), 0.0, 1.0);
+    vec2 fraction = saturate(vec2(texel - lower_pixel) / vec2(max(upper_pixel - lower_pixel, 1)));
     // These depth/workspace reads are independent of the rejection weights:
     // all four taps are fetched unconditionally (the UNORM8 workspace holds
     // only finite values) and every address stays bounded, zero-weight taps
@@ -45,10 +46,9 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
             float sample_depth = fetched_depth[y * 2 + x];
             vec4 sample_data = fetched_data[y * 2 + x];
             float sample_depth_m = LinearDepthFromScreenDepth(sample_depth);
-            float depth_weight = clamp(1.0 - abs(sample_depth_m - receiver_depth_m) * inv_depth_window,
-                0.0, 1.0);
+            float depth_weight = saturate(1.0 - abs(sample_depth_m - receiver_depth_m) * inv_depth_window);
             vec3 sample_normal = DecodeOctahedralNormal(sample_data.gb);
-            float normal_weight = clamp((dot(normal_world, sample_normal) - 0.85) * (1.0 / 0.15), 0.0, 1.0);
+            float normal_weight = saturate((dot(normal_world, sample_normal) - 0.85) * (1.0 / 0.15));
             weight *= depth_weight * normal_weight * float(sample_depth < 1.0);
             ao_sum += sample_data.ra * vec2(1.0, 255.0) * weight;
             weight_sum += weight;

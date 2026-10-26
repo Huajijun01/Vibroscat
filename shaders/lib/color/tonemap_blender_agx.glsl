@@ -2,6 +2,7 @@
 #define LIB_COLOR_TONEMAP_BLENDER_AGX_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 
 #if TONEMAP_MODE == 2
@@ -104,11 +105,11 @@ vec3 BlenderAgXOutputGuard(vec3 rgb) {
     if (offset == 0.0) return rgb;
     float luma = max(dot(rgb, BAGX_SRGB_LUMINANCE), 0.0);
     float difference = luma - minimum;
-    float before = luma + (1.0 - clamp(pow(luma, 0.08), 0.0, 1.0)) * difference;
+    float before = luma + (1.0 - saturate(pow(luma, 0.08))) * difference;
     float shifted_luma = luma + offset;
     float after = shifted_luma
-        + (1.0 - clamp(pow(shifted_luma, 0.08), 0.0, 1.0)) * difference;
-    return (rgb + offset) * min(before / after, 1.0);
+        + (1.0 - saturate(pow(shifted_luma, 0.08))) * difference;
+    return (rgb + offset) * saturate(before / after);
 }
 
 // Log2 shaper: Blender forms the image over -10 .. +6.5 EV around 0.18, which
@@ -182,7 +183,7 @@ vec3 TonemapBlenderAGX(vec3 linear_rgb) {
     hue_difference -= floor(hue_difference + 0.5);
     formed_hsv.x = fract(original_hsv.x + 0.4 * hue_difference);
     working = HSVToRGB(formed_hsv);
-    return clamp(BlenderAgXOutputGuard(BAGX_AGX_WORKING_TO_SRGB * working), 0.0, 1.0);
+    return saturate(BlenderAgXOutputGuard(BAGX_AGX_WORKING_TO_SRGB * working));
 }
 
 #endif // TONEMAP_MODE == 2

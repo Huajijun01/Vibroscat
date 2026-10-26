@@ -4,6 +4,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
@@ -35,7 +36,7 @@ AirFogDensityProfile AirFogProfile() {
     // Absolute camera coordinates avoid the wrapped cameraPosition altitude.
     // World space offsets feet-player space by cameraPosition (Iris contract).
     return AirFogDensityProfile(clear_density,
-        AIR_FOG_DENSITY_RAIN * clamp(rainStrength * u_rain_biome, 0.0, 1.0), u_eye_height_m);
+        AIR_FOG_DENSITY_RAIN * saturate(rainStrength * u_rain_biome), u_eye_height_m);
 }
 
 AirFogMedium AirFogReferenceMedium() {
@@ -48,10 +49,12 @@ AirFogMedium AirFogReferenceMedium() {
     // COEFFICIENTS once, before Beer-Lambert; fitting exp(-tau) with a signed
     // radiance matrix is not a multiplicative RGB transmission operator.
     vec3 white = SpectralToLinearSRGB(vec4(1.0));
-    vec3 ray = max(SpectralToLinearSRGB(reference.sigma_s_ray * 0.001) / white, vec3(0.0));
-    vec3 mie = max(SpectralToLinearSRGB(reference.sigma_s_mie * 0.001) / white, vec3(0.0));
+    // Converted clear-air coefficients sit orders of magnitude below 1, so the
+    // saturates only scrub signed-conversion artifacts.
+    vec3 ray = saturate(SpectralToLinearSRGB(reference.sigma_s_ray * 0.001) / white);
+    vec3 mie = saturate(SpectralToLinearSRGB(reference.sigma_s_mie * 0.001) / white);
     vec4 absorption_spectral = reference.sigma_t - reference.sigma_s_ray - reference.sigma_s_mie;
-    vec3 absorption = max(SpectralToLinearSRGB(absorption_spectral * 0.001) / white, vec3(0.0));
+    vec3 absorption = saturate(SpectralToLinearSRGB(absorption_spectral * 0.001) / white);
     return AirFogMedium(ray + mie + absorption, ray, mie,
         dot(reference.sigma_s_mie, vec4(0.25)) * 0.001);
 }

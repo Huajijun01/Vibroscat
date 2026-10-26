@@ -64,9 +64,10 @@ float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
         float u1 = (float(k) + stbn_noise.y) / float(SSAO_SAMPLES);
         float r = sqrt(u1);
         // 1 - r*r is exactly 1 - u1, so the lifted component is sqrt(1 - u1)
-        // and the r*r round trip (one multiply per sample) drops out.
+        // and the r*r round trip (one multiply per sample) drops out. With
+        // k >= 0 and the [0,1] UNORM STBN noise, u1 >= 0, so 1 - u1 <= 1.
         vec3 dir = tangent * (r * azimuth_c) + bitangent * (r * azimuth_s)
-            + normal_view * sqrt(max(1.0 - u1, 0.0));
+            + normal_view * sqrt(saturate(1.0 - u1));
         float next_c = azimuth_c * azimuth_step_c - azimuth_s * azimuth_step_s;
         azimuth_s = azimuth_s * azimuth_step_c + azimuth_c * azimuth_step_s;
         azimuth_c = next_c;
@@ -101,7 +102,7 @@ float ComputeSSAOFromGeometry(vec2 uv, float center_depth, vec2 normal_oct, vec2
         // normal hemisphere (offset along the normal, weighted by the
         // cosine). Flat planes fail (offset in-plane), walls/corners pass.
         // Faded by a smooth window over the radius.
-        float cos_theta = clamp(dot(offset, normal_view) * inv_offset_len, 0.0, 1.0);
+        float cos_theta = saturate(dot(offset, normal_view) * inv_offset_len);
         if (cos_theta <= 0.0) {
             continue;  // surface outside the normal_view hemisphere: no occlusion
         }

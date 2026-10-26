@@ -145,7 +145,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
 #endif
     // A first-surface RSM only approximates receiver visibility; overlapping
     // solid angles and stochastic overshoot cannot remove more than all SH.
-    float coverage = clamp(mean_coverage, 0.0, 1.0) * availability;
+    float coverage = saturate(mean_coverage) * availability;
     // The SH term depends on the same coverage samples as bounce radiance.
     // Include their covariance rather than treating them as independent noise.
     vec3 moments = transport_moments * rsm_inv_sample_count;

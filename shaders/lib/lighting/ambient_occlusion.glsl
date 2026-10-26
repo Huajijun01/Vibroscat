@@ -3,13 +3,14 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/lighting/ao_history.glsl"
 
 // Shared response for standalone AO and RSM's receiver-local estimate.
 // Accumulate the standalone raw field first; RSM filters AO-weighted sky
 // irradiance together with its bounce instead of filtering AO separately.
 vec3 ApplySurfaceAO(inout float screen_ao, vec3 albedo) {
-    screen_ao = clamp(screen_ao, 0.0, 1.0);
+    screen_ao = saturate(screen_ao);
 #if AO_MODE == 2
     if (SSAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, SSAO_STRENGTH);
 #else

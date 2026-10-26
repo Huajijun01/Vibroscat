@@ -1,6 +1,8 @@
 #ifndef LIB_ATMOSPHERE_SPECTRAL_GLSL
 #define LIB_ATMOSPHERE_SPECTRAL_GLSL
 
+#include "/lib/core/math_scalar.glsl"
+
 // ===============================================================
 // Spectral -> linear sRGB  (4x3 manually expanded, FMA-friendly)
 // Quadrature nodes 450/510/580/650 nm,
@@ -41,8 +43,8 @@ vec3 SpectralToLinearSRGBWhiteBalanced(vec4 spectral_radiance) {
 vec3 TransmittanceToLinearSRGB(vec4 t, vec4 light) {
     vec4 safe_light = max(light, vec4(1.0e-4));
     vec3 white = SpectralToLinearSRGB(safe_light);
-    return clamp(SpectralToLinearSRGB(clamp(t, vec4(0.0), vec4(1.0)) * safe_light)
-        / max(white, vec3(1.0e-4)), vec3(0.0), vec3(1.0));
+    return saturate(SpectralToLinearSRGB(saturate(t) * safe_light)
+        / max(white, vec3(1.0e-4)));
 }
 
 // Unitless spectral fraction -> linear sRGB, normalized so a neutral
@@ -51,7 +53,7 @@ vec3 TransmittanceToLinearSRGB(vec4 t, vec4 light) {
 // 96.583206) at float32, folded here as per-channel reciprocal multiplies
 // (relative deviation from the division form is ~1e-6).
 vec3 SpectralFractionToLinearSRGB(vec4 x) {
-    return SpectralToLinearSRGB(clamp(x, vec4(0.0), vec4(1.0)))
+    return SpectralToLinearSRGB(saturate(x))
         * vec3(0.0112408511, 0.010453539, 0.0103537673);
 }
 

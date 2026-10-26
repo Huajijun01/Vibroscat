@@ -1,6 +1,8 @@
 #ifndef LIB_MATERIAL_MODEL_GLSL
 #define LIB_MATERIAL_MODEL_GLSL
 
+#include "/lib/core/math_scalar.glsl"
+
 // ============================================================================
 // Material model - oldPBR/seusPBR-style specular map convention
 // ============================================================================
@@ -94,7 +96,7 @@ float SSSAmountForId(int id) {
 // LabPBR normal maps (normal.xy remapped from [0,1] to [-1,1]).
 vec3 DecodeLabPBR(vec3 packed_normal) {
     vec2 xy = packed_normal.xy * 2.0 - 1.0;
-    return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
+    return vec3(xy, sqrt(saturate(1.0 - dot(xy, xy))));
 }
 
 #endif // LIB_MATERIAL_MODEL_GLSL

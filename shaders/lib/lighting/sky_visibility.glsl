@@ -27,7 +27,7 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         sin_hi = cos_beta;
         cos_hi = -sin_beta;
         theta_lo = acos(horizon_cos);
-        sin_lo = sqrt(max(1.0 - horizon_cos * horizon_cos, 0.0));
+        sin_lo = sqrt(saturate(1.0 - horizon_cos * horizon_cos));
         cos_lo = horizon_cos;
         if (theta_hi <= theta_lo) return vec3(0.0);
     } else {
@@ -38,7 +38,7 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         cos_hi = -1.0;
         if (horizon_cos <= sin_beta) {
             theta_lo = acos(horizon_cos);
-            sin_lo = sqrt(max(1.0 - horizon_cos * horizon_cos, 0.0));
+            sin_lo = sqrt(saturate(1.0 - horizon_cos * horizon_cos));
             cos_lo = horizon_cos;
         } else {
             theta_lo = beta - 0.5 * PI;

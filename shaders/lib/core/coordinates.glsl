@@ -3,6 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 
 // View space <-> camera-relative world (player) space.
 vec3 ViewToWorldSpace(vec3 view_pos) {
@@ -211,9 +212,9 @@ float AxialDistortShadowBias(float ndotl, vec3 view_pos, float const_bias_texels
     float dy_view = (2.0 * fy * fy) / (abs(shadow_b) * one_minus_d * real_shadow_map_resolution + 1e-5);
     float texel_world_size = max(dx_view, dy_view);
 
-    float clamped_ndotl = clamp(ndotl, 0.0, 1.0);
+    float clamped_ndotl = saturate(ndotl);
     float slope_world = texel_world_size
-        * sqrt(max(1.0 - clamped_ndotl * clamped_ndotl, 0.0))
+        * sqrt(saturate(1.0 - clamped_ndotl * clamped_ndotl))
         / max(clamped_ndotl, 1e-4);
     float const_world = texel_world_size * const_bias_texels;
 

@@ -1,6 +1,8 @@
 #ifndef LIB_COLOR_SPACES_GLSL
 #define LIB_COLOR_SPACES_GLSL
 
+#include "/lib/core/math_scalar.glsl"
+
 // sRGB <-> Linear conversion (IEC 61966-2-1 piecewise curve)
 vec3 ToLinear(vec3 srgb) {
     bvec3 cutoff = lessThan(srgb, vec3(0.04045));
@@ -53,7 +55,7 @@ vec3 RGBToHSV(vec3 color) {
 }
 
 vec3 HSVToRGB(vec3 hsv) {
-    vec3 primary = clamp(abs(fract(hsv.x + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+    vec3 primary = saturate(abs(fract(hsv.x + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0);
     return hsv.z * mix(vec3(1.0), primary, hsv.y);
 }
 

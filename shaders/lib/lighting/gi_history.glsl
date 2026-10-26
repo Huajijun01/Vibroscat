@@ -3,6 +3,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 
 const float GI_HISTORY_LIMIT = GI_MODE == 2 ? 128.0 : 64.0;
@@ -30,7 +31,7 @@ vec2 RepresentativePixelUV(ivec2 gi_texel, int offset_code) {
 // finite half bit patterns. Keep age independent: a noisy estimate must not
 // round age down or repeatedly stall convergence at a sixteen-frame boundary.
 float PackGIHistoryNormal(vec3 normal_world, float change_count) {
-    uvec2 oct = uvec2(round(clamp(EncodeOctahedralNormal(normal_world), 0.0, 1.0) * 63.0));
+    uvec2 oct = uvec2(round(saturate(EncodeOctahedralNormal(normal_world)) * 63.0));
     uint count = uint(clamp(round(abs(change_count)), 0.0, GI_RESPONSE_FRAMES - 1.0));
     uint state = count + (change_count < 0.0 ? 7u : 0u);
     uint payload = oct.x + (oct.y << 6) + (state << 12);
@@ -134,7 +135,7 @@ GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
     ivec2 base_texel = ivec2(floor(previous_uv * vec2(history_size) - 0.5));
     float plane_tolerance_m = 0.015 + abs(previous_view.z) * 0.0015;
     float footprint_m = abs(previous_view.z) * 6.0 / u_pixel_world_scale_prev;
-    float support_radius_m = min(0.10 + 4.0 * footprint_m, 1.0);
+    float support_radius_m = saturate(0.10 + 4.0 * footprint_m);
     float weight_sum = 0.0;
     for (int i = 0; i < 24; ++i) {
         int radius = i < 8 ? 2 : (i < 16 ? 4 : 8);
@@ -156,7 +157,7 @@ GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
         vec3 irradiance = texelFetch(colortex9, sample_texel, 0).rgb;
         if (any(isnan(irradiance)) || any(isinf(irradiance))) continue;
         vec2 pixel_delta = (sample_uv - previous_uv) * u_render_res * 0.5;
-        float confidence = min(age / 64.0, 1.0);
+        float confidence = saturate(age / 64.0);
         float weight = exp2(-0.04 * dot(pixel_delta, pixel_delta))
             * (1.0 - plane_distance) * (1.0 - plane_distance) * confidence * confidence;
         result.irradiance += irradiance * weight;
@@ -294,7 +295,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     result.age /= weight_sum;
     result.change_count /= weight_sum;
     result.second_moment /= weight_sum;
-    result.weight = min(weight_sum, 1.0);
+    result.weight = saturate(weight_sum);
     return result;
 }
 

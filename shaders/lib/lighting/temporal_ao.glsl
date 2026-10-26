@@ -147,10 +147,12 @@ vec3 ReprojectAOHistory(ivec2 texel, float scene_depth, vec2 normal_oct) {
     return vec3(1.0, 0.0, 0.0);
 }
 
-vec2 ResolveTemporalAO(ivec2 texel, float scene_depth, vec2 normal_oct, float fresh_ao) {
+// Accumulates a pre-fetched history: the caller issues ReprojectAOHistory
+// before its AO kernel so the kernel hides that read's latency, then hands
+// the fetched value in here.
+vec2 ResolveTemporalAO(vec3 history, float fresh_ao) {
     float next_age = 1.0;
 #if defined(AO_TEMPORAL_ENABLED)
-    vec3 history = ReprojectAOHistory(texel, scene_depth, normal_oct);
     fresh_ao = AOAccumulate(fresh_ao, history.r, history.g, history.b, next_age);
 #endif
     return vec2(fresh_ao, next_age);

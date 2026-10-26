@@ -55,6 +55,11 @@ void main() {
     // second stream by the registry's STBN_STREAM_3.
     vec2 stbn_noise = SampleSTBNPair(
         half_texel, frameCounter, STBN_STREAM_3, ivec2(0));
+    // The history reprojection depends only on the receiver texel, depth and
+    // normal - none of the kernel's work - so its read issues before the AO
+    // kernel and the kernel hides its latency; the accumulation below
+    // consumes the fetched value.
+    vec3 ao_history = ReprojectAOHistory(sample_pixel, scene_depth, normal_oct);
 #if defined(GTAO)
     float ao = ComputeGTAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
 #elif defined(SSAO)
@@ -65,6 +70,6 @@ void main() {
     // and these macros ever drift apart.
     float ao = 1.0;
 #endif
-    vec2 accumulated = ResolveTemporalAO(sample_pixel, scene_depth, normal_oct, ao);
+    vec2 accumulated = ResolveTemporalAO(ao_history, ao);
     imageStore(colorimg2, half_texel, vec4(accumulated.x, normal_oct, accumulated.y * (1.0 / 255.0)));
 }

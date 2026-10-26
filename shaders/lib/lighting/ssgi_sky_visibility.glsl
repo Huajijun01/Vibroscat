@@ -5,79 +5,47 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 
-// Directional sky visibility for the SSGI fallback (SSGI_DIRECTIONAL_SKY).
-//
-// Math contract. The trace's occupancy bitmask covers the 32 sectors of the
-// cosine-weighted CDF arc the march can see, parametrized by the in-plane
-// angle psi from the view axis toward the slice direction. With the
-// projected normal at signed angle angle_normal, that arc runs from
-// view_dir (psi = 0) to view_dir*cos(h) + ray_direction*sin(h) at psi = h =
-// PI/2 - angle_normal, and its cosine density is sin(psi)*sin(h - psi) up
-// to scale. The 32 sectors form eight consecutive four-bit groups; each
-// group is replaced by its precomputed conditional mean direction
-//   mu_j(h) = e0 * C_j(h) + e1 * S_j(h)
-// in the arc-midpoint frame
-//   e0 = v*cos(h/2) + t*sin(h/2), e1 = -v*sin(h/2) + t*cos(h/2),
-// with v = view_dir and t = ray_direction. mu_j is a conditional mean, not
-// a unit vector: the visible groups' mass-weighted mu_j sum to the
-// directional moment D = integral V(omega)*omega dP of the normalized
-// cosine measure dP = (n.omega)+ dOmega / PI. Only within-group directional
-// resolution is approximated; the 32-bit geometric coverage stays exact and
-// the L0 mass m keeps the trace's exact value, so the approximation touches
-// the L1 band alone.
-//
-// An order-8 Walsh transform turns the eight group masses into the total
-// mass plus seven masked bitCount statistics, q_i = bitCount(missing &
-// positive_mask_i)/16 - m, so no per-group extraction or 32-term dot is
-// needed and the transform itself stays exact. The density's mirror
-// symmetry about h/2 leaves even modes (even popcount(i)) with cosine-type
-// coefficients delta_i0 + h^2*P_i(x) and odd modes with sine-type h*Q_i(x)
-// on x = 2*h^2/PI^2 - 1, precomputed as degree-3/4 polynomials evaluated
-// in the Horner order below. Full occlusion returns zero; with every
-// sector visible each positive mask still counts 16 bits, every non-constant
-// q_i is exactly zero, and the estimate reduces to the same conditional
-// slice mean rather than a full-hemisphere ambient.
-//
-// Returns the moment coefficients in the (view_dir, ray_direction) basis:
-// D_view = view_dir * result.x + ray_direction * result.y.
+// The trace's 32 equal-mass CDF sectors form eight four-bit direction groups.
+// On its visible arc, psi in [0, h], h = PI/2 - angle_normal, the density is
+// proportional to sin(psi)*sin(h-psi). The group conditional means use the
+// midpoint frame e0 = v*cos(h/2)+t*sin(h/2), e1 = -v*sin(h/2)+t*cos(h/2).
+// Walsh statistics q_i = bitCount(missing & mask_i)/16 - m are exact for
+// these group masses. Only the L1 reconstruction is approximated below:
+// three even modes share h^2*P1(x), four odd modes share h*Q2(x), where
+// x = 2*h^2/PI^2-1. Their weighted counts are collapsed before evaluation.
+// The constant mode keeps its original cubic; L0 mass m is unchanged.
+// Full visibility uses the conditional slice mean, not a hemisphere mean.
+// The returned moment is not a unit vector and must not be normalized.
+// D_view = view_dir*result.x + ray_direction*result.y.
 vec2 SSGISkySliceMoment(uint occupied, float m, float angle_normal) {
     uint missing = ~occupied;
     if (missing == 0u) return vec2(0.0);
     float h = 1.5707963267948966 - angle_normal;
     float h2 = h * h;
     float x = h2 * 0.20264236728467555 - 1.0;
-    float a = m * (1.0 + h2 * (((0.00029860737030241058 * x + (0.00092418337571893553)) * x + (0.0045278051508929771)) * x + (-0.021105192775338691)));
-    float b = 0.0;
+    float cosine_weight = m * (((0.00029860737030241058 * x
+        + 0.00092418337571893553) * x + 0.0045278051508929771) * x
+        - 0.021105192775338691);
+    float sine_weight = 0.0;
     if (occupied != 0u) {
         {
-            float q = float(bitCount(missing & 0x0F0F0F0Fu)) * (1.0 / 16.0) - m;
-            b += q * h * ((((0.00013259441377800522 * x + (0.00026181269758173217)) * x + (-0.000286334949233293)) * x + (0.008332865359183525)) * x + (-0.045727671499450881));
+            float even_stat = float(bitCount(missing & 0xF00FF00Fu)) * 0.026220046
+                + float(bitCount(missing & 0xF0F00F0Fu)) * 0.0369987749
+                + float(bitCount(missing & 0xFF0000FFu)) * 0.0625
+                - m * 2.01150107;
+            cosine_weight += even_stat * (0.00391483493 * x - 0.0169771966);
         }
         {
-            float q = float(bitCount(missing & 0x00FF00FFu)) * (1.0 / 16.0) - m;
-            b += q * h * ((((0.00022727548256930749 * x + (0.00058356698189654084)) * x + (9.6121830402205139e-05)) * x + (0.014786775771094357)) * x + (-0.087444141181568069));
-        }
-        {
-            float q = float(bitCount(missing & 0xF00FF00Fu)) * (1.0 / 16.0) - m;
-            a += q * h2 * (((0.00020169026693017501 * x + (0.00034343720154822276)) * x + (0.0010322981835843967)) * x + (-0.0070512761000404616));
-        }
-        {
-            float q = float(bitCount(missing & 0x0000FFFFu)) * (1.0 / 16.0) - m;
-            b += q * h * ((((0.00031034055464604344 * x + (0.001023382830666578)) * x + (0.0019821844636409322)) * x + (0.025166524405302024)) * x + (-0.16359872301187312));
-        }
-        {
-            float q = float(bitCount(missing & 0xF0F00F0Fu)) * (1.0 / 16.0) - m;
-            a += q * h2 * (((0.00021558895793419189 * x + (0.00046058762571679184)) * x + (0.0018113356322097176)) * x + (-0.010062109383315721));
-        }
-        {
-            float q = float(bitCount(missing & 0xFF0000FFu)) * (1.0 / 16.0) - m;
-            a += q * h2 * (((0.00028170275001789354 * x + (0.00077191460434905817)) * x + (0.0034964547579222666)) * x + (-0.017144002448219151));
-        }
-        {
-            float q = float(bitCount(missing & 0x0FF0F00Fu)) * (1.0 / 16.0) - m;
-            b += q * h * ((((8.5513429762442043e-05 * x + (2.7198091324035014e-05)) * x + (-0.0011663357781413958)) * x + (0.0030027828176576034)) * x + (-0.0072232615536940948));
+            float odd_stat = float(bitCount(missing & 0x0F0F0F0Fu)) * 0.0174889546
+                + float(bitCount(missing & 0x00FF00FFu)) * 0.033435069
+                + float(bitCount(missing & 0x0000FFFFu)) * 0.0625
+                + float(bitCount(missing & 0x0FF0F00Fu)) * 0.00279046991
+                - m * 1.85943198;
+            sine_weight = odd_stat * ((0.00192118355 * x + 0.0265562404) * x - 0.16364044);
         }
     }
+    float a = m + h2 * cosine_weight;
+    float b = h * sine_weight;
     float c = cos(0.5 * h);
     float s = sin(0.5 * h);
     return vec2(c * a - s * b, s * a + c * b);

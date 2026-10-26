@@ -75,9 +75,6 @@ in vec3 v_world_tangent;
 in vec3 v_world_bitangent;
 #endif
 #endif
-#if defined(RAIN_WETNESS_ACTIVE)
-in vec3 v_rain_world_pos;
-#endif
 
 layout(location = 0) out vec4 out_albedo_material;
 layout(location = 1) out vec4 out_surface_material;
@@ -178,8 +175,11 @@ void main() {
 #endif
 
 #if defined(RAIN_WETNESS_ACTIVE) && !defined(PROGRAM_GBUFFERS_PARTICLES)
-    ApplyRainWetness(v_rain_world_pos.xz, geo_normal_world.y, v_lmcoord.y,
-        mat_id, mat, w_normal, albedo);
+    ApplyRainWetness(
+#if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE) && defined(RAIN_WETNESS_POSITION_ACTIVE)
+        surface_view_pos,
+#endif
+        geo_normal_world.y, v_lmcoord.y, mat_id, mat, w_normal, albedo);
 #endif
 
     // -- Write GBuffer --

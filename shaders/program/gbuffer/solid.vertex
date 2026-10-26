@@ -56,9 +56,6 @@ void SetupGbufferVertex() {
         view_pos.xyz += mat3(gbufferModelView) * offset_world;
     }
 #endif
-#if defined(RAIN_WETNESS_ACTIVE)
-    v_rain_world_pos = (gbufferModelViewInverse * view_pos).xyz;
-#endif
 #if defined(PROGRAM_GBUFFERS_HAND)
     // The hand keeps the exact full projection product: the sparse form lost
     // the walking hand sway here and the cause was never isolated.

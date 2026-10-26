@@ -3,12 +3,24 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
 #include "/lib/material/model.glsl"
 #include "/lib/water/rain_ripples.glsl"
+#if defined(RAIN_WETNESS_POSITION_ACTIVE) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
+#include "/lib/geometry/fragment_position.glsl"
+#endif
 
-void ApplyRainWetness(vec2 world_xz, float geo_normal_y, float sky_light,
-        int material_id, inout OpaqueMaterial material,
-        inout vec3 normal_world, inout vec3 albedo_srgb) {
+// The wet surface position arrives as the caller's existing view-space
+// fragment position when the derivative terrain basis already reconstructed
+// one; otherwise this library reconstructs it locally after the cheap
+// rejection tests, so dry and ineligible surfaces never pay for it.
+void ApplyRainWetness(
+#if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE) && defined(RAIN_WETNESS_POSITION_ACTIVE)
+        vec3 surface_view_pos,
+#endif
+        float geo_normal_y, float sky_light, int material_id,
+        inout OpaqueMaterial material, inout vec3 normal_world,
+        inout vec3 albedo_srgb) {
     // Reject before either lookup. Plants, emissive blocks and translucent
     // classes cannot hold a puddle; geometry, rather than the normal map,
     // decides which faces are upward-facing.
@@ -22,6 +34,13 @@ void ApplyRainWetness(vec2 world_xz, float geo_normal_y, float sky_light,
     float rain_exposure = smoothstep(15.0 / 16.0, 1.0, sky_light);
     float wet_surface = u_wetness_weight * rain_exposure * smoothstep(0.95, 1.0, geo_normal_y);
     if (wet_surface <= 0.001) return;
+
+#if defined(RAIN_WETNESS_POSITION_ACTIVE)
+#if !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
+    vec3 surface_view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
+#endif
+    vec2 world_xz = ViewToWorldSpace(surface_view_pos).xz;
+#endif
 
     float puddle;
 #ifdef RAIN_PUDDLES

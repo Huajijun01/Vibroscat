@@ -489,6 +489,12 @@ const float centerDepthHalflife = 1.0;
 #define RAIN_WETNESS_ACTIVE
 #endif
 
+// Puddles and ripples are the only wetness consumers that need a world
+// position; with both off the uniform wet material layer stays position-free.
+#if defined(RAIN_WETNESS_ACTIVE) && (defined(RAIN_PUDDLES) || defined(RAIN_RIPPLES))
+#define RAIN_WETNESS_POSITION_ACTIVE
+#endif
+
 // Opaque SSR compiles the full recursive trace; off leaves the sky-SH
 // environment reflection only.
 #if defined(OPAQUE_REFLECTION)

@@ -10,11 +10,9 @@
 // in contract/settings.glsl (LOW profile disables it; the normal then comes
 // from the flat-surface variant without a march).
 
-// POM search mode: 0 = fixed-step linear, 1 = coarse + bisection (same or
-// fewer height samples, tighter root; wave field and normals unchanged).
-// The step budgets (WATER_POM_COARSE_STEPS / _BISECT_STEPS) are user
-// options declared in contract/settings.glsl.
-#define POM_BISECTION_ENABLED 1
+// The POM search is a coarse march refined by bisection; the step budgets
+// (WATER_POM_COARSE_STEPS / _BISECT_STEPS) are user options declared in
+// contract/settings.glsl.
 
 // Soft-clamp the normal toward the camera (no hard clamp): avoids
 // grazing-angle flips and degenerate reflection/refraction cases.
@@ -36,8 +34,7 @@ vec3 SoftClampWaterNormal(vec3 normal, vec3 to_camera) {
 // ---- parallax occlusion mapping ----
 // Chase the selected mode's largest-energy height layers: 2 fetches per
 // sample for small waves, 3 for medium-large waves. The final normal uses
-// all 3 or 5 layers. POM_BISECTION_ENABLED refines the coarse crossing.
-const int OCEAN_POM_STEPS = 8;
+// all 3 or 5 layers.
 // Bound both extrema of the selected POM field at every supported gain.
 const float OCEAN_POM_MAX_DEPTH = RIVER_TEX_POM_AMPLITUDE * RIVER_TEX_POM_GAIN
                               * max(RIVER_TEX_CENTER, 1.0 - RIVER_TEX_CENTER);
@@ -47,44 +44,9 @@ const float OCEAN_POM_MIN_SHIFT = 0.05; // m, skip invisible shifts
 // Ray/surface intersection: for a camera above the water (view.y < 0) the
 // visible point satisfies h(xz0 + d*dir) = d (dir = view.xz/view.y toward
 // camera; bumps displace toward camera, troughs away). Scan from the camera
-// side, interpolate the first crossing; none found -> keep the plane sample
-// (no over-shift on flat water).
-vec2 OceanPOMOffset(vec2 xz, vec3 view_world, float time) {
-    if (view_world.y >= 0.0) {
-        return xz; // underwater view: no parallax correction
-    }
-    // viewWorld.y < 0 here, so this points towards the camera
-    vec2 dir = view_world.xz / view_world.y;
-    float dir_len = length(dir);
-    if (dir_len * OCEAN_POM_MAX_DEPTH < OCEAN_POM_MIN_SHIFT) {
-        return xz; // near-vertical view: parallax shift is invisible
-    }
-    if (dir_len * OCEAN_POM_MAX_DEPTH > OCEAN_POM_MAX_OFFSET) {
-        // grazing view: keep the whole search inside the offset budget
-        dir *= OCEAN_POM_MAX_OFFSET / (dir_len * OCEAN_POM_MAX_DEPTH);
-    }
-    float step_depth = 2.0 * OCEAN_POM_MAX_DEPTH / float(OCEAN_POM_STEPS);
-    float depth_prev = OCEAN_POM_MAX_DEPTH;
-    float height_prev = RiverTexturePOMHeight(xz + dir * depth_prev, time);
-    for (int i = 1; i <= OCEAN_POM_STEPS; ++i) {
-        float pom_depth = OCEAN_POM_MAX_DEPTH - step_depth * float(i);
-        float height = RiverTexturePOMHeight(xz + dir * pom_depth, time);
-        // The ray enters the water when f = h - d crosses from <= 0 to > 0.
-        if (height_prev <= depth_prev && height > pom_depth) {
-            float height_diff_prev = height_prev - depth_prev;
-            float height_diff_curr = height - pom_depth;
-            float t = saturate(height_diff_prev / (height_diff_prev - height_diff_curr));
-            return xz + dir * mix(depth_prev, pom_depth, t);
-        }
-        depth_prev = pom_depth;
-        height_prev = height;
-    }
-    return xz;
-}
-
-#if POM_BISECTION_ENABLED
-// Same early-outs and bracket semantics; bisection refines the crossing
-// (fewer coarse steps for equal/better accuracy).
+// side; none found -> keep the plane sample (no over-shift on flat water).
+// Bisection refines the coarse crossing (fewer coarse steps for equal or
+// better accuracy than a fixed-step scan).
 vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
     if (view_world.y >= 0.0) {
         return xz; // underwater view: no parallax correction
@@ -127,7 +89,6 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
     }
     return xz;
 }
-#endif
 
 // World-space normal (y up) at the parallax-corrected position. WATER_POM
 // owns the parallax march; without it the flat-surface variant evaluates the
@@ -135,12 +96,7 @@ vec2 OceanPOMOffsetBisection(vec2 xz, vec3 view_world, float time) {
 #ifdef WATER_POM
 void OceanSurfacePOM(vec2 xz, vec3 view_world, float time, out vec3 normal) {
     xz = RiverTextureWarpPosition(xz);
-    vec2 xz_offset;
-#if POM_BISECTION_ENABLED
-    xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
-#else
-    xz_offset = OceanPOMOffset(xz, view_world, time);
-#endif
+    vec2 xz_offset = OceanPOMOffsetBisection(xz, view_world, time);
     RiverTextureNormal(xz_offset, time, normal);
 }
 #else

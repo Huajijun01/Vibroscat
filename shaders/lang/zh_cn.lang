@@ -495,6 +495,10 @@ value.RSM_DEBUG.0 = 正常画面
 value.RSM_DEBUG.1 = 重建辐照度
 option.RSM_DEBUG = RSM 调试视图
 option.RSM_DEBUG.comment = 需要将全局光照设为反射阴影贴图。查看正常画面或降噪后的反弹光照。
+value.SSGI_SKY_MOMENT_DEBUG.0 = 共享曲线
+value.SSGI_SKY_MOMENT_DEBUG.1 = 逐模态拟合
+option.SSGI_SKY_MOMENT_DEBUG = SSGI 天空矩 A/B
+option.SSGI_SKY_MOMENT_DEBUG.comment = SSGI 方向天空回退的调试 A/B。0 使用共享修正曲线（默认）；1 使用七个独立的逐模态多项式拟合。需要主世界 SSGI 方向天空；两条路径仅在 L1 矩近似上有差异。
 option.AMBIENT_FLOOR = 环境光保底
 option.AMBIENT_FLOOR.comment = 所有表面的保底光照，让无光源的洞穴保留一丝可见度而非纯黑。0 = 完全真实的黑暗。
 option.SKY_AMBIENT_STRENGTH = 天空环境光强度

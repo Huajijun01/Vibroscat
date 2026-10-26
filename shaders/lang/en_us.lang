@@ -495,6 +495,10 @@ value.RSM_DEBUG.0 = Normal View
 value.RSM_DEBUG.1 = Reconstructed Irradiance
 option.RSM_DEBUG = RSM Debug View
 option.RSM_DEBUG.comment = Requires RSM GI. Shows normal lighting or the denoised bounce light.
+value.SSGI_SKY_MOMENT_DEBUG.0 = Shared Curves
+value.SSGI_SKY_MOMENT_DEBUG.1 = Per-Mode Fits
+option.SSGI_SKY_MOMENT_DEBUG = SSGI Sky Moment A/B
+option.SSGI_SKY_MOMENT_DEBUG.comment = Debug A/B for the SSGI directional sky fallback. 0 evaluates the shared correction curves (default); 1 evaluates seven independent per-mode polynomial fits. Requires SSGI directional sky in the Overworld; the two paths differ only in the L1 moment approximation.
 option.AMBIENT_FLOOR = Minimum Ambient Light
 option.AMBIENT_FLOOR.comment = A guaranteed minimum light on every surface, so unlit caves keep slight visibility instead of pure black. 0 = fully realistic darkness.
 option.SKY_AMBIENT_STRENGTH = Sky Ambient Strength

@@ -122,14 +122,14 @@ float DistributionGGXNdotH2(float ndoth2, float alpha) {
     return alpha2 / (PI * denominator * denominator);
 }
 
-// Forward translucent lighting retains the legacy scalar-metalness material
-// path. Its overloads delegate to the same F0-explicit BRDF implementation;
-// N, V and L must use the same space (view space in the gbuffer passes).
-void EvaluateBRDF(vec3 albedo, vec4 spec_tex, vec3 normal_view, vec3 view_dir, vec3 light_dir, out vec3 direct_lighting,
+// Forward-pass lighting over the legacy scalar-metalness material. The caller
+// owns the material read: it fetches the spec texel (or passes the zero
+// default where no PBR data exists) and decodes it with MaterialDefaults
+// before calling, so this stays pure BRDF math. N, V and L must arrive unit
+// and use the same space (view space in the gbuffer passes).
+void EvaluateBRDF(vec3 albedo, Material mat, vec3 normal_view, vec3 view_dir, vec3 light_dir, out vec3 direct_lighting,
     out vec3 lambert_brdf, out vec3 diffuse_reflectance
 ) {
-    Material mat = MaterialDefaults(spec_tex);
-
     vec3 half_dir = normalize(view_dir + light_dir);
     // N, V and L reach here unit and H is their normalized sum, so each cosine
     // is at most 1: the [0,1] clamp is exact, and saturate() folds into the
@@ -139,24 +139,10 @@ void EvaluateBRDF(vec3 albedo, vec4 spec_tex, vec3 normal_view, vec3 view_dir, v
     float ndoth = saturate(dot(normal_view, half_dir));
     float vdoth = saturate(dot(view_dir, half_dir));
     // V and L are unit and H is their normalized sum, so V.H and L.H both
-    // equal (1 + V.L)/|V + L|; callers pass normalized directions.
-
+    // equal (1 + V.L)/|V + L|: the ldoth argument reuses vdoth.
     direct_lighting = EvaluateDirectBRDF(albedo, mat.roughness, mat.metalness, ndotv, ndotl, ndoth, vdoth, vdoth) * ndotl;
     lambert_brdf = EvaluateLambertBRDF(albedo, mat.metalness);
     diffuse_reflectance = EvaluateDiffuseReflectance(albedo, mat.metalness);
-}
-
-// Specular-map variant: geometry whose resource pack has no `_s` atlas
-// resolves to the 1x1 fallback and keeps dielectric defaults. Callers that
-// must never read PBR data (particles) use the explicit spec_tex overload
-// with vec4(0.0) instead.
-void EvaluateBRDF(vec3 albedo, vec2 uv, vec3 normal_view, vec3 view_dir, vec3 light_dir, out vec3 direct_lighting,
-    out vec3 lambert_brdf, out vec3 diffuse_reflectance
-) {
-    vec4 spec_tex = vec4(0.0);
-    if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, uv);
-    EvaluateBRDF(albedo, spec_tex, normal_view, view_dir, light_dir,
-        direct_lighting, lambert_brdf, diffuse_reflectance);
 }
 
 #endif // LIB_LIGHTING_BRDF_GLSL

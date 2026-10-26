@@ -16,6 +16,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/material/legacy.glsl"
 #include "/lib/material/translucent_surface.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/shadow/filter.glsl"
@@ -67,14 +68,20 @@ void main() {
     // with the full direct BRDF: no SSR/Fresnel/water data.
     if (!is_water && !is_glass) {
 #endif
-        if (diffuse.a < 0.01) discard;
-        // Same BRDF configuration as deferred4 (shared BRDF helper).
-        vec3 surface_normal_view = normalize(v_normal);
-        vec3 view_to_eye = -normalize(view_pos);
-        vec3 direct_lighting;
-        vec3 lambert_brdf;
-        vec3 diffuse_reflectance;
-        EvaluateBRDF(diffuse.rgb, v_texcoord.xy, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
+    if (diffuse.a < 0.01) discard;
+    // Material from the specular map. A resource pack without a _s atlas
+    // leaves Iris's 1x1 placeholder bound, so the fetch stays guarded and the
+    // zero default (rough, non-metallic, non-emissive) holds.
+    vec4 spec_tex = vec4(0.0);
+    if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord.xy);
+    Material mat = MaterialDefaults(spec_tex);
+    // Same BRDF configuration as deferred4 (shared BRDF helper).
+    vec3 surface_normal_view = normalize(v_normal);
+    vec3 view_to_eye = -normalize(view_pos);
+    vec3 direct_lighting;
+    vec3 lambert_brdf;
+    vec3 diffuse_reflectance;
+    EvaluateBRDF(diffuse.rgb, mat, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
         float shadow = Shadow2DFastBspline(shadowtex1, v_shadow_proj_pos, real_shadow_map_resolution,
             (1.0 / real_shadow_map_resolution));
         float torch_light = BlockLightFromLm(v_texcoord.z);

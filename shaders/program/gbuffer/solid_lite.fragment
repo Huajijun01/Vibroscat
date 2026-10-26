@@ -8,6 +8,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/material/legacy.glsl"
 
 #ifndef PROGRAM_GBUFFERS_PARTICLES
 flat in vec3 v_normal;
@@ -40,13 +41,15 @@ void main() {
 #endif
     vec3 view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
     vec3 view_to_eye = -normalize(view_pos);
+    // Particles carry no PBR data: fixed dielectric defaults, never the
+    // specular atlas.
+    Material mat = MaterialDefaults(vec4(0.0));
     vec3 direct_lighting;
     vec3 lambert_brdf;
     vec3 diffuse_reflectance;
-    // Particles carry no PBR data: fixed dielectric defaults, never the
-    // specular atlas. The light direction is the host-built view-space
-    // uniform, identical for every primitive in the draw.
-    EvaluateBRDF(base_color, vec4(0.0), surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
+    // The light direction is the host-built view-space uniform, identical
+    // for every primitive in the draw.
+    EvaluateBRDF(base_color, mat, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
 
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
     float torch_light = BlockLightFromLm(v_texcoord.z);

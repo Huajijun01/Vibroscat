@@ -8,6 +8,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/material/legacy.glsl"
 
 #ifndef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
 flat in vec3 v_normal;
@@ -54,16 +55,21 @@ void main() {
     vec3 view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
 #endif
     vec3 view_to_eye = -normalize(view_pos);
+    // Translucent particles carry no PBR data: fixed dielectric defaults,
+    // never the specular atlas. Hand and translucent entities keep the map;
+    // a resource pack without a _s atlas leaves Iris's 1x1 placeholder
+    // bound, so the fetch stays guarded and the zero default holds.
+#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
+    Material mat = MaterialDefaults(vec4(0.0));
+#else
+    vec4 spec_tex = vec4(0.0);
+    if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord.xy);
+    Material mat = MaterialDefaults(spec_tex);
+#endif
     vec3 direct_lighting;
     vec3 lambert_brdf;
     vec3 diffuse_reflectance;
-    // Translucent particles carry no PBR data: fixed dielectric defaults,
-    // never the specular atlas. Hand and translucent entities keep the map.
-#ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
-    EvaluateBRDF(base_color, vec4(0.0), surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
-#else
-    EvaluateBRDF(base_color, v_texcoord.xy, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
-#endif
+    EvaluateBRDF(base_color, mat, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
 
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
     float torch_light = BlockLightFromLm(v_texcoord.z);

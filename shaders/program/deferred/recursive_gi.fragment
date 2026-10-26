@@ -209,16 +209,34 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     uint occupied = 0u;
     vec3 gi = vec3(0.0);
     float hit_coverage = 0.0;
-    for (int i = 0; i < SSGI_STEPS; ++i) {
-        vec2 sample_uv = origin_coord + step_dir * step_size;
-        step_size *= step_scale;
-        if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThanEqual(sample_uv, vec2(1.0)))) break;
+    // One-deep prefetch: the next step's coordinate is the pure size
+    // recurrence one step ahead, never a function of the sampled depth, so
+    // its read issues before this step's unprojection/CDF work. Reads
+    // prefetched past a break, the sky skip, full coverage, or the final
+    // step are discarded; depthtex2 is single-level, so the read is
+    // well-defined wherever it lands.
+    vec2 sample_uv = origin_coord + step_dir * step_size;
+    step_size *= step_scale;
 #if defined(TAAU_ACTIVE)
-        float sample_depth = texture(depthtex2, SceneTextureUV(sample_uv)).r;
+    float sample_fetch = texture(depthtex2, SceneTextureUV(sample_uv)).r;
 #else
-        float sample_depth = texture(depthtex2, sample_uv).r;
+    float sample_fetch = texture(depthtex2, sample_uv).r;
 #endif
-        if (sample_depth >= 1.0) continue;
+    for (int i = 0; i < SSGI_STEPS; ++i) {
+        if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThanEqual(sample_uv, vec2(1.0)))) break;
+        vec2 next_uv = origin_coord + step_dir * step_size;
+        step_size *= step_scale;
+#if defined(TAAU_ACTIVE)
+        float next_fetch = texture(depthtex2, SceneTextureUV(next_uv)).r;
+#else
+        float next_fetch = texture(depthtex2, next_uv).r;
+#endif
+        float sample_depth = sample_fetch;
+        sample_fetch = next_fetch;
+        if (sample_depth >= 1.0) {
+            sample_uv = next_uv;
+            continue;
+        }
         vec3 sample_view = vec3(sample_uv * 2.0 - 1.0, 1.0);
 #ifdef TAA
         sample_view.xy -= u_taa_offset;
@@ -277,6 +295,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         }
         occupied |= sample_mask;
         if (occupied == 0xFFFFFFFFu) break;
+        sample_uv = next_uv;
     }
     coverage = saturate(hit_coverage);
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)

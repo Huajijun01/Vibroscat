@@ -58,6 +58,16 @@ void main() {
 
     v_normal = normalize(gl_NormalMatrix * gl_Normal);
 
+#if defined(PROGRAM_GBUFFERS_WATER)
+    // Water is chunk geometry behind a translation-only model-view, so
+    // mat3(gbufferModelViewInverse) * gl_NormalMatrix is the identity (see
+    // the terrain branch in solid.vertex): the world basis is the attributes
+    // themselves, and only the view-space normal above needs the rotation.
+    vec3 normal_world = normalize(gl_Normal);
+#if defined(WATER_SURFACE_TANGENT_ACTIVE)
+    v_world_tangent = normalize(at_tangent.xyz);
+#endif
+#else
     // v_normal is unit and the camera rotation preserves its length.
     vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
 #if defined(WATER_SURFACE_TANGENT_ACTIVE)
@@ -65,6 +75,7 @@ void main() {
     // travels with the classification flags and the bitangent is rebuilt in
     // the fragment stage where it is consumed.
     v_world_tangent = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz));
+#endif
 #endif
 
 #if defined(PROGRAM_GBUFFERS_WATER)

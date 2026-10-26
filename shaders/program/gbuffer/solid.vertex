@@ -80,6 +80,22 @@ void SetupGbufferVertex() {
     // neither gl_Normal nor at_tangent: the host keeps the normal attribute
     // decode alive while either is referenced, so an unused declaration alone
     // would forfeit the input-side saving.
+#if defined(GBUFFER_TERRAIN_ACTIVE)
+    // Chunk draws use a translation-only model-view: the camera view times
+    // the section offset. The host's gl_NormalMatrix is therefore exactly the
+    // camera rotation, so mat3(gbufferModelViewInverse) * gl_NormalMatrix is
+    // the identity and the world basis is the attributes themselves. The
+    // normalize stays so the outputs remain unit for any writer-side input.
+    vec3 normal_world = normalize(gl_Normal);
+    v_world_normal = normal_world;
+
+#ifdef HAS_AT_TANGENT
+    vec3 tangent = normalize(at_tangent.xyz);
+    vec3 bitangent = cross(tangent, normal_world) * sign(at_tangent.w);
+    v_world_tangent = tangent;
+    v_world_bitangent = bitangent;
+#endif
+#else
     vec3 normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
     v_world_normal = normal_world;
 
@@ -88,6 +104,7 @@ void SetupGbufferVertex() {
     vec3 bitangent = cross(tangent, normal_world) * sign(at_tangent.w);
     v_world_tangent = tangent;
     v_world_bitangent = bitangent;
+#endif
 #endif
 #endif
 

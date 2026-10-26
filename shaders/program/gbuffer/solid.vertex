@@ -19,14 +19,14 @@ out vec4 v_color;
 #if defined(GBUFFER_MATERIAL_ID_VARYING)
 flat out int v_material_id;
 #endif
-#if !defined(PROGRAM_GBUFFERS_PARTICLES)
+#if !defined(PROGRAM_GBUFFERS_PARTICLES) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
 #if defined(GBUFFER_TERRAIN_ACTIVE)
 flat out vec3 v_world_normal;
 #else
 out vec3 v_world_normal;
 #endif
 #endif
-#ifdef HAS_AT_TANGENT
+#if defined(HAS_AT_TANGENT) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
 #if defined(GBUFFER_TERRAIN_ACTIVE)
 flat out vec3 v_world_tangent;
 flat out vec3 v_world_bitangent;
@@ -39,7 +39,7 @@ out vec3 v_world_bitangent;
 #ifdef HAS_MC_ENTITY
 in vec4 mc_Entity;
 #endif
-#ifdef HAS_AT_TANGENT
+#if defined(HAS_AT_TANGENT) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
 in vec4 at_tangent;
 #endif
 #if defined(PLANT_WIND_TERRAIN_ACTIVE)
@@ -74,7 +74,12 @@ void SetupGbufferVertex() {
     v_color = gl_Color.rgb;
 #else
     v_color = gl_Color;
-
+#endif
+#if !defined(PROGRAM_GBUFFERS_PARTICLES) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
+    // With the derivative terrain basis on, the vertex stage must reference
+    // neither gl_Normal nor at_tangent: the host keeps the normal attribute
+    // decode alive while either is referenced, so an unused declaration alone
+    // would forfeit the input-side saving.
     vec3 normal_world = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * gl_Normal));
     v_world_normal = normal_world;
 

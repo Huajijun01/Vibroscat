@@ -45,6 +45,9 @@ Vibroscat profile.
 - Wind-driven grass, flowers, crops, saplings and leaf blocks with matching
   shadows; adjustable under Environment / Plants. Connected cane/bamboo and
   attached or aquatic foliage remain still.
+- Fragment Terrain TBN under Environment / Terrain, off by default: rebuilds the
+  terrain surface basis per pixel so normals follow wind deformation; compare
+  its performance in your own scene at long view distances.
 - Selectable no GI, SSGI, or reflective shadow map GI, rendered at half resolution with
   its own temporal denoising and guided upsampling, including with TAA disabled
 - Directional sky light for RSM GI, on by default: nearby walls and overhangs

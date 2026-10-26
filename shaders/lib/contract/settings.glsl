@@ -451,6 +451,14 @@ const float centerDepthHalflife = 1.0;
 #define PLANT_WIND_GRASS 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Rooted-plant compliance.
 #define PLANT_WIND_LEAVES 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Canopy compliance.
 
+// Fragment-stage terrain TBN, default off. On: chunk terrain transmits no
+// N/T/B; the fragment stage rebuilds the full basis from the reconstructed
+// position and UV derivatives, so surface normals follow wind deformation.
+// Off: terrain keeps the flat per-face basis the chunk vertex writer
+// supplies. Chunk terrain only; block entities, entities, hand and water
+// keep their interfaces in both modes.
+//#define TERRAIN_DERIVATIVE_TBN
+
 // ==========================================================================
 // 11. DERIVED STATE - internal pass toggles computed from the options above
 // ==========================================================================
@@ -477,6 +485,10 @@ const float centerDepthHalflife = 1.0;
 
 #if defined(GBUFFER_TERRAIN_ACTIVE) || defined(PROGRAM_GBUFFERS_BLOCK) || defined(PROGRAM_GBUFFERS_ENTITIES)
 #define GBUFFER_MATERIAL_ID_VARYING
+#endif
+
+#if defined(TERRAIN_DERIVATIVE_TBN) && defined(GBUFFER_TERRAIN_ACTIVE)
+#define TERRAIN_DERIVATIVE_TBN_ACTIVE
 #endif
 
 #if defined(TAAU) && defined(TAA)
@@ -585,6 +597,9 @@ const float centerDepthHalflife = 1.0;
 #endif
 // Sky
 #ifdef PLANT_WIND
+#endif
+// Terrain
+#ifdef TERRAIN_DERIVATIVE_TBN
 #endif
 #ifdef ATM_HORIZON_DIP
 #endif

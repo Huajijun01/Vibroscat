@@ -583,6 +583,11 @@ option.AIR_FOG_SCALE_HEIGHT_M.comment = How fast air thins with altitude: every 
 option.AIR_FOG_SKY_STRENGTH = Sky Scattering Strength
 option.AIR_FOG_SKY_STRENGTH.comment = Brightness of the ambient sky scattering in the air.
 option.AIR_FOG_SHADOWS = Fog Shadows
+screen.TERRAIN = Terrain
+screen.TERRAIN.comment = Terrain surface shading options.
+option.TERRAIN_DERIVATIVE_TBN = Fragment Terrain TBN
+option.TERRAIN_DERIVATIVE_TBN.comment = Builds the terrain surface basis per pixel and lets normals follow wind deformation. May help at long view distances but adds pixel work. Off by default; compare performance in your scene.
+
 screen.PLANTS = Plants
 screen.PLANTS.comment = Wind response of plants and leaf blocks.
 option.PLANT_WIND = Plant Wind

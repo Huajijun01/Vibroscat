@@ -84,12 +84,16 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
         vec2 sample_uv = sample_clip / distort_factor * 0.5 + 0.5;
         ivec2 sample_texel = ivec2(sample_uv * shadow_size_f);
         if (any(lessThan(sample_texel, ivec2(0))) || any(greaterThanEqual(sample_texel, shadow_size))) continue;
+        // The payload read shares the depth read's texel and neither address
+        // depends on the other's value, so both issue back-to-back and the
+        // validity checks below consume them from registers; a rejected tap
+        // discards the payload read it no longer uses.
         float sample_depth = texelFetch(shadowtex0, sample_texel, 0).r;
+        vec4 source_data = texelFetch(shadowcolor0, sample_texel, 0);
         if (sample_depth <= 0.0 || sample_depth >= 1.0) continue;
         vec2 texel_uv = (vec2(sample_texel) + 0.5) / shadow_size_f;
         vec3 emitter_shadow = RSMShadowViewPosition(texel_uv, sample_depth);
         vec3 delta_shadow = emitter_shadow - receiver_shadow;
-        vec4 source_data = texelFetch(shadowcolor0, sample_texel, 0);
         // All-zero is the reserved absent/translucent payload: no emitter here.
         if (all(equal(source_data, vec4(0.0)))) continue;
         vec3 reflectance = DecodeRSMSource(source_data);

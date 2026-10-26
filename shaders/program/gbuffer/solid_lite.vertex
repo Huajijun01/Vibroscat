@@ -9,7 +9,6 @@
 #ifndef PROGRAM_GBUFFERS_PARTICLES
 flat out vec3 v_normal;
 #endif
-out vec3 v_view_pos;
 out vec3 v_ambient_col;
 out vec3 v_shadow_proj_pos;
 out vec4 v_color;
@@ -17,7 +16,6 @@ out vec3 v_texcoord;
 
 void main() {
     vec3 view_pos = (gl_ModelViewMatrix * gl_Vertex).xyz;
-    v_view_pos = view_pos;
     vec3 world_pos = ViewToWorldSpace(view_pos);
 
     vec3 shadow_clip = ProjectToShadowClip(world_pos + gl_Normal * 0.025);

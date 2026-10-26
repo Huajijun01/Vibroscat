@@ -144,6 +144,12 @@ const float sunPathRotation = -15.0; // [-60.0 -45.0 -30.0 -15.0 0.0 15.0 30.0 4
 const float shadowIntervalSize = 2.0;
 const float real_shadow_map_resolution = float(shadowMapResolution);
 const float shadowDistance = 128.0; // [64.0 96.0 128.0 192.0 256.0 384.0 512.0]
+// Iris culls shadow-pass terrain beyond shadowDistance * shadowDistanceRenderMul
+// only when this value is positive; the host default -1 leaves shadow terrain
+// unculled, so chunks out to the game render distance are rendered into a map
+// whose projection only covers shadowDistance. 1.0 culls exactly at
+// shadowDistance.
+const float shadowDistanceRenderMul = 1.0;
 
 // Shadow depth protection: the shadow map depth is
 // remapped from [0,1] into [0.5-0.5*SCALE, 0.5+0.5*SCALE] so depth never

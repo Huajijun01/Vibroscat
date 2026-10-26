@@ -27,10 +27,13 @@ float EncodeSquaredDepth(float screen_depth) {
 
 float ReadDepthSample(vec2 uv) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
+    // Explicit base level: the march loops prefetch their next step across
+    // divergent exits, and the single-level image alias makes LOD 0 the only
+    // possible result, keeping the lookup defined in that control flow.
 #if defined(TAAU_ACTIVE)
-    float encoded_depth = texture(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25)).r;
+    float encoded_depth = textureLod(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25), 0.0).r;
 #else
-    float encoded_depth = texture(usam_ssr_depth, uv).r;
+    float encoded_depth = textureLod(usam_ssr_depth, uv, 0.0).r;
 #endif
     // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX); the CPU folds the
     // inverse-depth row-sum divide into u_squared_depth_decode.

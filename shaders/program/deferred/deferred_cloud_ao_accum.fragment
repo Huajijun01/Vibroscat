@@ -95,12 +95,18 @@ void main() {
                     CloudFrame history = CloudCheckerboardHistory(previous_uv);
                     if (!CloudHistoryInvalid(history)) {
                         float motion_pixels = length((previous_uv - uv) * u_render_res);
-                        history = CloudCheckerboardClip(tx, history, motion_pixels);
                         // Local warmup cannot follow large camera motion. Restart
                         // its first-cycle policy when motion crosses one block.
                         int accepted_age = motion_pixels > float(CLOUD_TEMPORAL_UPSCALING) ? 0 : pixel_age;
-                        accumulated = has_fresh
-                            ? CloudCheckerboardAccumulate(current_frame, history, accepted_age) : history;
+                        if (has_fresh && accepted_age < CLOUD_CHECKERBOARD_AREA) {
+                            // First-cycle replacement keeps the raw observation;
+                            // clipping history the blend would discard is wasted.
+                            accumulated = current_frame;
+                        } else {
+                            history = CloudCheckerboardClip(tx, history, motion_pixels);
+                            accumulated = has_fresh
+                                ? CloudCheckerboardAccumulate(current_frame, history, accepted_age) : history;
+                        }
                         new_age = min(accepted_age + 1, max(CLOUD_HISTORY_FRAMES, CLOUD_CHECKERBOARD_AREA + 1));
                     }
                 }

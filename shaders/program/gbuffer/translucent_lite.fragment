@@ -32,8 +32,9 @@ void main() {
 #if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
-    vec4 albedo = texture(gtexture, v_texcoord.xy) * v_color;
+    vec4 albedo = texture(gtexture, v_texcoord.xy);
     DiscardBelowAlphaTest(albedo.a, 0.001);
+    albedo *= v_color;
     vec3 base_color = ToLinear(albedo.rgb);
 
 #if defined(PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT)

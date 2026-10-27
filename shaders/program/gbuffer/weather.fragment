@@ -22,9 +22,8 @@ void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
     vec4 tex = texture(gtexture, v_texcoord);
-    float alpha = tex.a * v_color.a;
-    DiscardBelowAlphaTest(alpha, 0.1);
-    alpha *= u_rain_particle_opacity;
+    DiscardBelowAlphaTest(tex.a, 0.1);
+    float alpha = tex.a * v_color.a * u_rain_particle_opacity;
     // Decode before the blend. The attachment holds one value per pixel and the
     // fixed-function blend accumulates into it, so the sheet must enter that
     // blend already linear: premultiplying in sRGB and decoding afterwards

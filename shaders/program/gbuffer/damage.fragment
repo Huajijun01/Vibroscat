@@ -14,7 +14,8 @@ void main() {
 #if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
-    vec4 tex = texture(gtexture, v_texcoord) * v_color;
+    vec4 tex = texture(gtexture, v_texcoord);
     DiscardBelowAlphaTest(tex.a, 0.001);
+    tex *= v_color;
     out_color = vec4(tex.rgb, 1.0);
 }

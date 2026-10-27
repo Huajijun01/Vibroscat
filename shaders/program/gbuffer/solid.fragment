@@ -109,13 +109,7 @@ void main() {
 
     // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
 #ifdef USE_DISCARD
-    // Quad particles drop the vertex alpha in solid.vertex, so there the
-    // sprite alpha alone is the effective surface alpha.
-#ifdef PROGRAM_GBUFFERS_PARTICLES
     DiscardBelowAlphaTest(albedo_tex.a, 0.001);
-#else
-    DiscardBelowAlphaTest(albedo_tex.a * v_color.a, 0.001);
-#endif
 #endif
 
     // -- albedo = texture x vertex color --

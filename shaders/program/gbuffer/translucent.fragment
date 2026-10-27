@@ -192,9 +192,10 @@ void main() {
 
     vec2 trace_coord = screen_texcoord;
     // trace_pos is written by every traced hit below and only read behind the
-    // trace_hit guard, so it needs no initialization (an untraced or missed
-    // ray never reaches the read).
-    vec3 trace_pos;
+    // trace_hit guard, so the zero fill is never consumed; NVIDIA's flow
+    // analysis cannot prove that correlation and warns C7050 ("might be used
+    // before being initialized") on every pipeline link without it.
+    vec3 trace_pos = vec3(0.0);
     bool trace_hit = false;
     bool trace_hit_sky = false;
     vec3 reflect_dir = reflect(view_dir, current_normal);

@@ -162,10 +162,15 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         // edge fading; four independent UV comparisons duplicate this work.
         vec4 edge_distance = min(min(sample_u, 1.0 - sample_u),
             min(sample_v, 1.0 - sample_v));
-        bvec4 valid;
-        for (int j = 0; j < 4; ++j) {
-            valid[j] = i + j < CONTACT_SHADOW_STEPS && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
-        }
+        bvec4 valid = bvec4(
+            i + 0 < CONTACT_SHADOW_STEPS && ray_depth.x >= 0.05 && edge_distance.x >= 0.0,
+            i + 1 < CONTACT_SHADOW_STEPS && ray_depth.y >= 0.05 && edge_distance.y >= 0.0,
+            i + 2 < CONTACT_SHADOW_STEPS && ray_depth.z >= 0.05 && edge_distance.z >= 0.0,
+            i + 3 < CONTACT_SHADOW_STEPS && ray_depth.w >= 0.05 && edge_distance.w >= 0.0
+        );
+        // for (int j = 0; j < 4; ++j) {
+        //     valid[j] = i + j < CONTACT_SHADOW_STEPS && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
+        // }
         // Stop at the first invalid sample, including a partial final batch.
         valid.y = valid.x && valid.y;
         valid.z = valid.y && valid.z;
@@ -209,13 +214,19 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         vec4 gap = ray_depth - sample_linear;
         vec4 confidence = max(vec4(edge_confidence_floor),
             saturate(edge_distance * 16.0));
-        vec4 retention = mix(vec4(1.0), vec4(step_visibility), confidence);
-        for (int j = 0; j < 4; ++j) {
-            bool hit = valid[j] && gap[j] > minimum_gap && gap[j] < thickness;
-            visibility *= hit ? retention[j] : 1.0;
-        }
-        if (visibility < 0.015) return 0.0;
-        if (!valid.w) break;
+        bvec4 hit = bvec4(
+            valid.x && gap.x > minimum_gap && gap.x < thickness,
+            valid.y && gap.y > minimum_gap && gap.y < thickness,
+            valid.z && gap.z > minimum_gap && gap.z < thickness,
+            valid.w && gap.w > minimum_gap && gap.w < thickness
+        );
+        vec4 retention = mix(vec4(1.0), vec4(step_visibility), confidence * vec4(hit));
+        // for (int j = 0; j < 4; ++j) {
+        //     bool hit = valid[j] && gap[j] > minimum_gap && gap[j] < thickness;
+        //     visibility *= hit ? retention[j] : 1.0;
+        // }
+        visibility *= retention.x * retention.y * retention.z * retention.w;
+        if (visibility < 0.015 || !valid.w) break;
     }
     return visibility;
 }

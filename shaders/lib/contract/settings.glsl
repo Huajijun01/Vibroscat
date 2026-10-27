@@ -308,6 +308,10 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define OPAQUE_SSR_COLOR_MIPS 2 // [0 1 2]
 #define OPAQUE_SSR_COLOR_MIP_SCALE 1.0 // [0.125 0.25 0.5 1.0]
 #define OPAQUE_SSR_COLOR_MIP_MAX 5 // [2 3 4 5]
+// Firefly clamp on the scene color read at opaque SSR hits: the sun disk or
+// other extreme screen pixels would otherwise flicker as single bright
+// sparkles through the temporal filter.
+#define OPAQUE_SSR_RADIANCE_LIMIT 12.0 // [2.0 4.0 8.0 12.0 16.0 24.0 32.0 64.0 128.0] cap on radiance sampled from the reflected scene
 
 // Opaque SSR march budget: samples along the full reflection path
 // (McGuire & Mara 2014). The default keeps the whole trace at 17 depth

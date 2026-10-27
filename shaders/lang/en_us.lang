@@ -420,6 +420,8 @@ value.OPAQUE_SSR_COLOR_MIP_MAX.2 = 2
 value.OPAQUE_SSR_COLOR_MIP_MAX.3 = 3
 value.OPAQUE_SSR_COLOR_MIP_MAX.4 = 4
 value.OPAQUE_SSR_COLOR_MIP_MAX.5 = 5
+option.OPAQUE_SSR_RADIANCE_LIMIT = Reflection Radiance Limit
+option.OPAQUE_SSR_RADIANCE_LIMIT.comment = Caps how bright reflected screen content may be: lower = fewer bright firefly sparkles, but dimmer reflected highlights such as the sun.
 option.OPAQUE_SSR_STEPS.comment = Depth samples along the reflection ray: higher values mainly extend how far reflections reach.
 option.SSR_INTERPOLATION = SSR Hit Refinement
 option.SSR_INTERPOLATION.comment = Refines where the reflection ray hits the surface, so hits land closer to the real geometry. Off reports the raw march sample.

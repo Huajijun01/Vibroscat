@@ -106,6 +106,9 @@ bool SampleOpaqueHistory(SSRHit hit, vec3 trace_origin, float roughness,
         return false;
     }
     history = max(history, vec3(0.0));
+    // Screen-space hits can sample the sun disk or other extreme pixels in
+    // the history color; bound them so a single texel cannot spawn fireflies.
+    history = min(history, vec3(OPAQUE_SSR_RADIANCE_LIMIT));
     return true;
 }
 #endif // LIB_RAYTRACE_OPAQUE_REFLECTION_GLSL

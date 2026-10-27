@@ -47,7 +47,7 @@ void main() {
 
     ivec2 tile_center = ivec2(gl_LocalInvocationID.xy) * 2 + 1;
 
-    // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block centre.
+    // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block center.
     vec4 s_center = tile[tile_center.y + 0][tile_center.x + 0];
     vec4 s_left   = tile[tile_center.y + 0][tile_center.x - 1];
     vec4 s_right  = tile[tile_center.y + 0][tile_center.x + 1];

@@ -45,7 +45,7 @@ const mat3 GT7_LMS_TO_BT2020 = mat3(
 // sample's row-major formulas:
 //   I  = 0.5*L + 0.5*M          Ct = (6610L - 13613M + 7003S) / 4096
 //   Cp = (17933L - 17390M - 543S) / 4096
-// and its exact inverse (verified to round-trip within 2e-16) is
+// and its exact inverse (round-trips within 2e-16) is
 //   L = I + 0.0086090370*Ct + 0.1110296250*Cp
 //   M = I - 0.0086090370*Ct - 0.1110296250*Cp
 //   S = I + 0.5600313357*Ct - 0.3206271750*Cp
@@ -101,7 +101,7 @@ const float GT7_SHOULDER_C = -0.719424460431655;
 const float GT7_BLEND = 0.6;
 const float GT7_CHROMA_FADE_START = 0.98;
 const float GT7_CHROMA_FADE_END = 1.16;
-// UCS luma I of the paper-white grey (2.5, 2.5, 2.5): chroma-fade pivot.
+// UCS luma I of the paper-white gray (2.5, 2.5, 2.5): chroma-fade pivot.
 // I is luma, so it is 0.5 * (L + M) and excludes S; the sample's equivalent
 // value is 0.602561.
 const float GT7_TARGET_LUMA_UCS = 0.6025591550;

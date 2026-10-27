@@ -15,9 +15,9 @@ const float ATM_ATMO_MINUS_P = ATM_ATMO_R - ATM_PLANET_R;
 
 // Multiscatter LUT bake geometry. The asset's V axis spans the signed bake
 // altitude range [-(dip), ATM_ATMO_MINUS_P] linearly, so its 32 row centers
-// sit at -6, -2, 2, ..., 118 km. This is the depth the offline baker used, not
-// the user's ATM_HORIZON_DIP_SCALE: that setting moves the runtime march
-// bound, while this asset addressing must stay fixed.
+// sit at -6, -2, 2, ..., 118 km. This is the depth the baked asset was
+// built with, not the user's ATM_HORIZON_DIP_SCALE: that setting moves the
+// runtime march bound, while this asset addressing must stay fixed.
 const float ATM_MS_BAKE_DIP_KM = 8.0;
 const float ATM_MS_SPAN_KM = ATM_ATMO_MINUS_P + ATM_MS_BAKE_DIP_KM;
 const float ATM_MS_RCP_SPAN = 1.0 / ATM_MS_SPAN_KM;

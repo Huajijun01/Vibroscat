@@ -6,8 +6,8 @@
 #include "/lib/scattering/phase.glsl"
 
 // Thin foliage shares one directional-light visibility for reflection and
-// transmission. Neither term can light a fully occluded receiver. Independent
-// implementation; conceptual study and license boundaries: notices section 29.
+// transmission. Neither term can light a fully occluded receiver. Provenance
+// and license terms: licenses/THIRD_PARTY_NOTICES.md section 29.
 const float PLANT_BLADE_REFERENCE_AMOUNT = 0.55;
 const float PLANT_FORWARD_PEAK_LIMIT = 2.5;
 

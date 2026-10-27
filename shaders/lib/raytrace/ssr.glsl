@@ -75,7 +75,7 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_dir, bool toward_eye) {
     vec4 direction_clip = gbufferProjection * vec4(view_dir, 0.0);
 
     // Iris 'far' is the render distance, not the clipping plane, which is
-    // roughly far * 4.0 (ShaderDoc, uniform far). The no-crossing fallback
+    // roughly far * 4.0. The no-crossing fallback
     // must exceed the oblique distance to the true far plane, or chords stop
     // short of it and their sky end never classifies.
     vec2 edge_near_t = ClipRayScreenCoordT(origin_clip, direction_clip,

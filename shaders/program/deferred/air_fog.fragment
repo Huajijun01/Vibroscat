@@ -52,10 +52,10 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
 #endif
 
 // Effective optical depth of the weather sheet. colortex11 carries the linear
-// sheet colour premultiplied by coverage in RGB, and the coverage in A; the
+// sheet color premultiplied by coverage in RGB, and the coverage in A; the
 // weather pass writes neither depth nor the G-buffer, so the sheet owns no
 // normal, material, or depth of its own and is lit as a thin scattering layer
-// instead of a surface. This constant folds its path length into that colour.
+// instead of a surface. This constant folds its path length into that color.
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {

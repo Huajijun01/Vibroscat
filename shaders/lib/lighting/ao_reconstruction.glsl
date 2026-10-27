@@ -33,9 +33,8 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
     }
     vec3 normal_world = DecodeOctahedralNormal(normal_oct);
     float receiver_depth_m = LinearDepthFromScreenDepth(scene_depth);
-    // Two centimeters near the camera, then a relative depth window. This
-    // deliberately replaces strict plane rejection; close parallel surfaces
-    // inside this window can share support.
+    // Two centimeters near the camera, then a relative depth window: close
+    // parallel surfaces inside this window can share support.
     float inv_depth_window = 1.0 / (0.02 + receiver_depth_m * 0.01);
     vec2 ao_sum = vec2(0.0);
     float weight_sum = 0.0;

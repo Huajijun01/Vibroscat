@@ -28,7 +28,7 @@
 // exp(-A * sign(h) * |h|^B) reference over the pack's full training target.
 // It removes the per-sample pow and is defined below sea level, where it
 // reaches 2.906x sea level at -8 km.
-// The density functions take the signed planet-centred radius r = R + h, so
+// The density functions take the signed planet-centered radius r = R + h, so
 // exp(-h / H) becomes exp(-r / H + R / H), one contracted multiply-add.
 const float ATM_RAY_SCALE_H_KM = 7.5;
 const float ATM_RAY_INV_H = 1.0 / ATM_RAY_SCALE_H_KM;
@@ -39,14 +39,14 @@ const vec4 ATM_SIGMA_S_RAY = vec4(0.03295005, 0.01997218, 0.01193972, 0.00756925
 
 // -- Ozone: symmetric triangular tent --
 // Symmetric ozone tent fitted to AFGL ground-view absorption/transmission.
-// r is the signed planet-centred radius in km; the support is
+// r is the signed planet-centered radius in km; the support is
 // [0.596299124, 44.584849304] km above the surface. The function returns the
 // unitless tent shape in [0, 1]; the tent peak and the existing 381 factor are
 // baked into ATM_OZONE_SIGMA below, so shape * ATM_OZONE_SIGMA = 1000 * n * sigma.
 const float ATM_OZONE_TENT_CENTER_KM = 22.5905742141994;
 const float ATM_OZONE_TENT_INV_HALF_WIDTH = 0.045466376859396;
 const float ATM_OZONE_TENT_PEAK = 1.10522750647986e+19;
-// Radius-space centre and the multiply-add constant centre_radius / half_width.
+// Radius-space center and the multiply-add constant center_radius / half_width.
 const float ATM_OZONE_TENT_CENTER_R = ATM_PLANET_R + ATM_OZONE_TENT_CENTER_KM;
 const float ATM_OZONE_TENT_OFFSET = ATM_OZONE_TENT_CENTER_R * ATM_OZONE_TENT_INV_HALF_WIDTH;
 
@@ -111,7 +111,7 @@ const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)
 // ===============================================================
 
-// Density profiles in signed planet-centred radius r = ATM_PLANET_R + h, in
+// Density profiles in signed planet-centered radius r = ATM_PLANET_R + h, in
 // km. Callers hold the real signed radius (the sky march carries r_mid), so
 // negative altitude below the ground line thickens the horizon dip instead of
 // folding back to sea level. Each height term is a plain a * r + b that the

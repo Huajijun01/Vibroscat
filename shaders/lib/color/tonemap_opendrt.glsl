@@ -35,7 +35,7 @@
 //
 // Deviations from the reference, all recorded in the notices section:
 //   - SDR only: the peak luminance is fixed at 100 nits, so the display
-//     scale ts_dsc is 1, the HDR grey-boost term is log2(1) = 0, and the
+//     scale ts_dsc is 1, the HDR gray-boost term is log2(1) = 0, and the
 //     HDR purity lerp that would blend ts_s1 towards s_Lp100 has weight zero
 //     - which collapses the reference's tsn_pt and tsn_const curves into one
 //     and removes pt_hdr, tn_gb and tn_Lp as parameters.
@@ -68,7 +68,7 @@ const float ODT_PEAK_LUMINANCE = 100.0;
 // Reference "sRGB Display" display-encoding preset: bright surround, which
 // flattens the curve exponent by 2 * 5%.
 const float ODT_SURROUND = 2.0;
-// Scene-linear middle grey, fixed by the reference.
+// Scene-linear middle gray, fixed by the reference.
 const float ODT_SCENE_GREY = 0.18;
 const float ODT_GREY_LUMINANCE = 10.0;
 const float ODT_ACHROMATIC_TOE = 0.25;
@@ -162,7 +162,7 @@ float ODTSoftplus(float x, float scale) {
 
 vec3 TonemapOpenDRT(vec3 linear_rgb) {
     // --- Tone-scale constraint solve (reference "Tonescale Constraint
-    // Calculations") -- maps scene middle grey onto the display grey
+    // Calculations") -- maps scene middle gray onto the display gray
     // luminance and the shoulder-clip scene value onto paper white. The
     // reference solves these per pixel for lack of a constant-folding path
     // in DCTL; they depend only on settings here as well.

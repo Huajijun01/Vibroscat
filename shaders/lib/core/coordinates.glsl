@@ -28,7 +28,7 @@ vec3 WorldToViewSpace(vec3 sp) {
 // builds: rows 0/1 of the inverse carry only their diagonal entries (clip
 // x/y never mix in eye z), and rows 2/3 only their z/w entries; the four
 // dropped products per component are exact zeros, so this is bit-identical
-// to the full form above. The same structure is already load-bearing in
+// to the full mat4 product. The same structure is already load-bearing in
 // LinearDepthFromScreenDepth and PreviousScreenToView. This pack's TAA
 // jitter reaches the matrix-free gl_Position offset, never the matrix.
 vec3 NDCToViewSparse(vec2 ndc_xy, float ndc_z) {

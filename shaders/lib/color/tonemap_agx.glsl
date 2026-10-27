@@ -10,7 +10,7 @@
 // AgX (mode 0): the HSV hue-repair variant of AgX, "AgX-HSV".
 //
 // Ported from DRT Bench (github.com/bWFuanVzYWth/DRT, GPL-3.0-only since
-// 2026-09), shaders/agx_hsv.wgsl, with its `AgxParameters::hsv_default()`
+// 2026-09), file shaders/agx_hsv.wgsl, with its `AgxParameters::hsv_default()`
 // curve; licenses/THIRD_PARTY_NOTICES.md section 3. The inset/outset pair,
 // the log2 shaper and the toe/shoulder power curve are the family the S2O3
 // variant also uses; what makes this variant "HSV" is the final hue repair,
@@ -21,7 +21,7 @@
 // Domain: the reference's display value is sRGB-OETF encoded, anchored so
 // that its output pivot is OETF(0.18) = 0.46135613. This port therefore
 // decodes with the pack's exact sRGB EOTF (`ToLinear`) and returns
-// display-linear color, which keeps the shared "scene 18% grey -> 18%
+// display-linear color, which keeps the shared "scene 18% gray -> 18%
 // display-linear" anchor exactly: 0.18 scene in gives 0.18 out.
 // The hue comparison itself stays in the reference's pure-2.2 domain.
 //

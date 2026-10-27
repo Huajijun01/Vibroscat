@@ -140,7 +140,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
     // one texel scale serves the blocker search and the PCF pass below.
     float angle = stbn_dither * TAU;
     vec2 rot_x = vec2(cos(angle), -sin(angle));
-    // vec2 rot_y = vec2(sin(angle), cos(angle));
+    // rot_y equals (sin(angle), cos(angle)) via the rot_x swizzle.
     vec2 rot_y = vec2(-rot_x.y, rot_x.x);
     vec2 texel_scale = ShadowFilterTexelScale(clip_pos);
 

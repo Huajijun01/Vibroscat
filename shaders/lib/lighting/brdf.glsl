@@ -80,6 +80,7 @@ float SmithGGXLambda(float ndotx, float alpha) {
         * (1.0 - ndotx * ndotx) / max(ndotx * ndotx, 1e-6)));
 }
 
+// Specular occlusion curve (Jimenez et al. 2016).
 float SpecularOcclusion(float ndotv, float ao, float roughness) {
     float exponent = exp2(-16.0 * roughness - 1.0);
     return saturate(pow(ndotv + ao, exponent) - 1.0 + ao);

@@ -24,7 +24,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     // ATM_HORIZON_DIP_SCALE km beneath the planet surface instead of on the
     // surface itself, so it integrates a little of the exponentially denser
     // low-altitude Mie/aerosol air and the horizon reads thicker/hazier.
-    // The terminator is only a march bound now: the ground's own reflected
+    // The terminator serves only as a march bound: the ground's own reflected
     // radiance is not evaluated, because the below-surface dip puts that
     // shell out of sight.
     float max_dist = t1;
@@ -75,7 +75,7 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
         // Density radius: the media functions take the real signed radius and
         // fold altitude into their fma constants, so the march never forms
         // h = r - R. The below-surface dip still thickens the horizon. Only the
-        // transmittance LUT is parameterised on r >= planet radius
+        // transmittance LUT is parameterized on r >= planet radius
         // (sqrt(r^2 - R^2) is undefined below the surface); the multiscatter
         // LUT spans the baked signed range and is sampled at the real radius.
         float r_lut   = max(r_mid, ATM_PLANET_R);

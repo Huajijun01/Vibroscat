@@ -12,7 +12,7 @@ const vec3 FAST_WATERFOG_EXTINCTION = vec3(0.4, 0.19, 0.15) * 0.6;
 // unshadowed source needs a neutral gain; do not dim the scattering here.
 const float FAST_WATERFOG_PHASE_G = 0.15;
 
-// In-water sunlight path per metre of vertical drop (flat-surface
+// In-water sunlight path per meter of vertical drop (flat-surface
 // refraction, air->water IOR 1.333 inlined - no IOR config needed).
 float WaterLightPathPerMetre() {
     // Frame-uniform refraction path (CPU): identical geometry, one sqrt.

@@ -30,7 +30,7 @@
 #ifndef VIBROSCAT_FIDELITYFX_CAS_GLSL
 #define VIBROSCAT_FIDELITYFX_CAS_GLSL
 
-// FidelityFX CAS — Contrast Adaptive Sharpening.
+// FidelityFX CAS - Contrast Adaptive Sharpening.
 // Sharpen-only GLSL adaptation used after tonemapping. The luma helper uses
 // the pack-wide Rec.709 Luminance from color/spaces.glsl (identical to the
 // original CAS dot product).

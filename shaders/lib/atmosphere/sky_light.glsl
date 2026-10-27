@@ -63,8 +63,8 @@ vec3 EvalSkyRadiance(vec3 direction, float perceptual_roughness) {
     return max(radiance, sh_average);
 }
 
-// Preserve the unparameterized call for host/debug code that wants the sharp
-// projected field. Deferred specular shading should pass material roughness.
+// Unparameterized form: evaluates at zero roughness, the sharp projected
+// field. Deferred specular shading should pass material roughness.
 vec3 EvalSkyRadiance(vec3 direction) {
     return EvalSkyRadiance(direction, 0.0);
 }

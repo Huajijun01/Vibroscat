@@ -208,7 +208,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define RSM_STRENGTH 1.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
 #define RSM_DIRECTIONAL_SKY // Directional sky visibility for RSM with GTAO; extra shading cost.
 #define SSGI_DIRECTIONAL_SKY // Directional sky visibility for SSGI; extra GPU cost.
-#define SSGI_SKY_MOMENT_DEBUG 0 // [0 1] 0=shared curves 1=independent per-mode fits; in-game A/B for the SSGI sky L1 moment reconstruction.
+#define SSGI_SKY_MOMENT_DEBUG 0 // [0 1] 0=shared curves 1=independent per-mode fits for the SSGI sky L1 moment reconstruction.
 #define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
 
 // ==========================================================================
@@ -493,8 +493,8 @@ const float centerDepthHalflife = 1.0;
 #endif
 
 // Water normal evaluation: 0 = geometry normal only (no POM, no wave field,
-// no surface position/tangent). Internal, not a user option; the delivered
-// value is 1, and a temporary 0 exists to verify the gated consumers.
+// no surface position/tangent). Internal, not a user option; the shipped
+// value is 1, and 0 serves to isolate the gated consumers.
 #define WATER_NORMAL_ENABLED 1
 #if defined(PROGRAM_GBUFFERS_WATER) && WATER_NORMAL_ENABLED != 0
 #define WATER_SURFACE_POSITION_ACTIVE
@@ -567,9 +567,8 @@ const float centerDepthHalflife = 1.0;
 
 // Directional sky ambient for the RSM fallback integrates the raw sky SH
 // over the GTAO horizon arcs, so occluders tint the sky light by direction.
-// First version applies only to Overworld RSM (GI_MODE=2) with GTAO
-// (AO_MODE=1); other AO algorithms, SSGI, no-GI and other dimensions keep
-// their existing paths.
+// Applies only to Overworld RSM (GI_MODE=2) with GTAO (AO_MODE=1); other
+// AO algorithms, SSGI, no-GI and other dimensions keep the undirected path.
 #if defined(RSM_DIRECTIONAL_SKY) && GI_MODE == 2 && AO_MODE == 1 && defined(WORLD_OVERWORLD)
 #define RSM_DIRECTIONAL_SKY_ACTIVE
 #endif
@@ -577,8 +576,8 @@ const float centerDepthHalflife = 1.0;
 // Directional sky ambient for the SSGI fallback reconstructs a directional
 // moment from the trace's own visibility bitmask, so the sky SH is weighted
 // by the directions that stay open instead of the undirected miss fraction.
-// First version applies only to Overworld SSGI (GI_MODE=1), independently of
-// AO_MODE; RSM, no-GI and other dimensions keep their existing paths.
+// Applies only to Overworld SSGI (GI_MODE=1), independently of AO_MODE;
+// RSM, no-GI and other dimensions keep the undirected path.
 #if defined(SSGI_DIRECTIONAL_SKY) && GI_MODE == 1 && defined(WORLD_OVERWORLD)
 #define SSGI_DIRECTIONAL_SKY_ACTIVE
 #endif

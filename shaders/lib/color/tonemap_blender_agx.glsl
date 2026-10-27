@@ -42,13 +42,13 @@
 // disabled, matching the generator itself.
 // Blender v4.0.0's nine official AgX looks are selected in their 25-stop
 // AgX Log process space before the view formation. Punchy uses the official
-// OCIO grading-tone and CDL operations; it is not a display-gamma shortcut.
-// The Base Contrast look is identity and bypasses that conversion.
+// OCIO grading-tone and CDL operations. The Base Contrast look is identity
+// and bypasses that conversion.
 //
 // Anchor: the shaper maps scene 0.18 to 10/16.5 EV, which is the curve's own
 // x pivot, and the curve is built so that curve(x_pivot) = y_pivot and
 // y_pivot^2.4 = 0.18. Both matrices keep neutrals fixed (the rows of the
-// matrix as used sum to 1 within 1e-15). Scene 18% grey therefore lands on
+// matrix as used sum to 1 within 1e-15). Scene 18% gray therefore lands on
 // 18% display-linear with no pre-scale, which is why this mode has no
 // input-scale option: unlike ACES 2.0 or OpenDRT, the reference's own
 // calibration already is this pack's anchor.

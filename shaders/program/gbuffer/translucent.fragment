@@ -122,9 +122,8 @@ void main() {
 #endif
         } else {
 #if defined(WATER_SURFACE_TANGENT_ACTIVE)
-            // Same handed bitangent the vertex stage used to carry: the flat
-            // tangent plus the flags' handedness bit reproduce it here, only
-            // on the side-face path that consumes it.
+            // The side-face path that consumes it rebuilds the same handed
+            // bitangent from the flat tangent plus the flags' handedness bit.
             float tangent_handedness = (v_surface_flags & 4) != 0 ? -1.0 : 1.0;
             vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
             vec3 world_bitangent = cross(v_world_tangent, normal_world) * tangent_handedness;

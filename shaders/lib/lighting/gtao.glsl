@@ -29,8 +29,8 @@
 // horizon angles h on both sides, A=sin(h)^2. Normalizing the projected normal
 // or dropping sin(theta) would change the spherical cosine integral.
 //
-// Horizon search conventions (validated against the height-field case that
-// dominates Minecraft): the search inits fully open (cosine -1) and skips sky and
+// Horizon search conventions, exact for the height-field case that
+// dominates Minecraft: the search inits fully open (cosine -1) and skips sky and
 // same-surface samples, so open surfaces read exactly 1.0 for every normal
 // tilt, while walls in front clamp the arc and produce contact darkening.
 // Samples beyond the radius fade toward the open state (paper section4.3).

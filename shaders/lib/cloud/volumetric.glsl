@@ -33,7 +33,7 @@ const int CLOUD_MS_OCTAVES = 3;
 // past that, where the layer stops seeing the sun.
 const float CLOUD_MOON_FADE_LOW = -0.07;
 const float CLOUD_MOON_FADE_HIGH = -0.02;
-// The sun's colour is held through the band below the sea-level horizon where
+// The sun's color is held through the band below the sea-level horizon where
 // the layer still catches it over its dipped horizon, which is what makes the
 // fire clouds, and is only released once the antisolar side has taken over.
 const float CLOUD_TWILIGHT_FADE_START = 0.03;
@@ -95,7 +95,8 @@ bool CloudShellInterval(vec3 origin, vec3 dir, out float march_start, out float 
 float DistanceToShellExit(vec3 position, vec3 dir) {
     // The two shell solves share b and dot(position, position); per-sphere
     // operations match RayIntersectSphere exactly, so the sweep is
-    // bit-identical to the separate calls (the unused inner far root is gone).
+    // bit-identical to the separate calls (the fused form does not compute
+    // the unused inner far root).
     float b = 2.0 * dot(position, dir);
     float origin_r2 = dot(position, position);
     float outer_radius = ATM_PLANET_R + CLOUD_TOP_ALTITUDE;
@@ -354,7 +355,7 @@ vec3 MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_
     // The phase terms depend only on the fixed cosines and the constant octave
     // factors, so they are evaluated once per light per ray.
 #ifdef CLOUD_SINGLE_LIGHT
-    // One traced direction: the antisolar fold. The sun keeps its colour through
+    // One traced direction: the antisolar fold. The sun keeps its color through
     // the handover, see TwilightWeight at the relight.
     float moonlight_factor = MoonlightFactor(u_world_sun_dir.y);
     vec3 light_dir = LightDirection(u_world_sun_dir, moonlight_factor);

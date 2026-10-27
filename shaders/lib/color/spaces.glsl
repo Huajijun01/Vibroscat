@@ -32,7 +32,7 @@ const mat3 SRGB_TO_XYZ = mat3(
     vec3(0.1804375, 0.0721750, 0.9503041));
 
 // AgX display rendering transform.
-// Concept: [SOB22] Sobotka, Troy. AgX. 2022. https://github.com/sobotka/AgX
+// Source: [SOB22] Sobotka, Troy. AgX. 2022. https://github.com/sobotka/AgX
 
 // --- HSV helpers (used by the AgX hue repair) ---
 

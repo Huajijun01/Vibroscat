@@ -226,7 +226,6 @@ void main() {
     // Iris scales hand clip Z by MC_HAND_DEPTH through gl_ProjectionMatrix;
     // gbufferProjectionInverse is the world inverse. Undo the scale in NDC
     // before reconstructing the receiver used by lighting and both shadows.
-    // See Iris ShaderDoc: Reference/Macros/MC_HAND_DEPTH.
     float ndc_depth = scene_depth * 2.0 - 1.0;
     if (is_opaque_hand) ndc_depth /= MC_HAND_DEPTH;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));

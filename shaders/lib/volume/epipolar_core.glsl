@@ -186,7 +186,7 @@ vec3 SampleEpipolarTerm(vec2 ndc, float pixel_key, vec3 fallback) {
     // Progress on the continuous pole->pixel line. Inside one exit sector
     // this inverts the producer grid exactly for an in-screen pole. Outside
     // the screen it follows the continuous entry/exit ray; interpolation of
-    // neighbouring stored lines remains a finite-grid approximation.
+    // neighboring stored lines remains a finite-grid approximation.
     float t;
     if (pole_in_screen) {
         float pole_bound = exit_x ? (negative.x ? 1.0 + pole.x : 1.0 - pole.x)

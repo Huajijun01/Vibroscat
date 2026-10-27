@@ -64,8 +64,8 @@ vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
         * (1.0 - cloud_data.z)
         * CLOUD_SKY_LIGHT_STRENGTH;
 #ifdef CLOUD_SINGLE_LIGHT
-    // One trace means one directional channel, so the light colour carries both
-    // illuminants. The sun keeps its colour through the fire-cloud band, where
+    // One trace means one directional channel, so the light color carries both
+    // illuminants. The sun keeps its color through the fire-cloud band, where
     // it has crossed the sea-level horizon but the layer still catches it over
     // its own dipped one, and is released once the antisolar side has taken
     // over.

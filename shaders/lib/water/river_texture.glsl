@@ -55,7 +55,7 @@ const vec2 RIVER_TEX_VEL[3] = vec2[](vec2(0.100904140, 0.033737910),
 const vec2 RIVER_TEX_ROT[3] = vec2[](vec2(1.000000000, 0.000000000),
     vec2(0.999989316, 0.004622615),
     vec2(0.998649850, -0.051946867));
-// Full-range height swing in metres. Subtract the baked mean instead of
+// Full-range height swing in meters. Subtract the baked mean instead of
 // assuming that the asymmetric crest/trough range is centered at 0.5.
 const float RIVER_TEX_AMP[3] = float[](0.131795961, 0.058332975, 0.022463026);
 const float RIVER_TEX_CENTER = 0.440103036;

@@ -11,7 +11,8 @@
 // a = n dot v, b = n dot t and w = max(a*cos(theta)+b*sin(theta),0)*sin(theta).
 // This helper integrates (w, cos(theta)*w, sin(theta)*w) over the blocked arc.
 // Primitives: Jcs=s^2/2, Jss=theta/2-s*c/2, Jccs=-c^3/3,
-// Jcss=s^3/3, Jsss=c^3/3-c. The interval/guards match the former RGB integral.
+// Jcss=s^3/3, Jsss=c^3/3-c. The interval/guards match the positive band of
+// the weight w.
 vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         float beta, float horizon_cos) {
     float theta_lo;

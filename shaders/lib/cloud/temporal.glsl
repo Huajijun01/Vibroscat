@@ -203,7 +203,7 @@ CloudFrame CloudCheckerboardClip(ivec2 full_res_texel, CloudFrame history, float
         }
     }
     if (!has_support) return history;
-    // log is monotone and max(·,0) commutes with min/max, so the bounds
+    // log is monotone and max(x, 0) commutes with min/max, so the bounds
     // reduce on raw values inside the loop and take one log/clamp each after.
     vec3 lower_bound = vec3(max(lower_xy, vec2(0.0)), log(clamp(lower_z, 1.0e-4, 1.0)));
     vec3 upper_bound = vec3(max(upper_xy, vec2(0.0)), log(clamp(upper_z, 1.0e-4, 1.0)));

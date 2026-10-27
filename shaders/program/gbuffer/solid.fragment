@@ -45,9 +45,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
-#if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
 #include "/lib/geometry/fragment_position.glsl"
-#endif
+#include "/lib/geometry/normal_clamp.glsl"
 #include "/lib/material/alpha_test.glsl"
 #include "/lib/material/model.glsl"
 #if defined(RAIN_WETNESS_ACTIVE)
@@ -229,6 +228,20 @@ void main() {
         surface_view_pos,
 #endif
         geo_normal_world.y, v_lmcoord.y, mat_id, mat, w_normal, albedo);
+#endif
+
+#if !defined(PROGRAM_GBUFFERS_PARTICLES) && !defined(PROGRAM_GBUFFERS_HAND)
+    // The view reconstruction is valid for the world gbuffer projection only,
+    // so the hand keeps its unclamped normal.
+    if (has_normal_texture) {
+#if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
+        vec3 view_to_eye_world = mat3(gbufferModelViewInverse) * -normalize(surface_view_pos);
+#else
+        vec3 view_to_eye_world = mat3(gbufferModelViewInverse)
+            * -normalize(ReconstructGbufferViewPosition(gl_FragCoord));
+#endif
+        w_normal = SoftClampShadingNormalToView(w_normal, view_to_eye_world);
+    }
 #endif
 
     // -- Write GBuffer --

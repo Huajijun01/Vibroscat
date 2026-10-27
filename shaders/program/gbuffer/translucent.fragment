@@ -12,6 +12,7 @@
 #include "/lib/core/noise.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/geometry/fragment_position.glsl"
+#include "/lib/geometry/normal_clamp.glsl"
 #include "/lib/atmosphere/skybox_uv.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
@@ -168,7 +169,7 @@ void main() {
 
     if (is_water) {
         vec3 to_camera = -view_dir;
-        current_normal = SoftClampWaterNormal(current_normal, to_camera);
+        current_normal = SoftClampShadingNormalToView(current_normal, to_camera);
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
         // Refraction perturbation stored for blend: the clamped normal minus
         // the flat-surface reference in the wave field's frame: world up

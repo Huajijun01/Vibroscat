@@ -67,7 +67,6 @@ void main() {
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
     vec3 world_pos = ViewToWorldSpace(view_pos);
     vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
-    if (dot(normal_world, view_to_eye) <= 1e-5) return;
 
     // One STBN pair feeds both the GGX direction sample and the trace start
     // jitter (the pair's y component).

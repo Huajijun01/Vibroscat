@@ -29,7 +29,7 @@ Vibroscat profile.
   cloud shadows
 - Selectable continuous or checkerboard cloud reconstruction under Environment /
   Clouds / Quality; both support every cloud resolution setting and work with
-  TAA disabled. Continuous remains the default.
+  TAA disabled. Checkerboard is the default.
 - Daylight, sunsets, moonlight, stars, Milky Way glow through clouds and in
   reflections, horizon haze, and boundary fog
 - Exponential height air fog with shadow-map light shafts, thinner daytime haze,

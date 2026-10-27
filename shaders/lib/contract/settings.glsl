@@ -77,7 +77,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_MILKYWAY_TRANSMISSION 0.1 // [0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the volumetric layer scatters into a glow; 1.0 is the isotropic single-scatter total.
 #define CIRRUS_MILKYWAY_TRANSMISSION 0.3 // [0.1 0.2 0.3 0.5 0.6 0.75 1.0] Share of the Milky Way background the cirrus sheet scatters into a glow; 1.0 is the isotropic single-scatter total.
 
-#define CLOUD_RECONSTRUCTION_MODE 0 // [0 1] 0 = continuous reconstruction, 1 = checkerboard reconstruction
+#define CLOUD_RECONSTRUCTION_MODE 1 // [0 1] 0 = continuous reconstruction, 1 = checkerboard reconstruction
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
 // Continuous reconstruction truncates u_render_res * CLOUD_CURRENT_SCALE.
 // Checkerboard reconstruction uses integer ceil division for partial blocks.

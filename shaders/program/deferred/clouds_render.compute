@@ -106,12 +106,23 @@ void main() {
     bool hit = false;
     vec3 cloud_data = vec3(0.0, 0.0, 1.0);
     if (cloud_visible) {
+#if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
+        // Checkerboard traces a scene pixel once per N*N frames, so the STBN
+        // slice must advance once per cycle, not once per frame: a per-frame
+        // index strides each pixel N*N slices between observations, which
+        // collapses the 64-slice set (N=4 keeps 4, N=2 keeps 16) and drops
+        // the consecutive-slice temporal integration. The skybox follows the
+        // same epoch rule for its own accumulation period.
+        int noise_frame = frameCounter / CLOUD_CHECKERBOARD_AREA;
+#else
         // x = view march jitter, y = light march base; the slice offset
         // decorrelates the two streams. The march advances every frame (its
         // temporal accumulator runs with or without TAA).
+        int noise_frame = frameCounter;
+#endif
         vec2 stbn_jitter = vec2(
-            SampleSTBN(sample_pos_i, frameCounter),
-            SampleSTBN(sample_pos_i, frameCounter + STBN_STREAM_3));
+            SampleSTBN(sample_pos_i, noise_frame),
+            SampleSTBN(sample_pos_i, noise_frame + STBN_STREAM_3));
         cloud_data = MarchVolumetricClouds(
             camera_atmosphere_pos,
             view_dir,

@@ -8,6 +8,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/material/alpha_test.glsl"
 #include "/lib/material/legacy.glsl"
 
 #ifndef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
@@ -32,7 +33,7 @@ void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
     vec4 albedo = texture(gtexture, v_texcoord.xy) * v_color;
-    if(albedo.a < 0.01) discard;
+    DiscardBelowAlphaTest(albedo.a, 0.001);
     vec3 base_color = ToLinear(albedo.rgb);
 
 #if defined(PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT)

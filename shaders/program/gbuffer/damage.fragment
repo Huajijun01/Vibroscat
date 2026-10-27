@@ -1,6 +1,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
+#include "/lib/material/alpha_test.glsl"
 
 /* RENDERTARGETS: 1 */
 
@@ -14,6 +15,6 @@ void main() {
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
     vec4 tex = texture(gtexture, v_texcoord) * v_color;
-    if (tex.a < 0.004) discard;
+    DiscardBelowAlphaTest(tex.a, 0.001);
     out_color = vec4(tex.rgb, 1.0);
 }

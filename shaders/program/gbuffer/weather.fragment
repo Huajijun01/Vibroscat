@@ -2,6 +2,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/color/spaces.glsl"
+#include "/lib/material/alpha_test.glsl"
 
 /* RENDERTARGETS: 11 */
 
@@ -22,7 +23,7 @@ void main() {
 #endif
     vec4 tex = texture(gtexture, v_texcoord);
     float alpha = tex.a * v_color.a;
-    if (alpha < 0.0001) discard;
+    DiscardBelowAlphaTest(alpha, 0.1);
     alpha *= u_rain_particle_opacity;
     // Decode before the blend. The attachment holds one value per pixel and the
     // fixed-function blend accumulates into it, so the sheet must enter that

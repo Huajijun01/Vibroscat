@@ -16,6 +16,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
+#include "/lib/material/alpha_test.glsl"
 #include "/lib/material/legacy.glsl"
 #include "/lib/material/translucent_surface.glsl"
 #include "/lib/raytrace/ssr.glsl"
@@ -68,7 +69,7 @@ void main() {
     // with the full direct BRDF: no SSR/Fresnel/water data.
     if (!is_water && !is_glass) {
 #endif
-    if (diffuse.a < 0.01) discard;
+    DiscardBelowAlphaTest(diffuse.a, 0.001);
     // Material from the specular map. A resource pack without a _s atlas
     // leaves Iris's 1x1 placeholder bound, so the fetch stays guarded and the
     // zero default (rough, non-metallic, non-emissive) holds.

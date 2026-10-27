@@ -17,6 +17,9 @@ uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 
+// -- Alpha test (Iris built-in; effective reference of the current draw) --
+uniform float alphaTestRef;
+
 // -- Camera / resolution (Iris built-ins + u_* from properties) --
 uniform vec3 cameraPosition;
 uniform ivec3 cameraPositionInt; // absolute integer camera position (rain texture anchoring)

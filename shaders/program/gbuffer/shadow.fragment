@@ -2,7 +2,8 @@
 // Shadow pass - fragment shader
 // ============================================================================
 //
-// alphaTest off in shaders.properties -> manual discard of alpha < 0.5.
+// Explicit out variables get no Iris-injected alpha test; the per-draw
+// reference arrives via alphaTestRef and USE_DISCARD casters apply it here.
 // RSM reuses the existing color attachment; depth remains an ordinary shadow map.
 // Depth is written by Iris to shadowtex0.
 
@@ -10,6 +11,7 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/material/alpha_test.glsl"
 #if defined(SHADOW_RSM_PAYLOAD_ACTIVE)
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/brdf.glsl"
@@ -43,7 +45,7 @@ void main() {
 #endif
 
 #ifdef USE_DISCARD
-    if (albedo.a < 0.5) discard;
+    DiscardBelowAlphaTest(albedo.a, 0.01);
 #endif
 
 #if defined(SHADOW_RSM_PAYLOAD_ACTIVE)

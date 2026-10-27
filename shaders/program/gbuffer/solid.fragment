@@ -48,6 +48,7 @@
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
 #include "/lib/geometry/fragment_position.glsl"
 #endif
+#include "/lib/material/alpha_test.glsl"
 #include "/lib/material/model.glsl"
 #if defined(RAIN_WETNESS_ACTIVE)
 #include "/lib/material/rain_wetness.glsl"
@@ -109,7 +110,13 @@ void main() {
 
     // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
 #ifdef USE_DISCARD
-    if (albedo_tex.a < 0.1) discard;
+    // Quad particles drop the vertex alpha in solid.vertex, so there the
+    // sprite alpha alone is the effective surface alpha.
+#ifdef PROGRAM_GBUFFERS_PARTICLES
+    DiscardBelowAlphaTest(albedo_tex.a, 0.001);
+#else
+    DiscardBelowAlphaTest(albedo_tex.a * v_color.a, 0.001);
+#endif
 #endif
 
     // -- albedo = texture x vertex color --
@@ -133,6 +140,8 @@ void main() {
     albedo = mix(albedo, entityColor.rgb, entityColor.a);
 #endif
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
+    // Pack special case: vanilla leaves the beam untested, and the beam
+    // texture's soft edge would otherwise render as a solid box.
     if (albedo_tex.a < 0.5) discard;
 #endif
 

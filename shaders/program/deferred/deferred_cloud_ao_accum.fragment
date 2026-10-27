@@ -28,6 +28,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/cloud/checkerboard.glsl"
 #include "/lib/cloud/temporal.glsl"
 #include "/lib/cloud/volumetric.glsl"
 #include "/lib/lighting/ao_history.glsl"
@@ -65,6 +66,46 @@ void main() {
         if (cloud_visible) {
             int pixel_age = int(imageLoad(uimg_clouds_age, tx).r * 255.0 + 0.5);
             int new_age = 1;
+#if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
+            float shell_distance = (view_dir.y < 0.0 && cloud_entry > 0.0) ? cloud_entry : cloud_exit;
+            ivec2 phase_offset = CloudCheckerboardOffset();
+            // One integer division serves both the phase test and the fetch:
+            // tx % N is exactly tx - (tx / N) * N.
+            ivec2 cell = tx / CLOUD_TEMPORAL_UPSCALING;
+            bool has_fresh = all(equal(tx - cell * CLOUD_TEMPORAL_UPSCALING, phase_offset));
+            vec4 raw_sample = texelFetch(colortex12, cell, 0);
+            has_fresh = has_fresh && raw_sample.a > 0.0;
+            CloudFrame current_frame;
+            if (has_fresh) {
+                current_frame.radiance = raw_sample.rgb;
+                current_frame.surface_distance = raw_sample.a;
+            } else {
+                current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
+            }
+            CloudFrame accumulated = current_frame;
+            if (frameCounter > 0) {
+                vec4 held_value = texelFetch(colortex8, tx, 0);
+                CloudFrame held;
+                held.radiance = held_value.rgb;
+                held.surface_distance = held_value.a;
+                float anchor_distance = !has_fresh && !CloudHistoryInvalid(held)
+                    ? held.surface_distance : current_frame.surface_distance;
+                vec2 previous_uv;
+                if (CloudProjectToPrevious(view_dir, anchor_distance, previous_uv)) {
+                    CloudFrame history = CloudCheckerboardHistory(previous_uv);
+                    if (!CloudHistoryInvalid(history)) {
+                        float motion_pixels = length((previous_uv - uv) * u_render_res);
+                        history = CloudCheckerboardClip(tx, history, motion_pixels);
+                        // Local warmup cannot follow large camera motion. Restart
+                        // its first-cycle policy when motion crosses one block.
+                        int accepted_age = motion_pixels > float(CLOUD_TEMPORAL_UPSCALING) ? 0 : pixel_age;
+                        accumulated = has_fresh
+                            ? CloudCheckerboardAccumulate(current_frame, history, accepted_age) : history;
+                        new_age = min(accepted_age + 1, max(CLOUD_HISTORY_FRAMES, CLOUD_CHECKERBOARD_AREA + 1));
+                    }
+                }
+            }
+#else
             CloudFrame current_frame = CloudSampleCurrentBilinear(tx);
             CloudFrame accumulated = current_frame;
             if (!CloudHistoryInvalid(current_frame) && frameCounter > 0) {
@@ -84,6 +125,7 @@ void main() {
                     }
                 }
             }
+#endif
             imageStore(uimg_clouds_age, tx, vec4(float(new_age) * (1.0 / 255.0), 0.0, 0.0, 0.0));
             out_history = vec4(accumulated.radiance, accumulated.surface_distance);
         } else {
@@ -106,6 +148,9 @@ void main() {
     vec2 resolved_ao = ReconstructAO(tx, scene_depth, geo_normal_oct);
     out_history = vec4(EncodeAOHistory(resolved_ao.x), resolved_ao.y,
         EncodeSquaredDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
+#if defined(VOLUMETRIC_CLOUDS) && CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
+    imageStore(uimg_clouds_age, tx, vec4(0.0));
+#endif
 #else
     // No standalone AO (clouds on): geometry pixels invalidate the cloud history.
 #ifdef VOLUMETRIC_CLOUDS

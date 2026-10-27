@@ -192,10 +192,14 @@ option.CIRRUS = Cirrus Clouds
 option.CIRRUS.comment = Thin high-altitude cloud sheet with silver-lining lighting. Far cheaper than volumetric clouds and independent of them.
 option.CLOUD_SINGLE_LIGHT = Single Light Trace
 option.CLOUD_SINGLE_LIGHT.comment = Traces one merged sun/moon direction instead of both lights separately. Cheaper; sunset glow is kept by extending the sun's color below the horizon. Off = both lights traced separately, each lighting the layer from its own side.
+option.CLOUD_RECONSTRUCTION_MODE = Cloud Reconstruction
+option.CLOUD_RECONSTRUCTION_MODE.comment = Continuous updates the whole cloud image from a moving low-resolution grid. Checkerboard updates selected pixels and reprojects the others. Both support every cloud resolution setting.
+value.CLOUD_RECONSTRUCTION_MODE.0 = Continuous
+value.CLOUD_RECONSTRUCTION_MODE.1 = Checkerboard
 option.CLOUD_TEMPORAL_UPSCALING = Temporal Upscaling
 option.CLOUD_TEMPORAL_UPSCALING.comment = Renders clouds at reduced resolution and rebuilds detail across frames. 1x = sharpest and slowest; 4x = fastest, may smear during fast camera movement.
 option.CLOUD_HISTORY_FRAMES = Cloud History Length Limit
-option.CLOUD_HISTORY_FRAMES.comment = How many frames accumulated cloud history stays trusted: higher = steadier clouds, slower response to wind and view changes.
+option.CLOUD_HISTORY_FRAMES.comment = Continuous history length, or the checkerboard history decay horizon in rendered frames. Higher values smooth more and respond more slowly. Checkerboard accounts for the interval between fresh samples.
 option.CLOUD_VIEW_MIN_STEPS = Minimum Steps
 option.CLOUD_VIEW_MIN_STEPS.comment = Sampling quality for nearby clouds: higher = fewer holes on close edges, slower.
 option.CLOUD_VIEW_MAX_STEPS = Maximum Steps

@@ -9,6 +9,7 @@
 #include "/lib/core/filters.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/render_scale.glsl"
+#include "/lib/cloud/checkerboard.glsl"
 
 struct CloudFrame {
     vec3 radiance;   // x = sun, y = moon, z = transmittance
@@ -112,5 +113,142 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
     result.surface_distance = current.surface_distance;
     return result;
 }
+
+#if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
+
+// Spatial fill is provisional. Only positive-distance current samples reached
+// the cloud interval; terrain and out-of-scene phases cannot contribute.
+// phase_offset is passed in because the caller already evaluated it for the
+// fresh-pixel test; the value is uniform per frame.
+CloudFrame CloudCheckerboardCurrent(ivec2 full_res_texel, ivec2 phase_offset, float shell_distance) {
+    vec2 grid = (vec2(full_res_texel) - vec2(phase_offset))
+        / float(CLOUD_TEMPORAL_UPSCALING);
+    ivec2 base = ivec2(floor(grid));
+    // fract(x) is exactly x - floor(x); base already holds the floor.
+    vec2 fraction = grid - vec2(base);
+    ivec2 grid_max = CloudCheckerboardSize() - 1;
+    vec3 radiance_sum = vec3(0.0);
+    float weight_sum = 0.0;
+    float nearest_squared = 1.0e30;
+    CloudFrame result;
+    result.radiance = vec3(0.0, 0.0, 1.0);
+    result.surface_distance = shell_distance;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            float weight = (x == 0 ? 1.0 - fraction.x : fraction.x)
+                * (y == 0 ? 1.0 - fraction.y : fraction.y);
+            // Zero-weight taps contribute nothing; skipping them before the
+            // fetch avoids texelFetches the result cannot use.
+            if (weight <= 0.0) continue;
+            ivec2 texel = clamp(base + ivec2(x, y), ivec2(0), grid_max);
+            vec4 sample_value = texelFetch(colortex12, texel, 0);
+            if (!(sample_value.a > 0.0)) continue;
+            radiance_sum += sample_value.rgb * weight;
+            weight_sum += weight;
+            vec2 delta = vec2(texel) - grid;
+            float delta_squared = dot(delta, delta);
+            if (delta_squared < nearest_squared) {
+                nearest_squared = delta_squared;
+                result.surface_distance = sample_value.a;
+            }
+        }
+    }
+    if (weight_sum > 0.0) result.radiance = radiance_sum / weight_sum;
+    return result;
+}
+
+// Reject the actual reprojected center, then clamp every filter tap to the
+// active scene rectangle. Distance uses that center sample, not cubic weights.
+CloudFrame CloudCheckerboardHistory(vec2 previous_uv) {
+    ivec2 center = clamp(ivec2(previous_uv * u_render_res), ivec2(0), ivec2(u_render_res) - 1);
+    vec4 center_value = texelFetch(colortex8, center, 0);
+    CloudFrame result;
+    result.radiance = center_value.rgb;
+    result.surface_distance = center_value.a;
+    if (CloudHistoryInvalid(result)) return result;
+    vec4 filtered = FastCatmullRom5Tap(colortex8, previous_uv * u_render_scale,
+        u_view_pixel_size, 0.5, 0.5 * u_view_pixel_size,
+        (u_render_res - 0.5) * u_view_pixel_size, true);
+    // AO markers crossing a filter footprint invalidate the whole sample.
+    if (any(isnan(filtered))) {
+        result.surface_distance = HISTORY_NO_CLOUD_DATA;
+        return result;
+    }
+    result.radiance = vec3(max(filtered.xy, vec2(0.0)), clamp(filtered.z, 1.0e-4, 1.0));
+    return result;
+}
+
+// Camera motion can carry history across a cloud silhouette. Bound the packed
+// scattering and optical depth with valid current rays, retaining a 1/8 range
+// margin to avoid forcing all interpolated detail into the coarse sample box.
+CloudFrame CloudCheckerboardClip(ivec2 full_res_texel, CloudFrame history, float motion_pixels) {
+    if (motion_pixels <= 1.0) return history;
+    ivec2 center = full_res_texel / CLOUD_TEMPORAL_UPSCALING;
+    ivec2 grid_max = CloudCheckerboardSize() - 1;
+    vec2 lower_xy = vec2(1.0e30);
+    vec2 upper_xy = vec2(-1.0e30);
+    float lower_z = 1.0e30;
+    float upper_z = -1.0e30;
+    bool has_support = false;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            ivec2 texel = clamp(center + ivec2(x, y), ivec2(0), grid_max);
+            vec4 sample_value = texelFetch(colortex12, texel, 0);
+            if (!(sample_value.a > 0.0)) continue;
+            lower_xy = min(lower_xy, sample_value.xy);
+            upper_xy = max(upper_xy, sample_value.xy);
+            lower_z = min(lower_z, sample_value.z);
+            upper_z = max(upper_z, sample_value.z);
+            has_support = true;
+        }
+    }
+    if (!has_support) return history;
+    // log is monotone and max(·,0) commutes with min/max, so the bounds
+    // reduce on raw values inside the loop and take one log/clamp each after.
+    vec3 lower_bound = vec3(max(lower_xy, vec2(0.0)), log(clamp(lower_z, 1.0e-4, 1.0)));
+    vec3 upper_bound = vec3(max(upper_xy, vec2(0.0)), log(clamp(upper_z, 1.0e-4, 1.0)));
+    vec3 margin = (upper_bound - lower_bound) * 0.125;
+    vec3 value = vec3(history.radiance.xy, log(clamp(history.radiance.z, 1.0e-4, 1.0)));
+    float strength = (motion_pixels - 1.0)
+        / (motion_pixels - 1.0 + float(CLOUD_TEMPORAL_UPSCALING));
+    value = mix(value, clamp(value, lower_bound - margin, upper_bound + margin), strength);
+    history.radiance = vec3(max(value.xy, vec2(0.0)), clamp(exp(value.z), 1.0e-4, 1.0));
+    return history;
+}
+
+// Local age measures consecutive accepted screen frames, not transported
+// observations. The first full cycle replaces provisional spatial fills.
+CloudFrame CloudCheckerboardAccumulate(CloudFrame current, CloudFrame history, int pixel_age) {
+    // First cycle: the fresh observation fully replaces the provisional fill.
+    // Returning current also skips exp(log(current.z)), which is current.z up
+    // to rounding, so the early-out is the more exact form of alpha = 1.
+    if (pixel_age < CLOUD_CHECKERBOARD_AREA) return current;
+    float dense_alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
+    // Constant integer exponent: exact multiplies replace the approximate
+    // pow(x, y) = exp2(y * log2(x)) chain and its negative-base hazard.
+    float retained = 1.0 - dense_alpha;
+#if CLOUD_TEMPORAL_UPSCALING == 2
+    float retained2 = retained * retained;
+    float decayed = retained2 * retained2;
+#elif CLOUD_TEMPORAL_UPSCALING == 3
+    float retained2 = retained * retained;
+    float retained4 = retained2 * retained2;
+    float decayed = retained4 * retained4 * retained;
+#else
+    float retained2 = retained * retained;
+    float retained4 = retained2 * retained2;
+    float retained8 = retained4 * retained4;
+    float decayed = retained8 * retained8;
+#endif
+    float alpha = 1.0 - decayed;
+    CloudFrame result;
+    result.radiance = vec3(mix(history.radiance.xy, current.radiance.xy, alpha),
+        exp(mix(log(clamp(history.radiance.z, 1.0e-4, 1.0)),
+            log(clamp(current.radiance.z, 1.0e-4, 1.0)), alpha)));
+    result.surface_distance = current.surface_distance;
+    return result;
+}
+
+#endif
 
 #endif // LIB_CLOUD_TEMPORAL_GLSL

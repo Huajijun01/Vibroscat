@@ -605,6 +605,21 @@ GGX VNDF and Smith model. Reflection history, compact mean storage, current-fram
 normal estimation, reconstruction and outlier suppression are independently
 implemented for this pack and distributed under its GPL-3.0 license.
 
+## 32. Cloud checkerboard reconstruction (concept study)
+
+The optional cloud reconstruction mode was independently designed after studying
+Photon v1.3b's `program/d1_clouds.fsh`, `program/d2_clouds_upscaling.fsh`, and
+`include/utility/checkerboard.glsl`, with Revelation-dev's cloud render and
+reconstruction programs as a comparison. Photon permits examination and learning
+under its custom license; Revelation uses Apache-2.0. Only general sampling,
+reprojection and reconstruction concepts were used. No source, offset table,
+distinctive constants or assets were copied or closely translated.
+The independent modular phase permutation, existing packed cloud signal and
+camera-only history operate in Vibroscat's existing pass and resource graph.
+
+Upstream: https://github.com/sixthsurge/photon and
+https://github.com/HaringPro/Revelation .
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

@@ -3,24 +3,23 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/core/noise.glsl"
+#include "/lib/cloud/checkerboard.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
-// Dispatch follows CLOUD_TEMPORAL_UPSCALING: Iris applies option defines and
-// runs a full C preprocessor before scanning these consts, so one plain
-// literal per branch is authoritative. The in-shader guard stays: dispatch
-// ceil() versus the truncated active rectangle keeps a <=1-texel edge
-// margin. The upscaling tier bounds main() with u_render_res *
-// CLOUD_CURRENT_SCALE - the same formula as CloudCurrentImageSize() in
-// lib/cloud/temporal.glsl - rather than via dispatch or imageSize(): with
-// TAAU the allocation is display-sized while the active scene rectangle is
-// smaller, so walking imageSize() would visit dead texels.
+// Iris ceil-divides screen-scaled invocations into 8x8 groups. The active
+// continuous grid truncates its extent; checkerboard retains partial blocks.
+// main() bounds both against scene resolution, including cropped TAAU.
 #if CLOUD_TEMPORAL_UPSCALING == 1
 const vec2 workGroupsRender = vec2(1.0, 1.0);
 #elif CLOUD_TEMPORAL_UPSCALING == 2
 const vec2 workGroupsRender = vec2(0.5, 0.5);
 #elif CLOUD_TEMPORAL_UPSCALING == 3
+#if CLOUD_RECONSTRUCTION_MODE == 1
+const vec2 workGroupsRender = vec2(0.333334, 0.333334);
+#else
 const vec2 workGroupsRender = vec2(0.333333, 0.333333);
+#endif
 #else
 const vec2 workGroupsRender = vec2(0.25, 0.25);
 #endif
@@ -36,6 +35,16 @@ void main() {
     return;
 #endif
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+#if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
+    ivec2 render_size = CloudCheckerboardSize();
+    if (any(greaterThanEqual(id, render_size))) return;
+    ivec2 sample_pos_i = id * CLOUD_TEMPORAL_UPSCALING + CloudCheckerboardOffset();
+    if (any(greaterThanEqual(sample_pos_i, ivec2(u_render_res)))) {
+        imageStore(colorimg12, id, vec4(0.0, 0.0, 1.0, 0.0));
+        return;
+    }
+    vec2 sample_pos = vec2(sample_pos_i) + 0.5;
+#else
     ivec2 render_size = max(ivec2(u_render_res * CLOUD_CURRENT_SCALE), ivec2(1));
     if (any(greaterThanEqual(id, render_size))) return;
 
@@ -53,6 +62,7 @@ void main() {
         ivec2(0),
         ivec2(u_render_res) - ivec2(1)
     );
+#endif
     vec2 uv = sample_pos * u_render_pixel_size;
     vec3 view_dir = normalize(
         mat3(gbufferModelViewInverse) * NDCToView(vec3(uv * 2.0 - 1.0, 1.0))
@@ -116,6 +126,11 @@ void main() {
         surface_position = vec3(0.0);
     }
 
+#if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
+    // A ray that never reached the cloud interval cannot anchor sky history.
+    // A traced but clear interval keeps its positive shell distance.
+    if (!cloud_visible) cloud_top_distance = 0.0;
+#endif
     vec4 frame;
     if (hit) {
         float distance_km = length(surface_position - camera_atmosphere_pos);

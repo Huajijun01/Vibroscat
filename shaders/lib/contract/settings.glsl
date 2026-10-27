@@ -77,10 +77,11 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_MILKYWAY_TRANSMISSION 0.1 // [0.1 0.2 0.3 0.5 0.75 1.0] Share of the Milky Way background the volumetric layer scatters into a glow; 1.0 is the isotropic single-scatter total.
 #define CIRRUS_MILKYWAY_TRANSMISSION 0.3 // [0.1 0.2 0.3 0.5 0.6 0.75 1.0] Share of the Milky Way background the cirrus sheet scatters into a glow; 1.0 is the isotropic single-scatter total.
 
+#define CLOUD_RECONSTRUCTION_MODE 0 // [0 1] 0 = continuous reconstruction, 1 = checkerboard reconstruction
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
-// Active cloud rectangle in the existing colortex12 alt workspace. Compute
-// and temporal upsampling both truncate u_render_res * CLOUD_CURRENT_SCALE;
-// the backing texture stays display-sized, including under TAAU.
+// Continuous reconstruction truncates u_render_res * CLOUD_CURRENT_SCALE.
+// Checkerboard reconstruction uses integer ceil division for partial blocks.
+// Both use colortex12 alt inside its display-sized allocation, including TAAU.
 #if CLOUD_TEMPORAL_UPSCALING == 1
 const vec2 CLOUD_CURRENT_SCALE = vec2(1.0);
 #elif CLOUD_TEMPORAL_UPSCALING == 2
@@ -90,7 +91,7 @@ const vec2 CLOUD_CURRENT_SCALE = vec2(0.333333);
 #else
 const vec2 CLOUD_CURRENT_SCALE = vec2(0.25);
 #endif
-#define CLOUD_HISTORY_FRAMES 24 // [8 12 16 24 32 48] accepted-frame/history-weight cap
+#define CLOUD_HISTORY_FRAMES 24 // [8 12 16 24 32 48] continuous history cap or checkerboard decay horizon
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define HISTORY_NO_CLOUD_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 

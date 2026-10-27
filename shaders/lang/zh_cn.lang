@@ -192,10 +192,14 @@ option.CIRRUS = 卷云
 option.CIRRUS.comment = 高空的薄云层，带银边光照。远比体积云便宜，且与体积云互相独立。
 option.CLOUD_SINGLE_LIGHT = 日月合并追踪
 option.CLOUD_SINGLE_LIGHT.comment = 把太阳和月亮合并为一个方向只追踪一次，开销更低；日落霞光靠将太阳颜色延伸到地平线以下保留。关闭后日月分别追踪，各自独立照亮云层，开销更高。
+option.CLOUD_RECONSTRUCTION_MODE = 云重建模式
+option.CLOUD_RECONSTRUCTION_MODE.comment = 连续模式每帧从移动的低分辨率网格重建整幅云图；棋盘格模式更新选中的像素，其余像素重投影历史。两种模式均支持所有云分辨率设置。
+value.CLOUD_RECONSTRUCTION_MODE.0 = 连续上采样
+value.CLOUD_RECONSTRUCTION_MODE.1 = 棋盘格
 option.CLOUD_TEMPORAL_UPSCALING = 时域上采样
 option.CLOUD_TEMPORAL_UPSCALING.comment = 以较低分辨率渲染云，跨帧重建细节。1x = 最清晰最慢；4x = 最快，快速转视角时可能轻微拖影。
 option.CLOUD_HISTORY_FRAMES = 云历史长度上限
-option.CLOUD_HISTORY_FRAMES.comment = 云的历史累积被信任的帧数上限：越高云越稳定，对风和视角变化反应越慢。
+option.CLOUD_HISTORY_FRAMES.comment = 连续模式的历史长度，或棋盘格模式按渲染帧计的历史衰减周期。数值越高越平滑、响应越慢；棋盘格权重会考虑新样本之间的帧间隔。
 option.CLOUD_VIEW_MIN_STEPS = 最小步数
 option.CLOUD_VIEW_MIN_STEPS.comment = 近处云的采样精度：越高近处云缘越少空洞，速度越慢。
 option.CLOUD_VIEW_MAX_STEPS = 最大步数

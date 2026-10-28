@@ -586,6 +586,11 @@ const float centerDepthHalflife = 1.0;
 #define SSGI_DIRECTIONAL_SKY_ACTIVE
 #endif
 
+// Visual lighting diagnostics retain the fused path; Iris profiling debug is independent.
+#if (defined(VOLUMETRIC_CLOUDS) || (GI_MODE == 0 && AO_MODE != 0) || GI_MODE == 1) && CONTACT_SHADOW_DEBUG == 0 && SHADOW_SSS_DEBUG == 0 && OPAQUE_SSR_DEBUG == 0 && RSM_DEBUG == 0
+#define EARLY_DIRECT_LIGHTING
+#endif
+
 #if defined(AO_TEMPORAL)
 #define AO_TEMPORAL_ENABLED
 #endif

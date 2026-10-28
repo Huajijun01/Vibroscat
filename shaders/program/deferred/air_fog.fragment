@@ -51,7 +51,7 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
 }
 #endif
 
-// Effective optical depth of the weather sheet. colortex11 carries the linear
+// Effective optical depth of the weather sheet. colortex4 carries the linear
 // sheet color premultiplied by coverage in RGB, and the coverage in A; the
 // weather pass writes neither depth nor the G-buffer, so the sheet owns no
 // normal, material, or depth of its own and is lit as a thin scattering layer
@@ -113,7 +113,7 @@ void main() {
     // Direct light arrives through a Mie lobe, which is what makes streaks
     // glow when the light sits behind them. The sheet is composited after
     // boundary fog because it hangs within a few blocks of the camera.
-    vec4 weather = texelFetch(colortex11, tx, 0);
+    vec4 weather = texelFetch(colortex4, tx, 0);
     if (weather.a > 0.0) {
         float weather_cos_theta = dot(world_dir, u_world_light_dir);
         // EvalSkyLight(vec3(0,1,0)) with the constant up direction folded:
@@ -127,7 +127,7 @@ void main() {
             + ground_light.rgb * PhaseHenyeyGreenstein(weather_cos_theta, 0.5);
         vec3 weather_radiance = weather.rgb * weather_scattering
             * WEATHER_SHEET_OPTICAL_DEPTH;
-        // colortex11 stores the premultiplied sheet color in linear space: the
+        // colortex4 stores the premultiplied sheet color in linear space: the
         // gbuffers SRC_ALPHA blend already scaled RGB by coverage on write, and
         // gbuffers_weather decoded before writing so that blend stays linear.
         // Composite premultiplied-over; multiplying by weather.a again would

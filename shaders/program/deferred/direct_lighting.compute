@@ -1,0 +1,61 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/packing.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/color/spaces.glsl"
+#include "/lib/material/model.glsl"
+#include "/lib/material/opaque_surface.glsl"
+#include "/lib/lighting/opaque_direct.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+#ifdef EARLY_DIRECT_LIGHTING
+const vec2 workGroupsRender = vec2(1.0, 1.0);
+layout(r11f_g11f_b10f) uniform restrict writeonly image2D colorimg0;
+layout(r11f_g11f_b10f) uniform restrict writeonly image2D colorimg5;
+#else
+// Visual diagnostics disable the deferred_b letter; fused deferred4 owns direct.
+const ivec3 workGroups = ivec3(1, 1, 1);
+#endif
+
+void main() {
+#ifdef EARLY_DIRECT_LIGHTING
+    ivec2 tx = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(tx, ivec2(u_render_res)))) return;
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
+    if (scene_depth >= 1.0) {
+        imageStore(colorimg0, tx, vec4(0.0));
+        imageStore(colorimg5, tx, vec4(0.0));
+        return;
+    }
+    vec4 g1 = texelFetch(colortex1, tx, 0);
+    vec4 surface = texelFetch(colortex11, tx, 0);
+    vec4 material_data = UnpackOpaqueMaterial(surface);
+    vec4 geometry_data = texelFetch(colortex4, tx, 0);
+    int material_id = int(g1.a * 255.0 + 0.5);
+    vec3 albedo = ToLinear(g1.rgb);
+    PBRMaterial material = ResolveOpaquePBR(albedo,
+        material_data.r, material_data.g, material_data.b, 0.0);
+    vec3 normal_world = DecodeOctahedralNormal(surface.rg);
+    vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
+    vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
+#ifdef TAA
+    uv -= u_taa_offset * 0.5;
+#endif
+    float ndc_depth = scene_depth * 2.0 - 1.0;
+    if (material_id == 64) ndc_depth /= MC_HAND_DEPTH;
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
+    vec3 world_pos = ViewToWorldSpace(view_pos);
+    vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
+    float ndotv = saturate(dot(normal_world, view_to_eye));
+    vec3 caustic_brdf;
+    vec3 diffuse_reflectance;
+    bool diagnostic_output;
+    vec3 direct_rgb = EvaluateOpaqueDirectLight(tx, albedo, material, material_id,
+        material_data.a, geometry_data.w, normal_world, geo_normal, view_pos,
+        world_pos, view_to_eye, ndotv, caustic_brdf, diffuse_reflectance,
+        diagnostic_output);
+    imageStore(colorimg0, tx, vec4(direct_rgb, 0.0));
+    imageStore(colorimg5, tx, vec4(caustic_brdf, 0.0));
+#endif
+}

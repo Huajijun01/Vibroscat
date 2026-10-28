@@ -2,8 +2,8 @@
 // Deferred cloud/AO history fragment: cloud temporal upsampling and guided
 // reconstruction of accumulated screen-space AO (GTAO or SSAO).
 // ============================================================================
-// Runs after the deferred1 computes (clouds_render, ao.compute) in the same
-// program: clouds_render produces fresh inputs; ao.compute accumulates AO.
+// Runs after the deferred1 cloud/AO computes in the same program.
+// Clouds and AO supply this history; direct RGB is consumed by later passes.
 // This fragment writes one merged full-res history frame to colortex8.
 // The two histories are spatially exclusive (depth branch):
 //   sky:      RGBA = radiance.rgb + distance (NaN/0 rejected by cloud validation)

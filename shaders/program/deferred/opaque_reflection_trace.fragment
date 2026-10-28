@@ -13,6 +13,7 @@
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/specular_material_factor.glsl"
 #include "/lib/material/model.glsl"
+#include "/lib/material/opaque_surface.glsl"
 #include "/lib/raytrace/ssr.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/raytrace/opaque_reflection_history.glsl"
@@ -40,12 +41,13 @@ void main() {
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     if (scene_depth >= 1.0) return;
 
-    vec4 material_data = texelFetch(colortex2, tx, 0);
+    vec4 surface = texelFetch(colortex11, tx, 0);
+    vec2 material_data = UnpackOpaqueReflectance(surface);
     vec4 albedo_data = texelFetch(colortex1, tx, 0);
     int material_id = int(albedo_data.a * 255.0 + 0.5);
     bool is_hand = material_id == 64;
     if (material_data.r >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
-    vec3 normal_world = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
+    vec3 normal_world = DecodeOctahedralNormal(surface.rg);
 
     // Move the ray origin off the rasterized geometric surface before
     // marching. Reflection direction and BRDF still use the material normal;
@@ -111,7 +113,7 @@ void main() {
         : vec3(0.0);
 #else
     PBRMaterial material = ResolveOpaquePBR(ToLinear(albedo_data.rgb),
-        material_data.r, material_data.g, material_data.b, 0.0);
+        material_data.r, material_data.g, 0.0, 0.0);
     float ndotv = saturate(dot(normal_world, view_to_eye));
     vec3 throughput = VisibleGGXThroughput(material.f0, saturate(dot(view_to_eye, half_vector)),
         ndotv, valid_direction ? saturate(dot(normal_world, reflection_direction)) : 0.0, material.alpha);

@@ -7,6 +7,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/color/spaces.glsl"
+#include "/lib/material/opaque_surface.glsl"
 
 // RGB is the unblurred mean of Z = (Li * sampled throughput) / material factor.
 // RGB is stored directly in colortex3; metadata carries no color bits.
@@ -115,13 +116,12 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     if (all(equal(current_texel, receiver_texel))) return plane_weight;
     float current_depth = texelFetch(depthtex0, current_texel, 0).r;
     if (current_depth >= 1.0) return 0.0;
-    // Depth first: sky does not write the opaque workspace. BA duplicates
-    // the exact UNORM8 material codes; negative B rejects the view model.
-    vec4 proxy = texelFetch(colortex12, current_texel, 0);
-    if (proxy.b < 0.0) return 0.0;
-    vec2 current_material = round(proxy.ba * 255.0) * (1.0 / 255.0);
+    // Depth first: sky does not write the opaque surface packet.
+    vec4 proxy = texelFetch(colortex11, current_texel, 0);
+    vec2 current_material = UnpackOpaqueReflectance(proxy);
     if (abs(current_material.x - guide.material.x) > 0.025
             || abs(current_material.y - guide.material.y) > 1.5 / 255.0) return 0.0;
+    if (int(texelFetch(colortex1, current_texel, 0).a * 255.0 + 0.5) == 64) return 0.0;
     vec2 center_uv = (vec2(current_texel) + 0.5) * u_render_pixel_size;
     float visible_z = -LinearDepthFromScreenDepth(current_depth);
     vec2 ray_xy = (center_uv * 2.0 - 1.0)

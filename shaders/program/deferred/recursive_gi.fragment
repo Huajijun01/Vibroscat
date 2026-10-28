@@ -2,6 +2,7 @@
 /* RENDERTARGETS: 9,10 */
 
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/material/opaque_surface.glsl"
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
@@ -29,7 +30,8 @@
 //   https://www.shadertoy.com/view/lfdBWn)
 // The slice sampler's fast arctangent is from
 //   https://www.shadertoy.com/view/lXBfWm
-// colortex5 is read-only scene radiance from the existing pipeline; this pass
+// Normal rendering reads current direct RGB from colortex0; diagnostics retain
+// the colortex5 history source. This pass
 // fuses the current estimate with unblurred GI history in colortex9. Metadata
 // in colortex10 records the selected receiver; deferred4 reconstructs spatially.
 // Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
@@ -270,17 +272,28 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         if (visible != 0u) {
             float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
             // A covered sector always removes its share of the SH fallback,
-            // whether or not its radiance can be read back. A hit that
-            // reprojects off screen contributes no radiance but still occludes,
-            // so no fallback energy is granted to a covered direction.
+            // whether or not its radiance can be read back. Unavailable source
+            // data still occludes, so covered directions gain no sky fallback.
             hit_coverage += visible_weight;
+#ifdef EARLY_DIRECT_LIGHTING
+            ivec2 source_texel = min(ivec2(sample_uv * u_render_res), ivec2(u_render_res) - 1);
+            int source_id = int(texelFetch(colortex1, source_texel, 0).a * 255.0 + 0.5);
+            // depthtex2 sees the world behind the hand; its visible RGB is unavailable.
+            if (source_id != 64) {
+#else
+            // Visual diagnostics retain their original history source.
             vec2 previous_uv = ToPrevious(vec3(sample_uv, sample_depth)).xy;
             if (all(greaterThanEqual(previous_uv, vec2(0.0)))
                     && all(lessThan(previous_uv, vec2(1.0)))) {
+#endif
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred4
                 // consumes it with the same unit as AmbientLight().
+#ifdef EARLY_DIRECT_LIGHTING
+                vec3 incident_irradiance = texelFetch(colortex0, source_texel, 0).rgb * PI;
+#else
                 vec3 incident_irradiance = textureLod(colortex5, previous_uv, 0.0).rgb * PI;
+#endif
                 gi += incident_irradiance * visible_weight;
 #if !defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
                 // Only the non-directional caller consumes the march second
@@ -351,8 +364,9 @@ void main() {
     float sample_sigma;
     vec3 gi_noise = SampleGINoise(tx, frameCounter);
 #if GI_MODE == 2
-    vec4 surface_data = texelFetch(colortex2, tx, 0);
-    vec3 sky_normal = DecodeOctahedralNormal(texelFetch(colortex12, tx, 0).rg);
+    vec4 surface = texelFetch(colortex11, tx, 0);
+    vec4 surface_data = UnpackOpaqueMaterial(surface);
+    vec3 sky_normal = DecodeOctahedralNormal(surface.rg);
     // Evaluate at the actual GI receiver. Both its AO-weighted sky and RSM
     // bounce enter the same temporal history and guided reconstruction.
     vec2 ao_noise = SampleSTBNPair(tx / 2, frameCounter, STBN_STREAM_3, ivec2(0));

@@ -24,8 +24,8 @@ const vec2 workGroupsRender = vec2(0.333333, 0.333333);
 const vec2 workGroupsRender = vec2(0.25, 0.25);
 #endif
 
-// deferred_pre selects the existing alt workspace; opaque shading normals
-// stay untouched in main until deferred2/3/4 consume them.
+// deferred_pre selects the existing alt workspace; opaque surface inputs
+// remain independently readable in colortex11.
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 void main() {

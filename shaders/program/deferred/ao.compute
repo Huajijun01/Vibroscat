@@ -6,13 +6,13 @@
 // kernel (ComputeGTAOFromGeometry / ComputeSSAOFromGeometry) at a fixed receiver in that block.
 // Every half-res texel is evaluated every frame. deferred1 reconstructs
 // the accumulated field with depth/normal guidance on this exact lattice.
-// Runs with cloud compute in deferred1; the two write distinct textures.
+// Runs with the cloud compute in deferred1; outputs are disjoint.
 //
 // Storage: lower-left ceil-half-res rectangle of the RGBA8 workspace:
 // R = accumulated raw AO, GB = exact receiver octahedral geometric normal,
 // A = history age / 255. The receiver is the lower-left pixel of each block.
-// deferred_pre selects alt; deferred1 samples it, then restores the opaque
-// material scalars on main. Raw AO (no multibounce/strength): the nonlinear
+// deferred_pre selects alt; deferred1 samples it, then restores the original
+// selection before deferred4 clears the next translucent side. Raw AO (no multibounce/strength): the nonlinear
 // transforms are applied by the lighting consumer after the temporal blend (the
 // accumulated field stays linear).
 

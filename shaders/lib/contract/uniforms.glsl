@@ -113,11 +113,11 @@ uniform sampler2D depthtex2;
 uniform sampler2D gtexture;       // block/entity albedo atlas
 uniform sampler2D normals;        // LabPBR normal atlas (1x1 fallback = none)
 uniform sampler2D specular;       // LabPBR specular atlas (1x1 fallback = none)
-uniform sampler2D colortex0;      // scene color (post chain input)
+uniform sampler2D colortex0;      // early direct RGB + emission, then scene color
 uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
-uniform sampler2D colortex2;      // opaque/translucent surface data
+uniform sampler2D colortex2;      // AO scratch / translucent surface data
 uniform sampler2D colortex3;      // direct demodulated temporal RGB mean
-uniform sampler2D colortex4;      // geometric normal + lightmap
+uniform sampler2D colortex4;      // geometric normal/lightmap main; weather alt
 uniform sampler2D colortex5;      // TAA history; deferred4 overwrites it with the direct BRDF (water caustics)
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
 uniform usampler2D colortex6;     // packed 64-bit SSR metadata; integer texelFetch only
@@ -125,8 +125,8 @@ uniform usampler2D colortex6;     // packed 64-bit SSR metadata; integer texelFe
 uniform sampler2D colortex8;      // merged cloud/AO history (flip pair)
 uniform sampler2D colortex9;      // half-res unblurred temporal GI irradiance
 uniform sampler2D colortex10;     // half-res GI receiver geometry and age
-uniform sampler2D colortex11;    // weather
-uniform sampler2D colortex12;     // opaque normal/material proxy, then sequential post workspace
+uniform sampler2D colortex11;    // RGBA16 opaque normal/material packet
+uniform sampler2D colortex12;     // cloud scratch, translucent and post workspace
 
 // -- Shadow bindings and transforms --
 uniform mat4 shadowModelView;

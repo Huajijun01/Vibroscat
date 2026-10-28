@@ -4,7 +4,7 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/material/alpha_test.glsl"
 
-/* RENDERTARGETS: 11 */
+/* RENDERTARGETS: 4 */
 
 // Coverage fraction from u_rain_particle_opacity = mix(1.0, 0.4, u_rain_biome):
 // u_rain_biome is the smoothed camera-biome precipitation weight (1 in a rain

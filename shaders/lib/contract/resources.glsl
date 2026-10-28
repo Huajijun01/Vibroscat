@@ -10,23 +10,18 @@
 // ============================================================================
 //
 // Buffer map (deferred pipeline):
-//   colortex0   R11F_G11F_B10F   Scene color (post-processed) / TAA input
+//   colortex0   R11F_G11F_B10F   Early direct RGB + emission, then scene color / TAA input
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
-//   colortex2   RGBA8            Opaque roughness/selector/emission/AO on main;
-//                                deferred1 borrows alt for half-res AO/normal/age
-//                                and flips back to main for SSR/GI/shading; then low
-//                                bytes of translucent RGB UNORM16 surface data;
-//                                colortex1 RGB carries the high bytes while its
-//                                material-ID alpha survives. A = water flag.
+//   colortex2   RGBA8            deferred1_a half-res AO workspace on alt;
+//                                later translucent RGB UNORM16 low bytes/flag,
+//                                paired with colortex1 high bytes/material ID
 //   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, direct RGB
-//   colortex4   RGBA8            Opaque geometric world normal (RG, octahedral) +
-//                                lightmap (BA) (solid -> deferred4)
-//   colortex5   R11F_G11F_B10F   TAA history; deferred4 overwrites it with the
-//                                direct-light BRDF for composite1's water caustics,
-//                                and composite1 flips the TAA side back afterwards.
-//                                Optional history-side color mips are generated
-//                                before deferred2 only. Other readers explicitly
-//                                select mip 0 after later writes.
+//   colortex4   RGBA8            Main: geometric world normal RG + lightmap BA;
+//                                alt: weather sheet, selected after deferred4
+//   colortex5   R11F_G11F_B10F   Persistent scene history H; early direct compute
+//                                writes caustic BRDF to W. Fused fallback writes
+//                                W in deferred4. Composite flips expose W then H.
+//                                Optional SSR mips are generated only on H.
 //   colortex6   RGBA16UI         SSR depth16/rough8/selector8/unused8/age5/state3/
 //                                log-variance16; no historical normal or M
 //   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
@@ -39,17 +34,11 @@
 //   colortex10  RGBA16F          Half-res GI history: oct6 normal/change count,
 //                                luminance second moment, view depth,
 //                                packed real age/receiver selector/source
-//   colortex11  RGBA8            Weather sheet: coverage (A) and linear radiance
-//                                premultiplied by coverage (RGB; gbuffers_weather decodes
-//                                before writing and the SRC_ALPHA blend applies the
-//                                coverage on write); written by gbuffers_weather,
-//                                composited by air fog
+//   colortex11  RGBA16          Opaque surface: RG oct8 world shading normal;
+//                                B rough8/selector8, A emission8/AO8, UNORM16 pairs
 //   colortex12  RGBA16F          Sequential workspace:
-//                                opaque main RG = oct shading world normal;
-//                                BA = roughness/selector proxy (B=-1 hand);
 //                                deferred1 alt = low-res cloud current frame;
-//                                flip back to main for deferred2/3/4 normals;
-//                                deferred4 clears alt and flips, then
+//                                deferred4 clears alt for translucency, then
 //                                1. translucent premultiplied-over color + alpha
 //                                2. composite1 refracts, fogs and over-composites once
 //                                3. bloom pyramid workspace
@@ -76,7 +65,7 @@ const int colortex5Format  = R11F_G11F_B10F;
 const int colortex8Format  = RGBA16F;  // sky: cloud radiance/distance; geometry: AO*1020 integer, age, encoded view depth, A=NaN
 const int colortex9Format  = RGB16F; // half-res temporal irradiance (deferred3)
 const int colortex10Format = RGBA16F; // half-res GI geometry/age history (deferred3)
-const int colortex11Format = RGBA8;           // weather texture
+const int colortex11Format = RGBA16;          // normalized opaque surface packet
 const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
 */
@@ -92,16 +81,16 @@ const bool colortex6Clear = false;
 // true = cleared each frame before shader writes. false = carry data across frames.
 const bool colortex0Clear  = false;   // scene output
 const bool colortex1Clear  = false;   // GBuffer albedo
-const bool colortex2Clear  = false;   // GBuffer scalars, then translucent low bytes/flag
+const bool colortex2Clear  = false;   // AO scratch, then translucent low bytes/flag
 const bool colortex3Clear  = false;   // unblurred opaque reflection history
-const bool colortex4Clear  = false;   // opaque geometric world normal + lightmap
+const bool colortex4Clear  = true;    // weather alt must start transparent
 const bool colortex5Clear  = false;  // TAA history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
 const bool colortex9Clear  = false;   // unblurred temporal GI history
 const bool colortex10Clear = false;   // actual previous GI receiver geometry/age
-const bool colortex11Clear = true;   // weather texture
-// colortex12 hands one buffer forward through the frame: solid writes the
-// shading normal, deferred4 zero-fills the active scene before translucency,
+const bool colortex11Clear = false;  // opaque geometry overwrites before depth-valid reads
+// colortex12 hands one buffer forward through the frame: clouds use alt,
+// deferred4 zero-fills the active scene before translucency,
 // bloom rewrites each atlas tile before sampling it, and tonemap rewrites the
 // whole display rect. TAAU's inactive margin is never read, and Iris still
 // clears on allocation and resize, so the recurring clear only re-zeroes

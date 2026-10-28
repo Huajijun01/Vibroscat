@@ -445,6 +445,8 @@ option.RSM_SAMPLES.comment = Bounce samples per half-resolution GI pixel per fra
 option.RSM_RADIUS = RSM Radius
 suffix.RSM_RADIUS = \ m
 option.RSM_RADIUS.comment = How wide an area each pixel gathers bounce light from: higher = broader, softer color bleeding.
+option.SSGI_STRENGTH = SSGI Bounce Strength
+option.SSGI_STRENGTH.comment = Scales bounced direct light and emission after the bounce limit. Leaves direct lighting and visible sky ambient unchanged. Reloads GI history when changed.
 option.SSGI_STEPS = SSGI Steps
 option.SSGI_STEPS.comment = Depth samples traced per half-resolution GI pixel, default 16: higher = better trace detail, slower.
 option.SSGI_MARCH_PIXELS = SSGI March Width Cap
@@ -454,7 +456,7 @@ option.SSGI_THICKNESS = SSGI Thickness
 suffix.SSGI_THICKNESS = \ m
 option.SSGI_THICKNESS.comment = Assumed thickness of hit surfaces: higher = thin geometry blocks bounce light (less leak); lower = more light passes through.
 option.SSGI_RADIANCE_LIMIT = SSGI Radiance Limit
-option.SSGI_RADIANCE_LIMIT.comment = Caps the stored bounce light: lower = fewer bright firefly sparkles, dimmer bounce highlights.
+option.SSGI_RADIANCE_LIMIT.comment = Caps unscaled bounced light before bounce strength; visible sky ambient is excluded.
 option.SSGI_DIRECTIONAL_SKY = Directional Sky Light
 option.SSGI_DIRECTIONAL_SKY.comment = Lets nearby walls and overhangs tint the sky ambient of the screen-space GI by the directions they block: directional L0/L1 visibility with the L2 band scaled by open visibility. An approximation. Requires SSGI in the Overworld. Adds GPU cost; on by default.
 option.RSM_STRENGTH = RSM Strength

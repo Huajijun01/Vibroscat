@@ -76,7 +76,7 @@ void main() {
     vec4 spec_tex = vec4(0.0);
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord.xy);
     Material mat = MaterialDefaults(spec_tex);
-    // Same BRDF configuration as deferred4 (shared BRDF helper).
+    // Same BRDF configuration as deferred5 (shared BRDF helper).
     vec3 surface_normal_view = normalize(v_normal);
     vec3 view_to_eye = -normalize(view_pos);
     vec3 direct_lighting;

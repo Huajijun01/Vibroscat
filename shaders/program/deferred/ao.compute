@@ -4,15 +4,15 @@
 // Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/(16,32)),
 // local 16x32). Each invocation covers one 2x2 full-res block, evaluates the
 // kernel (ComputeGTAOFromGeometry / ComputeSSAOFromGeometry) at a fixed receiver in that block.
-// Every half-res texel is evaluated every frame. deferred1 reconstructs
+// Every half-res texel is evaluated every frame. deferred2 reconstructs
 // the accumulated field with depth/normal guidance on this exact lattice.
-// Runs with the cloud compute in deferred1; outputs are disjoint.
+// Runs with the cloud compute in deferred2; outputs are disjoint.
 //
 // Storage: lower-left ceil-half-res rectangle of the RGBA8 workspace:
 // R = accumulated raw AO, GB = exact receiver octahedral geometric normal,
 // A = history age / 255. The receiver is the lower-left pixel of each block.
-// deferred_pre selects alt; deferred1 samples it, then restores the original
-// selection before deferred4 clears the next translucent side. Raw AO (no multibounce/strength): the nonlinear
+// deferred_pre selects alt; deferred2 samples it, then restores the original
+// selection before deferred5 clears the next translucent side. Raw AO (no multibounce/strength): the nonlinear
 // transforms are applied by the lighting consumer after the temporal blend (the
 // accumulated field stays linear).
 
@@ -65,7 +65,7 @@ void main() {
 #elif defined(SSAO)
     float ao = ComputeSSAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
 #else
-    // Unreachable while deferred1_a is scheduled (AO_MODE != 0 with
+    // Unreachable while deferred2_a is scheduled (AO_MODE != 0 with
     // GI_MODE == 0 implies GTAO or SSAO); keeps `ao` defined if that gating
     // and these macros ever drift apart.
     float ao = 1.0;

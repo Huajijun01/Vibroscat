@@ -113,12 +113,12 @@ uniform sampler2D depthtex2;
 uniform sampler2D gtexture;       // block/entity albedo atlas
 uniform sampler2D normals;        // LabPBR normal atlas (1x1 fallback = none)
 uniform sampler2D specular;       // LabPBR specular atlas (1x1 fallback = none)
-uniform sampler2D colortex0;      // early direct RGB + emission, then scene color
+uniform sampler2D colortex0;      // deferred1 direct RGB + emission, then scene color
 uniform sampler2D colortex1;      // GBuffer albedo sRGB / materialID
 uniform sampler2D colortex2;      // AO scratch / translucent surface data
 uniform sampler2D colortex3;      // direct demodulated temporal RGB mean
 uniform sampler2D colortex4;      // geometric normal/lightmap main; weather alt
-uniform sampler2D colortex5;      // TAA history; deferred4 overwrites it with the direct BRDF (water caustics)
+uniform sampler2D colortex5;      // TAA history; the deferred1 direct fragment writes the caustic BRDF to the opposite side
 #if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
 uniform usampler2D colortex6;     // packed 64-bit SSR metadata; integer texelFetch only
 #endif

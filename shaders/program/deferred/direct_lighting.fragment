@@ -1,0 +1,79 @@
+// ============================================================================
+// Direct lighting fragment: the complete current directional response
+// (BRDF, visibility, plant transmission, emission) evaluated once per opaque
+// pixel.
+// ============================================================================
+// Runs as deferred1 in all three dimensions, before clouds/AO (deferred2),
+// opaque SSR (deferred3), GI (deferred4) and shading (deferred5).
+// Writes the non-selected side of both targets: colortex0's fresh direct RGB
+// auto-flips to selected for every later consumer; colortex5 receives the
+// caustic BRDF on W, and flip.deferred1.colortex5=false in shaders.properties
+// keeps the history side selected so SSR and TAA keep reading H.
+// Sky pixels discard: no consumer reads either target at sky texels (deferred4
+// samples only at geometry hits; deferred5 takes its sky branch before the
+// direct read; caustics sample only at receiver projections), and this pass
+// has no depth attachment, so discarding loses no early-Z. Inputs:
+// depthtex0, colortex1/4/11, shadow maps, sky-light SSBO, STBN noise.
+// Evaluator-internal debug views (CONTACT_SHADOW_DEBUG, SHADOW_SSS_DEBUG)
+// leave this pass as the colortex0 color; deferred5 passes them through.
+
+/* RENDERTARGETS: 0,5 */
+
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
+#include "/lib/core/packing.glsl"
+#include "/lib/core/render_scale.glsl"
+#include "/lib/core/math_scalar.glsl"
+#include "/lib/color/spaces.glsl"
+#include "/lib/material/model.glsl"
+#include "/lib/material/opaque_surface.glsl"
+#include "/lib/lighting/opaque_direct.glsl"
+
+layout(location = 0) out vec3 out_direct_rgb;
+layout(location = 1) out vec3 out_caustic;
+
+void main() {
+#if defined(TAAU_ACTIVE)
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
+    ivec2 tx = ivec2(gl_FragCoord.xy);
+    float scene_depth = texelFetch(depthtex0, tx, 0).r;
+    // Sky texels stay unwritten on both targets (see header); discarding also
+    // skips the color export work for the sky share of the frame.
+    if (scene_depth >= 1.0) {
+        discard;
+    }
+    vec4 g1 = texelFetch(colortex1, tx, 0);
+    vec4 surface = texelFetch(colortex11, tx, 0);
+    vec4 material_data = UnpackOpaqueMaterial(surface);
+    vec4 geometry_data = texelFetch(colortex4, tx, 0);
+    int material_id = int(g1.a * 255.0 + 0.5);
+    vec3 albedo = ToLinear(g1.rgb);
+    PBRMaterial material = ResolveOpaquePBR(albedo,
+        material_data.r, material_data.g, material_data.b, 0.0);
+    vec3 normal_world = DecodeOctahedralNormal(surface.rg);
+    vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
+    vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
+#ifdef TAA
+    uv -= u_taa_offset * 0.5;
+#endif
+    float ndc_depth = scene_depth * 2.0 - 1.0;
+    if (material_id == 64) ndc_depth /= MC_HAND_DEPTH;
+    vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
+    vec3 world_pos = ViewToWorldSpace(view_pos);
+    vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
+    float ndotv = saturate(dot(normal_world, view_to_eye));
+    // Both out-params are initialized at evaluator entry, so the debug
+    // early-returns leave them defined; the reflectance out-param is a
+    // write-only sink here (deferred5 recomputes it for its own consumers).
+    vec3 caustic_brdf;
+    vec3 diffuse_reflectance;
+    bool diagnostic_output;
+    vec3 direct_rgb = EvaluateOpaqueDirectLight(tx, albedo, material, material_id,
+        material_data.a, geometry_data.w, normal_world, geo_normal, view_pos,
+        world_pos, view_to_eye, ndotv, caustic_brdf, diffuse_reflectance,
+        diagnostic_output);
+    out_direct_rgb = direct_rgb;
+    out_caustic = caustic_brdf;
+}

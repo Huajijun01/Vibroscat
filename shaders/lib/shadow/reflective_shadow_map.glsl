@@ -26,7 +26,7 @@ vec3 RSMShadowViewPosition(vec2 shadow_uv, float protected_depth) {
 // NdotL cancels between incident irradiance and projected emitter area.
 // Integrate in UNDISTORTED light-plane meters: p_A = 1/(2*pi*R*r).
 // Thus neither a shadow-resolution gain nor a distorted-UV area bias is needed.
-// stbn_noise is the two-sample STBN pair sampled by the deferred3 main
+// stbn_noise is the two-sample STBN pair sampled by the deferred4 main
 // (radial jitter in y, golden-angle rotation seed in x).
 // Output includes the uncovered sky fallback, before the receiver BRDF.
 vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,

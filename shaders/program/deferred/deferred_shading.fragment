@@ -13,11 +13,7 @@
 // Ramamoorthi l convolution (A0=pi, A1=2pi/3): radiance -> irradiance.
 
 #include "/lib/contract/settings.glsl"
-#ifdef EARLY_DIRECT_LIGHTING
 /* RENDERTARGETS: 0,2,12 */
-#else
-/* RENDERTARGETS: 0,2,5,12 */
-#endif
 
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -46,29 +42,18 @@
 #endif
 #include "/lib/material/model.glsl"
 #include "/lib/material/opaque_surface.glsl"
-#include "/lib/lighting/opaque_direct.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"
 #include "/lib/raytrace/opaque_reflection_history.glsl"
-#include "/lib/shadow/contact_shadow.glsl"
-#include "/lib/shadow/pcss.glsl"
 
 const float COLOR_JITTER_SEED = 11.0;
 
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec4 out_gbuf_clear;
-#ifdef EARLY_DIRECT_LIGHTING
 layout(location = 2) out vec4 out_translucent_clear;
-#else
-layout(location = 2) out vec3 out_direct_brdf;
-layout(location = 3) out vec4 out_translucent_clear;
-#endif
 
 void main() {
 #if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
-#endif
-#ifndef EARLY_DIRECT_LIGHTING
-    out_direct_brdf = vec3(0.0);
 #endif
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
@@ -260,20 +245,14 @@ void main() {
 #endif
     vec3 diffuse_reflectance;
     vec3 color;
-#ifdef EARLY_DIRECT_LIGHTING
     color = texelFetch(colortex0, tx, 0).rgb;
+#if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG > 0
+    // Evaluator-internal debug views arrive from the direct fragment.
+    out_color = color;
+    return;
+#endif
     diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
-#else
-    bool diagnostic_output;
-    color = EvaluateOpaqueDirectLight(tx, albedo, material, material_id,
-        g2.a, geometry_data.w, normal_world, geo_normal, view_pos, world_pos,
-        view_to_eye, ndotv, out_direct_brdf, diffuse_reflectance, diagnostic_output);
-    if (diagnostic_output) {
-        out_color = color;
-        return;
-    }
-#endif
 
     // Lambertian (no incident direction from SH/lightmap); metals have no
     // diffuse lobe. AO multiplies indirect terms only. Block light uses AO

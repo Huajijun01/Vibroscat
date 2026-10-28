@@ -286,7 +286,7 @@ SSRHit ClassifyScreenHit(vec3 screen_pos) {
     return hit;
 }
 
-// Opaque SSR (deferred2): reflected rays may point back toward the eye, so
+// Opaque SSR (deferred3): reflected rays may point back toward the eye, so
 // the chord can leave through the near plane. Surface crossings use their
 // actual depth bracket. The march budget is owned by OPAQUE_SSR_STEPS; the shared
 // SSR_INTERPOLATION toggle owns first-crossing refinement.

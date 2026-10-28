@@ -94,7 +94,7 @@ void main() {
     v_surface_flags = surface_flags;
 #endif
 
-    // Same sky ambient + lightmap remap as deferred4 (no AO in the gbuffer
+    // Same sky ambient + lightmap remap as deferred5 (no AO in the gbuffer
     // stage).
     v_ambient_col = AmbientLight(normal_world, vec3(1.0), v_texcoord.w);
 }

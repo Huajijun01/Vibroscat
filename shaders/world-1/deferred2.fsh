@@ -1,3 +1,3 @@
 #version 430 compatibility
 #define WORLD_NETHER
-#include "/program/deferred/opaque_reflection_trace.fragment"
+#include "/program/deferred/deferred_cloud_ao_accum.fragment"

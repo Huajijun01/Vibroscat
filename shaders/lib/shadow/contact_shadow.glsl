@@ -10,7 +10,7 @@
 // Screen-space short-range contact shadows.
 // ============================================================================
 //
-// Evaluated inline in deferred4 (opaque lighting) on the receiver: a short
+// Evaluated inline in deferred1 (the direct lighting fragment) on the receiver: a short
 // depth-buffer march toward the active directional light (sun or moon, world
 // space), re-projected to the depth buffer per sample. Occluders are
 // surfaces that sit in front of the ray point within a thickness slab; the
@@ -176,7 +176,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         valid.z = valid.y && valid.z;
         valid.w = valid.z && valid.w;
         if (!valid.x) break;
-        // deferred4 precedes translucent geometry: depthtex0 and depthtex1
+        // deferred1 precedes translucent geometry: depthtex0 and depthtex1
         // contain the same opaque/hand depth here. Reuse the receiver's
         // depthtex0 resource instead of sampling a second depth texture.
         vec2 sample_uv_0 = vec2(sample_u.x, sample_v.x);

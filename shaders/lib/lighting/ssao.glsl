@@ -15,7 +15,7 @@
 // normal hemisphere (<offset, n> > 0) - flat planes never pass, walls and
 // corners do. Radius window smoothed, no hard cut.
 //
-// Variance is NOT spatially filtered: the deferred1 temporal accumulation
+// Variance is NOT spatially filtered: the deferred2 temporal accumulation
 // (same pipeline as GTAO) is the denoiser.
 //
 // The depth fetch and the screen-bounds guards mirror GTAO (depthtex2:

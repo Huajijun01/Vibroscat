@@ -179,7 +179,7 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_SSS_DEBUG 0 // [0 1 2 3 4] Scene / transmission / map confidence / plant contact visibility / map visibility.
 
 // Screen-space contact shadows (short-range, alongside the shadow map):
-// deferred4 marches a screen-projected ray toward the active directional
+// deferred1's direct fragment marches a screen-projected ray toward the active directional
 // light against depthtex1 per receiver pixel and applies the result as an
 // upper bound (min) on the shadow-map result, so it fills PCF contact seams
 // and keeps directional occlusion past the shadow map boundary. Overworld and
@@ -219,9 +219,9 @@ const float ambientOcclusionLevel = 1.0;
 
 // AO_MODE selects the algorithm (settings slider, 0/1/2): GTAO is the
 // horizon-based method (Jimenez et al. 2016), SSAO the Monte-Carlo
-// hemisphere estimator (Crytek 2007). Both share the deferred1_a half-res
-// temporal generator and deferred1 guided reconstruction without GI. RSM
-// evaluates the chosen kernel in deferred3 and filters its AO-weighted sky.
+// hemisphere estimator (Crytek 2007). Both share the deferred2_a half-res
+// temporal generator and deferred2 guided reconstruction without GI. RSM
+// evaluates the chosen kernel in deferred4 and filters its AO-weighted sky.
 // SSGI supplies its own visibility and ignores this selector.
 #define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
@@ -233,11 +233,11 @@ const float ambientOcclusionLevel = 1.0;
 #define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
 #define SSAO_RADIUS 2.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
-// Temporal accumulation runs in deferred1_a against full-resolution history
+// Temporal accumulation runs in deferred2_a against full-resolution history
 // in colortex8. One hardware bilinear history sample passes depth/normal rejection.
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
 // Every half-res texel evaluates the same receiver in its 2x2 block each frame.
-// deferred1 uses four-tap depth/normal bilateral upsampling; missing support
+// deferred2 uses four-tap depth/normal bilateral upsampling; missing support
 // resolves to open AO rather than another full-resolution history lookup.
 #define AO_HISTORY_FRAMES 12 // [2 4 6 8 10 12 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
 // Rejection lifts the fresh-sample weight toward 1, so an untrusted history
@@ -254,7 +254,7 @@ const float ambientOcclusionLevel = 1.0;
 // 7. LIGHTING - Lighting constants
 // ==========================================================================
 
-// Warm artificial-light palette, shared by deferred2 and the forward
+// Warm artificial-light palette, shared by deferred5 and the forward
 // translucent passes. TORCH_BRIGHTNESS scales the light intensity only;
 // the warm tint stays fixed.
 #define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
@@ -587,9 +587,11 @@ const float centerDepthHalflife = 1.0;
 #define SSGI_DIRECTIONAL_SKY_ACTIVE
 #endif
 
-// Visual lighting diagnostics retain the fused path; Iris profiling debug is independent.
-#if (defined(VOLUMETRIC_CLOUDS) || (GI_MODE == 0 && AO_MODE != 0) || GI_MODE == 1) && CONTACT_SHADOW_DEBUG == 0 && SHADOW_SSS_DEBUG == 0 && OPAQUE_SSR_DEBUG == 0 && RSM_DEBUG == 0
-#define EARLY_DIRECT_LIGHTING
+// Visual lighting diagnostics: evaluator-internal views flow through the
+// direct fragment and deferred5 passes them through; SSGI falls back to the
+// history source.
+#if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG > 0 || OPAQUE_SSR_DEBUG > 0 || RSM_DEBUG > 0
+#define LIGHTING_DIAGNOSTIC
 #endif
 
 #if defined(AO_TEMPORAL)

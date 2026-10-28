@@ -91,7 +91,7 @@ screen.DEBUG = Debug Views
 screen.DEBUG.comment = Diagnostic views that replace part of the normal image. Keep defaults while playing.
 
 #About / information (display-only pseudo options)
-option.ABOUT = Vibroscat Alpha v0.3.0
+option.ABOUT = Vibroscat Alpha v0.3.2
 option.ABOUT.comment = Vibroscat shaderpack by Huajijun, free open-source software under GPL-3.0.
 value.ABOUT.0 = by Huajijun
 option.INFO_LICENSE = License

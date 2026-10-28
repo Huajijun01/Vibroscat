@@ -91,7 +91,7 @@ screen.DEBUG = 调试视图
 screen.DEBUG.comment = 排错用的诊断视图，会替换部分正常画面。游玩时请保持默认。
 
 #About / information (display-only pseudo options)
-option.ABOUT = Vibroscat Alpha v0.3.0
+option.ABOUT = Vibroscat Alpha v0.3.2
 option.ABOUT.comment = Vibroscat 光影，作者 Huajijun，以 GPL-3.0 协议开源。
 value.ABOUT.0 = 作者：Huajijun
 option.INFO_LICENSE = 开源许可证

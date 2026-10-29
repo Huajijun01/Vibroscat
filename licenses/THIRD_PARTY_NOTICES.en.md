@@ -620,6 +620,28 @@ camera-only history operate in Vibroscat's existing pass and resource graph.
 Upstream: https://github.com/sixthsurge/photon and
 https://github.com/HaringPro/Revelation .
 
+## 33. AgX Vivid (GPL-3.0)
+
+`shaders/lib/color/tonemap_agx_vivid.glsl` adapts the linear-to-logarithmic
+shoulder, virtual-gamut inset/outset and HSV hue protection from linlin's
+DRT Bench, `shaders/reinhard_agx.wgsl` and `shaders/agx_hsv.wgsl`:
+<https://github.com/bWFuanVzYWth/DRT>, commit
+`49e67a3` (GPL-3.0-only; compatible with this pack's GPLv3).
+AgX's image-formation concept is credited to Troy Sobotka in section 2.
+
+This custom variant uses a 0.60 linear endpoint, a sixth-power logarithmic
+shoulder, 0.06 gamut inset, 0.95-to-0.65 hue retention and a bounded 0.08
+saturation lift. Its input and output are linear Rec.709; hue repair alone
+runs in sRGB signal coordinates. It is a separate operator, not an official
+AgX look. Existing reference adapters retain their own parameters.
+
+SEUS Renewed v1.0.1 supplied a visual target: nearly linear middle tones,
+late highlight compression and bright whites. Its proprietary source and
+cone-overlap matrices are not included or translated; the curve here is
+constructed from the GPL DRT Bench framework with independently chosen
+parameters. SEUS source remains under the SEUS License:
+<https://www.sonicether.com/seus/>.
+
 ## Appendix A: Apache License 2.0 (full text)
 
                                  Apache License

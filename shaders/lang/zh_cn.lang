@@ -106,12 +106,13 @@ value.INFO_TOOLTIPS.0 = 悬停查看说明
 
 #Post: tonemapping
 option.TONEMAP_MODE = 色调映射模式
-option.TONEMAP_MODE.comment = AgX-HSV、ACES 2.0、Blender AgX、OpenDRT 或 GT7（默认）。GT7 为本包校准的 SDR 曲线。
+option.TONEMAP_MODE.comment = AgX Vivid（默认）保留近线性中间调、鲜明色彩与较晚压缩的明亮高光。也可选择 AgX-HSV、ACES 2.0、Blender AgX、OpenDRT 或 GT7。
 value.TONEMAP_MODE.0 = AgX-HSV
 value.TONEMAP_MODE.1 = ACES 2.0
 value.TONEMAP_MODE.2 = Blender AgX
 value.TONEMAP_MODE.3 = OpenDRT
 value.TONEMAP_MODE.5 = GT7
+value.TONEMAP_MODE.6 = AgX Vivid
 option.TONEMAP_EXPOSURE = 手动曝光
 option.TONEMAP_EXPOSURE.comment = 自动曝光前的固定亮度偏移，单位为档：+1.0 亮一倍，-1.0 暗一半。
 option.PURKINJE_EFFECT = 浦肯野效应

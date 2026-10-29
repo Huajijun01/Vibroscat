@@ -9,7 +9,6 @@
 //   PROGRAM_GBUFFERS_ENTITIES     entities
 //   PROGRAM_GBUFFERS_HAND         hand
 //   PROGRAM_GBUFFERS_BEACONBEAM   beaconbeam
-//   PROGRAM_GBUFFERS_SPIDEREYES   spidereyes
 //   PROGRAM_GBUFFERS_PARTICLES    particles (opaque quad particles; world-up
 //                                 dielectric surface, no PBR atlas)
 //   PROGRAM_GBUFFERS_BASIC / _LINE / _TEXTURED / _TEXTURED_LIT
@@ -117,7 +116,7 @@ void main() {
     int mat_id = v_material_id;
 #elif defined(PROGRAM_GBUFFERS_HAND)
     int mat_id = 64;  // player hand / held item
-#elif defined(PROGRAM_GBUFFERS_BEACONBEAM) || defined(PROGRAM_GBUFFERS_SPIDEREYES)
+#elif defined(PROGRAM_GBUFFERS_BEACONBEAM)
     int mat_id = 112; // emissive class
 #else
     // basic, line, textured, textured_lit and particles share the generic
@@ -208,9 +207,6 @@ void main() {
     OpaqueMaterial mat = DecodeOpaqueMaterial(spec_tex);
 
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
-    mat.emission = 1.0;
-#endif
-#ifdef PROGRAM_GBUFFERS_SPIDEREYES
     mat.emission = 1.0;
 #endif
 

@@ -1,0 +1,23 @@
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/core/render_scale.glsl"
+#include "/lib/color/spaces.glsl"
+#include "/lib/material/alpha_test.glsl"
+
+/* RENDERTARGETS: 12 */
+
+in vec2 v_texcoord;
+in vec4 v_color;
+
+layout(location = 0) out vec4 out_layer_color;
+
+void main() {
+#if defined(TAAU_ACTIVE)
+    if (OutsideSceneRender(gl_FragCoord.xy)) discard;
+#endif
+    vec4 tex = texture(gtexture, v_texcoord);
+    DiscardBelowAlphaTest(tex.a, 0.001);
+    tex *= v_color;
+    // Fullbright emission enters the premultiplied translucent layer directly.
+    out_layer_color = vec4(ToLinear(tex.rgb) * tex.a, tex.a);
+}

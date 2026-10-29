@@ -1,5 +1,3 @@
 #version 430 compatibility
 #define WORLD_OVERWORLD
-#define PROGRAM_GBUFFERS_SPIDEREYES
-#define USE_DISCARD
-#include "/program/gbuffer/solid.vertex"
+#include "/program/common/textured_overlay.vertex"

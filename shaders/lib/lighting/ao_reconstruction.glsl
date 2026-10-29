@@ -10,7 +10,7 @@
 // Four-tap bilateral upsampling on the generator's fixed pixel lattice:
 // half texel h represents full texel 2*h, refreshed every frame.
 // Guide normals share the RGBA8 AO workspace; depth stays in depthtex2.
-// Spatial, linear-depth and normal weights suppress foreign surfaces and sky.
+// Spatial, receiver-plane distance and normal weights suppress foreign surfaces and sky.
 vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
     ivec2 half_size = ivec2(u_ao_half_res);
     ivec2 full_max = ivec2(u_render_res) - 1;
@@ -32,9 +32,18 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
         fetched_data[i] = texelFetch(colortex2, sample_texel, 0);
     }
     vec3 normal_world = DecodeOctahedralNormal(normal_oct);
+    vec3 normal_view = mat3(gbufferModelView) * normal_world;
     float receiver_depth_m = LinearDepthFromScreenDepth(scene_depth);
-    // Two centimeters near the camera, then a relative depth window: close
-    // parallel surfaces inside this window can share support.
+    vec2 plane_xy = normal_view.xy * vec2(
+        gbufferProjectionInverse[0][0], gbufferProjectionInverse[1][1]);
+    vec2 receiver_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
+#ifdef TAA
+    receiver_ndc -= u_taa_offset;
+#endif
+    float receiver_ray_plane = dot(plane_xy, receiver_ndc) - normal_view.z;
+    vec2 plane_pixel_step = plane_xy * (2.0 * u_render_pixel_size);
+    // Neighboring rays on a grazing plane have different view depths even
+    // when they hit the same surface. Compare displacement off that plane.
     float inv_depth_window = 1.0 / (0.02 + receiver_depth_m * 0.01);
     vec2 ao_sum = vec2(0.0);
     float weight_sum = 0.0;
@@ -45,7 +54,10 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
             float sample_depth = fetched_depth[y * 2 + x];
             vec4 sample_data = fetched_data[y * 2 + x];
             float sample_depth_m = LinearDepthFromScreenDepth(sample_depth);
-            float depth_weight = saturate(1.0 - abs(sample_depth_m - receiver_depth_m) * inv_depth_window);
+            ivec2 sample_pixel = min((base_texel + ivec2(x, y)) * 2, full_max);
+            float plane_distance = abs((sample_depth_m - receiver_depth_m) * receiver_ray_plane
+                + sample_depth_m * dot(plane_pixel_step, vec2(sample_pixel - texel)));
+            float depth_weight = saturate(1.0 - plane_distance * inv_depth_window);
             vec3 sample_normal = DecodeOctahedralNormal(sample_data.gb);
             float normal_weight = saturate((dot(normal_world, sample_normal) - 0.85) * (1.0 / 0.15));
             weight *= depth_weight * normal_weight * float(sample_depth < 1.0);

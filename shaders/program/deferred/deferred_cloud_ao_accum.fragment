@@ -76,20 +76,30 @@ void main() {
             vec4 raw_sample = texelFetch(colortex12, cell, 0);
             has_fresh = has_fresh && raw_sample.a > 0.0;
             CloudFrame current_frame;
+            bool current_ready = has_fresh;
             if (has_fresh) {
                 current_frame.radiance = raw_sample.rgb;
                 current_frame.surface_distance = raw_sample.a;
-            } else {
-                current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
             }
-            CloudFrame accumulated = current_frame;
+            CloudFrame accumulated;
+            bool history_accepted = false;
             if (frameCounter > 0) {
                 vec4 held_value = texelFetch(colortex8, tx, 0);
                 CloudFrame held;
                 held.radiance = held_value.rgb;
                 held.surface_distance = held_value.a;
-                float anchor_distance = !has_fresh && !CloudHistoryInvalid(held)
-                    ? held.surface_distance : current_frame.surface_distance;
+                float anchor_distance;
+                if (!has_fresh && !CloudHistoryInvalid(held)) {
+                    anchor_distance = held.surface_distance;
+                } else {
+                    // An invalid held distance needs current spatial support
+                    // to place the reprojection ray, even if history survives.
+                    if (!current_ready) {
+                        current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
+                        current_ready = true;
+                    }
+                    anchor_distance = current_frame.surface_distance;
+                }
                 vec2 previous_uv;
                 if (CloudProjectToPrevious(view_dir, anchor_distance, previous_uv)) {
                     CloudFrame history = CloudCheckerboardHistory(previous_uv);
@@ -104,12 +114,24 @@ void main() {
                             accumulated = current_frame;
                         } else {
                             history = CloudCheckerboardClip(tx, history, motion_pixels);
-                            accumulated = has_fresh
-                                ? CloudCheckerboardAccumulate(current_frame, history, accepted_age) : history;
+                            if (has_fresh) {
+                                accumulated = CloudCheckerboardAccumulate(current_frame, history, accepted_age);
+                            } else {
+                                accumulated = history;
+                            }
                         }
+                        history_accepted = true;
                         new_age = min(accepted_age + 1, max(CLOUD_HISTORY_FRAMES, CLOUD_CHECKERBOARD_AREA + 1));
                     }
                 }
+            }
+            if (!history_accepted) {
+                // Spatial fill contributes only when history cannot supply
+                // the output; reuse it if it already supplied the anchor.
+                if (!current_ready) {
+                    current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
+                }
+                accumulated = current_frame;
             }
 #else
             CloudFrame current_frame = CloudSampleCurrentBilinear(tx);

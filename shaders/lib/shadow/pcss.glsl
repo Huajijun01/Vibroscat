@@ -11,27 +11,26 @@
 // Sketches: 1) blocker search (shadowtex0); 2) penumbra estimate from the
 // receiver/blocker depth ratio; 3) PCF filtering with that radius
 // (shadowtex1, HW PCF).
-// Samples: base-2 radical inverse (Hammersley) polar disk (sqrt radius x angle
-// table), rotated by the shared STBN volume.
+// Samples: golden-angle (Vogel) disk - equal-area stratified radii whose
+// direction advances by one constant rotation per tap, started from the
+// shared STBN rotation.
 
-// ---- Low-discrepancy disk sampling ----
+// ---- Golden-angle disk sampling ----
 
-// Stratified disk point via polar Hammersley (radius from index, angle
-// from the radical inverse); caller builds the STBN rotation basis once.
-// The angle is the base-2 radical inverse of the low four bits, recovered
-// by bit reversal into the top nibble. It is computed per tap instead of a
-// const vec2[16] table because the loops index it with a runtime step
-// counter, and this driver lowers a dynamically indexed const array into
-// thread-local memory - one local-memory access per blocker/PCF tap.
-vec2 ShadowDiskPoint(int i, int count) {
-    float radius = sqrt((float(i) + 0.5) / float(count));
-    float angle = float(bitfieldReverse(uint(i) & 15u) >> 28) * (TAU / 16.0);
-    return radius * vec2(cos(angle), sin(angle));
-}
+// Golden-angle rotation between consecutive taps. Literal-argument trig in
+// a const initializer folds at compile time, so each tap costs one 2x2
+// multiply instead of a sincos pair.
+const mat2 SHADOW_DISK_STEP = mat2(cos(2.39996323), sin(2.39996323),
+    -sin(2.39996323), cos(2.39996323));
 
-// Rotate the stratified disk point by the precomputed basis.
-vec2 ShadowRotateDisk(vec2 point, vec2 rot_x, vec2 rot_y) {
-    return vec2(dot(rot_x, point), dot(rot_y, point));
+// Offset of the current tap, then advance to the next. dir starts as the
+// STBN-rotated first direction; radius_sq walks (i + 0.5) / count in
+// squared-radius units, which gives every tap equal annulus area.
+vec2 ShadowDiskOffset(inout vec2 dir, inout float radius_sq, float inv_count) {
+    vec2 offset = (radius_sq * inversesqrt(radius_sq)) * dir;
+    dir = SHADOW_DISK_STEP * dir;
+    radius_sq += inv_count;
+    return offset;
 }
 
 // Texel -> undistorted clip Jacobian scale. The blocker search and the PCF
@@ -75,10 +74,11 @@ float ShadowReceiverBias(vec2 clip_extent, vec2 depth_gradient, float texel_radi
         + ShadowDepthGapFromWorld(RESIDUAL_BIAS_M) + DEPTH_ROUNDING_BIAS;
 }
 
-// Step 1: blocker search. Averages the depths of shadow-map samples that
-// occlude the receiver (depth <= receiver depth). Returns false when no
-// blocker is found in the search disk, so the pixel can be treated as lit.
-bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 depth_gradient, vec2 rot_x, vec2 rot_y,
+// Step 1: blocker search. Accumulates the receiver depth gap of shadow-map
+// samples that occlude the receiver (depth <= receiver depth). Returns false
+// when no blocker is found in the search disk, so the pixel can be treated
+// as lit. dir is the tap-0 disk direction; the walk is local to this call.
+bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 depth_gradient, vec2 dir,
     int blocker_steps, out float blocker_depth) {
     // Convex corners project small false depth deltas; require a
     // world-space gap before counting a blocker (no corner darkening).
@@ -87,15 +87,19 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 depth_grad
     // Nearest depth fetches leave at most half a texel unresolved per axis.
     blocker_bias += ShadowReceiverBias(abs(clip_pos.xy) + blocker_offset_scale, depth_gradient, 0.5);
 
-    float depth_sum = 0.0;
+    // The gap is summed over every tap but divided by the tap count, not the
+    // occluder count, so one stray occluder cannot widen the penumbra to its
+    // full depth gap alone.
+    float delta_sum = 0.0;
     float weight_sum = 0.0;
     ivec2 shadow_size = ivec2(shadowMapResolution);
     // The texel-to-UV scale is loop-invariant; carry it as a float vector so
     // each tap trades an int->float conversion of the resolution for a mul.
     vec2 shadow_size_f = vec2(shadow_size);
+    float inv_steps = 1.0 / float(blocker_steps);
+    float radius_sq = 0.5 * inv_steps;
     for (int i = 0; i < blocker_steps; ++i) {
-        vec2 offset = blocker_offset_scale * ShadowRotateDisk(ShadowDiskPoint(i, blocker_steps),
-            rot_x, rot_y);
+        vec2 offset = blocker_offset_scale * ShadowDiskOffset(dir, radius_sq, inv_steps);
         vec2 uv = DistortShadowClip(clip_pos.xy + offset);
         ivec2 sample_texel = clamp(ivec2(uv * shadow_size_f), ivec2(0), shadow_size - 1);
         float shadow_depth = texelFetch(shadowtex0, sample_texel, 0).x;
@@ -103,7 +107,7 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 depth_grad
         // classification and gap averaging; slopes must not become penumbrae.
         shadow_depth -= dot(depth_gradient, offset);
         float w = step(shadow_depth, sp.z - blocker_bias);
-        depth_sum += w * shadow_depth;
+        delta_sum += w * (sp.z - shadow_depth);
         weight_sum += w;
     }
 
@@ -111,7 +115,7 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 depth_grad
         blocker_depth = 0.0;
         return false;
     }
-    blocker_depth = depth_sum / weight_sum;
+    blocker_depth = sp.z - delta_sum * inv_steps;
     return true;
 }
 
@@ -136,16 +140,14 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 depth_gradient) {
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_dither,
     float sss_amount, float ndotl, bool leaf_receiver) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
-    // One dither value + rotation basis serves both passes (coherent dither);
-    // one texel scale serves the blocker search and the PCF pass below.
+    // One dither value + first direction serves both passes (coherent
+    // dither); one texel scale serves the blocker search and the PCF pass.
     float angle = stbn_dither * TAU;
-    vec2 rot_x = vec2(cos(angle), -sin(angle));
-    // rot_y equals (sin(angle), cos(angle)) via the rot_x swizzle.
-    vec2 rot_y = vec2(-rot_x.y, rot_x.x);
+    vec2 dir = vec2(cos(angle), sin(angle));
     vec2 texel_scale = ShadowFilterTexelScale(clip_pos);
 
     float blocker_depth;
-    bool blocker_found = ShadowFindBlocker(sp, clip_pos, texel_scale, depth_gradient, rot_x, rot_y,
+    bool blocker_found = ShadowFindBlocker(sp, clip_pos, texel_scale, depth_gradient, dir,
         SHADOW_BLOCKER_SAMPLES, blocker_depth);
     if (!blocker_found && !leaf_receiver) {
         return 1.0;
@@ -207,10 +209,11 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
         - ShadowReceiverBias(abs(clip_pos.xy) + filter_offset_scale, depth_gradient, 1.0);
     float shadow = 0.0;
     int early_samples = min(4, step_count);
+    // The PCF disk restarts the radius walk under its own budget.
+    float inv_pcf = 1.0 / float(step_count);
+    float radius_sq = 0.5 * inv_pcf;
     for (int i = 0; i < early_samples; ++i) {
-        vec2 offset = filter_offset_scale
-            * ShadowRotateDisk(
-            ShadowDiskPoint(i, step_count), rot_x, rot_y);
+        vec2 offset = filter_offset_scale * ShadowDiskOffset(dir, radius_sq, inv_pcf);
         vec2 uv = clamp(DistortShadowClip(clip_pos.xy + offset), vec2(0.0), vec2(1.0));
         shadow += texture(shadowtex1, vec3(uv, receiver_depth + dot(depth_gradient, offset)));
     }
@@ -224,9 +227,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
             return 1.0;
         }
         for (int i = 4; i < step_count; ++i) {
-            vec2 offset = filter_offset_scale
-                * ShadowRotateDisk(
-                ShadowDiskPoint(i, step_count), rot_x, rot_y);
+            vec2 offset = filter_offset_scale * ShadowDiskOffset(dir, radius_sq, inv_pcf);
             vec2 uv = saturate(DistortShadowClip(clip_pos.xy + offset));
             shadow += texture(shadowtex1, vec3(uv, receiver_depth + dot(depth_gradient, offset)));
         }

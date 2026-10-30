@@ -530,14 +530,12 @@ paths are independent implementations using this pack's surface-normalized
 HG helper, plant classes, diffuse reflectance and depth march. Thin-plant
 angular compensation, map softness/bias, receiver extinction and continuous
 map-to-screen confidence are independently chosen. Grass uses screen
-attenuation at all distances; leaf cubes blend complete map visibility with
-the screen-attenuated distant estimate as map confidence falls. Both ordinary
-diffuse light and its foliage enhancement share directional occlusion. Plant
-screen hits read depth and material ID at the same nearest texel; solid
-blockers remove screen visibility completely, while foliage retains partial
-visibility. Map, skylight and vertex AO constrain missing screen evidence
-approximately; this does not reconstruct physical leaf thickness or full
-light transport.
+attenuation at all distances; nearby leaf cubes trust map shelter and add
+screen attenuation as map confidence falls. Both ordinary diffuse light and
+its foliage enhancement share directional occlusion. The screen march reads
+depth only, without classifying sampled blocker materials. Map, skylight and
+vertex AO constrain missing screen evidence approximately; this does not
+reconstruct physical leaf thickness or full light transport.
 
 ## 30. Two water surface modes (concepts and independently generated assets)
 

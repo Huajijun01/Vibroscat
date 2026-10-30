@@ -5,7 +5,6 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
-#include "/lib/material/model.glsl"
 
 // ============================================================================
 // Screen-space short-range contact shadows.
@@ -16,9 +15,9 @@
 // space), re-projected to the depth buffer per sample. Occluders are
 // surfaces that sit in front of the ray point within a thickness slab; the
 // first hit removes opaque direct light. Plant receivers retain partial
-// visibility through foliage; accepted hits read the matching GBuffer material
-// to reject solid blockers completely. Leaf map/screen estimates blend by map
-// confidence; other plants multiply map shelter by screen visibility.
+// visibility instead, using only the receiver material (no per-hit material
+// fetch). Their partial visibility constrains transmission at every distance.
+// Opaque visibility bounds map visibility; plant visibility multiplies it.
 //
 // False-shadow guards:
 //   - opaque rays start offset along the receiver normal by a pixel-scaled,
@@ -61,8 +60,8 @@ const float CONTACT_SHADOW_PLANT_PATH_DEPTH_SCALE = 0.5;
 //   stbn_dither   - STBN dither sampled by the pass main (STBNFrame():
 //                   static without TAA)
 // sss_amount is the receiver's translucency; zero keeps first-hit opaque shadows.
-// Returns visibility in [0,1]. A confirmed solid hit removes all visibility;
-// unobserved and offscreen shelter still needs the map/skylight estimate.
+// Returns visibility in [0,1]. Receiver attenuation cannot identify solid
+// blockers: the map and skylight retain large-scale sheltering for plants.
 float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     float stbn_dither, float sss_amount) {
     float receiver_distance = -receiver_view.z;
@@ -104,7 +103,7 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     // travelled parameter, so fold march_distance/total_travel once.
     float step_scale = march_distance / total_travel;
     // Compute extinction once for this receiver. Every accepted depth hit
-    // multiplies this factor; solid blockers instead stop the ray below.
+    // multiplies this factor; no sampled-pixel classification or per-hit exp.
     float step_visibility = 0.0;
     if (plant_receiver) {
         float plant_path = (CONTACT_SHADOW_PLANT_PATH_BASE
@@ -116,8 +115,6 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
     // the same first-hit result without a receiver/material branch per hit.
     float edge_confidence_floor = plant_receiver ? 0.0 : 1.0;
     float visibility = 1.0;
-    ivec2 depth_size = textureSize(depthtex0, 0);
-    vec2 depth_size_f = vec2(depth_size);
 
     // Projection is linear before the perspective divide. Project the origin
     // and world-space stride once, then reconstruct exact clip XY per sample.
@@ -171,6 +168,9 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             i + 2 < CONTACT_SHADOW_STEPS && ray_depth.z >= 0.05 && edge_distance.z >= 0.0,
             i + 3 < CONTACT_SHADOW_STEPS && ray_depth.w >= 0.05 && edge_distance.w >= 0.0
         );
+        // for (int j = 0; j < 4; ++j) {
+        //     valid[j] = i + j < CONTACT_SHADOW_STEPS && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
+        // }
         // Stop at the first invalid sample, including a partial final batch.
         valid.y = valid.x && valid.y;
         valid.z = valid.y && valid.z;
@@ -189,27 +189,21 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
         sample_uv_2 = SceneTextureUV(sample_uv_2);
         sample_uv_3 = SceneTextureUV(sample_uv_3);
 #endif
-        // Integer texels pair the depth test with its exact material, including
-        // at screen borders and in the cropped TAAU render rectangle.
-        ivec2 sample_tx_0 = clamp(ivec2(sample_uv_0 * depth_size_f), ivec2(0), depth_size - 1);
-        ivec2 sample_tx_1 = clamp(ivec2(sample_uv_1 * depth_size_f), ivec2(0), depth_size - 1);
-        ivec2 sample_tx_2 = clamp(ivec2(sample_uv_2 * depth_size_f), ivec2(0), depth_size - 1);
-        ivec2 sample_tx_3 = clamp(ivec2(sample_uv_3 * depth_size_f), ivec2(0), depth_size - 1);
 #if CONTACT_SHADOW_STEPS % 4 == 0
         vec4 sample_z = vec4(
-            texelFetch(depthtex0, sample_tx_0, 0).r,
-            texelFetch(depthtex0, sample_tx_1, 0).r,
-            texelFetch(depthtex0, sample_tx_2, 0).r,
-            texelFetch(depthtex0, sample_tx_3, 0).r);
+            textureLod(depthtex0, sample_uv_0, 0.0).r,
+            textureLod(depthtex0, sample_uv_1, 0.0).r,
+            textureLod(depthtex0, sample_uv_2, 0.0).r,
+            textureLod(depthtex0, sample_uv_3, 0.0).r);
 #else
         // The six-step option has only two samples in its final batch.
         vec4 sample_z = vec4(
-            texelFetch(depthtex0, sample_tx_0, 0).r,
-            texelFetch(depthtex0, sample_tx_1, 0).r,
+            textureLod(depthtex0, sample_uv_0, 0.0).r,
+            textureLod(depthtex0, sample_uv_1, 0.0).r,
             1.0, 1.0);
         if (i + 2 < CONTACT_SHADOW_STEPS) {
-            sample_z.z = texelFetch(depthtex0, sample_tx_2, 0).r;
-            sample_z.w = texelFetch(depthtex0, sample_tx_3, 0).r;
+            sample_z.z = textureLod(depthtex0, sample_uv_2, 0.0).r;
+            sample_z.w = textureLod(depthtex0, sample_uv_3, 0.0).r;
         }
 #endif
         // Keep the original view-depth subtraction and strict slab bounds.
@@ -226,27 +220,11 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             valid.z && gap.z > minimum_gap && gap.z < thickness,
             valid.w && gap.w > minimum_gap && gap.w < thickness
         );
-        if (plant_receiver) {
-            // A real solid hit is occlusion, including near the screen border;
-            // edge confidence only softens the foliage occupancy estimate.
-            if (hit.x) {
-                int blocker_id = int(texelFetch(colortex1, sample_tx_0, 0).a * 255.0 + 0.5);
-                if (SSSAmountForId(blocker_id) <= 0.01) return 0.0;
-            }
-            if (hit.y) {
-                int blocker_id = int(texelFetch(colortex1, sample_tx_1, 0).a * 255.0 + 0.5);
-                if (SSSAmountForId(blocker_id) <= 0.01) return 0.0;
-            }
-            if (hit.z) {
-                int blocker_id = int(texelFetch(colortex1, sample_tx_2, 0).a * 255.0 + 0.5);
-                if (SSSAmountForId(blocker_id) <= 0.01) return 0.0;
-            }
-            if (hit.w) {
-                int blocker_id = int(texelFetch(colortex1, sample_tx_3, 0).a * 255.0 + 0.5);
-                if (SSSAmountForId(blocker_id) <= 0.01) return 0.0;
-            }
-        }
         vec4 retention = mix(vec4(1.0), vec4(step_visibility), confidence * vec4(hit));
+        // for (int j = 0; j < 4; ++j) {
+        //     bool hit = valid[j] && gap[j] > minimum_gap && gap[j] < thickness;
+        //     visibility *= hit ? retention[j] : 1.0;
+        // }
         visibility *= retention.x * retention.y * retention.z * retention.w;
         if (visibility < 0.015 || !valid.w) break;
     }

@@ -446,19 +446,13 @@ https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的�
 独立实现按世界距离约束的树叶最小扩散范围，并保留搜索未命中时的叶片滤波。
 没有复制或近似翻译其源码、特有表达式、常数或资产。
 
-`lib/lighting/plant_subsurface.glsl` and the changes to the existing shadow
-paths are independent implementations using this pack's surface-normalized
-HG helper, plant classes, diffuse reflectance and depth march. Thin-plant
-angular compensation, map softness/bias, receiver extinction and continuous
-map-to-screen confidence are independently chosen. Grass uses screen
-attenuation at all distances; leaf cubes blend complete map visibility with
-the screen-attenuated distant estimate as map confidence falls. Both ordinary
-diffuse light and its foliage enhancement share directional occlusion. Plant
-screen hits read depth and material ID at the same nearest texel; solid
-blockers remove screen visibility completely, while foliage retains partial
-visibility. Map, skylight and vertex AO constrain missing screen evidence
-approximately; this does not reconstruct physical leaf thickness or full
-light transport.
+`lib/lighting/plant_subsurface.glsl` 与现有阴影路径的修改为独立实现：
+复用本包的表面归一化 HG 函数、植物分类、漫反射率与深度步进。
+薄片植物角度补偿、贴图柔化与偏移、接收面吸收和连续的贴图到屏幕可信度
+均独立选定。草始终使用屏幕衰减，近处树叶方块依靠贴图遮蔽，随贴图
+可信度降低再加入屏幕衰减。普通漫反射和植物受光增强量共同接受方向遮挡。
+屏幕步进只读取深度，不逐采样判别遮挡物材质；贴图、天空光和顶点 AO
+近似约束屏幕无法提供的遮挡，不宣称恢复真实叶片厚度或完整光输运。
 
 ## 30. 双档水面母基函数（概念与独立生成资产）
 

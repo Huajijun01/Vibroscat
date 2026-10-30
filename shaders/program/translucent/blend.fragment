@@ -17,22 +17,23 @@ const float COLOR_JITTER_SEED = 83.0;
 
 layout(location = 0) out vec3 out_color;
 
-// Independent dense Phillips water, calibrated to current band RMS at gain 1.
+// Independent dense Phillips water shared by both water-surface modes.
 // Random phases and a 0.16 m short-wave tail enrich the 1/4/9/16 m caustics.
 // The 8 m cell moves with river layer 2; relative mode rates round to whole
 // cycles per 4 s. Runtime crest phases and position warp are not reproduced.
 // 3928 modes, 4096^2 source, 16384 photons/output pixel; analytic normals.
 // Matrix, carrier and filtered-light reference are generated with the asset.
-#define CAUSTIC_REFERENCE vec4(0.23626452, 0.05691363, 0.05043673, 0.08803585) // filtered mean light
+#define CAUSTIC_REFERENCE vec4(0.23626302, 0.05689574, 0.05039564, 0.08794941) // filtered mean light
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
-// Baked volume edge in all three axes (customTexture.utex_caustics).
-#define CAUSTICS_BAKE_SIZE 256
+// Spatial resolution and time slices of customTexture.utex_caustics.
+const float CAUSTIC_TEXTURE_SIZE = 256.0;
+const float CAUSTIC_FRAME_COUNT = 128.0;
 
 // Four spatial B-spline taps; hardware filtering blends adjacent time slices
 // before decoding sqrt intensity. RGBA = 1/4/9/16 m.
 vec4 CausticSampleBspline(vec2 uv, float time) {
-    vec2 size = vec2(float(CAUSTICS_BAKE_SIZE));
+    vec2 size = vec2(CAUSTIC_TEXTURE_SIZE);
     vec2 p = uv * size - 0.5;
     vec2 f = fract(p);
     vec2 center = floor(p) + 0.5;
@@ -52,7 +53,7 @@ vec4 CausticSampleBspline(vec2 uv, float time) {
 
     vec2 uv_a = a_pos * texel;
     vec2 uv_b = b_pos * texel;
-    float frame_count = float(CAUSTICS_BAKE_SIZE);
+    float frame_count = CAUSTIC_FRAME_COUNT;
     // Frame k was baked at k * dt; its texel center is (k + 0.5) / frame_count.
     float time_z = time + 0.5 / frame_count;
     vec4 encoded = c_a.x * c_a.y * texture(utex_caustics, vec3(uv_a, time_z))

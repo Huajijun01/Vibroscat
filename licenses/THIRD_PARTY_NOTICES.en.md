@@ -505,7 +505,7 @@ architecture study compared Alpha Piscium v1.9.1's `shaders/composite18.csh`
 No source, constants or textures from either pack were copied or closely translated.
 
 `lib/volume/water_epipolar.glsl` is an independent implementation. The low-frequency
-source `textures/godray_caustics_r16f_64x64x64.dat` is independently generated using
+source `textures/godray_caustics_r8_32x32x32.dat` is independently generated using
 the same Phillips spectrum, seed, phases, analytic normals and Snell photon tracer
 as this pack's existing caustics, at the 9 m focal layer with periodic spatial and
 temporal low-pass filtering. It is not a third-party texture. Runtime projection

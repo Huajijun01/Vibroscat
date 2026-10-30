@@ -428,7 +428,7 @@ https://github.com/Luna5ama/Alpha-Piscium）与 Photon v1.3b 的
 没有复制或近似翻译上述光影包的源码、常数或纹理。
 
 `lib/volume/water_epipolar.glsl` 为独立实现。低频源纹理
-`textures/godray_caustics_r16f_64x64x64.dat` 使用本包现有焦散的相同 Phillips
+`textures/godray_caustics_r8_32x32x32.dat` 使用本包现有焦散的相同 Phillips
 频谱、种子、相位、解析法线与 Snell 光子追踪路径独立生成，输出 9 米焦深层，
 再作周期空间与时间低通；它不是第三方贴图。运行时沿未折射的世界太阳方向
 投影并积分，以艺术化亮度直接加到画面，不宣称完整模拟水下体积光输运。

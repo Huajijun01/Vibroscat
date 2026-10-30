@@ -76,7 +76,7 @@ uniform float u_rain_particle_opacity;// mix(1, 0.4, u_rain_biome)
 uniform float u_plant_weather_gain;   // 1 + 0.65 * rainStrength
 uniform vec2 u_plant_wind_time;       // frameTimeCounter * (3.2, 2.4)
 uniform float u_caustic_time;         // fract(frameTimeCounter * 0.25)
-uniform float u_caustic_source_time;  // u_caustic_time + 0.5/64
+uniform float u_caustic_source_time;  // u_caustic_time + 0.5/32
 uniform vec2 u_caustic_advection;     // CAUSTIC_ADVECTION_MPS * frameTimeCounter
 uniform vec2 u_sun_slope;             // sun.xz / max(sun.y, 0.02)
 uniform float u_water_sun_height;     // smoothstep(0.02, 0.12, sun.y)
@@ -152,7 +152,7 @@ uniform sampler2D utex_cirrus_noise; // base-only R8, 128x128, bilinear/repeat
 #endif
 uniform sampler3D utex_stbn_scalar;           // 128x128x64 STBN volume
 uniform sampler3D utex_caustics;              // baked water caustics volume
-uniform sampler3D utex_godray_caustics;       // low-res linear caustic irradiance (R16F)
+uniform sampler3D utex_godray_caustics;       // 32^3 R8: linear caustic irradiance / 2
 uniform sampler3D utex_rain_ripples;          // periodic linear XZ slopes (RG8, 256x256x64)
 
 // -- Custom images (image bindings; sampler side only) --

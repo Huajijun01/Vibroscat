@@ -11,6 +11,9 @@
 #include "/lib/water/fog.glsl"
 
 #if defined(WATER_EPIPOLAR_ACTIVE)
+// R8 stores linear irradiance / 2 so trilinear filtering preserves light.
+const float GODRAY_CAUSTIC_IRRADIANCE_SCALE = 2.0;
+
 // Authored additive radiance, separate from the analytic water medium. No
 // second attenuation is applied to scene color. The source is constant along
 // the unrefracted world sun direction, including its projection to the pole.
@@ -46,7 +49,7 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
         vec3 next_transmittance = exp(-FAST_WATERFOG_EXTINCTION * (length_m * b));
         vec3 weight = transmittance - next_transmittance;
         float irradiance = textureLod(utex_godray_caustics,
-            vec3(source_uv + source_delta * u, u_caustic_source_time), 0.0).r;
+            vec3(source_uv + source_delta * u, u_caustic_source_time), 0.0).r * GODRAY_CAUSTIC_IRRADIANCE_SCALE;
         // Positive caustic excess forms shafts without another uniform fog.
         float source = max(irradiance - 0.9, 0.0) * 4.0;
         float visibility = ShadowVisibility(shadow_start, shadow_end, u);

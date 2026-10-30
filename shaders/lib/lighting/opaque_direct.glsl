@@ -53,6 +53,7 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     // -- Shadow --
     float shadow_occlusion = 1.0;
     float plant_map_visibility = 1.0;
+    float plant_distant_visibility = 1.0;
     float sss_map_coverage = 0.0;
     bool shadow_needed = plant_receiver
         ? (plant_response.x + plant_response.y) * plant_sky_access > 1.0e-4
@@ -89,8 +90,8 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         }
         plant_map_visibility = shadow_filtered;
         if (plant_receiver) {
-            float distant_visibility = PlantDistantVisibility(sss_skylight, vertex_ao, material_id);
-            shadow_occlusion = mix(distant_visibility, shadow_filtered, map_confidence)
+            plant_distant_visibility = PlantDistantVisibility(sss_skylight, vertex_ao, material_id);
+            shadow_occlusion = mix(plant_distant_visibility, shadow_filtered, map_confidence)
                 * plant_sky_access;
         } else {
             shadow_occlusion = mix(1.0, shadow_filtered, shadow_coverage);
@@ -99,9 +100,9 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         shadow_occlusion = 0.0;
     }
     float sss_contact_visibility = 1.0;
-    // Leaf cubes rely on reliable map shelter nearby; increasing screen weight
-    // continuously as map confidence fades avoids double-darkening the canopy.
-    // Grass uses full screen attenuation at every distance.
+    // Leaf cubes trace only where the distant estimate contributes. Blend the
+    // complete map and screen estimates so neither loses its own occlusion.
+    // Other plants use full screen attenuation at every distance.
     float plant_contact_weight = material_id == 129 && plant_receiver ? 1.0 - sss_map_coverage : 1.0;
 #if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
 #if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG == 3
@@ -113,11 +114,14 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         vec3 geo_view_normal = plant_receiver ? vec3(0.0) : normalize(mat3(gbufferModelView) * geo_normal);
         float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal, geo_ndotl,
             stbn_dither, sss_amount);
-        // Plant hits represent partial occupancy; compound it with map shelter.
-        // Opaque receivers retain the existing first-hit/min visibility rule.
-        shadow_occlusion = plant_receiver
-            ? shadow_occlusion * mix(1.0, contact_shadow, plant_contact_weight)
-            : min(shadow_occlusion, contact_shadow);
+        if (plant_receiver && material_id == 129) {
+            shadow_occlusion = mix(plant_distant_visibility * contact_shadow,
+                plant_map_visibility, sss_map_coverage) * plant_sky_access;
+        } else if (plant_receiver) {
+            shadow_occlusion *= contact_shadow;
+        } else {
+            shadow_occlusion = min(shadow_occlusion, contact_shadow);
+        }
         sss_contact_visibility = contact_shadow;
 #if CONTACT_SHADOW_DEBUG > 0
         diagnostic_output = true;

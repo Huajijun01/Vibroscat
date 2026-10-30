@@ -7,8 +7,8 @@
 // Scattering phase functions - single canonical owner.
 //
 // A phase p(cos_theta), with cos_theta = dot(view_dir, light_dir), is
-// normalized: the sphere integral of p dOmega = 1. The dual-lobe blend is
-// the documented exception. Tuned eccentricities and lobe weights stay with
+// normalized: the sphere integral of p dOmega = 1. The surface-normalized
+// variant instead uses a projected hemisphere integral. Tuned parameters stay with
 // the effect that owns them (atmosphere core, cirrus, volumetric clouds,
 // water fog, shadow SSS); this file owns the formulas only.
 // ===============================================================
@@ -34,12 +34,11 @@ float PhaseHenyeyGreenstein(float cos_theta, float eccentricity) {
     return PHASE_ISOTROPIC * (1.0 - eccentricity2) * inversesqrt(denominator3);
 }
 
-// Dual-lobe HG: an unweighted forward lobe plus a mirrored backward lobe, the
-// volumetric-cloud directional phase. The sum of two normalized phases is
-// intentionally not renormalized; callers treat the result as a directional
-// weight.
+// Equal-weight forward and mirrored backward HG lobes. The sphere integral
+// is one; volumetric-cloud octave contributions apply their own weights.
+// backward_g is a positive magnitude, evaluated as -backward_g.
 float PhaseHenyeyGreensteinDualLobe(float cos_theta, float forward_g, float backward_g) {
-    return PhaseHenyeyGreenstein(cos_theta, forward_g) + PhaseHenyeyGreenstein(cos_theta, -backward_g);
+    return PhaseHenyeyGreenstein(cos_theta, forward_g) * 0.5 + PhaseHenyeyGreenstein(cos_theta, -backward_g) * 0.5;
 }
 
 // Triple-lobe HG blend parameters. Weights sum to 1, so the blend stays a

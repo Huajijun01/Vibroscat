@@ -24,12 +24,12 @@ const float CIRRUS_BOTTOM_RADIUS_KM = CIRRUS_RADIUS_KM - 0.5 * CIRRUS_LAYER_THIC
 const float CIRRUS_TILE_SIZE_KM = 24.0;
 const int CIRRUS_TILE_SIZE_M = 24000;
 // The body stores sqrt(tau_vertical / 2), not a second scattering gain.
-const float CIRRUS_OPTICAL_DEPTH_SCALE = 2.0;
+const float CIRRUS_OPTICAL_DEPTH_SCALE = 1.0;
 // The multiple-scatter reference spans half of the layer's thickness.
 const float CIRRUS_MS_REFERENCE_LENGTH_KM = 0.5;
 const float CIRRUS_MS_SAT_ALBEDO = 0.999;
-// Normalize the shared sky-light control's default 8.0 to one sky radiance.
-// This artistic fill replaces the attenuated blue background at thin edges.
+// View-dependent clear-sky fill: the shared default 8.0 gives 0.56 of
+// the input sky color before the layer's opacity integration.
 const float CIRRUS_SKY_LIGHT_WEIGHT = 0.07;
 const HenyeyGreensteinTripleLobe CIRRUS_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.92, 0.1,

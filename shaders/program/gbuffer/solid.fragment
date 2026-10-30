@@ -23,7 +23,8 @@
 //
 // Coordinate-first lightmap: v_lmcoord carries an affine remap of the raw UV
 // (clamp(x * 1.103449 - 0.0689656)); never sampled in the gbuffer pass
-// (sampled in deferred).
+// (sampled in deferred). Terrain classes dither the stored value by up to
+// half an 8-bit LSB against the RGBA8 lightmap store quantization.
 //
 // Attribute availability matrix:
 //   at_tangent -> terrain, entities, block (but NOT hand, basic, textured, particles)
@@ -40,6 +41,7 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/geometry/fragment_position.glsl"
@@ -236,7 +238,23 @@ void main() {
     out_albedo_material.rgb = albedo;
     out_albedo_material.a   = float(mat_id) / 255.0;
     // Geometric normal/lightmap keep their existing RGBA8 encoding.
+#if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
+    // Dither the stored lightmap against the RGBA8 quantization: the deferred
+    // blocklight falloff amplifies the 1/255 steps into visible bands around
+    // torches, and a uniform +/- half-LSB offset ahead of the store turns the
+    // rounding stochastic. The STBN slice advances per frame under TAA, which
+    // averages the pattern into smooth gradients; without TAA the slice stays
+    // 0 so a static spatial hatch replaces shimmer.
+#ifdef TAA
+    float lmcoord_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
+#else
+    float lmcoord_dither = SampleSTBN(ivec2(gl_FragCoord.xy), 0);
+#endif
+    vec2 lmcoord_stored = saturate(v_lmcoord + (lmcoord_dither - 0.5) * (1.0 / 255.0));
+    out_geometry = vec4(EncodeOctahedralNormal(geo_normal_world), lmcoord_stored);
+#else
     out_geometry = vec4(EncodeOctahedralNormal(geo_normal_world), v_lmcoord.xy);
+#endif
     out_surface = PackOpaqueSurface(EncodeOctahedralNormal(w_normal),
         vec4(mat.perceptual_roughness, mat.specular_selector, mat.emission, combined_ao));
 

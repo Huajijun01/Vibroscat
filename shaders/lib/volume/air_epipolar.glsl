@@ -37,7 +37,7 @@ vec3 AirShadowRatio(vec3 start_world, vec3 end_world, AirFogDensityProfile profi
         bin_profile.eye_height_m += direction_y * (float(k) * bin_length);
         vec3 bin_tau = AirFogOpticalDepth(bin_profile, medium, direction_y, bin_length);
         vec3 bin_transmittance = exp(-bin_tau);
-        vec3 weight = prefix_transmittance * AirFogRemovedFraction(bin_tau, bin_transmittance);
+        vec3 weight = prefix_transmittance * (1.0 - bin_transmittance);
         numerator += weight * ShadowVisibility(shadow_start, shadow_end, u);
         denominator += weight;
         prefix_transmittance *= bin_transmittance;

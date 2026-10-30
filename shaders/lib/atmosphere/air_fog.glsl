@@ -117,11 +117,6 @@ AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float
         (medium.scattering_mie * clear_column + vec3(rain_tau)) * inv_tau);
 }
 
-vec3 AirFogRemovedFraction(vec3 tau, vec3 transmittance) {
-    // Plain 1-exp(-tau).
-    return 1.0 - transmittance;
-}
-
 // For a constant source S, integral S*sigma_t(s)*T(s) ds = S*(1-T(L)),
 // since dT/ds = -sigma_t(s)*T(s). T uses the full exponential-height column
 // plus the height-independent rain column. No numerical integration/cutoff.
@@ -131,7 +126,7 @@ AirFogIntegral IntegrateAirFogScattering(AirFogDensityProfile profile, AirFogMed
     float rain_tau = medium.rain_mie * profile.rain_density * length_m;
     vec3 tau = medium.extinction * clear_column + vec3(rain_tau);
     vec3 transmittance = exp(-tau);
-    vec3 removed = AirFogRemovedFraction(tau, transmittance);
+    vec3 removed = 1.0 - transmittance;
     AirFogSource source = AirFogSourceFunction(medium, clear_column, rain_tau);
     return AirFogIntegral(transmittance, source.ray * removed, source.mie * removed);
 }

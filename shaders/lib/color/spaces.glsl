@@ -5,17 +5,19 @@
 
 // sRGB <-> Linear conversion (IEC 61966-2-1 piecewise curve)
 vec3 ToLinear(vec3 srgb) {
-    bvec3 cutoff = lessThan(srgb, vec3(0.04045));
-    vec3 higher = pow((srgb + vec3(0.055)) / vec3(1.055), vec3(2.4));
-    vec3 lower = srgb / vec3(12.92);
-    return mix(higher, lower, cutoff);
+    // bvec3 cutoff = lessThan(srgb, vec3(0.04045));
+    // vec3 higher = pow((srgb + vec3(0.055)) / vec3(1.055), vec3(2.4));
+    // vec3 lower = srgb / vec3(12.92);
+    // return mix(higher, lower, cutoff);
+    return srgb * (srgb * (srgb * 0.3144148469 + 0.6674410945) + 0.0181440586);
 }
 
 vec3 FromLinear(vec3 linear_rgb) {
-    bvec3 cutoff = lessThan(linear_rgb, vec3(0.0031308));
-    vec3 higher = vec3(1.055) * pow(linear_rgb, vec3(1.0 / 2.4)) - vec3(0.055);
-    vec3 lower = linear_rgb * vec3(12.92);
-    return mix(higher, lower, cutoff);
+    // bvec3 cutoff = lessThan(linear_rgb, vec3(0.0031308));
+    // vec3 higher = vec3(1.055) * pow(linear_rgb, vec3(1.0 / 2.4)) - vec3(0.055);
+    // vec3 lower = linear_rgb * vec3(12.92);
+    // return mix(higher, lower, cutoff);
+    return 1.2404334562 * sqrt(linear_rgb + vec3(0.000515237193)) - (0.2125965772 * linear_rgb + vec3(0.0281563966));
 }
 
 // Rec.709 linear luminance, shared by lighting, fog and temporal blending.

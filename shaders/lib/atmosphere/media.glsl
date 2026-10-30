@@ -83,9 +83,6 @@ const vec4 ATM_MIE_NEAR_E = vec4(
     0.07826896397622593, 0.06887583434463689,
     0.05860808850252333, 0.05103810940978969);
 
-// -- Solar irradiance (W/m2/nm at TOA) --
-const vec4 ATM_SOLAR = vec4(2.01085377, 1.92558253, 1.85678685, 1.56775546);
-
 // -- Phase --
 // Triple-lobe Mie blend, same structure as the tuned cirrus phase
 // (shaders/lib/cloud/cirrus.glsl): a narrow high-g forward peak keeps the
@@ -97,15 +94,6 @@ const HenyeyGreensteinTripleLobe ATM_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.8, 0.1,  // forward peak
     0.5, 0.7,  // forward mid
     0.3, 0.2); // backward
-
-// -- Display --
-const float ATM_EXPOSURE = 0.05;  // from the 4-wave offline fit
-
-// -- Integration --
-const float ATM_NUM_STEPS = 32.0;
-
-// -- Moonlight irradiance (W/m2/nm) --
-const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 
 // ===============================================================
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)
@@ -174,10 +162,5 @@ AtmosphereMedia AtmosphereMediaAt(float r) {
     return media;
 }
 
-
-vec4 GetScattering(float r) {
-    AtmosphereMedia media = AtmosphereMediaAt(r);
-    return media.sigma_s;
-}
 
 #endif // LIB_ATMOSPHERE_MEDIA_GLSL

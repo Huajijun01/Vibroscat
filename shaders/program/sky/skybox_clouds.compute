@@ -20,6 +20,8 @@
 #undef CLOUD_LIGHT_STEPS
 #define CLOUD_LIGHT_STEPS CLOUD_SKYBOX_LIGHT_STEPS
 #include "/lib/cloud/composite.glsl"
+#include "/lib/cloud/geometry.glsl"
+#include "/lib/cloud/signal.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -76,15 +78,13 @@ void main() {
 
         vec3 sky_color = texture(usam_skylut, SkyLUTUV(
             view_dir,
-            u_world_sun_dir,
-            ATM_PLANET_R,
-            u_cam_altitude
+            u_world_sun_dir
         )).rgb;
 
         vec4 cloud_view_transmittance = vec4(1.0);
         bool cloud_view_transmittance_cached = false;
 
-        vec3 cloud_data = vec3(0.0, 0.0, 1.0);
+        CloudSignal cloud_signal = CloudSignal(vec2(0.0), 1.0);
         vec3 surface_position = vec3(0.0);
         float cloud_entry = 1.0e9;
         vec3 cloud_transmittance = vec3(1.0);
@@ -101,7 +101,7 @@ void main() {
                 min(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS),
                 max(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS));
             bool hit;
-            cloud_data = MarchVolumetricClouds(
+            cloud_signal = MarchVolumetricClouds(
                 camera_atmosphere_pos,
                 view_dir,
                 vec2(SampleSTBN(texel, cloud_frame), SampleSTBN(texel, cloud_frame + STBN_STREAM_3)),
@@ -119,7 +119,7 @@ void main() {
         sky_color = RenderCloudLayers(
             view_dir,
             sky_color,
-            cloud_data,
+            cloud_signal,
             surface_position,
             cloud_entry,
             cloud_transmittance,

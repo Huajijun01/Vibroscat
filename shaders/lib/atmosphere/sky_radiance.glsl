@@ -5,8 +5,8 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/illumination.glsl"
 #include "/lib/atmosphere/media.glsl"
-#include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 #include "/lib/scattering/phase.glsl"
 
@@ -14,8 +14,12 @@
 // Sky Integration  (midpoint + analytic, vec4 spectral)
 // ===============================================================
 
-vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
-) {
+const float ATM_NUM_STEPS = 32.0;
+
+// Uses this frame's pinned atmosphere camera and LUT-aligned sun direction.
+vec4 ComputeSkyRadiance(vec3 view_dir) {
+    vec3 camera_pos = AtmosphereCameraPosition();
+    vec3 sun_dir = u_sky_lut_sun_dir;
     // -- sphere intersection --
     float t0, t1;
     if (!RayIntersectSphere(camera_pos, view_dir, ATM_ATMO_R, t0, t1)) return vec4(0.0);
@@ -127,24 +131,5 @@ vec4 ComputeSkyRadiance(vec3 camera_pos, vec3 view_dir, vec3 sun_dir
     return ATM_SOLAR   * (phase_rayleigh * acc_ray + phase_mie * acc_mie + acc_x)
          + ATM_MOON_IRR * (phase_rayleigh * acc_ray_moon + phase_mie_moon * acc_mie_moon);
 }
-
-// ===============================================================
-// GetAmbientColor - sky ambient light (linear HDR, no tonemap), converted
-// with the sky's sRGB-domain white balance so ambient stays consistent with
-// the sky LUT it is derived from.
-// ===============================================================
-
-vec3 GetAmbientColorAt(float r, float mu) {
-    vec4 ss = GetScattering(r);
-    vec4 ms = SampleMultiScatter(utex_mslut, r, mu);
-    return SpectralToLinearSRGBWhiteBalanced(ss * ms * ATM_SOLAR) * ATM_EXPOSURE;
-}
-
-vec3 GetAmbientColor(vec3 camera_pos, vec3 sun_dir) {
-    float r = length(camera_pos);
-    float mu = dot(camera_pos, sun_dir) / r;
-    return GetAmbientColorAt(r, mu);
-}
-
 
 #endif // LIB_ATMOSPHERE_SKY_RADIANCE_GLSL

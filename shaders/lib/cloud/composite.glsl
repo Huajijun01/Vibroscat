@@ -10,86 +10,27 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/celestial.glsl"
-#include "/lib/atmosphere/media.glsl"
-#include "/lib/atmosphere/sky_radiance.glsl"
-#include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 #include "/lib/cloud/cirrus.glsl"
-#include "/lib/cloud/volumetric.glsl"
+#include "/lib/cloud/lighting.glsl"
+#include "/lib/cloud/signal.glsl"
 
 // Match the volumetric march cutoff: at most 0.01% of a hidden layer remains.
 const float CLOUD_LAYER_OPAQUE_TRANSMITTANCE = 1.0e-4;
-
-// Atmospheric transmittance along the camera->cloud-surface ray (UE
-// GetTransmittance scheme; (r, mu) camera, (r_d, mu_d) surface, same ray):
-//   ground miss:  T = T_lut(r, mu)      / T_lut(r_d, mu_d)
-//   ground hit:   T = T_lut(r_d, -mu_d) / T_lut(r, -mu)   (reciprocity)
-// The baked LUT stores the full chord for non-ground directions (incl.
-// slightly negative cosines), so the first branch is valid for dir.y < 0.
-vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float surface_r,
-    bool ground_hit, vec4 camera_transmittance
-) {
-    float surface_mu = dot(surface_pos, view_dir) / surface_r;
-    vec4 numerator;
-    vec4 denominator;
-    if (ground_hit) {
-        numerator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, -surface_mu);
-        denominator = camera_transmittance;
-    } else {
-        numerator = camera_transmittance;
-        denominator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, surface_mu);
-    }
-    // The caller shares the camera lookup and horizon test across both layers.
-    // tslut transmittances decode in [0,1], so the ratio never goes negative.
-    vec4 segment_transmittance = saturate(numerator / max(denominator, vec4(1.0e-5)));
-    return saturate(SpectralFractionToLinearSRGB(segment_transmittance));
-}
-
-// Re-light unlit cloud radiance with the current sun/moon; the consumer
-// adds skyColor * cloudData.z afterwards. Light colors use the sky's
-// sRGB-domain white balance (the same conversion as the sky LUT), so cloud
-// and sky hues stay locked as transmittance changes through the day.
-vec3 RelightClouds(vec3 cloud_data, vec3 surface_position, float surface_r) {
-    float surface_r2 = surface_r * surface_r;
-    float sun_mu = dot(surface_position, u_world_sun_dir) / surface_r;
-    // moon_mu is just -sun_mu; the host's moon_dir is the antipode of sun_dir.
-    float moon_mu = -sun_mu;
-    vec3 sun_color = SpectralToLinearSRGBWhiteBalanced(
-        SampleTransmittance(utex_tslut, surface_r, surface_r2, sun_mu) * ATM_SOLAR) * ATM_EXPOSURE;
-    vec3 moon_color = SpectralToLinearSRGBWhiteBalanced(
-        SampleTransmittance(utex_tslut, surface_r, surface_r2, moon_mu) * ATM_MOON_IRR) * ATM_EXPOSURE;
-    // Ambient evaluated once at the shared surface position, scaled by the
-    // absorbed fraction (1 - T).
-    vec3 ambient_cloud_radiance = GetAmbientColorAt(surface_r, sun_mu)
-        * (1.0 - cloud_data.z)
-        * CLOUD_SKY_LIGHT_STRENGTH;
-#ifdef CLOUD_SINGLE_LIGHT
-    // One trace means one directional channel, so the light color carries both
-    // illuminants. The sun keeps its color through the fire-cloud band, where
-    // it has crossed the sea-level horizon but the layer still catches it over
-    // its own dipped one, and is released once the antisolar side has taken
-    // over.
-    vec3 light_color = sun_color * TwilightWeight(u_world_sun_dir.y)
-        + moon_color * MoonlightFactor(u_world_sun_dir.y);
-    return cloud_data.x * light_color + ambient_cloud_radiance;
-#else
-    return cloud_data.x * sun_color + cloud_data.y * moon_color + ambient_cloud_radiance;
-#endif
-}
 
 // Compose volumetric + cirrus over the sky. Layer order follows the ray:
 // the first-entered layer draws in front (correct occlusion from below,
 // between layers, above the cirrus shell).
 vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
-    vec3 volumetric_radiance,   // packed march output: x = sun, y = moon, z = T
+    CloudSignal volumetric_signal, // unlit directional weights and true cloud T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
     out vec3 cloud_transmittance, // combined REAL transmittance of the cloud layers
     inout vec4 view_transmittance,
     inout bool view_transmittance_cached
 ) {
-    bool volumetric_hit = volumetric_radiance.z < 0.99999;
-    float volumetric_transmittance = volumetric_hit ? volumetric_radiance.z : 1.0;
+    bool volumetric_hit = volumetric_signal.transmittance < 0.99999;
+    float volumetric_transmittance = volumetric_hit ? volumetric_signal.transmittance : 1.0;
 
     // Each cloud owns its integrated radiance and true transmittance.
     // The compositor owns the background and atmospheric propagation.
@@ -121,7 +62,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     vec3 volumetric_scattering = vec3(0.0);
     if (volumetric_hit) {
         volumetric_surface_r = length(volumetric_surface_pos);
-        volumetric_scattering = RelightClouds(volumetric_radiance,
+        volumetric_scattering = RelightClouds(volumetric_signal,
             volumetric_surface_pos, volumetric_surface_r);
     }
 

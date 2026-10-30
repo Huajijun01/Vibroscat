@@ -2,19 +2,26 @@
 #define LIB_CLOUD_TEMPORAL_GLSL
 
 #include "/lib/contract/settings.glsl"
-// Previous-frame camera transforms, shared with TAA and the AO temporal
-// accumulation (temporal_ao.glsl); declared in uniforms.glsl so both
-// include cleanly.
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/filters.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/cloud/checkerboard.glsl"
+#include "/lib/cloud/signal.glsl"
 
-struct CloudFrame {
-    vec3 radiance;   // x = sun, y = moon, z = transmittance
-    float surface_distance;  // km; hit distance, or cloud-top distance when clear (T = 1)
-};
+// Camera-only reprojection of the cloud history's representative distance.
+// The stationary erosion field and scrolling distribution are not a rigid flow.
+bool CloudProjectToPrevious(vec3 view_dir_world, float distance_km, out vec2 previous_uv) {
+    vec3 world_pos = view_dir_world * (distance_km * 1000.0);
+    vec4 previous_view = gbufferPreviousModelView
+        * vec4(world_pos + u_camera_delta, 1.0);
+    vec4 previous_clip = gbufferPreviousProjection * previous_view;
+    if (previous_clip.w <= 0.0) return false;
+    vec3 previous_ndc = previous_clip.xyz / previous_clip.w;
+    previous_uv = previous_ndc.xy * 0.5 + 0.5;
+    return all(greaterThanEqual(previous_uv, vec2(0.0)))
+        && all(lessThanEqual(previous_uv, vec2(1.0)));
+}
 
 // Active lower-left cloud rectangle in colortex12 alt, matching clouds_render.
 ivec2 CloudCurrentImageSize() {
@@ -24,7 +31,7 @@ ivec2 CloudCurrentImageSize() {
 // Return the full-resolution pixel's coordinate on the moving low-res lattice.
 // The low-res texel centers are at (id + r2_offset) * cell_size in full-res
 // pixel coordinates, so integer lattice coordinates are valid sample centers.
-vec2 CurrentGridPosition(ivec2 full_res_texel) {
+vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
     vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 cell_size = u_render_res / low_size;
 #if CLOUD_TEMPORAL_UPSCALING == 1
@@ -36,12 +43,12 @@ vec2 CurrentGridPosition(ivec2 full_res_texel) {
 }
 
 // Reconstruct the current low-res cloud frame for every full-res sky pixel.
-// Radiance uses the filtered current neighborhood; distance remains the
-// nearest sample location so reprojection does not invent a surface depth.
+// Scattering and transmittance use the filtered current neighborhood. Distance
+// remains the nearest sample location so reprojection does not invent a depth.
 CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
     vec2 low_size = vec2(CloudCurrentImageSize());
     vec2 low_texel_size = 1.0 / low_size;
-    vec2 grid_position = CurrentGridPosition(full_res_texel);
+    vec2 grid_position = CloudCurrentGridPosition(full_res_texel);
     vec2 current_uv = (grid_position + 0.5) * low_texel_size;
     current_uv = clamp(current_uv, 0.5 * low_texel_size, vec2(1.0) - 0.5 * low_texel_size);
     current_uv *= low_size / vec2(textureSize(colortex12, 0));
@@ -52,15 +59,15 @@ CloudFrame CloudSampleCurrentBilinear(ivec2 full_res_texel) {
         ivec2(0),
         ivec2(low_size) - ivec2(1)
     );
-    CloudFrame frame;
-    frame.radiance = value.rgb;
-    frame.surface_distance = texelFetch(colortex12, nearest_texel, 0).a;
+    CloudFrame frame = DecodeCloudFrame(value);
+    frame.distance_km = texelFetch(colortex12, nearest_texel, 0).a;
     return frame;
 }
 
 // True when this history slot has no usable data (never written / cleared).
 bool CloudHistoryInvalid(CloudFrame history) {
-    return any(isnan(history.radiance)) || isnan(history.surface_distance) || !(history.surface_distance > 0.0);
+    return any(isnan(history.signal.scattering)) || isnan(history.signal.transmittance)
+        || isnan(history.distance_km) || !(history.distance_km > 0.0);
 }
 
 // Sample history at a fractional previous-frame UV with the fast Catmull-Rom
@@ -74,10 +81,7 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
 
     ivec2 center_texel = ivec2(clamped_uv * u_render_res);
     if (!(texelFetch(colortex8, center_texel, 0).a > 0.0)) {
-        CloudFrame invalid;
-        invalid.radiance = vec3(HISTORY_NO_CLOUD_DATA);
-        invalid.surface_distance = HISTORY_NO_CLOUD_DATA;
-        return invalid;
+        return DecodeCloudFrame(vec4(HISTORY_NO_CLOUD_DATA));
     }
 
 #if defined(TAAU_ACTIVE)
@@ -85,32 +89,30 @@ CloudFrame CloudHistorySample(vec2 previous_uv) {
 #else
     vec4 col = FastCatmullRom5Tap(colortex8, clamped_uv, u_view_pixel_size, 0.5);
 #endif
-    CloudFrame frame;
-    frame.radiance = col.rgb;
-    frame.surface_distance = col.a;
-    return frame;
+    return DecodeCloudFrame(col);
 }
 
 // Age-based history blending: the accepted-frame age is also the accumulated
 // history weight. The current frame keeps a 1/CLOUD_HISTORY_FRAMES contribution
-// after the cap. Radiance is mixed, distance is never EMA-mixed.
+// after the cap. Scattering is mixed, distance is never EMA-mixed.
 CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
 ) {
     // Single NaN guard so a never-initialized history cannot poison the blend.
-    if (any(isnan(history.radiance)) || isnan(history.surface_distance)) {
+    if (any(isnan(history.signal.scattering)) || isnan(history.signal.transmittance)
+        || isnan(history.distance_km)) {
         return current;
     }
     // Age counts accepted frames and doubles as the bounded accumulated
     // sample weight, capped by CLOUD_HISTORY_FRAMES.
     float alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
     CloudFrame result;
-    // Radiance mixes linearly; transmittance is nonlinear (T = exp(-OD)),
-    // so it mixes in log space (unbiased). Distance is a hit location, keeps
-    // the last fresh sample.
-    result.radiance = vec3(mix(history.radiance.x, current.radiance.x, alpha),
-        mix(history.radiance.y, current.radiance.y, alpha), exp(mix(log(max(history.radiance.z, 1.0e-4)),
-            log(max(current.radiance.z, 1.0e-4)), alpha)));
-    result.surface_distance = current.surface_distance;
+    // Scattering weights mix linearly; transmittance mixes in log space.
+    // Distance is a hit location and keeps the last fresh sample.
+    result.signal.scattering = vec2(mix(history.signal.scattering.x, current.signal.scattering.x, alpha),
+        mix(history.signal.scattering.y, current.signal.scattering.y, alpha));
+    result.signal.transmittance = exp(mix(log(max(history.signal.transmittance, 1.0e-4)),
+        log(max(current.signal.transmittance, 1.0e-4)), alpha));
+    result.distance_km = current.distance_km;
     return result;
 }
 
@@ -127,12 +129,12 @@ CloudFrame CloudCheckerboardCurrent(ivec2 full_res_texel, ivec2 phase_offset, fl
     // fract(x) is exactly x - floor(x); base already holds the floor.
     vec2 fraction = grid - vec2(base);
     ivec2 grid_max = CloudCheckerboardSize() - 1;
-    vec3 radiance_sum = vec3(0.0);
+    vec3 scattering_transmittance_sum = vec3(0.0);
     float weight_sum = 0.0;
     float nearest_squared = 1.0e30;
     CloudFrame result;
-    result.radiance = vec3(0.0, 0.0, 1.0);
-    result.surface_distance = shell_distance;
+    result.signal = CloudSignal(vec2(0.0), 1.0);
+    result.distance_km = shell_distance;
     for (int y = 0; y < 2; ++y) {
         for (int x = 0; x < 2; ++x) {
             float weight = (x == 0 ? 1.0 - fraction.x : fraction.x)
@@ -143,17 +145,20 @@ CloudFrame CloudCheckerboardCurrent(ivec2 full_res_texel, ivec2 phase_offset, fl
             ivec2 texel = clamp(base + ivec2(x, y), ivec2(0), grid_max);
             vec4 sample_value = texelFetch(colortex12, texel, 0);
             if (!(sample_value.a > 0.0)) continue;
-            radiance_sum += sample_value.rgb * weight;
+            scattering_transmittance_sum += sample_value.rgb * weight;
             weight_sum += weight;
             vec2 delta = vec2(texel) - grid;
             float delta_squared = dot(delta, delta);
             if (delta_squared < nearest_squared) {
                 nearest_squared = delta_squared;
-                result.surface_distance = sample_value.a;
+                result.distance_km = sample_value.a;
             }
         }
     }
-    if (weight_sum > 0.0) result.radiance = radiance_sum / weight_sum;
+    if (weight_sum > 0.0) {
+        result.signal = CloudSignal(scattering_transmittance_sum.xy / weight_sum,
+            scattering_transmittance_sum.z / weight_sum);
+    }
     return result;
 }
 
@@ -162,19 +167,17 @@ CloudFrame CloudCheckerboardCurrent(ivec2 full_res_texel, ivec2 phase_offset, fl
 CloudFrame CloudCheckerboardHistory(vec2 previous_uv) {
     ivec2 center = clamp(ivec2(previous_uv * u_render_res), ivec2(0), ivec2(u_render_res) - 1);
     vec4 center_value = texelFetch(colortex8, center, 0);
-    CloudFrame result;
-    result.radiance = center_value.rgb;
-    result.surface_distance = center_value.a;
+    CloudFrame result = DecodeCloudFrame(center_value);
     if (CloudHistoryInvalid(result)) return result;
     vec4 filtered = FastCatmullRom5Tap(colortex8, previous_uv * u_render_scale,
         u_view_pixel_size, 0.5, 0.5 * u_view_pixel_size,
         (u_render_res - 0.5) * u_view_pixel_size, true);
     // AO markers crossing a filter footprint invalidate the whole sample.
     if (any(isnan(filtered))) {
-        result.surface_distance = HISTORY_NO_CLOUD_DATA;
+        result.distance_km = HISTORY_NO_CLOUD_DATA;
         return result;
     }
-    result.radiance = vec3(max(filtered.xy, vec2(0.0)), clamp(filtered.z, 1.0e-4, 1.0));
+    result.signal = CloudSignal(max(filtered.xy, vec2(0.0)), clamp(filtered.z, 1.0e-4, 1.0));
     return result;
 }
 
@@ -208,11 +211,11 @@ CloudFrame CloudCheckerboardClip(ivec2 full_res_texel, CloudFrame history, float
     vec3 lower_bound = vec3(max(lower_xy, vec2(0.0)), log(clamp(lower_z, 1.0e-4, 1.0)));
     vec3 upper_bound = vec3(max(upper_xy, vec2(0.0)), log(clamp(upper_z, 1.0e-4, 1.0)));
     vec3 margin = (upper_bound - lower_bound) * 0.125;
-    vec3 value = vec3(history.radiance.xy, log(clamp(history.radiance.z, 1.0e-4, 1.0)));
+    vec3 value = vec3(history.signal.scattering, log(clamp(history.signal.transmittance, 1.0e-4, 1.0)));
     float strength = (motion_pixels - 1.0)
         / (motion_pixels - 1.0 + float(CLOUD_TEMPORAL_UPSCALING));
     value = mix(value, clamp(value, lower_bound - margin, upper_bound + margin), strength);
-    history.radiance = vec3(max(value.xy, vec2(0.0)), clamp(exp(value.z), 1.0e-4, 1.0));
+    history.signal = CloudSignal(max(value.xy, vec2(0.0)), clamp(exp(value.z), 1.0e-4, 1.0));
     return history;
 }
 
@@ -220,7 +223,7 @@ CloudFrame CloudCheckerboardClip(ivec2 full_res_texel, CloudFrame history, float
 // observations. The first full cycle replaces provisional spatial fills.
 CloudFrame CloudCheckerboardAccumulate(CloudFrame current, CloudFrame history, int pixel_age) {
     // First cycle: the fresh observation fully replaces the provisional fill.
-    // Returning current also skips exp(log(current.z)), which is current.z up
+    // Returning current also skips exp(log(T)), which is T up
     // to rounding, so the early-out is the more exact form of alpha = 1.
     if (pixel_age < CLOUD_CHECKERBOARD_AREA) return current;
     float dense_alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
@@ -242,10 +245,10 @@ CloudFrame CloudCheckerboardAccumulate(CloudFrame current, CloudFrame history, i
 #endif
     float alpha = 1.0 - decayed;
     CloudFrame result;
-    result.radiance = vec3(mix(history.radiance.xy, current.radiance.xy, alpha),
-        exp(mix(log(clamp(history.radiance.z, 1.0e-4, 1.0)),
-            log(clamp(current.radiance.z, 1.0e-4, 1.0)), alpha)));
-    result.surface_distance = current.surface_distance;
+    result.signal.scattering = mix(history.signal.scattering, current.signal.scattering, alpha);
+    result.signal.transmittance = exp(mix(log(clamp(history.signal.transmittance, 1.0e-4, 1.0)),
+        log(clamp(current.signal.transmittance, 1.0e-4, 1.0)), alpha));
+    result.distance_km = current.distance_km;
     return result;
 }
 

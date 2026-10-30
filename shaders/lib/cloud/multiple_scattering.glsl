@@ -19,39 +19,19 @@
 // depth over that length, which is the same statement for any medium only
 // because the length is supplied per layer.
 //
-// TWO of the model's inputs are per-layer and are therefore arguments, not
-// constants of this file.
-//
-// reference_optical_depth: a knee expressed in sigma_t alone carries a length
-// in its units, and a length calibrated for one medium lands somewhere else
-// entirely for another. This pack's volumetric layer runs at 50 km^-1 and a
-// cirrus shell at 2 km^-1, a factor of 25 apart. One knee cannot put both at
-// the same place on the curve, and a layer that never reaches the knee gets no
-// series at all. Each layer therefore owns the length and states it next to
-// its own extinction.
-//
-// saturation_albedo: this is the medium's single-scattering albedo, which the
-// source writes as the leading omega of fms. Water and ice are different
-// media, and this pack already gives them different albedos, so they cannot
-// share this. It is passed in rather than read from a user-facing control
-// because the series converges to omega / (1 - omega) and would swing by orders
-// of magnitude across one march step; each layer pins its own value and lets
-// its strength control scale the result linearly.
-//
-// This is the model that lets a layer return more radiance than single
-// scattering with a single-scattering albedo of at most 1. A constant gain on
-// the scattering term instead raises the effective albedo above 1 and creates
-// energy; the series adds it from the medium's own optical depth.
+// Each layer supplies its own reference length, saturation albedo and
+// strength. The exposed albedo remains below one, bounding the series by
+// omega / (1 - omega) and keeping the packed half-float cloud signal finite.
 // ===============================================================
-
-// Extinction in m^-1 for an extinction authored per kilometer.
-const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
 
 // fms / (1 - fms): every scattering order past the first, isotropized.
 float MultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {
-    float fms = saturation_albedo
-        * (1.0 - exp2(-max(reference_optical_depth, 0.0)));
-    return fms / (1.0 - fms);
+    float unscattered = exp2(-max(reference_optical_depth, 0.0));
+    float fms = saturation_albedo * (1.0 - unscattered);
+    // Keep the exponential in the denominator: subtracting rounded fms
+    // from one loses its remaining optical-depth contribution at high tau.
+    float remaining = (1.0 - saturation_albedo) + saturation_albedo * unscattered;
+    return fms / remaining;
 }
 
 // The added orders enter as an isotropic source, so they carry the isotropic

@@ -1,8 +1,19 @@
 #ifndef LIB_ATMOSPHERE_TRANSMITTANCE_GLSL
 #define LIB_ATMOSPHERE_TRANSMITTANCE_GLSL
 
+#include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
+#include "/lib/atmosphere/spectral.glsl"
+
+// Multiscatter LUT bake geometry. The asset's V axis spans the signed bake
+// altitude range [-(dip), ATM_ATMO_MINUS_P] linearly, so its 32 row centers
+// sit at -6, -2, 2, ..., 118 km. This is the depth the baked asset was
+// built with, not the user's ATM_HORIZON_DIP_SCALE: that setting moves the
+// runtime march bound, while this asset addressing must stay fixed.
+const float ATM_MS_BAKE_DIP_KM = 8.0;
+const float ATM_MS_SPAN_KM = ATM_ATMO_MINUS_P + ATM_MS_BAKE_DIP_KM;
+const float ATM_MS_RCP_SPAN = 1.0 / ATM_MS_SPAN_KM;
 
 // -- Custom Texture bindings (registered in shaders.properties) --
 //
@@ -78,6 +89,31 @@ vec4 SampleTransmittance(sampler2D lut_tex, float r, float r2, float mu) {
 
 vec4 SampleMultiScatter(sampler2D lut_tex, float r, float mu) {
     return textureLod(lut_tex, GetMultiScatterLUTUV(r, mu), 0.0);
+}
+
+// Atmospheric transmittance along the camera->cloud-surface ray (UE
+// GetTransmittance scheme; (r, mu) camera, (r_d, mu_d) surface, same ray):
+//   ground miss:  T = T_lut(r, mu)      / T_lut(r_d, mu_d)
+//   ground hit:   T = T_lut(r_d, -mu_d) / T_lut(r, -mu)   (reciprocity)
+// The baked LUT stores the full chord for non-ground directions (incl.
+// slightly negative cosines), so the first branch is valid for dir.y < 0.
+vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float surface_r,
+    bool ground_hit, vec4 camera_transmittance
+) {
+    float surface_mu = dot(surface_pos, view_dir) / surface_r;
+    vec4 numerator;
+    vec4 denominator;
+    if (ground_hit) {
+        numerator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, -surface_mu);
+        denominator = camera_transmittance;
+    } else {
+        numerator = camera_transmittance;
+        denominator = SampleTransmittance(utex_tslut, surface_r, surface_r * surface_r, surface_mu);
+    }
+    // The caller shares the camera lookup and horizon test across both layers.
+    // tslut transmittances decode in [0,1], so the ratio never goes negative.
+    vec4 segment_transmittance = saturate(numerator / max(denominator, vec4(1.0e-5)));
+    return saturate(SpectralFractionToLinearSRGB(segment_transmittance));
 }
 
 #endif // LIB_ATMOSPHERE_TRANSMITTANCE_GLSL

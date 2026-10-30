@@ -8,9 +8,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/media.glsl"
-#include "/lib/atmosphere/spectral.glsl"
-#include "/lib/atmosphere/transmittance.glsl"
+#include "/lib/atmosphere/illumination.glsl"
 #include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/scattering/phase.glsl"
 
@@ -80,9 +78,7 @@ vec3 EvaluateCirrusLighting(vec3 sample_pos_km, vec3 view_dir, float tau_vertica
     vec3 source_radiance = vec3(0.0);
     if (!PlanetHorizonOccluded(sample_pos_km, sample_r_squared,
             u_world_sun_dir, ATM_PLANET_R2)) {
-        vec3 sun_color = SpectralToLinearSRGBWhiteBalanced(
-            SampleTransmittance(utex_tslut, sample_r_km, sample_r_squared, sun_mu)
-            * ATM_SOLAR) * ATM_EXPOSURE;
+        vec3 sun_color = AtmosphereDirectIrradianceAt(sample_r_km, sample_r_squared, sun_mu, ATM_SOLAR);
         source_radiance += sun_color
             * (PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE) + isotropic_orders);
     }
@@ -90,9 +86,7 @@ vec3 EvaluateCirrusLighting(vec3 sample_pos_km, vec3 view_dir, float tau_vertica
     // lookups of this LUT have been merged incorrectly by the driver.
     if (!PlanetHorizonOccluded(sample_pos_km, sample_r_squared,
             -u_world_sun_dir, ATM_PLANET_R2)) {
-        vec3 moon_color = SpectralToLinearSRGBWhiteBalanced(
-            SampleTransmittance(utex_tslut, sample_r_km, sample_r_squared, -sun_mu)
-            * ATM_MOON_IRR) * ATM_EXPOSURE;
+        vec3 moon_color = AtmosphereDirectIrradianceAt(sample_r_km, sample_r_squared, -sun_mu, ATM_MOON_IRR);
         source_radiance += moon_color
             * (PhaseHenyeyGreensteinTripleLobe(-sun_cos, CIRRUS_MIE_PHASE) + isotropic_orders);
     }

@@ -4,6 +4,8 @@
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/core/noise.glsl"
 #include "/lib/cloud/checkerboard.glsl"
+#include "/lib/cloud/geometry.glsl"
+#include "/lib/cloud/signal.glsl"
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -104,7 +106,7 @@ void main() {
 
     vec3 surface_position;
     bool hit = false;
-    vec3 cloud_data = vec3(0.0, 0.0, 1.0);
+    CloudSignal cloud_signal = CloudSignal(vec2(0.0), 1.0);
     if (cloud_visible) {
 #if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
         // Checkerboard traces a scene pixel once per N*N frames, so the STBN
@@ -123,7 +125,7 @@ void main() {
         vec2 stbn_jitter = vec2(
             SampleSTBN(sample_pos_i, noise_frame),
             SampleSTBN(sample_pos_i, noise_frame + STBN_STREAM_3));
-        cloud_data = MarchVolumetricClouds(
+        cloud_signal = MarchVolumetricClouds(
             camera_atmosphere_pos,
             view_dir,
             stbn_jitter,
@@ -142,12 +144,12 @@ void main() {
     // A traced but clear interval keeps its positive shell distance.
     if (!cloud_visible) cloud_top_distance = 0.0;
 #endif
-    vec4 frame;
+    CloudFrame frame;
     if (hit) {
         float distance_km = length(surface_position - camera_atmosphere_pos);
-        frame = vec4(cloud_data, distance_km);
+        frame = CloudFrame(cloud_signal, distance_km);
     } else {
-        frame = vec4(cloud_data, cloud_top_distance);
+        frame = CloudFrame(cloud_signal, cloud_top_distance);
     }
-    imageStore(colorimg12, id, frame);
+    imageStore(colorimg12, id, EncodeCloudFrame(frame));
 }

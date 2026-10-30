@@ -28,7 +28,8 @@
 #include "/lib/atmosphere/sky_lut.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 #include "/lib/cloud/composite.glsl"
-#include "/lib/cloud/volumetric.glsl"
+#include "/lib/cloud/geometry.glsl"
+#include "/lib/cloud/signal.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/color/dither.glsl"
 #include "/lib/lighting/ambient_light.glsl"
@@ -72,7 +73,7 @@ void main() {
         vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
         vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
             * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
-        vec2 sky_uv = SkyLUTUV(view_dir, u_world_sun_dir, ATM_PLANET_R, u_cam_altitude);
+        vec2 sky_uv = SkyLUTUV(view_dir, u_world_sun_dir);
         vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
         // Discs stay out of the LUT so clouds attenuate them by real
         // transmittance. view_transmittance is computed at its two consumers
@@ -80,7 +81,7 @@ void main() {
         vec3 celestial = vec3(0.0);
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         vec3 cloud_transmittance = vec3(1.0);
-        vec3 volumetric_radiance = vec3(0.0, 0.0, 1.0);
+        CloudSignal volumetric_signal = CloudSignal(vec2(0.0), 1.0);
         vec3 volumetric_surface_pos = vec3(0.0);
         float volumetric_entry = 1.0e9;
         vec4 view_transmittance = vec4(1.0);
@@ -96,17 +97,17 @@ void main() {
             cloud_visible = cloud_entry > 0.0;
         }
         if (cloud_visible) {
-            // Cloud history (radiance.rgb + distance.a) via the deferred1
-            // colortex8 flip. Distance is never EMA-mixed; feeds relight and
+            // Cloud transport weights and distance from the deferred2
+            // colortex8 history flip. Distance is never EMA-mixed; feeds relight and
             // the distance fade.
-            vec4 accumulated = texelFetch(colortex8, tx, 0);
-            volumetric_surface_pos = camera_atmosphere_pos + view_dir * accumulated.a;
-            accumulated.z = smoothstep(0.001, 0.999, accumulated.z);
-            volumetric_radiance = accumulated.rgb;
+            CloudFrame accumulated = DecodeCloudFrame(texelFetch(colortex8, tx, 0));
+            volumetric_surface_pos = camera_atmosphere_pos + view_dir * accumulated.distance_km;
+            accumulated.signal.transmittance = smoothstep(0.001, 0.999, accumulated.signal.transmittance);
+            volumetric_signal = accumulated.signal;
             volumetric_entry = cloud_entry;
         }
 #endif
-        sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_radiance,
+        sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_signal,
             volumetric_surface_pos, volumetric_entry,
             cloud_transmittance, view_transmittance, view_transmittance_cached);
         // Sun/moon occluded by real cloud transmittance: an opaque column

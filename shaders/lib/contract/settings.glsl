@@ -56,9 +56,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
 #define CLOUD_COVERAGE 0.5 // [0.4 0.5 0.55 0.6 0.65 0.7 0.8] Weather-map coverage bar; higher = a wider cloud footprint. Rain still pushes coverage to full overcast.
 #define CLOUD_DISTRIBUTION_SCALE_KM 70.0 // [48.0 64.0 70.0 80.0 96.0 128.0 160.0 192.0 240.0 280.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
-#define CLOUD_DISTRIBUTION_UV_SCALE 4.5 // [2.0 2.5 3.0 3.5 4.0 4.5 5.0 6.0] Extra sampling frequency on the distribution atlas; higher = smaller, more frequent weather cells.
 #define CLOUD_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
-#define CLOUD_FINE_WIND_FACTOR 2.0 // [1.0 1.25 1.5 1.75 2.0 2.5 3.0] Fine erosion wind speed multiplier; >1 makes details flow faster through clouds for inner motion.
 #define CLOUD_FINE_EROSION_SCALE 1.5 // [1.0 1.5 2.0 3.0 4.0 5.0 6.0 8.0] Voronoise coordinate scale per kilometer; higher = smaller, denser erosion cells.
 #define CLOUD_FINE_EROSION_STRENGTH 0.7 // [0.25 0.5 0.7 1.0 1.5] Light-trace erosion strength; scales the voronoise mean the same way the view path scales its per-point read.
 #define CLOUD_ALPHA_EXTINCTION_SRGB_GRAY 50.0 // [25.0 35.0 50.0 65.0 80.0 100.0] Extinction of a fully dense sample (km^-1); higher = denser, more opaque clouds.
@@ -68,8 +66,8 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_MS_ATTENUATION 0.25 // [0.25 0.3 0.35 0.5 0.65 0.75 0.85 1.0] Per-octave optical depth multiplier.
 #define CLOUD_MS_CONTRIBUTION 0.5 // [0.0 0.25 0.35 0.5 0.65 0.7 0.75 1.0] Per-octave energy multiplier.
 #define CLOUD_MS_ECCENTRICITY 0.35 // [0.0 0.25 0.33 0.35 0.4 0.5 0.6 0.75 1.0] Per-octave phase eccentricity multiplier.
-#define CLOUD_MS_SAT_ALBEDO 0.99 // [0.9 0.95 0.97 0.98 0.99 0.995 0.999 1.0] Saturation albedo omega of the fms series; the added orders converge to omega / (1 - omega), so values near 1.0 brighten dense interiors steeply.
-#define CLOUD_MS_ISOTROPIC 0.2 // [0.0 0.1 0.2 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
+#define CLOUD_MS_SAT_ALBEDO 0.9 // [0.9 0.95 0.97 0.98 0.99 0.995 0.999] Saturation albedo of the geometric series; values below one bound its scattering weights in half-float history.
+#define CLOUD_MS_ISOTROPIC 0.5 // [0.0 0.1 0.2 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
 #define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment strength for both cloud layers; higher = brighter cloud shadow regions.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
 #define CLOUD_MILKYWAY_GLOW // Milky Way glow scattered inside the volumetric layer; the transmission slider below owns its share.

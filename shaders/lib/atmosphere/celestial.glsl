@@ -5,7 +5,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
-#include "/lib/atmosphere/media.glsl"
+#include "/lib/atmosphere/illumination.glsl"
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/color/spaces.glsl"
 

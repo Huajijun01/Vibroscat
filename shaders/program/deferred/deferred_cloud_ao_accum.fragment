@@ -6,7 +6,7 @@
 // Clouds and AO supply this history; direct RGB is consumed by later passes.
 // This fragment writes one merged full-res history frame to colortex8.
 // The two histories are spatially exclusive (depth branch):
-//   sky:      RGBA = radiance.rgb + distance (NaN/0 rejected by cloud validation)
+//   sky:      RG = scattering weights, B = transmittance, A = distance in km
 //   geometry: R = EncodeAOHistory(AO), G = age, B = encoded view depth (EncodeSquaredDepth
 //             curve, see lib/raytrace/ssr_depth.glsl), A = NaN
 //             ("not cloud": taps crossing the boundary propagate NaN and
@@ -29,8 +29,9 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/cloud/checkerboard.glsl"
+#include "/lib/cloud/geometry.glsl"
+#include "/lib/cloud/signal.glsl"
 #include "/lib/cloud/temporal.glsl"
-#include "/lib/cloud/volumetric.glsl"
 #include "/lib/lighting/ao_history.glsl"
 #include "/lib/lighting/ao_reconstruction.glsl"
 #include "/lib/raytrace/ssr_depth.glsl"
@@ -78,19 +79,16 @@ void main() {
             CloudFrame current_frame;
             bool current_ready = has_fresh;
             if (has_fresh) {
-                current_frame.radiance = raw_sample.rgb;
-                current_frame.surface_distance = raw_sample.a;
+                current_frame = DecodeCloudFrame(raw_sample);
             }
             CloudFrame accumulated;
             bool history_accepted = false;
             if (frameCounter > 0) {
                 vec4 held_value = texelFetch(colortex8, tx, 0);
-                CloudFrame held;
-                held.radiance = held_value.rgb;
-                held.surface_distance = held_value.a;
+                CloudFrame held = DecodeCloudFrame(held_value);
                 float anchor_distance;
                 if (!has_fresh && !CloudHistoryInvalid(held)) {
-                    anchor_distance = held.surface_distance;
+                    anchor_distance = held.distance_km;
                 } else {
                     // An invalid held distance needs current spatial support
                     // to place the reprojection ray, even if history survives.
@@ -98,7 +96,7 @@ void main() {
                         current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
                         current_ready = true;
                     }
-                    anchor_distance = current_frame.surface_distance;
+                    anchor_distance = current_frame.distance_km;
                 }
                 vec2 previous_uv;
                 if (CloudProjectToPrevious(view_dir, anchor_distance, previous_uv)) {
@@ -138,7 +136,7 @@ void main() {
             CloudFrame accumulated = current_frame;
             if (!CloudHistoryInvalid(current_frame) && frameCounter > 0) {
                 vec2 previous_uv;
-                if (!CloudProjectToPrevious(view_dir, current_frame.surface_distance, previous_uv
+                if (!CloudProjectToPrevious(view_dir, current_frame.distance_km, previous_uv
                 )) {
                     // UV out of range / behind previous camera: reject history.
                     accumulated = current_frame;
@@ -155,7 +153,7 @@ void main() {
             }
 #endif
             imageStore(uimg_clouds_age, tx, vec4(float(new_age) * (1.0 / 255.0), 0.0, 0.0, 0.0));
-            out_history = vec4(accumulated.radiance, accumulated.surface_distance);
+            out_history = EncodeCloudFrame(accumulated);
         } else {
             // Ray misses the layer: keep the invalid marker, reset age
             // (entering rays reseed immediately).

@@ -4,8 +4,6 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/color/tonemap_aces2.glsl"
 #include "/lib/color/tonemap_agx.glsl"
-#include "/lib/color/tonemap_agx_vivid.glsl"
-#include "/lib/color/tonemap_blender_agx.glsl"
 #include "/lib/color/tonemap_gt7.glsl"
 #include "/lib/color/tonemap_opendrt.glsl"
 
@@ -15,12 +13,8 @@ vec3 Tonemap(vec3 linear_rgb) {
     return TonemapAGX(linear_rgb);
 #elif TONEMAP_MODE == 1
     return TonemapACES2(linear_rgb);
-#elif TONEMAP_MODE == 2
-    return TonemapBlenderAGX(linear_rgb);
 #elif TONEMAP_MODE == 3
     return TonemapOpenDRT(linear_rgb);
-#elif TONEMAP_MODE == 6
-    return TonemapAgXVivid(linear_rgb);
 #else
     return TonemapGT7(linear_rgb);
 #endif

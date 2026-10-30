@@ -31,8 +31,7 @@ the reference's fixed defaults, including black/white hue retention 1.0/0.5.
 The former pack contrast, gamma, saturation and invented looks were removed.
 The reference's final display-signal clamp is followed by sRGB decoding for
 the pack's display-linear post-processing. No artistic preset is supplied
-for this HSV variant by the reference; Blender AgX's official looks belong
-to mode 2, below.
+for this HSV variant by the reference.
 
 History: between 2026-08 and 2026-10 the pack also carried ports of this tool's Oklab DRT, Reinhard-Gamut and Reinhard-AgX (used at the time with the author's direct permission, before the repository chose a license). All three were removed in the 2026-10 tone-mapper list change and are no longer distributed.
 
@@ -241,10 +240,9 @@ Cirrus uses `tau_vertical * 0.5 km / 1 km` with a default series strength of 1.0
 These lengths and strengths are per-layer calibrations. They do not replace
 view-path extinction or multiply the first scattering by density again.
 
-The `omega` in that formula is per-layer as well: it is the medium's
-single-scattering albedo, and water and ice are not the same medium. The
-volumetric layer uses 0.99, pinned rather than driven by its CLOUD_MS_ALBEDO
-control, and the cirrus uses 0.999.
+The saturation albedo is owned per layer. Volumetric clouds use
+`CLOUD_MS_SAT_ALBEDO` (default 0.9); cirrus uses the fixed value 0.999.
+The independent strength controls scale the isotropic added orders.
 
 `shaders/lib/cloud/multiple_scattering.glsl` is the single owner of that
 dimensionless form and both cloud layers include it. Both layers add the series
@@ -402,55 +400,17 @@ Modifications and integration:
   12,276 neutral, saturated, random HDR and signed inputs, within 5e-5 of
   display-linear white.
 
-## 23. Blender AgX (GPL-2.0-or-later / BSD-3-Clause)
+## 23. Blender AgX (GPL-2.0-or-later / BSD-3-Clause; removed)
 
 `TonemapBlenderAGX` in `shaders/lib/color/tonemap_blender_agx.glsl`
-(`TONEMAP_MODE == 2`) reconstructs the Base Contrast formation represented
-by Blender 4.0's AgX view transform. Blender is GPL-2.0-or-later, compatible
-with this pack's GPLv3. AgX is Troy Sobotka's concept (section 2); this
-configuration is EaryChow's and its sigmoid is Jed Smith's.
-
-Authoritative distribution:
-<https://github.com/blender/blender/tree/v4.0.0/release/datafiles/colormanagement>
-(`config.ocio` and `luts/AgX_Base_sRGB.cube`). Mathematical references are
-<https://github.com/EaryChow/AgX_LUT_Gen> (`AgXBasesRGB.py`,
-`AgXBaseRec2020.py`, `working_space.py`, `sigmoid.py`, and the two lower
-guard-rail generators). No generator Python source is distributed here.
-The guard rails are independently reconstructed algebraically: with
-unit-sum luminance weights the opponent compensation reduces to `2*Y-min`.
-
-Formation and adaptations:
-
-- Linear Rec.709 -> Rec.2020 -> lower input guard rail -> rotated/inset
-  working gamut -> -10 .. +6.5 EV log shaper -> toe/shoulder sigmoid
-  (slope 2.4, powers 1.5) -> power 2.4 linearization -> shortest-arc hue
-  interpolation, 40% from original to formed hue -> outset/Rec.709 ->
-  lower output guard rail -> display clamp.
-- The guard-rail luminance weights match Blender 4.0's shipped LUT. The
-  generator's June 2025 D65-weight revision changes saturated colors and is
-  not substituted for the distribution being reproduced.
-- The transform is evaluated analytically rather than through a sampled
-  LUT. Between lattice nodes it therefore differs from Blender's tetrahedral
-  interpolation. No exact match to interpolated LUT output is claimed.
-- The upper guard rail is disabled in the generator and remains disabled.
-- `TONEMAP_BLENDER_AGX_LOOK` selects Blender v4.0.0's actual nine looks:
-  Base Contrast, Punchy, Greyscale, Very High Contrast, High Contrast,
-  Medium High Contrast, Medium Low Contrast, Low Contrast and Very Low
-  Contrast. The default is Base Contrast. The complete preset transforms
-  run in the official 25-stop AgX Log process space before view formation.
-- `shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` is generated
-  by OpenColorIO 2.6.0 from those `config.ocio` look transforms. Copyright
-  Contributors to the OpenColorIO Project, BSD-3-Clause; the full license
-  is retained in that file. Punchy includes the actual grading-tone and CDL
-  stages. No look is approximated by a display-gamma/saturation shortcut.
-- Every look is checked against the official OCIO CPU look transform with
-  lossless optimization, followed by the independent analytical formation.
-  The CPU's default approximate grading math is disabled in that oracle.
-- Scene 18% grey maps to 18% display-linear without an input prescale.
-- Validation against 5,000 exact lattice nodes of Blender 4.0's distributed
-  57-cubed LUT, including colors with negative Rec.709 components, gave a
-  maximum display-linear error of 1.1e-6. The complete analytical generator
-  comparison on 12,248 valid neutral/HDR/signed inputs stayed below 1e-6.
+(`TONEMAP_MODE == 2`) analytically reconstructed the Base Contrast formation
+of Blender 4.0's AgX view transform (Blender, GPL-2.0-or-later; AgX is Troy
+Sobotka's concept, the configuration is EaryChow's and the sigmoid is Jed
+Smith's), with the official looks provided by
+`shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` (generated by
+OpenColorIO 2.6.0, BSD-3-Clause). The mode was removed with the 2026-10-30
+tone-mapper list reduction and is no longer distributed; removing the code
+leaves no remaining distribution obligation.
 
 ## 24. AMD FidelityFX LPM (MIT; removed in V0.4.0)
 
@@ -620,27 +580,14 @@ camera-only history operate in Vibroscat's existing pass and resource graph.
 Upstream: https://github.com/sixthsurge/photon and
 https://github.com/HaringPro/Revelation .
 
-## 33. AgX Vivid (GPL-3.0)
+## 33. AgX Vivid (GPL-3.0; removed)
 
-`shaders/lib/color/tonemap_agx_vivid.glsl` adapts the linear-to-logarithmic
-shoulder, virtual-gamut inset/outset and HSV hue protection from linlin's
-DRT Bench, `shaders/reinhard_agx.wgsl` and `shaders/agx_hsv.wgsl`:
-<https://github.com/bWFuanVzYWth/DRT>, commit
-`49e67a3` (GPL-3.0-only; compatible with this pack's GPLv3).
-AgX's image-formation concept is credited to Troy Sobotka in section 2.
-
-This custom variant uses a 0.60 linear endpoint, a sixth-power logarithmic
-shoulder, 0.06 gamut inset, 0.95-to-0.65 hue retention and a bounded 0.08
-saturation lift. Its input and output are linear Rec.709; hue repair alone
-runs in sRGB signal coordinates. It is a separate operator, not an official
-AgX look. Existing reference adapters retain their own parameters.
-
-SEUS Renewed v1.0.1 supplied a visual target: nearly linear middle tones,
-late highlight compression and bright whites. Its proprietary source and
-cone-overlap matrices are not included or translated; the curve here is
-constructed from the GPL DRT Bench framework with independently chosen
-parameters. SEUS source remains under the SEUS License:
-<https://www.sonicether.com/seus/>.
+`TonemapAgXVivid` in `shaders/lib/color/tonemap_agx_vivid.glsl`
+(`TONEMAP_MODE == 6`) was a fixed shoulder with full HSV hue retention
+following linlin's DRT Bench Reinhard/AgX family (GPL-3.0-only, section 3).
+The mode was removed with the 2026-10-30 tone-mapper list reduction and is
+no longer distributed; removing the code leaves no remaining distribution
+obligation.
 
 ## Appendix A: Apache License 2.0 (full text)
 

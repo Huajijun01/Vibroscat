@@ -28,8 +28,7 @@ Photon 自定义许可协议中的再分发限制不适用于本包当前代码�
 该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包 GPLv3
 兼容。算子使用参考实现的固定默认值，包括黑端/白端色相保留 1.0/0.5。原先本包额外叠加的
 对比度、伽马、饱和度与自行编造的 look 已移除。参考实现的最终显示信号钳制之后，解码 sRGB
-以供本包显示线性后处理使用。此 HSV 变体的参考实现不提供艺术风格预设；Blender AgX 官方
-look 属于下文的模式 2。
+以供本包显示线性后处理使用。此 HSV 变体的参考实现不提供艺术风格预设。
 
 历史：2026-08 至 2026-10 期间本包还移植过该工具的 Oklab DRT、Reinhard-Gamut 与 Reinhard-AgX（当时该仓库尚未选择许可证，按作者直接授权使用）。三者在 2026-10 的模式列表更换中全部移除，不再随包分发。
 
@@ -217,8 +216,9 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 卷云参考光学厚度为 `tau_vertical * 0.5 km / 1 km`，其级数强度默认 1.0。参考长度与强度是本包
 针对各层的标定量；它们不代替视线方向的消光，也不再给首次散射额外乘一次密度。
 
-公式里的 `ω0` 同样按层持有：它是介质的单次散射反照率，水云与冰云不是同一种介质。本包体积云取
-0.99（固定值，不跟 `CLOUD_MS_ALBEDO` 滑条走），卷云取 0.999。
+The saturation albedo is owned per layer. Volumetric clouds use
+`CLOUD_MS_SAT_ALBEDO` (default 0.9); cirrus uses the fixed value 0.999.
+The independent strength controls scale the isotropic added orders.
 
 `shaders/lib/cloud/multiple_scattering.glsl` 是这条无量纲形式的唯一归属，体积云与卷云两个云层
 共同包含它。两个层都把它加在日月的直射项上；环境光路径不经过它。体积云另加把日月折叠成
@@ -340,42 +340,14 @@ Supersampling*（GDC 2016）方差裁剪仅作为实验对照，未并入发布�
 - 实际 GLSL 与完整 OpenColorIO CPU 变换比较 12,276 个中性、饱和、随机 HDR 和
   带负分量输入，显示线性误差预算为 5e-5。
 
-## 23. Blender AgX（GPL-2.0-or-later / BSD-3-Clause）
+## 23. Blender AgX（GPL-2.0-or-later / BSD-3-Clause；已移除）
 
 `shaders/lib/color/tonemap_blender_agx.glsl` 的 `TonemapBlenderAGX`（`TONEMAP_MODE == 2`）
-重建 Blender 4.0 AgX 视图变换的 Base Contrast 成像。Blender 采用 GPL-2.0-or-later，
-与本包 GPLv3 兼容。AgX 概念来自 Troy Sobotka（第 2 节），该配置来自 EaryChow，sigmoid 来自 Jed Smith。
-
-发行版标准：<https://github.com/blender/blender/tree/v4.0.0/release/datafiles/colormanagement>
-中的 `config.ocio` 和 `luts/AgX_Base_sRGB.cube`。数学参考为
-<https://github.com/EaryChow/AgX_LUT_Gen> 中的 `AgXBasesRGB.py`、`AgXBaseRec2020.py`、
-`working_space.py`、`sigmoid.py` 和两份下侧 guard rail 生成器。本包不分发生成器 Python 源码；
-guard rail 采用独立代数重建：亮度权重之和为 1 时，对手色补偿可化简为 `2*Y-min`。
-
-成像与适配说明：
-
-- 线性 Rec.709 → Rec.2020 → 下侧输入 guard rail → 旋转/inset 工作色域 → −10…+6.5 EV log 整形
-  → toe/shoulder sigmoid（slope 2.4、power 1.5）→ 2.4 次幂线性化 → 原始色相向成形色相的
-  40% 最短弧插值 → outset/Rec.709 → 下侧输出 guard rail → 显示钳制。
-- guard rail 亮度权重以 Blender 4.0 随包 LUT 为准，不替换为上游生成器 2025 年 6 月更新的
-  D65 权重；该更新会改变饱和颜色。
-- 本包使用解析求值，网格点之间与 Blender 的四面体 LUT 插值存在差别，不声称逐像素等同于
-  插值 LUT 输出。
-- 上侧 guard rail 在生成器中禁用，本包同样禁用。
-- `TONEMAP_BLENDER_AGX_LOOK` 提供 Blender v4.0.0 的九个真实 look：Base Contrast、
-  Punchy、Greyscale、Very High Contrast、High Contrast、Medium High Contrast、
-  Medium Low Contrast、Low Contrast、Very Low Contrast，默认 Base Contrast。
-  完整预设变换在官方 25 档 AgX Log 处理空间内执行，然后进行视图成像。
-- `shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` 由 OpenColorIO 2.6.0 从
-  `config.ocio` 的 look 生成，版权归 Contributors to the OpenColorIO Project，采用
-  BSD-3-Clause，完整许可保留在该文件中。Punchy 包含真正的 grading-tone 和 CDL 阶段，
-  不以显示伽马/饱和度捷径模拟。
-- 每个 look 均对照官方 OCIO CPU 预设变换及独立解析成像测试；参考 CPU 使用无损优化，
-  关闭默认的近似 grading 运算。
-- 场景 18% 灰无需预缩放即映射为 18% 显示线性。
-- 与 Blender 4.0 随包的 57³ LUT 比较了 5,000 个精确网格点，包括带负 Rec.709 分量的颜色，
-  最大显示线性误差为 1.1e-6；与完整解析生成器比较 12,248 个有效中性/HDR/带负分量输入，
-  误差低于 1e-6。
+曾解析重建 Blender 4.0 AgX 视图变换的 Base Contrast 成像（Blender，GPL-2.0-or-later；
+AgX 概念来自 Troy Sobotka，配置来自 EaryChow，sigmoid 来自 Jed Smith），官方 look 由
+`shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` 提供（OpenColorIO 2.6.0
+生成，BSD-3-Clause）。该模式已随 2026-10-30 的色调映射模式列表精简一并移除，不再随包
+分发；代码移除后无剩余分发义务。
 
 ## 24. AMD FidelityFX LPM（MIT；已随 V0.4.0 移除）
 
@@ -518,27 +490,12 @@ camera-only history operate in Vibroscat's existing pass and resource graph.
 Upstream: https://github.com/sixthsurge/photon and
 https://github.com/HaringPro/Revelation .
 
-## 33. AgX Vivid (GPL-3.0)
+## 33. AgX Vivid（GPL-3.0；已移除）
 
-`shaders/lib/color/tonemap_agx_vivid.glsl` adapts the linear-to-logarithmic
-shoulder, virtual-gamut inset/outset and HSV hue protection from linlin's
-DRT Bench, `shaders/reinhard_agx.wgsl` and `shaders/agx_hsv.wgsl`:
-<https://github.com/bWFuanVzYWth/DRT>, commit
-`49e67a3` (GPL-3.0-only; compatible with this pack's GPLv3).
-AgX's image-formation concept is credited to Troy Sobotka in section 2.
-
-This custom variant uses a 0.60 linear endpoint, a sixth-power logarithmic
-shoulder, 0.06 gamut inset, 0.95-to-0.65 hue retention and a bounded 0.08
-saturation lift. Its input and output are linear Rec.709; hue repair alone
-runs in sRGB signal coordinates. It is a separate operator, not an official
-AgX look. Existing reference adapters retain their own parameters.
-
-SEUS Renewed v1.0.1 supplied a visual target: nearly linear middle tones,
-late highlight compression and bright whites. Its proprietary source and
-cone-overlap matrices are not included or translated; the curve here is
-constructed from the GPL DRT Bench framework with independently chosen
-parameters. SEUS source remains under the SEUS License:
-<https://www.sonicether.com/seus/>.
+`shaders/lib/color/tonemap_agx_vivid.glsl` 的 `TonemapAgXVivid`（`TONEMAP_MODE == 6`）
+曾按 linlin 的 DRT Bench Reinhard/AgX 家族（GPL-3.0-only，见第 3 节）实现固定肩部与
+完整 HSV 色相保持。该模式已随 2026-10-30 的色调映射模式列表精简一并移除，不再随包
+分发；代码移除后无剩余分发义务。
 
 ## 附录 A：Apache License 2.0 全文
 

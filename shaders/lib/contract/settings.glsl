@@ -379,9 +379,8 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure reference display key; 0.18 is middle gray
 #define AE_ADAPTATION_STRENGTH 0.70 // [0.0 0.25 0.40 0.55 0.70 0.85 1.0] Scene-key EV compensation; 0=fixed exposure, 1=full compensation
 
-// Tonemap operator (0 = AgX, 1 = ACES 2.0, 2 = Blender AgX, 3 = OpenDRT,
-// 5 = GT7, 6 = AgX Vivid)
-#define TONEMAP_MODE 6 // [0 1 2 3 5 6] Tonemap: 0=AgX-HSV 1=ACES 2.0 2=Blender AgX 3=OpenDRT 5=GT7 6=AgX Vivid
+// Tonemap operator (0 = AgX-HSV, 1 = ACES 2.0, 3 = OpenDRT, 5 = GT7)
+#define TONEMAP_MODE 5 // [0 1 3 5] Tonemap: 0=AgX-HSV 1=ACES 2.0 3=OpenDRT 5=GT7
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 
 // #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
@@ -401,7 +400,6 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 
 // Only official artistic presets are user options. Numeric DRT parameters
 // are immutable constants in their owning color libraries.
-#define TONEMAP_BLENDER_AGX_LOOK 0 // [0 1 2 3 4 5 6 7 8] Blender 4.0 AgX look
 #define TONEMAP_ODT_LOOK 0 // [0 1 2 3 4 5 6] OpenDRT v1.1.0 look preset
 #define TONEMAP_ODT_TONESCALE 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13] OpenDRT tonescale preset; 0 uses the selected look
 

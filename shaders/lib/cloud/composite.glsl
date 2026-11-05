@@ -22,7 +22,7 @@ const float CLOUD_LAYER_OPAQUE_TRANSMITTANCE = 1.0e-4;
 // the first-entered layer draws in front (correct occlusion from below,
 // between layers, above the cirrus shell).
 vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
-    CloudSignal volumetric_signal, // unlit directional weights and true cloud T
+    CloudSignal volumetric_signal, // unlit primary/sky weights and true cloud T
     vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
     float volumetric_entry_km,   // ray entry distance into the volumetric shell
     out vec3 cloud_transmittance, // combined REAL transmittance of the cloud layers

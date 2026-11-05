@@ -28,7 +28,7 @@
 //                                only on H.
 //   colortex6   RGBA16UI         SSR depth16/rough8/selector8/unused8/age5/state3/
 //                                log-variance16; no historical normal or M
-//   colortex8   RGBA16F          Cloud history frame (sun, moon, T, distance);
+//   colortex8   RGBA16F          Cloud history frame (primary, sky, T, distance);
 //                                merged with the AO history: geometry pixels
 //                                carry (AO*1020 integer, age, encoded view depth,
 //                                A=NaN "not cloud") while GI is disabled
@@ -66,7 +66,7 @@ const int colortex2Format  = RGBA8;
 const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
-const int colortex8Format  = RGBA16F;  // sky: cloud radiance/distance; geometry: AO*1020 integer, age, encoded view depth, A=NaN
+const int colortex8Format  = RGBA16F;  // sky: primary/sky weights, T, km; geometry: AO*1020, age, view depth, A=NaN
 const int colortex9Format  = RGB16F; // half-res temporal irradiance (deferred4)
 const int colortex10Format = RGBA16F; // half-res GI geometry/age history (deferred4)
 const int colortex11Format = RGBA16;          // normalized opaque surface packet

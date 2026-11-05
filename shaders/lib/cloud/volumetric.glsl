@@ -10,14 +10,11 @@
 #include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/cloud/signal.glsl"
 
-// Integrate directional scattering weights and true view transmittance.
-// Incident light colors and ambient fill are applied by RelightClouds.
+// Integrate primary/sky scattering weights and true view transmittance.
+// Incident light colors are applied by RelightClouds.
 CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_jitter,
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
-    // The phase terms depend only on the fixed cosines and the constant octave
-    // factors, so they are evaluated once per light per ray.
-#ifdef CLOUD_SINGLE_LIGHT
     // One traced direction: the antisolar fold. The sun keeps its color through
     // the handover, see CloudTwilightWeight at the relight.
     float moonlight_factor = CloudMoonlightFactor(u_world_sun_dir.y);
@@ -25,16 +22,6 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
     float light_cos_theta = clamp(dot(view_dir, light_dir), -1.0, 1.0);
     float light_phase_weight[CLOUD_MS_OCTAVES];
     CloudPhaseOctaves(light_cos_theta, light_phase_weight);
-#else
-    // Moon direction is u_world_moon_dir, the host-built antipode of the sun;
-    // its view cosine is the exact negation of the sun's. Each light keeps its
-    // own march and its own earth-occlusion gate.
-    float sun_cos_theta = clamp(dot(view_dir, u_world_sun_dir), -1.0, 1.0);
-    float sun_phase_weight[CLOUD_MS_OCTAVES];
-    float moon_phase_weight[CLOUD_MS_OCTAVES];
-    CloudPhaseOctaves(sun_cos_theta, sun_phase_weight);
-    CloudPhaseOctaves(-sun_cos_theta, moon_phase_weight);
-#endif
     float octave_attenuation[CLOUD_MS_OCTAVES];
     {
         float attenuation_factor = 1.0;
@@ -52,12 +39,8 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
     // Coverage folds rainStrength, which no sample of this ray changes, so the
     // layer constants are built once per ray and read by both density calls.
     CloudDensityFrame layer_frame = CloudDensityFrameForRay();
-#ifdef CLOUD_SINGLE_LIGHT
     float light_scattering = 0.0;
-#else
-    float sun_scattering = 0.0;
-    float moon_scattering = 0.0;
-#endif
+    float sky_scattering = 0.0;
     vec3 surface_position_accumulator = vec3(0.0);
     float surface_weight = 0.0;
     float view_transmittance = 1.0;
@@ -96,7 +79,7 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
                 // keep it off the erased-sample path.
                 float sample_r2 = dot(sample_position, sample_position);
 
-                // Per-sample scattering material, shared by both light channels. The
+                // Per-sample scattering material for the directional light. The
                 // three constants are folded into one per-sample multiply.
                 float reference_optical_depth = sample_density
                     * (CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M
@@ -104,7 +87,6 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
                 float isotropic_orders = IsotropicOrders(
                     reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
 
-#ifdef CLOUD_SINGLE_LIGHT
                 float sample_light = 0.0;
                 // The jitter only feeds the light trace, so compute it after the
                 // horizon test has skipped erased samples.
@@ -115,37 +97,17 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
                     sample_light = CloudDirectionalScattering(light_phase_weight,
                         octave_attenuation, light_optical_depth, isotropic_orders);
                 }
-#else
-                float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
-                float sample_sun = 0.0;
-                if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_sun_dir, ATM_PLANET_R2)) {
-                    float light_optical_depth = CloudLightOpticalDepth(
-                        sample_position, u_world_sun_dir, light_jitter, layer_frame);
-                    sample_sun = CloudDirectionalScattering(sun_phase_weight,
-                        octave_attenuation, light_optical_depth, isotropic_orders);
-                }
-                float sample_moon = 0.0;
-                if (!PlanetHorizonOccluded(sample_position, sample_r2, u_world_moon_dir, ATM_PLANET_R2)) {
-                    // Half-period offset decorrelates the moon march from the sun's.
-                    float moon_light_jitter = fract(light_jitter + 0.5);
-                    float light_optical_depth = CloudLightOpticalDepth(
-                        sample_position, u_world_moon_dir, moon_light_jitter, layer_frame);
-                    sample_moon = CloudDirectionalScattering(moon_phase_weight,
-                        octave_attenuation, light_optical_depth, isotropic_orders);
-                }
-#endif
+                float sky_optical_depth = CloudSkyOpticalDepth(sample_position, sample_distribution, layer_frame);
                 float optical_depth = sample_density * extinction_per_step;
                 float segment_transmittance = exp(-optical_depth);
                 float segment_absorption = 1.0 - segment_transmittance;
                 float segment_weight = view_transmittance * segment_absorption;
                 surface_position_accumulator += sample_position * segment_weight;
                 surface_weight += segment_weight;
-#ifdef CLOUD_SINGLE_LIGHT
                 light_scattering += segment_weight * sample_light;
-#else
-                sun_scattering += segment_weight * sample_sun;
-                moon_scattering += segment_weight * sample_moon;
-#endif
+                // A soft transport response approximates diffuse redistribution
+                // while retaining variation in the optical depth above each sample.
+                sky_scattering += segment_weight / (1.0 + sky_optical_depth);
                 view_transmittance *= segment_transmittance;
                 if (view_transmittance < 1.0e-4) break;
             }
@@ -157,14 +119,7 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
 
     hit = surface_weight > 1.0e-5;
     surface_position = surface_position_accumulator / max(surface_weight, 1.0e-5);
-    // Return unlit directional weights separately from true transmittance.
-#ifdef CLOUD_SINGLE_LIGHT
-    // The folded trace feeds the directional channel; the second channel
-    // stays clear.
-    return CloudSignal(vec2(light_scattering, 0.0), view_transmittance);
-#else
-    return CloudSignal(vec2(sun_scattering, moon_scattering), view_transmittance);
-#endif
+    return CloudSignal(vec2(light_scattering, sky_scattering), view_transmittance);
 }
 
 #endif // LIB_CLOUD_VOLUMETRIC_GLSL

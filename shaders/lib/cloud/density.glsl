@@ -89,10 +89,14 @@ float DecodeCloudDensity(vec3 atmosphere_position, CloudDensityFrame frame, Clou
     return hq_density;
 }
 
-// Low-quality density for the light-transport trace: the same field with the
-// voronoise threshold replaced by the baked texture mean times the same
-// CLOUD_FINE_EROSION_STRENGTH * fine_exposure scale, which keeps the expected
-// threshold equal to the view path and saves one 3D read per light step.
+// Mean-erosion density shared by directional and upward sky transport.
+float CloudDensityLowQuality(float distribution_density, CloudHeightProfile profile) {
+    return CloudRemapErosion(CloudBaseDensity(distribution_density, profile),
+        CLOUD_VORONOISE_MEAN * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
+}
+
+// Directional transport reads the distribution at each light sample. The
+// erosion threshold uses the texture mean, saving one 3D read per light step.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudDensityFrame frame, CloudHeightProfile profile
 ) {
     float distribution_density = saturate((
@@ -102,11 +106,7 @@ float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudDensityFrame f
     if (distribution_density < 0.001) {
         return 0.0;
     }
-    float lq_density = CloudBaseDensity(distribution_density, profile);
-
-    float hq_density = CloudRemapErosion(lq_density,
-        CLOUD_VORONOISE_MEAN * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
-    return hq_density;
+    return CloudDensityLowQuality(distribution_density, profile);
 }
 
 #endif // LIB_CLOUD_DENSITY_GLSL

@@ -227,6 +227,15 @@ The independent strength controls scale the isotropic added orders.
 文件头与常量注释记录了本包在这些环节上的取值与实现方式。`volumetric.glsl` 同样记录在案的
 三 octave 方向相位求和与 `1 / (1 + τ)` 光路透过率是本包自己的选择，不属于本节出处。
 
+The independent volumetric skylight path studies the separate upward sky-access
+coefficient in Photon v1.3b's `shaders/include/sky/clouds/cumulus.glsl`
+(<https://github.com/sixthsurge/photon>, custom license permitting examination
+and learning). It reuses this pack's distribution and mean-erosion height field
+with four upward midpoint samples and a soft `1 / (1 + tau_up)` response.
+No Photon source, scattering-order implementation, constants or assets are
+copied or closely translated. This sky path does not use the geometric series
+described above.
+
 ## 19. 雨滴涟漪（独立实现与自生成资产）
 
 雨滴涟漪采用离线生成周期坡度贴图的思路。设计比较参考了

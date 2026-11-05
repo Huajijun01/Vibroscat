@@ -17,6 +17,8 @@ const float CLOUD_MS_REFERENCE_LENGTH_M = 300.0;
 // Directional octaves: each step widens the phase, weakens its contribution
 // and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 3;
+// Coarse upward quadrature; all four samples share the view's distribution read.
+const int CLOUD_SKY_STEPS = 4;
 // Sine-of-elevation window across which the traced direction hands over from the
 // sun to the antisolar point. The layer sits 1.4 to 2.7 km up, so its own
 // horizon dips 0.021 to 0.029 below the sea-level one; the handover starts just
@@ -122,7 +124,26 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
     return optical_depth;
 }
 
-// Convert directional weights into RGB with the current sun/moon and ambient
+// Upward world-Y transport keeps XZ fixed, so only the height profile changes.
+// The distribution-dependent top bounds the base density's nonzero support;
+// mean erosion can make that support smaller, but never extends it.
+float CloudSkyOpticalDepth(vec3 atmosphere_position, float distribution_fetch, CloudDensityFrame frame) {
+    float distribution_density = saturate((distribution_fetch
+        - frame.distribution_floor) * frame.inv_coverage);
+    float top_height = CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM * (distribution_density * 0.5 + 0.5);
+    float top_radius = ATM_PLANET_R + top_height;
+    float top_y = sqrt(top_radius * top_radius - dot(atmosphere_position.xz, atmosphere_position.xz));
+    float step_length = max(top_y - atmosphere_position.y, 0.0) / float(CLOUD_SKY_STEPS);
+    float density_sum = 0.0;
+    for (int i = 0; i < CLOUD_SKY_STEPS; ++i) {
+        vec3 sample_position = atmosphere_position + vec3(0.0, (float(i) + 0.5) * step_length, 0.0);
+        float altitude_km = length(sample_position) - ATM_PLANET_R;
+        density_sum += CloudDensityLowQuality(distribution_density, CloudHeightProfileFor(altitude_km));
+    }
+    return density_sum * (CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * step_length);
+}
+
+// Convert primary/sky weights into RGB with the current sun/moon and ambient
 // illumination. Light colors share the sky LUT's sRGB-domain white balance.
 // The compositor adds the background scaled by the signal's true transmittance.
 vec3 RelightClouds(CloudSignal signal, vec3 surface_position, float surface_r) {
@@ -132,12 +153,11 @@ vec3 RelightClouds(CloudSignal signal, vec3 surface_position, float surface_r) {
     float moon_mu = -sun_mu;
     vec3 sun_color = AtmosphereDirectIrradianceAt(surface_r, surface_r2, sun_mu, ATM_SOLAR);
     vec3 moon_color = AtmosphereDirectIrradianceAt(surface_r, surface_r2, moon_mu, ATM_MOON_IRR);
-    // Ambient evaluated once at the shared surface position, scaled by the
-    // absorbed fraction (1 - T).
+    // The integrated sky weight already includes view absorption and upward
+    // cloud attenuation; only its incident color is evaluated here.
     vec3 ambient_cloud_radiance = AtmosphereAmbientRadianceAt(surface_r, sun_mu)
-        * (1.0 - signal.transmittance)
+        * signal.scattering.y
         * CLOUD_SKY_LIGHT_STRENGTH;
-#ifdef CLOUD_SINGLE_LIGHT
     // One trace means one directional channel, so the light color carries both
     // illuminants. The sun keeps its color through the fire-cloud band, where
     // it has crossed the sea-level horizon but the layer still catches it over
@@ -146,9 +166,6 @@ vec3 RelightClouds(CloudSignal signal, vec3 surface_position, float surface_r) {
     vec3 light_color = sun_color * CloudTwilightWeight(u_world_sun_dir.y)
         + moon_color * CloudMoonlightFactor(u_world_sun_dir.y);
     return signal.scattering.x * light_color + ambient_cloud_radiance;
-#else
-    return signal.scattering.x * sun_color + signal.scattering.y * moon_color + ambient_cloud_radiance;
-#endif
 }
 
 #endif // LIB_CLOUD_LIGHTING_GLSL

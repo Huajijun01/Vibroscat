@@ -255,6 +255,15 @@ implementation choices this pack makes around them. The three-octave directional
 phase sum and the `1 / (1 + tau)` light transmittance that `volumetric.glsl`
 also documents are this pack's own choices and are not part of this entry.
 
+The independent volumetric skylight path studies the separate upward sky-access
+coefficient in Photon v1.3b's `shaders/include/sky/clouds/cumulus.glsl`
+(<https://github.com/sixthsurge/photon>, custom license permitting examination
+and learning). It reuses this pack's distribution and mean-erosion height field
+with four upward midpoint samples and a soft `1 / (1 + tau_up)` response.
+No Photon source, scattering-order implementation, constants or assets are
+copied or closely translated. This sky path does not use the geometric series
+described above.
+
 ## 19. Rain ripples (independent implementation and generated asset)
 
 Rain ripples use an offline periodic slope texture. The design comparison

@@ -59,6 +59,21 @@ float PhaseHenyeyGreensteinTripleLobe(float cos_theta, HenyeyGreensteinTripleLob
         + lobes.back_weight * PhaseHenyeyGreenstein(cos_theta, -lobes.back_g);
 }
 
+// Normalized unpolarized Klein-Nishina shape (Klein & Nishina 1929), the
+// Compton differential cross-section expressed through
+// q = 1 / (1 + epsilon * (1 - cos_theta)):
+// F = q^2 * (q + 1/q - (1 - cos_theta^2)).
+// epsilon is an artistic forward-spike shape parameter, not a Compton energy
+// fit. normalization is the caller's 1 / sphere integral of F, evaluated in
+// double precision offline for the chosen epsilon; F itself is shaped so the
+// forward value stays representable in fp32 down to the backward horizon.
+float PhaseKleinNishina(float cos_theta, float epsilon, float normalization) {
+    float t = 1.0 + epsilon * (1.0 - cos_theta);
+    // q + 1/q with q = 1 / t collapses to t + 1/t, keeping a single divide.
+    float shape = (t + 1.0 / t - (1.0 - cos_theta * cos_theta)) / (t * t);
+    return normalization * shape;
+}
+
 // Cornette-Shanks phase (Cornette & Shanks 1992): a normalized single-lobe
 // fit to Mie scattering. g = 0 reduces to the Rayleigh phase; positive g
 // biases scattering toward the forward (sun) direction.

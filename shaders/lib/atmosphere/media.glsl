@@ -84,16 +84,25 @@ const vec4 ATM_MIE_NEAR_E = vec4(
     0.05860808850252333, 0.05103810940978969);
 
 // -- Phase --
-// Triple-lobe Mie blend, same structure as the tuned cirrus phase
-// (shaders/lib/cloud/cirrus.glsl): a narrow high-g forward peak keeps the
-// silver lining, a broad low-g forward lobe adds smooth haze, and a
-// backward lobe (effective eccentricity -0.3) brightens the anti-solar sky.
-// Weights sum to 1, so the blend stays a normalized phase. Formulas live in
+// Atmosphere Mie blend: a Klein-Nishina forward spike keeps the silver
+// lining, a broad low-g HG forward lobe adds smooth haze, and a backward HG
+// lobe (effective eccentricity -0.3) brightens the anti-solar sky. Weights
+// sum to 1, so the blend stays a normalized phase. Formulas live in
 // /lib/scattering/phase.glsl.
-const HenyeyGreensteinTripleLobe ATM_MIE_PHASE = HenyeyGreensteinTripleLobe(
-    0.8, 0.1,  // forward peak
-    0.5, 0.7,  // forward mid
-    0.3, 0.2); // backward
+const float ATM_MIE_KN_E = 200.0;
+// 1 / sphere integral of the K-N shape at ATM_MIE_KN_E, double precision.
+const float ATM_MIE_KN_NORM = 4.9321931418319;
+const float ATM_MIE_KN_WEIGHT = 0.1;
+const float ATM_MIE_MID_G = 0.5;
+const float ATM_MIE_MID_WEIGHT = 0.7;
+const float ATM_MIE_BACK_G = 0.3;
+const float ATM_MIE_BACK_WEIGHT = 0.2;
+
+float AtmMiePhase(float cos_theta) {
+    return ATM_MIE_KN_WEIGHT * PhaseKleinNishina(cos_theta, ATM_MIE_KN_E, ATM_MIE_KN_NORM)
+        + ATM_MIE_MID_WEIGHT * PhaseHenyeyGreenstein(cos_theta, ATM_MIE_MID_G)
+        + ATM_MIE_BACK_WEIGHT * PhaseHenyeyGreenstein(cos_theta, -ATM_MIE_BACK_G);
+}
 
 // ===============================================================
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)

@@ -50,8 +50,8 @@ vec4 ComputeSkyRadiance(vec3 view_dir) {
     // Precondition: the only caller passes AtmosphereCameraPosition() and the
     // LUT sun direction, so this dot is r * sun.y on the CPU.
     float phase_rayleigh   = PhaseRayleigh(cos_vs);
-    float phase_mie   = PhaseHenyeyGreensteinTripleLobe(cos_vs, ATM_MIE_PHASE);
-    float phase_mie_moon = PhaseHenyeyGreensteinTripleLobe(-cos_vs, ATM_MIE_PHASE);  // moon=-sun, Rayleigh is even
+    float phase_mie   = AtmMiePhase(cos_vs);
+    float phase_mie_moon = AtmMiePhase(-cos_vs);  // moon=-sun, Rayleigh is even
 
     vec4  trans   = vec4(1.0);
 

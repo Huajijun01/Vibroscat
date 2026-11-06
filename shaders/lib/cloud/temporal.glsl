@@ -106,12 +106,12 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
     // sample weight, capped by CLOUD_HISTORY_FRAMES.
     float alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
     CloudFrame result;
-    // Scattering weights mix linearly; transmittance mixes in log space.
+    // Scattering weights and transmittance both mix linearly.
     // Distance is a hit location and keeps the last fresh sample.
     result.signal.scattering = vec2(mix(history.signal.scattering.x, current.signal.scattering.x, alpha),
         mix(history.signal.scattering.y, current.signal.scattering.y, alpha));
-    result.signal.transmittance = exp(mix(log(max(history.signal.transmittance, 1.0e-4)),
-        log(max(current.signal.transmittance, 1.0e-4)), alpha));
+    result.signal.transmittance = mix(history.signal.transmittance,
+        current.signal.transmittance, alpha);
     result.distance_km = current.distance_km;
     return result;
 }

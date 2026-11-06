@@ -63,7 +63,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     if (volumetric_hit) {
         volumetric_surface_r = length(volumetric_surface_pos);
         volumetric_scattering = RelightClouds(volumetric_signal,
-            volumetric_surface_pos, volumetric_surface_r);
+            volumetric_surface_pos, volumetric_surface_r, sky_color);
     }
 
     // Transmitted Milky Way glow, evaluated once and shared by both layers:

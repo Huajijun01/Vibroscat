@@ -89,7 +89,7 @@ float DecodeCloudDensity(vec3 atmosphere_position, CloudDensityFrame frame, Clou
     return hq_density;
 }
 
-// Mean-erosion density shared by directional and upward sky transport.
+// Mean-erosion density for the directional light transport.
 float CloudDensityLowQuality(float distribution_density, CloudHeightProfile profile) {
     return CloudRemapErosion(CloudBaseDensity(distribution_density, profile),
         CLOUD_VORONOISE_MEAN * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);

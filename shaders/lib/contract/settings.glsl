@@ -67,7 +67,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_MS_ECCENTRICITY 0.35 // [0.0 0.25 0.33 0.35 0.4 0.5 0.6 0.75 1.0] Per-octave phase eccentricity multiplier.
 #define CLOUD_MS_SAT_ALBEDO 0.9 // [0.9 0.95 0.97 0.98 0.99 0.995 0.999] Saturation albedo of the geometric series; values below one bound its scattering weights in half-float history.
 #define CLOUD_MS_ISOTROPIC 0.5 // [0.0 0.1 0.2 0.25 0.3 0.5 0.75 1.0 1.25 1.5 2.0] Isotropic geometric-series strength; higher = brighter, milkier cloud interiors.
-#define CLOUD_SKY_LIGHT_STRENGTH 8.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0] Sky environment strength for both cloud layers; higher = brighter cloud shadow regions.
+#define CLOUD_SKY_LIGHT_STRENGTH 16.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0 6.0 8.0 12.0 16.0] Sky environment strength for both cloud layers; higher = brighter cloud shadow regions.
 #define CIRRUS_MS_ISOTROPIC 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0 8.0] Cirrus multiple-scattering order strength on the direct lights; higher = brighter, more filled cirrus bodies.
 #define CLOUD_MILKYWAY_GLOW // Milky Way glow scattered inside the volumetric layer; the transmission slider below owns its share.
 #define CIRRUS_MILKYWAY_GLOW // Artistic Milky Way glow inside the cirrus sheet; independent of the background transmission.

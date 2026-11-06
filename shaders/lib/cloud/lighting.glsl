@@ -13,10 +13,10 @@
 
 // Multiple-scattering reference length for the volumetric water-cloud model.
 // Extinction is authored in km^-1; this conversion gives reference optical depth.
-const float CLOUD_MS_REFERENCE_LENGTH_M = 300.0;
+const float CLOUD_MS_REFERENCE_LENGTH_M = 200.0;
 // Directional octaves: each step widens the phase, weakens its contribution
 // and softens the optical-depth falloff of the next order.
-const int CLOUD_MS_OCTAVES = 3;
+const int CLOUD_MS_OCTAVES = 6;
 // Sine-of-elevation window across which the traced direction hands over from the
 // sun to the antisolar point. The layer sits 1.4 to 2.7 km up, so its own
 // horizon dips 0.021 to 0.029 below the sea-level one; the handover starts just
@@ -81,8 +81,8 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
 }
 
 // Optical depth toward the light, starting past a configurable near segment.
-// CLOUD_LIGHT_STEPS quadratic strata are densest near that start; each is
-// sampled at a jittered point and weighted by its exact interval length.
+// Jitter the ray origin once within the first step, then advance the entire
+// sequence with quadratic spacing. Each sample carries its full step length.
 // Densities take the low-quality path; every accepted view sample retraces it.
 float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter,
     CloudDensityFrame frame
@@ -95,17 +95,13 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
     if (trace_distance <= 1.0e-5) return 0.0;
 
     float inverse_step_count = 1.0 / float(CLOUD_LIGHT_STEPS);
+    float base_step_length = trace_distance * inverse_step_count * inverse_step_count;
+    float sample_distance = CLOUD_LIGHT_START_OFFSET_KM + light_jitter * base_step_length;
     float optical_depth = 0.0;
-    // The i = 0 start is exactly the base offset (trace_distance > 0 is
-    // guaranteed above, so trace_distance * 0.0 * 0.0 == +0.0), and each
-    // later start is the previous end bit-for-bit: float(i + 1) counts the
-    // same integer both ways, so the stratum boundary products are shared
-    // instead of recomputed per step.
-    float segment_start = CLOUD_LIGHT_START_OFFSET_KM;
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
-        float x1 = float(i + 1) * inverse_step_count;
-        float segment_end = CLOUD_LIGHT_START_OFFSET_KM + trace_distance * x1 * x1;
-        float sample_distance = mix(segment_start, segment_end, light_jitter);
+        // (i + 1)^2 - i^2 = 2i + 1: the lengths sum to trace_distance,
+        // and the shared origin offset keeps every sample before light_distance.
+        float step_length = base_step_length * float(2 * i + 1);
         vec3 sample_position = atmosphere_position + light_dir * sample_distance;
         float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
         float sample_density = 0.0;
@@ -116,8 +112,8 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
         }
         optical_depth += sample_density
             * CLOUD_ALPHA_EXTINCTION_SRGB_GRAY
-            * (segment_end - segment_start);
-        segment_start = segment_end;
+            * step_length;
+        sample_distance += step_length;
     }
     return optical_depth;
 }

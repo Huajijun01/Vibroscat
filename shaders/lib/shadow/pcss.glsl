@@ -33,9 +33,8 @@ vec2 ShadowDiskOffset(inout vec2 dir, inout float radius_sq, float inv_count) {
     return offset;
 }
 
-// Texel -> undistorted clip Jacobian scale. The blocker search and the PCF
-// pass need the identical expression for the same clip position, so both
-// evaluate it once here and share the value.
+// Local texel -> undistorted clip scale, used only to budget PCF samples.
+// Physical search and filter radii are projected directly from world meters.
 vec2 ShadowFilterTexelScale(vec3 clip_pos) {
     // The distorted UV map is
     //   uv = clip / (2*factor) + 0.5,  factor = (1-D) + D*|clip|,
@@ -78,12 +77,12 @@ float ShadowReceiverBias(vec2 clip_extent, vec2 depth_gradient, float texel_radi
 // samples that occlude the receiver (depth <= receiver depth). Returns false
 // when no blocker is found in the search disk, so the pixel can be treated
 // as lit. dir is the tap-0 disk direction; the walk is local to this call.
-bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 texel_scale, vec2 depth_gradient, vec2 dir,
-    int blocker_steps, out float blocker_depth) {
+bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 projection_scale, vec2 depth_gradient,
+    vec2 dir, int blocker_steps, out float blocker_depth) {
     // Convex corners project small false depth deltas; require a
     // world-space gap before counting a blocker (no corner darkening).
     float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_M);
-    vec2 blocker_offset_scale = SHADOW_BLOCKER_SEARCH_TEXELS * texel_scale;
+    vec2 blocker_offset_scale = SHADOW_BLOCKER_SEARCH_RADIUS * projection_scale;
     // Nearest depth fetches leave at most half a texel unresolved per axis.
     blocker_bias += ShadowReceiverBias(abs(clip_pos.xy) + blocker_offset_scale, depth_gradient, 0.5);
 
@@ -136,20 +135,21 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 depth_gradient) {
 //               search and the PCF pass with one coherent rotation)
 //   sss_amount  - receiver translucency; controls plant softness/sample budget
 //   ndotl       - clamped surface dot(light); only opaque backfaces exit early
-//   leaf_receiver - leaf cubes need a world-space diffusion footprint
+//   leaf_receiver - leaf cubes need a world-space diffusion footprint, kept
+//               after an empty blocker search
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_dither,
     float sss_amount, float ndotl, bool leaf_receiver) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
-    // One dither value + first direction serves both passes (coherent
-    // dither); one texel scale serves the blocker search and the PCF pass.
+    // One dither value + first direction serves both passes. The orthographic
+    // XY scale projects their world-space disks before each sample is warped.
     float angle = stbn_dither * TAU;
     vec2 dir = vec2(cos(angle), sin(angle));
-    vec2 texel_scale = ShadowFilterTexelScale(clip_pos);
+    vec2 projection_scale = abs(u_shadow_projection_xy);
 
     float blocker_depth;
-    bool blocker_found = ShadowFindBlocker(sp, clip_pos, texel_scale, depth_gradient, dir,
-        SHADOW_BLOCKER_SAMPLES, blocker_depth);
-    if (!blocker_found && !leaf_receiver) {
+    bool blocker_found = ShadowFindBlocker(sp, clip_pos, projection_scale, depth_gradient,
+        dir, SHADOW_BLOCKER_SAMPLES, blocker_depth);
+    if (!blocker_found && !(leaf_receiver && sss_amount > 0.01)) {
         return 1.0;
     }
 
@@ -158,49 +158,41 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
         return 0.0;
     }
 
-    // Step 2: penumbra. width = gap * tan(angular radius); gap from the NDC
-    // delta + ortho z scale -> texels (blur tracks shadow length, not the
-    // absolute blocker depth).
+    // Step 2: world-space penumbra, using the small-angle approximation
+    // radius = gap * angular radius. XY distortion must not change its size.
     float depth_delta = blocker_found ? saturate(sp.z - blocker_depth) : 0.0;
-    float ortho_width_scale = abs(u_shadow_projection_xy.x);
     float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
-    float texel_world_size = 2.0 / (max(ortho_width_scale, 1e-6) * real_shadow_map_resolution);
-    float penumbra_texels = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS / texel_world_size;
+    float penumbra_radius_m = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS;
     // SSS foliage scatters through a wider penumbra.
-    penumbra_texels *= 1.0 + SHADOW_SSS_PENUMBRA_BOOST * sss_amount;
+    penumbra_radius_m *= 1.0 + SHADOW_SSS_PENUMBRA_BOOST * sss_amount;
     // A small material diffusion radius preserves a soft foliage terminator
-    // even at a local blocker. It does not create visibility in a shadow core.
-    float plant_radius_m = 0.06 * sss_amount * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
-    penumbra_texels = max(penumbra_texels, plant_radius_m / texel_world_size);
+    // even at a local blocker. Leaf cubes also need it after an empty search.
+    float diffusion_radius_m = 0.06 * sss_amount * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
+    if (leaf_receiver) {
+        // Span several 1/16 m cutout cells while retaining canopy shadow cores.
+        const float LEAF_DIFFUSION_RADIUS_M = 0.08;
+        diffusion_radius_m = LEAF_DIFFUSION_RADIUS_M * sss_amount
+            * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
+    }
 
-    // Cap the variable texel footprint independently of sun height. Leaf
-    // diffusion has its own world-space minimum below, even without blockers.
-    float max_penumbra_texels = SHADOW_BLOCKER_SEARCH_TEXELS
+    // A world-space cap keeps the same maximum at every map position and
+    // resolution. The material diffusion minimum wins if the controls overlap.
+    float max_penumbra_radius_m = SHADOW_BLOCKER_SEARCH_RADIUS
         * (1.0 + SHADOW_PENUMBRA_CAP_BOOST);
-    penumbra_texels = min(penumbra_texels, max_penumbra_texels);
+    max_penumbra_radius_m = max(max_penumbra_radius_m, diffusion_radius_m);
+    penumbra_radius_m = clamp(penumbra_radius_m, diffusion_radius_m, max_penumbra_radius_m);
+    vec2 filter_offset_scale = penumbra_radius_m * projection_scale;
 
-    // Step 3: PCF with the penumbra radius; sample count grows with size,
-    // capped by quality.
+    // Step 3: budget samples from the local texel footprint without changing
+    // the physical disk. Hardware bilinear PCF supplies subtexel filtering.
+    vec2 filter_radius_texels = filter_offset_scale / ShadowFilterTexelScale(clip_pos);
+    float penumbra_texels = max(filter_radius_texels.x, filter_radius_texels.y);
     // Ordered bounds: the two sliders may be set either way round, and GLSL
     // clamp is undefined for minVal > maxVal.
     int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels),
         min(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES),
         max(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES));
     if (sss_amount > 0.01) step_count = SHADOW_SSS_STEPS;
-    float filter_radius = max(penumbra_texels, 1.0);
-    vec2 filter_offset_scale = filter_radius * texel_scale;
-    if (leaf_receiver) {
-        // Independently tuned to span several 1/16 m cutout cells while
-        // retaining canopy shadow cores. Convert meters directly to clip XY:
-        // the texel Jacobian would shrink this footprint near the map center.
-        // The minimum also applies after an empty blocker search, otherwise
-        // sparse cutouts turn the soft transition back into all-or-nothing.
-        const float LEAF_DIFFUSION_RADIUS_M = 0.08;
-        float leaf_radius_m = LEAF_DIFFUSION_RADIUS_M * sss_amount
-            * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
-        vec2 leaf_radius_clip = leaf_radius_m * abs(u_shadow_projection_xy);
-        filter_offset_scale = max(filter_offset_scale, leaf_radius_clip);
-    }
 
     // Hardware bilinear PCF may compare a texel center almost one full texel
     // away. The disk itself is handled by the signed plane correction below,

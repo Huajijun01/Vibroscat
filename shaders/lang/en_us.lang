@@ -269,8 +269,9 @@ option.shadowDistance = Shadow Distance
 option.shadowDistance.comment = Radius the shadow map covers around the camera, in blocks: higher = shadows reach more distant terrain, at a higher shadow-pass cost.
 option.SHADOW_BLOCKER_SAMPLES = PCSS Blocker Samples
 option.SHADOW_BLOCKER_SAMPLES.comment = Precision of the height measurement behind the soft edge: higher = smoother, more stable soft edges, slower.
-option.SHADOW_BLOCKER_SEARCH_TEXELS = PCSS Search Radius (texels)
-option.SHADOW_BLOCKER_SEARCH_TEXELS.comment = How wide an area that measurement searches: higher = broader soft shadows, slower.
+option.SHADOW_BLOCKER_SEARCH_RADIUS = PCSS Search Radius
+suffix.SHADOW_BLOCKER_SEARCH_RADIUS = \ m
+option.SHADOW_BLOCKER_SEARCH_RADIUS.comment = How wide an area that measurement searches: higher = broader soft shadows, slower.
 option.SHADOW_SUN_ANGULAR_RADIUS = Shadow Penumbra Angle
 suffix.SHADOW_SUN_ANGULAR_RADIUS = \ rad
 option.SHADOW_SUN_ANGULAR_RADIUS.comment = The assumed angular size of the sun that sets how wide soft shadows get: higher = softer shadows everywhere.

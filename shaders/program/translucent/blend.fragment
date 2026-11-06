@@ -173,29 +173,24 @@ void main() {
 #endif
             comp_color = texture(colortex0, refract_scene_uv).rgb;
 
-            // Caustics modulate the refracted opaque receiver.
+            // Caustics modulate the refracted opaque receiver. Seen from
+            // below the surface the refracted background is above-water
+            // scenery or sky, which keeps its own direct light. A refraction
+            // lookup landing on sky has no receiver either, and colortex5
+            // stays unwritten at sky texels, so the replace is skipped too.
             float refract_d = texture(depthtex1, refract_scene_uv).x;
             vec3 view_pos_refr = NDCToView(vec3(refract_coord * 2.0 - 1.0, refract_d * 2.0 - 1.0));
-            vec3 caustic_absolute_pos = ViewToWorldSpace(view_pos_refr) + cameraPosition;
-            vec3 caustic_brdf = textureLod(colortex5, refract_scene_uv, 0.0).rgb;
-            vec3 caustic_surface_absolute_pos = ViewToWorldSpace(view_pos0) + cameraPosition;
-            float caustic_surface_fade_y;
-            float caustic_sample_y;
-            if (isEyeInWater == 1) {
-                // Underwater: fade uses the receiver's lightmap sky light
-                // (lmcoord.y); surface height = receiver + (1 - lmcoord.y) * 15.
-                float caustic_lm_sky = texture(colortex4, refract_scene_uv).w;
-                caustic_surface_fade_y = caustic_absolute_pos.y + (1.0 - caustic_lm_sky) * 15.0;
-                caustic_sample_y = CAUSTIC_PLANE_Y;
-            } else {
-                caustic_surface_fade_y = caustic_surface_absolute_pos.y;
-                caustic_sample_y = caustic_surface_absolute_pos.y;
+            if (isEyeInWater == 0 && refract_d < 1.0) {
+                vec3 caustic_absolute_pos = ViewToWorldSpace(view_pos_refr) + cameraPosition;
+                vec3 caustic_brdf = textureLod(colortex5, refract_scene_uv, 0.0).rgb;
+                vec3 caustic_surface_absolute_pos = ViewToWorldSpace(view_pos0) + cameraPosition;
+                // Replace unattenuated direct light with the column-attenuated,
+                // caustic-modulated version.
+                comp_color -= caustic_brdf * ground_light.rgb;
+                comp_color += CausticLightContribution(caustic_absolute_pos, caustic_brdf, vec3(1.0),
+                    caustic_surface_absolute_pos.y, caustic_surface_absolute_pos.y,
+                    u_world_light_dir, water_path_per_metre);
             }
-            // Replace unattenuated direct light with the column-attenuated,
-            // caustic-modulated version.
-            comp_color -= caustic_brdf * ground_light.rgb;
-            comp_color += CausticLightContribution(caustic_absolute_pos, caustic_brdf, vec3(1.0),
-                caustic_surface_fade_y, caustic_sample_y, u_world_light_dir, water_path_per_metre);
 
             view_pos1 = view_pos_refr;
         }

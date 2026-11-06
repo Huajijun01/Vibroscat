@@ -181,50 +181,10 @@ CloudFrame CloudCheckerboardHistory(vec2 previous_uv) {
     return result;
 }
 
-// Camera motion can carry history across a cloud silhouette. Bound the packed
-// scattering and optical depth with valid current rays, retaining a 1/8 range
-// margin to avoid forcing all interpolated detail into the coarse sample box.
-CloudFrame CloudCheckerboardClip(ivec2 full_res_texel, CloudFrame history, float motion_pixels) {
-    if (motion_pixels <= 1.0) return history;
-    ivec2 center = full_res_texel / CLOUD_TEMPORAL_UPSCALING;
-    ivec2 grid_max = CloudCheckerboardSize() - 1;
-    vec2 lower_xy = vec2(1.0e30);
-    vec2 upper_xy = vec2(-1.0e30);
-    float lower_z = 1.0e30;
-    float upper_z = -1.0e30;
-    bool has_support = false;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            ivec2 texel = clamp(center + ivec2(x, y), ivec2(0), grid_max);
-            vec4 sample_value = texelFetch(colortex12, texel, 0);
-            if (!(sample_value.a > 0.0)) continue;
-            lower_xy = min(lower_xy, sample_value.xy);
-            upper_xy = max(upper_xy, sample_value.xy);
-            lower_z = min(lower_z, sample_value.z);
-            upper_z = max(upper_z, sample_value.z);
-            has_support = true;
-        }
-    }
-    if (!has_support) return history;
-    // log is monotone and max(x, 0) commutes with min/max, so the bounds
-    // reduce on raw values inside the loop and take one log/clamp each after.
-    vec3 lower_bound = vec3(max(lower_xy, vec2(0.0)), log(clamp(lower_z, 1.0e-4, 1.0)));
-    vec3 upper_bound = vec3(max(upper_xy, vec2(0.0)), log(clamp(upper_z, 1.0e-4, 1.0)));
-    vec3 margin = (upper_bound - lower_bound) * 0.125;
-    vec3 value = vec3(history.signal.scattering, log(clamp(history.signal.transmittance, 1.0e-4, 1.0)));
-    float strength = (motion_pixels - 1.0)
-        / (motion_pixels - 1.0 + float(CLOUD_TEMPORAL_UPSCALING));
-    value = mix(value, clamp(value, lower_bound - margin, upper_bound + margin), strength);
-    history.signal = CloudSignal(max(value.xy, vec2(0.0)), clamp(exp(value.z), 1.0e-4, 1.0));
-    return history;
-}
-
 // Local age measures consecutive accepted screen frames, not transported
 // observations. The first full cycle replaces provisional spatial fills.
 CloudFrame CloudCheckerboardAccumulate(CloudFrame current, CloudFrame history, int pixel_age) {
     // First cycle: the fresh observation fully replaces the provisional fill.
-    // Returning current also skips exp(log(T)), which is T up
-    // to rounding, so the early-out is the more exact form of alpha = 1.
     if (pixel_age < CLOUD_CHECKERBOARD_AREA) return current;
     float dense_alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
     // Constant integer exponent: exact multiplies replace the approximate
@@ -245,9 +205,14 @@ CloudFrame CloudCheckerboardAccumulate(CloudFrame current, CloudFrame history, i
 #endif
     float alpha = 1.0 - decayed;
     CloudFrame result;
+    // Scattering and transmittance are integrated transport samples and must
+    // average with the same observation weights. A geometric T average falls
+    // below the arithmetic mean wherever observations disagree, which removes
+    // background light without a matching scattering change and darkens
+    // silhouettes.
     result.signal.scattering = mix(history.signal.scattering, current.signal.scattering, alpha);
-    result.signal.transmittance = exp(mix(log(clamp(history.signal.transmittance, 1.0e-4, 1.0)),
-        log(clamp(current.signal.transmittance, 1.0e-4, 1.0)), alpha));
+    result.signal.transmittance = mix(history.signal.transmittance,
+        current.signal.transmittance, alpha);
     result.distance_km = current.distance_km;
     return result;
 }

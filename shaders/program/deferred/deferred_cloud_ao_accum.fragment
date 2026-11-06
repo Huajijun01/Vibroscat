@@ -76,12 +76,9 @@ void main() {
             bool has_fresh = all(equal(tx - cell * CLOUD_TEMPORAL_UPSCALING, phase_offset));
             vec4 raw_sample = texelFetch(colortex12, cell, 0);
             has_fresh = has_fresh && raw_sample.a > 0.0;
-            CloudFrame current_frame;
+            CloudFrame current_frame = DecodeCloudFrame(raw_sample);
             bool current_ready = has_fresh;
-            if (has_fresh) {
-                current_frame = DecodeCloudFrame(raw_sample);
-            }
-            CloudFrame accumulated;
+            CloudFrame accumulated = current_frame;
             bool history_accepted = false;
             if (frameCounter > 0) {
                 vec4 held_value = texelFetch(colortex8, tx, 0);
@@ -102,24 +99,17 @@ void main() {
                 if (CloudProjectToPrevious(view_dir, anchor_distance, previous_uv)) {
                     CloudFrame history = CloudCheckerboardHistory(previous_uv);
                     if (!CloudHistoryInvalid(history)) {
-                        float motion_pixels = length((previous_uv - uv) * u_render_res);
-                        // Local warmup cannot follow large camera motion. Restart
-                        // its first-cycle policy when motion crosses one block.
-                        int accepted_age = motion_pixels > float(CLOUD_TEMPORAL_UPSCALING) ? 0 : pixel_age;
-                        if (has_fresh && accepted_age < CLOUD_CHECKERBOARD_AREA) {
-                            // First-cycle replacement keeps the raw observation;
-                            // clipping history the blend would discard is wasted.
-                            accumulated = current_frame;
+                        // Reprojection already follows camera rotation. Valid
+                        // history keeps its warmup age regardless of screen motion.
+                        if (has_fresh) {
+                            accumulated = CloudCheckerboardAccumulate(current_frame, history, pixel_age);
                         } else {
-                            history = CloudCheckerboardClip(tx, history, motion_pixels);
-                            if (has_fresh) {
-                                accumulated = CloudCheckerboardAccumulate(current_frame, history, accepted_age);
-                            } else {
-                                accumulated = history;
-                            }
+                            // Sparse current neighbors can miss detail retained
+                            // in history; only a fresh ray updates this signal.
+                            accumulated = history;
                         }
                         history_accepted = true;
-                        new_age = min(accepted_age + 1, max(CLOUD_HISTORY_FRAMES, CLOUD_CHECKERBOARD_AREA + 1));
+                        new_age = min(pixel_age + 1, max(CLOUD_HISTORY_FRAMES, CLOUD_CHECKERBOARD_AREA + 1));
                     }
                 }
             }

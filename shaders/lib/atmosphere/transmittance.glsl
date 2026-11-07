@@ -1,17 +1,25 @@
 #ifndef LIB_ATMOSPHERE_TRANSMITTANCE_GLSL
 #define LIB_ATMOSPHERE_TRANSMITTANCE_GLSL
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/spectral.glsl"
 
-// Multiscatter LUT bake geometry. The asset's V axis spans the signed bake
-// altitude range [-(dip), ATM_ATMO_MINUS_P] linearly, so its 32 row centers
-// sit at -6, -2, 2, ..., 118 km. This is the depth the baked asset was
-// built with, not the user's ATM_HORIZON_DIP_SCALE: that setting moves the
-// runtime march bound, while this asset addressing must stay fixed.
+// Multiscatter LUT bake geometry. The asset's V axis spans its signed bake
+// altitude range linearly. Two asset pairs exist, selected by the
+// shaders.properties ATM_HORIZON_DIP macro: the below-dip pair spans
+// [-(8 km), ATM_ATMO_MINUS_P] with row centers at -6, -2, 2, ..., 118 km,
+// and the no-dip pair spans [0, ATM_ATMO_MINUS_P]. The bake depth is a
+// property of the asset, not of the user's ATM_HORIZON_DIP_SCALE: that
+// setting moves the runtime march bound, while this addressing stays fixed
+// per variant.
+#ifdef ATM_HORIZON_DIP
 const float ATM_MS_BAKE_DIP_KM = 8.0;
+#else
+const float ATM_MS_BAKE_DIP_KM = 0.0;
+#endif
 const float ATM_MS_SPAN_KM = ATM_ATMO_MINUS_P + ATM_MS_BAKE_DIP_KM;
 const float ATM_MS_RCP_SPAN = 1.0 / ATM_MS_SPAN_KM;
 
@@ -65,14 +73,16 @@ void GetTransmittanceLUTUVPair(float r, float r2, float mu, out vec2 uv_pos, out
 // u = 0.5 + (31/64)*q. The 32 knots include mu = +/-1 at the edge texel
 // centers; no additional half-texel remap. The normalized denominator stays
 // in [1/8, 1] for mu in [-1, 1]. V spans the bake's signed altitude range
-// [-8, 120] km, so the 32 row centers sit at -6, -2, ..., 118 km; the real
-// radius is passed in, including below the ground line.
+// (see ATM_MS_BAKE_DIP_KM), so the real radius is passed in, including
+// below the ground line for the below-dip asset. The saturate only matters
+// for the no-dip asset, where a fp-noise radius under the surface clamps to
+// the lowest row instead of smearing the edge texel.
 vec2 GetMultiScatterLUTUV(float r, float mu) {
     float den = saturate(0.875 * abs(mu) + 0.125);
     float inv_den = 1.0 / den;
     float gain = 0.2421875 * inv_den + 0.2421875;
     float u = mu * gain + 0.5;
-    return vec2(u, (r - ATM_PLANET_R + ATM_MS_BAKE_DIP_KM) * ATM_MS_RCP_SPAN);
+    return vec2(u, saturate((r - ATM_PLANET_R + ATM_MS_BAKE_DIP_KM) * ATM_MS_RCP_SPAN));
 }
 
 // ===============================================================

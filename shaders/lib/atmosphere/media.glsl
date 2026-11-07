@@ -104,6 +104,12 @@ float AtmMiePhase(float cos_theta) {
         + ATM_MIE_BACK_WEIGHT * PhaseHenyeyGreenstein(cos_theta, -ATM_MIE_BACK_G);
 }
 
+// -- Ground --
+// Spectral-flat Lambertian albedo of the sky sphere's surface terminator,
+// matching the multi-scatter bake's ground feedback (0.25). The no-dip sky
+// march adds the ground's reflected radiance through this constant.
+const float ATM_GROUND_ALBEDO = 0.25;
+
 // ===============================================================
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)
 // ===============================================================

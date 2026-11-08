@@ -70,12 +70,17 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     // it is a function of the view ray and the background map alone, so both
     // layer composites evaluate the identical call. Isotropic single
     // scattering of a constant background integrates to source * (1 - T) over
-    // the marched column, and the deck's scattering albedo is 1, so each
-    // layer scales the shared glow by its own (1 - T) share; a missed layer
-    // keeps its transmittance at 1 and adds exact zero, so the adds below
-    // carry no per-layer runtime gate. vec4(1.0) transmittance: the fades
-    // below carry camera-to-cloud propagation for this term as for the rest
-    // of the composite. The layer toggles compile each share away entirely.
+    // the marched column, and the deck's scattering albedo is 1. The
+    // volumetric layer weighs its (1 - T) share by the march's integrated sky
+    // weight, the same sky-access-attenuated share RelightClouds converts, so
+    // the glow follows the column the background actually reaches and a fully
+    // accessed column keeps the exact source * (1 - T) total; the cirrus
+    // sheet is a thin slab with no column model and keeps the raw (1 - T)
+    // share. A missed layer keeps its transmittance at 1 and its sky weight
+    // at 0, so the adds below carry no per-layer runtime gate. vec4(1.0)
+    // transmittance: the fades below carry camera-to-cloud propagation for
+    // this term as for the rest of the composite. The layer toggles compile
+    // each share away entirely.
 #if defined(CLOUD_MILKYWAY_GLOW) || defined(CIRRUS_MILKYWAY_GLOW)
     // The glow call runs only where a compiled-in layer actually holds
     // cloud along the ray.
@@ -91,7 +96,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
             CelestialContextFor(view_dir));
 #ifdef CLOUD_MILKYWAY_GLOW
         volumetric_scattering += milkyway_glow
-            * ((1.0 - volumetric_transmittance) * CLOUD_MILKYWAY_TRANSMISSION);
+            * (volumetric_signal.scattering.y * CLOUD_MILKYWAY_TRANSMISSION);
 #endif
 #ifdef CIRRUS_MILKYWAY_GLOW
         cirrus_scattering += milkyway_glow

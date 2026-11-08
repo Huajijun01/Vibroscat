@@ -105,10 +105,10 @@ float AtmMiePhase(float cos_theta) {
 }
 
 // -- Ground --
-// Spectral-flat Lambertian albedo of the sky sphere's surface terminator,
-// matching the multi-scatter bake's ground feedback (0.25). The no-dip sky
-// march adds the ground's reflected radiance through this constant.
-const float ATM_GROUND_ALBEDO = 0.25;
+// Dark blue ocean approximation for the no-dip Lambertian surface, ordered
+// [450, 510, 580, 650] nm. The matching multi-scatter LUT uses the same
+// spectral albedo for ground feedback; this model has no specular sun glint.
+const vec4 ATM_GROUND_ALBEDO = vec4(0.06, 0.045, 0.025, 0.015);
 
 // ===============================================================
 // Density functions  (Hillaire / the pack's 4-wave spectral fit model)

@@ -128,17 +128,10 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 depth_gradient) {
     return texture(shadowtex1, sp);
 }
 
-// Full PCSS filter.
-//   sp        - unbiased protected shadow UV/depth [0,1]^3
-//   clip_pos  - undistorted shadow clip space [-1,1]^3
-//   stbn_dither - STBN dither sampled by the pass main (serves the blocker
-//               search and the PCF pass with one coherent rotation)
-//   sss_amount  - receiver translucency; controls plant softness/sample budget
-//   ndotl       - clamped surface dot(light); only opaque backfaces exit early
-//   leaf_receiver - leaf cubes need a world-space diffusion footprint, kept
-//               after an empty blocker search
+// Full PCSS filter. Plants retain their full sample budget and a small
+// class-based cutout footprint, independent of reflection/transmission energy.
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_dither,
-    float sss_amount, float ndotl, bool leaf_receiver) {
+    bool plant_receiver, float ndotl, float footprint_radius_m) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     // One dither value + first direction serves both passes. The orthographic
     // XY scale projects their world-space disks before each sample is warped.
@@ -149,12 +142,12 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
     float blocker_depth;
     bool blocker_found = ShadowFindBlocker(sp, clip_pos, projection_scale, depth_gradient,
         dir, SHADOW_BLOCKER_SAMPLES, blocker_depth);
-    if (!blocker_found && !(leaf_receiver && sss_amount > 0.01)) {
+    if (!blocker_found && !plant_receiver) {
         return 1.0;
     }
 
     // Thin foliage can transmit from the back side and needs real visibility.
-    if (ndotl < 1.0e-3 && sss_amount <= 0.01) {
+    if (ndotl < 1.0e-3 && !plant_receiver) {
         return 0.0;
     }
 
@@ -163,24 +156,12 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
     float depth_delta = blocker_found ? saturate(sp.z - blocker_depth) : 0.0;
     float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
     float penumbra_radius_m = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS;
-    // SSS foliage scatters through a wider penumbra.
-    penumbra_radius_m *= 1.0 + SHADOW_SSS_PENUMBRA_BOOST * sss_amount;
-    // A small material diffusion radius preserves a soft foliage terminator
-    // even at a local blocker. Leaf cubes also need it after an empty search.
-    float diffusion_radius_m = 0.06 * sss_amount * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
-    if (leaf_receiver) {
-        // Span several 1/16 m cutout cells while retaining canopy shadow cores.
-        const float LEAF_DIFFUSION_RADIUS_M = 0.08;
-        diffusion_radius_m = LEAF_DIFFUSION_RADIUS_M * sss_amount
-            * (1.0 + 0.1 * SHADOW_SSS_PENUMBRA_BOOST);
-    }
-
     // A world-space cap keeps the same maximum at every map position and
-    // resolution. The material diffusion minimum wins if the controls overlap.
+    // resolution. The cutout footprint minimum wins if the controls overlap.
     float max_penumbra_radius_m = SHADOW_BLOCKER_SEARCH_RADIUS
         * (1.0 + SHADOW_PENUMBRA_CAP_BOOST);
-    max_penumbra_radius_m = max(max_penumbra_radius_m, diffusion_radius_m);
-    penumbra_radius_m = clamp(penumbra_radius_m, diffusion_radius_m, max_penumbra_radius_m);
+    max_penumbra_radius_m = max(max_penumbra_radius_m, footprint_radius_m);
+    penumbra_radius_m = clamp(penumbra_radius_m, footprint_radius_m, max_penumbra_radius_m);
     vec2 filter_offset_scale = penumbra_radius_m * projection_scale;
 
     // Step 3: budget samples from the local texel footprint without changing
@@ -192,7 +173,7 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
     int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels),
         min(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES),
         max(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES));
-    if (sss_amount > 0.01) step_count = SHADOW_SSS_STEPS;
+    if (plant_receiver) step_count = SHADOW_SSS_STEPS;
 
     // Hardware bilinear PCF may compare a texel center almost one full texel
     // away. The disk itself is handled by the signed plane correction below,
@@ -212,10 +193,10 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
     // Opaque receivers retain the first-four classification. Plants complete
     // their smaller budget so partial visibility is not rounded to black/white.
     if (step_count > 4) {
-        if (sss_amount <= 0.01 && shadow < 0.5) {
+        if (!plant_receiver && shadow < 0.5) {
             return 0.0;
         }
-        if (sss_amount <= 0.01 && shadow > 3.5) {
+        if (!plant_receiver && shadow > 3.5) {
             return 1.0;
         }
         for (int i = 4; i < step_count; ++i) {

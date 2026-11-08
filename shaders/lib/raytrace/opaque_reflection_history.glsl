@@ -266,7 +266,7 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 // Generic entities share class zero with unclassified terrain.
                 // Keep that class conservative; no exact entity motion is available.
                 if (material_id == 0) history_limit = min(history_limit, 16.0);
-                if ((material_id >= 128 && material_id <= 134)
+                if ((material_id >= 128 && material_id <= 137)
                         || (wetness > 0.01 && geo_normal_world.y > 0.9)) {
                     history_limit = min(history_limit, 4.0);
                 }

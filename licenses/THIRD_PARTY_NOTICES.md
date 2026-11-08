@@ -442,26 +442,35 @@ https://github.com/Luna5ama/Alpha-Piscium）与 Photon v1.3b 的
 再作周期空间与时间低通；它不是第三方贴图。运行时沿未折射的世界太阳方向
 投影并积分，以艺术化亮度直接加到画面，不宣称完整模拟水下体积光输运。
 
-## 29. 植物透光与屏幕空间衰减（概念研究）
+## 29. Colored plant transport and distant shadows (independent implementation)
 
-只读比较 iterationT 3.2.0 的 `shaders/Lib/BasicFounctions/Sunlight_Shadow.glsl`
-与 `shaders/composite.fsh`（未发现包级许可证，按保留权利处理；
-https://minegraph.cn/shaderpacks/12），以及 Photon v1.3b 的
-`shaders/include/lighting/diffuse_lighting.glsl` 与
-`shaders/include/lighting/shadows/ssrt.glsl`（自定义许可允许检视和学习；
-https://github.com/sixthsurge/photon）。研究宽角度透光、带颜色的吸收、
-植物接收面的屏幕空间衰减以及阴影贴图范围外的近似处理。
-近景树叶软影另对照 Photon 的 `shaders/include/lighting/shadows/pcss.glsl`，
-独立实现按世界距离约束的树叶最小扩散范围，并保留搜索未命中时的叶片滤波。
-没有复制或近似翻译其源码、特有表达式、常数或资产。
+Concept study compared Photon v1.3b
+(https://github.com/sixthsurge/photon; custom license permitting study),
+`shaders/include/lighting/diffuse_lighting.glsl`,
+`shaders/include/lighting/shadows/pcss.glsl` and
+`shaders/include/lighting/shadows/ssrt.glsl`; and Revelation
+(https://github.com/HaringPro/Revelation; Apache-2.0),
+`shaders/program/CombineLighting.frag` and
+`shaders/lib/lighting/shadow/Render.glsl`. The separation of material transport,
+shadow estimation and near/far integration informed this design. No reference
+source, distinctive expression, tuning constant or asset was copied or closely
+translated. Earlier iterationT study (no package license found;
+https://minegraph.cn/shaderpacks/12) likewise contributed no source.
 
-`lib/lighting/plant_subsurface.glsl` 与现有阴影路径的修改为独立实现：
-复用本包的表面归一化 HG 函数、植物分类、漫反射率与深度步进。
-薄片植物角度补偿、贴图柔化与偏移、接收面吸收和连续的贴图到屏幕可信度
-均独立选定。草始终使用屏幕衰减，近处树叶方块依靠贴图遮蔽，随贴图
-可信度降低再加入屏幕衰减。普通漫反射和植物受光增强量共同接受方向遮挡。
-屏幕步进只读取深度，不逐采样判别遮挡物材质；贴图、天空光和顶点 AO
-近似约束屏幕无法提供的遮挡，不宣称恢复真实叶片厚度或完整光输运。
+The plant libraries independently define reference-layer RGB reflection and
+transmission from linear texture color, with absorption as the energy remainder.
+Finite Kubelka-Munk two-flux transport provides an effective interpretation of
+these coefficients, not measured microscopic coefficients or leaf thickness.
+Two tilted micro sheets use projected view weights and a common Schlick
+interface budget; specular uses this pack's existing GGX surface law.
+
+External shelter is separate from tissue transport. Near shadows use small
+class-based geometric filter footprints. A finite perspective-correct screen
+ray validates geometric hits under a hard twelve-depth-read budget. Its misses
+do not brighten the skylight prior. Map confidence blends the two estimates
+once. External leaves and solids block at their sampled coverage; receiver
+transmission never makes an external wall translucent. No vertex AO, GI,
+colored multi-layer caster transport or new GPU storage is introduced.
 
 ## 30. 双档水面母基函数（概念与独立生成资产）
 

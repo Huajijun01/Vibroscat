@@ -521,30 +521,35 @@ temporal low-pass filtering. It is not a third-party texture. Runtime projection
 and integration follow the unrefracted world sun direction and add artistic
 radiance to the scene; this does not claim full underwater volume transport.
 
-## 29. Plant transmission and screen-space attenuation (concept study)
+## 29. Colored plant transport and distant shadows (independent implementation)
 
-Read-only comparison studied iterationT 3.2.0's
-`shaders/Lib/BasicFounctions/Sunlight_Shadow.glsl` and `shaders/composite.fsh`
-(no package license found; treated as reserved rights;
-https://minegraph.cn/shaderpacks/12), and Photon v1.3b's
-`shaders/include/lighting/diffuse_lighting.glsl` and
-`shaders/include/lighting/shadows/ssrt.glsl` (custom license permitting
-examination and learning; https://github.com/sixthsurge/photon). Concepts
-studied include broad transmission, colored absorption, receiver-based plant
-screen shadows, and estimates beyond shadow-map coverage. No source,
-distinctive expressions, constants or assets were copied or closely translated.
+Concept study compared Photon v1.3b
+(https://github.com/sixthsurge/photon; custom license permitting study),
+`shaders/include/lighting/diffuse_lighting.glsl`,
+`shaders/include/lighting/shadows/pcss.glsl` and
+`shaders/include/lighting/shadows/ssrt.glsl`; and Revelation
+(https://github.com/HaringPro/Revelation; Apache-2.0),
+`shaders/program/CombineLighting.frag` and
+`shaders/lib/lighting/shadow/Render.glsl`. The separation of material transport,
+shadow estimation and near/far integration informed this design. No reference
+source, distinctive expression, tuning constant or asset was copied or closely
+translated. Earlier iterationT study (no package license found;
+https://minegraph.cn/shaderpacks/12) likewise contributed no source.
 
-`lib/lighting/plant_subsurface.glsl` and the changes to the existing shadow
-paths are independent implementations using this pack's surface-normalized
-HG helper, plant classes, diffuse reflectance and depth march. Thin-plant
-angular compensation, map softness/bias, receiver extinction and continuous
-map-to-screen confidence are independently chosen. Grass uses screen
-attenuation at all distances; nearby leaf cubes trust map shelter and add
-screen attenuation as map confidence falls. Both ordinary diffuse light and
-its foliage enhancement share directional occlusion. The screen march reads
-depth only, without classifying sampled blocker materials. Map, skylight and
-vertex AO constrain missing screen evidence approximately; this does not
-reconstruct physical leaf thickness or full light transport.
+The plant libraries independently define reference-layer RGB reflection and
+transmission from linear texture color, with absorption as the energy remainder.
+Finite Kubelka-Munk two-flux transport provides an effective interpretation of
+these coefficients, not measured microscopic coefficients or leaf thickness.
+Two tilted micro sheets use projected view weights and a common Schlick
+interface budget; specular uses this pack's existing GGX surface law.
+
+External shelter is separate from tissue transport. Near shadows use small
+class-based geometric filter footprints. A finite perspective-correct screen
+ray validates geometric hits under a hard twelve-depth-read budget. Its misses
+do not brighten the skylight prior. Map confidence blends the two estimates
+once. External leaves and solids block at their sampled coverage; receiver
+transmission never makes an external wall translucent. No vertex AO, GI,
+colored multi-layer caster transport or new GPU storage is introduced.
 
 ## 30. Two water surface modes (concepts and independently generated assets)
 

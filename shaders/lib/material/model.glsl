@@ -20,7 +20,7 @@
 //   80-95   water
 //   96-111  metal   (iron, gold, anvil, etc.)
 //   112-127 emissive (glowstone, torch, lava, beacon, etc.)
-//   128-134 SSS plants (grass, leaves, vines, crops, flowers, moss, ...)
+//   128-137 vegetation; 135 is rigid opaque, other classes are thin tissue
 //   160-191 translucent (glass, ice, slime, stained glass)
 
 struct OpaqueMaterial {
@@ -77,17 +77,28 @@ PBRMaterial ResolveOpaquePBR(vec3 albedo, float roughness, float selector,
     return m;
 }
 
-// Plant subsurface-scattering amount by materialID (see block.properties for
-// the 128-134 assignments). 0 = no transmission, 1 = strong translucency.
-float SSSAmountForId(int id) {
-    if (id == 128) return 0.55;  // grass, ferns, dry grass, seagrass, nether sprouts/roots
-    if (id == 129) return 1.0;   // leaves
-    if (id == 130) return 0.65;  // vines, crops, stems, kelp
-    if (id == 131) return 0.5;   // flowers
-    if (id == 132) return 0.45;  // mushrooms & fungi
-    if (id == 133) return 0.3;   // bushes, moss, aquatic/other foliage
-    if (id == 134) return 0.2;   // dry/dead plants, cactus
+// Reference-layer transmission priors; these are not volume coefficients.
+float PlantTransmissionPrior(int id) {
+    if (id == 128) return 0.35;
+    if (id == 129 || id == 130) return 0.30;
+    if (id == 131) return 0.25;
+    if (id == 132) return 0.10;
+    if (id == 133) return 0.20;
+    if (id == 134 || id == 137) return 0.03;
+    if (id == 136) return 0.06;
     return 0.0;
+}
+
+// Geometric cutout averaging footprint, independent of optical transport.
+float PlantShadowFootprint(int id) {
+    if (id == 129) return 0.040;
+    if (id == 128 || id == 130 || id == 131 || id == 133) return 0.020;
+    if (id == 132 || id == 134 || id == 136 || id == 137) return 0.010;
+    return 0.0;
+}
+
+bool PlantUsesTiltedSheets(int id) {
+    return id == 128 || id == 130 || id == 131 || id == 133 || id == 134 || id == 137;
 }
 
 // -- Normal-map decoding --

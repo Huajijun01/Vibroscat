@@ -53,17 +53,23 @@ vec3 EvaluateLambertBRDF(vec3 albedo, float metalness) {
     return EvaluateDiffuseReflectance(albedo, metalness) * (1.0 / PI);
 }
 
+vec3 EvaluateDirectSpecularBRDF(vec3 f0, float roughness,
+        float ndotv, float ndotl, float ndoth, float vdoth) {
+    float alpha = max(roughness * roughness, 0.002);
+    return FresnelSchlick(vdoth, f0) * DistributionGGX(ndoth, alpha)
+        * VisibilitySmithGGXCorrelated(ndotv, ndotl, alpha)
+        * step(1e-5, ndotv);
+}
+
 vec3 EvaluateDirectBRDF(vec3 albedo, vec3 f0, float diffuse_weight,
         float roughness, float ndotv, float ndotl, float ndoth,
         float vdoth, float ldoth, out vec3 diffuse_brdf) {
-    float alpha = max(roughness * roughness, 0.002);
     vec3 fresnel = FresnelSchlick(vdoth, f0);
     vec3 diffuse = albedo * (vec3(1.0) - fresnel) * diffuse_weight
         * DiffuseBurley(ndotv, ndotl, ldoth, roughness);
     diffuse_brdf = diffuse;
-    return diffuse + fresnel * DistributionGGX(ndoth, alpha)
-        * VisibilitySmithGGXCorrelated(ndotv, ndotl, alpha)
-        * step(1e-5, ndotv);
+    return diffuse + EvaluateDirectSpecularBRDF(f0, roughness,
+        ndotv, ndotl, ndoth, vdoth);
 }
 
 vec3 EvaluateDirectBRDF(vec3 albedo, float roughness, float metalness,

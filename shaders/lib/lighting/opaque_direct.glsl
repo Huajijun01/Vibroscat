@@ -12,6 +12,7 @@
 #include "/lib/material/model.glsl"
 #include "/lib/shadow/contact_shadow.glsl"
 #include "/lib/shadow/pcss.glsl"
+#include "/lib/shadow/plant_distant_shadow.glsl"
 
 vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         int material_id, float vertex_ao, float sky_light,
@@ -22,43 +23,32 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     diffuse_reflectance = vec3(0.0);
     diagnostic_output = false;
     float ndotl = saturate(dot(normal_world, u_world_light_dir));
-    // Plant translucency from the materialID stored in colortex1.a.
 #if defined(SHADOW_SSS) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-    float sss_amount = SSSAmountForId(material_id);
+    float transmission_prior = PlantTransmissionPrior(material_id);
 #else
-    // Compile-time off: the literal zero folds every SSS branch below out.
-    float sss_amount = 0.0;
+    float transmission_prior = 0.0;
 #endif
-    float sss_skylight = sky_light;
-#if defined(WORLD_END)
-    // The End has directional light but no vanilla sky-light channel.
-    sss_skylight = 1.0;
-#endif
-
-    float geo_ndotl = dot(geo_normal, u_world_light_dir);
-
-    // Thin foliage broadens diffuse lighting toward a two-sided response.
-    // Reflection and its enhancement share directional visibility, so shelter
-    // removes both completely. The bent blade normal affects diffuse only.
-    bool plant_receiver = sss_amount > 0.01;
-    vec2 plant_response = vec2(0.0);
-    float plant_sky_access = 1.0;
+    // Classification uses the base prior: setting transmission to zero must
+    // retain the angular material. Metal tissue can still require GGX shadows.
+    bool plant_receiver = transmission_prior > 0.0;
+    vec2 plant_angular = vec2(0.0);
     if (plant_receiver) {
-        vec3 plant_normal = PlantShadingNormal(normal_world, view_to_eye, material_id);
-        plant_response = PlantDiffuseResponse(plant_normal, u_world_light_dir,
-            view_to_eye, material_id, sss_amount);
-        plant_sky_access = smoothstep(0.02, 0.35, sss_skylight);
+        plant_angular = PlantAngularWeights(normal_world, u_world_light_dir,
+            view_to_eye, PlantUsesTiltedSheets(material_id));
     }
-
-    // -- Shadow --
-    float shadow_occlusion = 1.0;
-    float plant_map_visibility = 1.0;
-    float plant_distant_visibility = 1.0;
-    float sss_map_coverage = 0.0;
     bool shadow_needed = plant_receiver
-        ? (plant_response.x + plant_response.y) * plant_sky_access > 1.0e-4
+        ? (material.diffuse_weight > 0.0 && plant_angular.x + plant_angular.y > 1.0e-4)
+            || (ndotl > 1.0e-3 && ndotv > 1.0e-5 && any(greaterThan(material.f0, vec3(0.0))))
         : ndotl > 1.0e-3;
-    // Lit receivers share one STBN read between map filtering and contact.
+
+    float plant_skylight = sky_light;
+#ifdef WORLD_END
+    plant_skylight = 1.0;
+#endif
+    float plant_prior = PlantDistantPrior(plant_skylight);
+    float map_confidence = 0.0;
+    float map_visibility = 1.0;
+    float shadow_occlusion = 0.0;
     float stbn_dither = 0.0;
     if (shadow_needed) {
 #ifdef TAA
@@ -73,56 +63,65 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         float xy_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, clip_edge);
         float z_coverage = 1.0 - smoothstep(SHADOW_SSS_FADE_START, 1.0, abs(shadow_clip.z));
         float shadow_coverage = xy_coverage * z_coverage;
-        // The nominal-radius fade is confidence in the map, not a statement
-        // about Iris's geometry culling. Screen attenuation runs on both sides.
-        sss_map_coverage = shadow_coverage * (1.0 - smoothstep(
-            SHADOW_SSS_FADE_START, 1.0, length(world_pos) / shadowDistance));
-        float map_confidence = plant_receiver ? sss_map_coverage : shadow_coverage;
-        float shadow_filtered = 1.0;
+        map_confidence = plant_receiver ? PlantMapConfidence(shadow_clip, view_pos) : shadow_coverage;
         if (map_confidence > 1.0e-3) {
             vec2 depth_gradient = ShadowReceiverGradient(geo_normal);
 #ifdef SHADOW_PCSS
-            shadow_filtered = ShadowFilterPCSS(shadow_proj, shadow_clip, depth_gradient, stbn_dither,
-                sss_amount, ndotl, plant_receiver && material_id == 129);
+            map_visibility = ShadowFilterPCSS(shadow_proj, shadow_clip, depth_gradient,
+                stbn_dither, plant_receiver, ndotl, plant_receiver ? PlantShadowFootprint(material_id) : 0.0);
 #else
-            shadow_filtered = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, depth_gradient);
+            map_visibility = ShadowFilterHardwarePCF(shadow_proj, shadow_clip, depth_gradient);
 #endif
         }
-        plant_map_visibility = shadow_filtered;
-        if (plant_receiver) {
-            plant_distant_visibility = PlantDistantVisibility(sss_skylight, vertex_ao, material_id);
-            shadow_occlusion = mix(plant_distant_visibility, shadow_filtered, map_confidence)
-                * plant_sky_access;
-        } else {
-            shadow_occlusion = mix(1.0, shadow_filtered, shadow_coverage);
-        }
-    } else {
-        shadow_occlusion = 0.0;
+        shadow_occlusion = mix(plant_receiver ? plant_prior : 1.0, map_visibility, map_confidence);
     }
-    float sss_contact_visibility = 1.0;
-    // Leaf cubes trace only where the distant estimate contributes. Blend the
-    // complete map and screen estimates so neither loses its own occlusion.
-    // Other plants use full screen attenuation at every distance.
-    float plant_contact_weight = material_id == 129 && plant_receiver ? 1.0 - sss_map_coverage : 1.0;
-#if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-#if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG == 3
-    if (shadow_needed) {
-#else
-    // No direct light survives a fully sheltered receiver: skip its screen ray.
-    if (shadow_needed && shadow_occlusion > 0.0 && plant_contact_weight > 0.0) {
+
+    float screen_blocking = 0.0;
+    bool screen_eligible = false;
+#if defined(PLANT_SHADOW_DIAGNOSTICS)
+    PlantShadowEstimate screen_diagnostic;
+    screen_diagnostic.depth_reads = 0;
+    screen_diagnostic.packet_reads = 0;
+    screen_diagnostic.coarse_reads = 0;
+    screen_diagnostic.validation_reads = 0;
+    screen_diagnostic.candidate_count = 0;
+    screen_diagnostic.valid_projected_extent = false;
+    screen_diagnostic.rejected_candidate = false;
 #endif
-        vec3 geo_view_normal = plant_receiver ? vec3(0.0) : normalize(mat3(gbufferModelView) * geo_normal);
-        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal, geo_ndotl,
-            stbn_dither, sss_amount);
-        if (plant_receiver && material_id == 129) {
-            shadow_occlusion = mix(plant_distant_visibility * contact_shadow,
-                plant_map_visibility, sss_map_coverage) * plant_sky_access;
-        } else if (plant_receiver) {
-            shadow_occlusion *= contact_shadow;
-        } else {
-            shadow_occlusion = min(shadow_occlusion, contact_shadow);
-        }
-        sss_contact_visibility = contact_shadow;
+#if defined(SHADOW_SSS_SCREEN) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
+    screen_eligible = plant_receiver && shadow_needed && plant_prior > 0.0 && map_confidence < 1.0;
+#if SHADOW_SSS_DEBUG == 3 || SHADOW_SSS_DEBUG == 8 || SHADOW_SSS_DEBUG >= 11
+    // Diagnostic queries may expose the ray even under full map coverage.
+    screen_eligible = plant_receiver && shadow_needed;
+#endif
+    if (screen_eligible) {
+        vec2 jitter_uv = vec2(0.0);
+#ifdef TAA
+        jitter_uv = u_taa_offset * 0.5;
+#endif
+        vec3 geo_view = normalize(mat3(gbufferModelView) * geo_normal);
+        PlantShadowEstimate estimate = TracePlantDistantShadow(view_pos, geo_view,
+            material_id, u_view_light_dir, jitter_uv, stbn_dither, SHADOW_SSS_SCREEN_DISTANCE);
+        screen_blocking = estimate.blocking_confidence;
+#if defined(PLANT_SHADOW_DIAGNOSTICS)
+        screen_diagnostic = estimate;
+#endif
+        // Screen misses never release the skylight prior. The map and far
+        // estimate blend once, rather than multiplying two shelter estimates.
+        shadow_occlusion = mix(plant_prior * (1.0 - screen_blocking), map_visibility, map_confidence);
+    }
+#endif
+
+#if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
+#if CONTACT_SHADOW_DEBUG > 0
+    if (!plant_receiver && shadow_needed) {
+#else
+    if (!plant_receiver && shadow_needed && shadow_occlusion > 0.0) {
+#endif
+        vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
+        float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal,
+            dot(geo_normal, u_world_light_dir), stbn_dither);
+        shadow_occlusion = min(shadow_occlusion, contact_shadow);
 #if CONTACT_SHADOW_DEBUG > 0
         diagnostic_output = true;
         return vec3(CONTACT_SHADOW_DEBUG == 1
@@ -131,53 +130,71 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     }
 #endif
 
-    // Reuse diffuse reflectance for direct plants, ambient and block light.
-    diffuse_reflectance = EvaluateDiffuseReflectance(
-        albedo, material.f0, material.diffuse_weight);
-    vec3 direct_visibility = vec3(0.0);
-    vec3 sss_lighting = vec3(0.0);
+    // Ambient/block-light consumers retain their existing reflectance law.
+    diffuse_reflectance = EvaluateDiffuseReflectance(albedo, material.f0, material.diffuse_weight);
+    vec3 reflected = vec3(0.0);
+    vec3 transmitted = vec3(0.0);
     if (shadow_occlusion > 0.0) {
-        if (plant_receiver) {
-            vec2 visible_response = plant_response * shadow_occlusion;
-            direct_visibility = diffuse_reflectance * visible_response.x;
-            sss_lighting = diffuse_reflectance * visible_response.y;
+        if (plant_receiver && material.diffuse_weight > 0.0) {
+            vec3 budget = PlantInterfaceBudget(material.f0, material.diffuse_weight,
+                dot(normal_world, view_to_eye)) * shadow_occlusion;
+            reflected = budget * albedo * plant_angular.x;
+            transmitted = budget * PlantTransmission(albedo, transmission_prior) * plant_angular.y;
         }
-        // Half-vector work belongs after visibility, outside the screen ray's
-        // live state. Plants retain GGX at every roughness on the real surface
-        // normal; their two-sided response replaces only the diffuse lobe.
+        // Keep the half vector and RGB optics outside the trace's live state.
         if (ndotl > 0.0) {
             vec3 half_vector = view_to_eye + u_world_light_dir;
             vec3 half_dir = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));
-            // Unit N,V,L and guarded unit H bound both cosines. V.H == L.H.
             float ndoth = saturate(dot(normal_world, half_dir));
             float vdoth = saturate(dot(view_to_eye, half_dir));
-            vec3 diffuse_brdf;
-            vec3 direct_brdf = EvaluateDirectBRDF(
-                albedo, material.f0, material.diffuse_weight,
-                material.perceptual_roughness,
-                ndotv, ndotl, ndoth, vdoth, vdoth, diffuse_brdf);
-            // Plant diffuse and transmission were already evaluated above.
-            if (plant_receiver) direct_brdf = max(direct_brdf - diffuse_brdf, vec3(0.0));
-            direct_visibility += direct_brdf * ndotl * shadow_occlusion;
+            vec3 direct_brdf;
+            if (plant_receiver) {
+                direct_brdf = EvaluateDirectSpecularBRDF(material.f0, material.perceptual_roughness,
+                    ndotv, ndotl, ndoth, vdoth);
+            } else {
+                vec3 diffuse_brdf;
+                direct_brdf = EvaluateDirectBRDF(albedo, material.f0, material.diffuse_weight,
+                    material.perceptual_roughness, ndotv, ndotl, ndoth, vdoth, vdoth, diffuse_brdf);
+            }
+            reflected += direct_brdf * ndotl * shadow_occlusion;
         }
     }
-    // colortex5 feeds underwater caustics; exclude transmitted diffuse light.
-    caustic_brdf = direct_visibility;
-    vec3 color = (direct_visibility + sss_lighting) * ground_light.rgb;
+    // Underwater caustics consume reflected light only, including GGX.
+    caustic_brdf = reflected;
+    vec3 color = (reflected + transmitted) * ground_light.rgb;
+#if SHADOW_SSS_DEBUG > 0
+    diagnostic_output = true;
+    if (!plant_receiver) return vec3(0.0);
 #if SHADOW_SSS_DEBUG == 1
-    diagnostic_output = true;
-    return sss_lighting * ground_light.rgb;
+    return transmitted * ground_light.rgb;
 #elif SHADOW_SSS_DEBUG == 2
-    diagnostic_output = true;
-    return plant_receiver ? vec3(1.0 - sss_map_coverage, sss_map_coverage, 0.0) : vec3(0.0);
+    return vec3(1.0 - map_confidence, map_confidence, 0.0);
 #elif SHADOW_SSS_DEBUG == 3
-    diagnostic_output = true;
-    return plant_receiver ? vec3(sss_contact_visibility) : vec3(0.0);
+    return vec3(1.0 - screen_blocking);
 #elif SHADOW_SSS_DEBUG == 4
-    diagnostic_output = true;
-    return plant_receiver ? vec3(plant_map_visibility) : vec3(0.0);
+    return vec3(map_visibility);
+#elif SHADOW_SSS_DEBUG == 5
+    return albedo;
+#elif SHADOW_SSS_DEBUG == 6
+    return PlantTransmission(albedo, transmission_prior);
+#elif SHADOW_SSS_DEBUG == 7
+    return vec3(1.0) - albedo - PlantTransmission(albedo, transmission_prior);
+#elif SHADOW_SSS_DEBUG == 8
+    return vec3(screen_blocking);
+#elif SHADOW_SSS_DEBUG == 9
+    return vec3(shadow_occlusion);
+#elif SHADOW_SSS_DEBUG == 10
+    return vec3(plant_angular, 0.0);
+#elif SHADOW_SSS_DEBUG == 11
+    return vec3(1.0, float(screen_eligible), float(screen_diagnostic.valid_projected_extent));
+#elif SHADOW_SSS_DEBUG == 12
+    return vec3(float(screen_diagnostic.depth_reads) / 12.0,
+        float(screen_diagnostic.packet_reads) / 8.0, float(screen_diagnostic.coarse_reads) / 10.0);
+#elif SHADOW_SSS_DEBUG == 13
+    return vec3(float(screen_diagnostic.validation_reads) / 2.0,
+        float(screen_diagnostic.candidate_count) / 2.0, float(screen_diagnostic.rejected_candidate));
 #endif
-
+#endif
     return color + albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 }
 

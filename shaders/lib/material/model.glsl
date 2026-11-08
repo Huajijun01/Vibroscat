@@ -77,7 +77,7 @@ PBRMaterial ResolveOpaquePBR(vec3 albedo, float roughness, float selector,
     return m;
 }
 
-// Reference-layer transmission priors; these are not volume coefficients.
+// Empirical SSS class amounts; LOW uses them as thin-layer transmission priors.
 float PlantTransmissionPrior(int id) {
     if (id == 128) return 0.35;
     if (id == 129 || id == 130) return 0.30;

@@ -164,10 +164,10 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 
 // Colored reference-layer transport; no AO/GI or external layer absorption.
 #define SHADOW_SSS
-#define SHADOW_SSS_TRANSMISSION 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
+#define SHADOW_SSS_TRANSMISSION 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] PCSS scattering gain; LOW thin-layer transmission.
 #define SHADOW_SSS_STEPS 8 // [4 6 8 10 12 16] Near PCSS filter only.
 #define SHADOW_SSS_SCREEN
-#define SHADOW_SSS_SCREEN_DISTANCE 48.0 // [16.0 32.0 48.0 64.0 96.0] Meters; fixed 10+2 depth-read budget.
+#define SHADOW_SSS_SCREEN_DISTANCE 48.0 // [16.0 32.0 48.0 64.0 96.0] Meters; at most 12 depth-only reads.
 #define SHADOW_SSS_FADE_START 0.75 // [0.5 0.6 0.7 0.75 0.8 0.9 0.95]
 #define SHADOW_SSS_DEBUG 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13]
 

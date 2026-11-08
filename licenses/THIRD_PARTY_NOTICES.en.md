@@ -521,35 +521,50 @@ temporal low-pass filtering. It is not a third-party texture. Runtime projection
 and integration follow the unrefracted world sun direction and add artistic
 radiance to the scene; this does not claim full underwater volume transport.
 
-## 29. Colored plant transport and distant shadows (independent implementation)
+## 29. Plant subsurface scattering and distant shadows
 
-Concept study compared Photon v1.3b
-(https://github.com/sixthsurge/photon; custom license permitting study),
-`shaders/include/lighting/diffuse_lighting.glsl`,
-`shaders/include/lighting/shadows/pcss.glsl` and
-`shaders/include/lighting/shadows/ssrt.glsl`; and Revelation
-(https://github.com/HaringPro/Revelation; Apache-2.0),
-`shaders/program/CombineLighting.frag` and
-`shaders/lib/lighting/shadow/Render.glsl`. The separation of material transport,
-shadow estimation and near/far integration informed this design. No reference
-source, distinctive expression, tuning constant or asset was copied or closely
-translated. Earlier iterationT study (no package license found;
-https://minegraph.cn/shaderpacks/12) likewise contributed no source.
+The PCSS-enabled RGB absorption/scattering material in
+`shaders/lib/lighting/plant_subsurface.glsl` is adapted from Revelation Shaders,
+Copyright (C) 2026 HaringPro, licensed under Apache License 2.0:
+https://github.com/HaringPro/Revelation, `shaders/program/CombineLighting.frag`.
+The license text is reproduced in Appendix A. Normalized texture color sets
+empirical absorption and scattering coefficients; a broad/forward HG phase
+and exponential depth attenuation supply directional SSS independently of
+ordinary PCSS-shadowed diffuse and GGX. Tissue scattering receives the final
+material tint once.
 
-The plant libraries independently define reference-layer RGB reflection and
-transmission from linear texture color, with absorption as the energy remainder.
-Finite Kubelka-Munk two-flux transport provides an effective interpretation of
-these coefficients, not measured microscopic coefficients or leaf thickness.
-Two tilted micro sheets use projected view weights and a common Schlick
-interface budget; specular uses this pack's existing GGX surface law.
+Photon v1.3b (https://github.com/sixthsurge/photon; custom license permitting
+examination and learning) supplies the architectural reference for shared
+blocker-depth evidence, initial screen-depth segment/exit interpretation and
+coordinated near/far estimates. Its source was studied in
+`shaders/include/lighting/shadows/{pcss,ssrt}.glsl`,
+`shaders/include/lighting/diffuse_lighting.glsl` and
+`shaders/program/d4_deferred_shading.fsh`.
+Vibroscat expresses the projected ray with its own coordinate helpers, one
+fixed depth comparison, at most twelve existing pre-hand depth fetches and
+no sampled material or normal data. A single coverage/distance fade blends
+completed SSS contributions. The existing PCSS filter radius and samples are
+shared with ordinary surface lighting. These depths are attenuation proxies,
+not measured microscopic leaf thicknesses or volume coefficients.
 
-External shelter is separate from tissue transport. Near shadows use small
-class-based geometric filter footprints. A finite perspective-correct screen
-ray validates geometric hits under a hard twelve-depth-read budget. Its misses
-do not brighten the skylight prior. Map confidence blends the two estimates
-once. External leaves and solids block at their sampled coverage; receiver
-transmission never makes an external wall translucent. No vertex AO, GI,
-colored multi-layer caster transport or new GPU storage is introduced.
+The artistic backlight adjustment also studies Complementary Reimagined
+r5.8.1 (https://github.com/ComplementaryDevelopment/ComplementaryReimagined;
+Complementary License Agreement 1.6),
+`shaders/lib/lighting/mainLighting.glsl`, and Photon
+`shaders/include/lighting/diffuse_lighting.glsl`. These references demonstrate
+an additive highlight whose brightness bypasses the dark tissue albedo.
+Vibroscat independently uses a power-eight view/light lobe, class-scaled
+surface sheen tinted by peak-normalized leaf color, and a twofold
+tissue-scattering brightness gain.
+Only the sheen follows ordinary shadow visibility; depth-attenuated tissue
+scattering remains separate. No reference code, distinctive expression,
+tuning constant or asset is transferred by this adjustment.
+
+The PCSS-disabled LOW path retains its independent thin-layer material and
+depth-only distant shadow approximation. Earlier iterationT study (no package
+license found; https://minegraph.cn/shaderpacks/12) contributed no source.
+No AO/GI material change, colored caster layers or additional GPU storage is
+introduced by this effect.
 
 ## 30. Two water surface modes (concepts and independently generated assets)
 

@@ -3,6 +3,27 @@
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/math_scalar.glsl"
+#include "/lib/scattering/phase.glsl"
+
+#if defined(SHADOW_PCSS)
+
+// Colored absorption/scattering model adapted from Revelation Shaders.
+// Copyright (C) 2026 HaringPro. Licensed under Apache-2.0; see
+// licenses/THIRD_PARTY_NOTICES.md section 29 and Appendix A.
+// Coefficients use the reference model's empirical transport-depth units.
+void PlantScatteringCoefficients(vec3 color, float amount,
+        out vec3 sigma_a, out vec3 sigma_s) {
+    vec3 beta = sqrt(saturate(normalize(color)));
+    sigma_a = 16.0 * (vec3(1.0) - beta) / amount;
+    sigma_s = 4.0 * beta * amount;
+}
+
+float PlantScatteringPhase(float light_view) {
+    return 0.75 * PHASE_ISOTROPIC
+        + 0.25 * PhaseHenyeyGreenstein(-light_view, 0.7);
+}
+
+#else
 
 // Effective thin-layer reflection/transmission, anchored to linear biome-tinted
 // texture color. R + T <= 1 per channel; absorption is the remainder. These
@@ -58,5 +79,7 @@ vec3 PlantInterfaceBudget(vec3 f0, float diffuse_weight, float normal_view) {
     return complement * complement
         * (diffuse_weight * PlantFresnelComplement(abs(normal_view)) / PI);
 }
+
+#endif
 
 #endif // LIB_LIGHTING_PLANT_SUBSURFACE_GLSL

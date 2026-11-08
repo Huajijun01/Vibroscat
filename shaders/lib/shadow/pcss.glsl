@@ -131,7 +131,7 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 depth_gradient) {
 // Full PCSS filter. Plants retain their full sample budget and a small
 // class-based cutout footprint, independent of reflection/transmission energy.
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_dither,
-    bool plant_receiver, float ndotl, float footprint_radius_m) {
+    bool plant_receiver, float ndotl, float footprint_radius_m, out float sss_depth) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     // One dither value + first direction serves both passes. The orthographic
     // XY scale projects their world-space disks before each sample is warped.
@@ -142,6 +142,10 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
     float blocker_depth;
     bool blocker_found = ShadowFindBlocker(sp, clip_pos, projection_scale, depth_gradient,
         dir, SHADOW_BLOCKER_SAMPLES, blocker_depth);
+    float depth_delta = blocker_found ? saturate(sp.z - blocker_depth) : 0.0;
+    float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
+    // Photon and Revelation use half the coverage-weighted world separation.
+    sss_depth = 0.5 * world_depth_gap;
     if (!blocker_found && !plant_receiver) {
         return 1.0;
     }
@@ -153,8 +157,6 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
 
     // Step 2: world-space penumbra, using the small-angle approximation
     // radius = gap * angular radius. XY distortion must not change its size.
-    float depth_delta = blocker_found ? saturate(sp.z - blocker_depth) : 0.0;
-    float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
     float penumbra_radius_m = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS;
     // A world-space cap keeps the same maximum at every map position and
     // resolution. The cutout footprint minimum wins if the controls overlap.

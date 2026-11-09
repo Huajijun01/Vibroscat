@@ -27,6 +27,8 @@ Vibroscat profile.
 
 - Layered volumetric clouds with changing density, soft edges, sunlight, and
   cloud shadows
+- Cloud shadows are on by default under Environment / Clouds, follow the
+  moving cloud cover, affect RSM bounce, and fade away near sunrise and sunset.
 - Selectable continuous or checkerboard cloud reconstruction under Environment /
   Clouds / Quality; both support every cloud resolution setting and work with
   TAA disabled. Checkerboard is the default.

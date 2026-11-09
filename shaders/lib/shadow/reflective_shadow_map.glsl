@@ -7,6 +7,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
+#include "/lib/cloud/shadow.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/shadow/rsm_data.glsl"
 
@@ -136,7 +137,10 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
             sample_coverage * sample_coverage, sample_luminance * sample_coverage);
     }
 
-    vec3 irradiance = sum_irradiance / rsm_sample_count;
+    // The cloud penumbra is much wider than RSM_RADIUS: apply its transmission
+    // once to the completed bounce at the receiver, outside the VPL integral.
+    float cloud_shadow = CloudShadowTransmittance(receiver_world);
+    vec3 irradiance = sum_irradiance / rsm_sample_count * cloud_shadow;
     float mean_coverage = sum_coverage / rsm_sample_count;
     // AO belongs to the uncovered environment, not transported RSM bounce.
     // Apply it before the moments so their fallback matches what is returned.
@@ -153,6 +157,10 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     // The SH term depends on the same coverage samples as bounce radiance.
     // Include their covariance rather than treating them as independent noise.
     vec3 moments = transport_moments * rsm_inv_sample_count;
+    // Bounce second moment and bounce/coverage cross moment use the same
+    // transmission; coverage and the uncovered sky remain independent.
+    moments.x *= cloud_shadow * cloud_shadow;
+    moments.z *= cloud_shadow;
     float sky_luminance = Luminance(uncovered_sky);
     float mean_transport = Luminance(irradiance) - sky_luminance * mean_coverage;
     float transport_variance = max(moments.x + sky_luminance * sky_luminance * moments.y

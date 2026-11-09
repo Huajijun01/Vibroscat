@@ -3,8 +3,10 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/sky_light_data.glsl"
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/core/coordinates.glsl"
 #include "/lib/core/render_scale.glsl"
 #include "/lib/geometry/fragment_position.glsl"
+#include "/lib/cloud/shadow.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/brdf.glsl"
@@ -54,6 +56,7 @@ void main() {
     EvaluateBRDF(base_color, mat, surface_normal_view, view_to_eye, u_view_light_dir, direct_lighting, lambert_brdf, diffuse_reflectance);
 
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
+    shadow *= CloudShadowTransmittance(ViewToWorldSpace(view_pos));
     float torch_light = BlockLightFromLm(v_texcoord.z);
     vec3 lit = direct_lighting * ground_light.rgb * shadow + lambert_brdf * v_ambient_col
              + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;

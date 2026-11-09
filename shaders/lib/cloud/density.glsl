@@ -95,6 +95,17 @@ float CloudDensityLowQuality(float distribution_density, CloudHeightProfile prof
         CLOUD_VORONOISE_MEAN * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
 }
 
+// Fitted upward column integral of the mean-erosion field at strength 0.7.
+// A squared affine root with a smooth base correction gives zero slope at
+// the cloud base. Extinction (km^-1) and thickness (km) remain explicit.
+float CloudVerticalOpticalDepth(float distribution_density, float height_fraction) {
+    float base_correction = max(0.3625 - height_fraction, 0.0);
+    float column_root = max(0.0637 + 0.8728 * distribution_density
+        - 1.19 * height_fraction
+        - (1.19 / (2.0 * 0.3625)) * base_correction * base_correction, 0.0);
+    return CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_THICKNESS_KM * column_root * column_root;
+}
+
 // Directional transport reads the distribution at each light sample. The
 // erosion threshold uses the texture mean, saving one 3D read per light step.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudDensityFrame frame, CloudHeightProfile profile

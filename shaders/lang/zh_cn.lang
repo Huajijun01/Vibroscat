@@ -186,6 +186,8 @@ value.CLOUD_TEMPORAL_UPSCALING.4 = 4x（1/4 分辨率）
 
 #Clouds: rendering
 option.VOLUMETRIC_CLOUDS = 体积云
+option.CLOUD_SHADOWS = 云影
+option.CLOUD_SHADOWS.comment = 云层移动产生的阳光阴影，同时影响 RSM 反弹光。需要开启体积云。太阳高度角从 18 度降至 5 度时平滑淡出，低于 5 度时无云影。
 option.VOLUMETRIC_CLOUDS.comment = 用有体积、有纵深、被阳光照亮的真 3D 云取代平面贴图云。是本包开销最高的效果之一。
 option.CIRRUS = 卷云
 option.CIRRUS.comment = 高空的薄云层，带银边光照。远比体积云便宜，且与体积云互相独立。

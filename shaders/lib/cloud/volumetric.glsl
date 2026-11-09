@@ -108,18 +108,8 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
                 surface_position_accumulator += sample_position * segment_weight;
                 surface_weight += segment_weight;
                 light_scattering += segment_weight * sample_light;
-                // Fitted upward column density: a squared affine root over
-                // distribution density and height, with a smooth base
-                // correction that zeroes the column slope at the cloud base.
-                // Coefficients fit the mean-erosion density integral at
-                // erosion strength 0.7; extinction and thickness stay
-                // explicit so they can change without refitting.
-                float base_correction = max(0.3625 - sample_height.height_fraction, 0.0);
-                float column_root = max(0.0637 + 0.8728 * distribution_density
-                    - 1.19 * sample_height.height_fraction
-                    - (1.19 / (2.0 * 0.3625)) * base_correction * base_correction, 0.0);
-                float sky_optical_depth = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_THICKNESS_KM
-                    * column_root * column_root;
+                float sky_optical_depth = CloudVerticalOpticalDepth(
+                    distribution_density, sample_height.height_fraction);
                 float sky_access = 1.0 / (1.0 + sky_optical_depth);
                 sky_scattering += segment_weight * sky_access;
                 view_transmittance *= segment_transmittance;

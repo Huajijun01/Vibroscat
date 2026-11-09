@@ -7,6 +7,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
+#include "/lib/cloud/shadow.glsl"
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/plant_subsurface.glsl"
 #include "/lib/material/model.glsl"
@@ -160,8 +161,9 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         scatter = SHADOW_SSS_TRANSMISSION * material.diffuse_weight
             * (tissue_scatter + backlight_sheen * sheen_tint);
     }
-    caustic_brdf = reflected;
-    vec3 color = (reflected + scatter) * ground_light.rgb;
+    float cloud_shadow = CloudShadowTransmittance(world_pos);
+    caustic_brdf = reflected * cloud_shadow;
+    vec3 color = (reflected + scatter) * ground_light.rgb * cloud_shadow;
 #if SHADOW_SSS_DEBUG > 0
     diagnostic_output = true;
     if (!plant_receiver) return vec3(0.0);
@@ -342,8 +344,9 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         }
     }
     // Underwater caustics consume reflected light only, including GGX.
-    caustic_brdf = reflected;
-    vec3 color = (reflected + transmitted) * ground_light.rgb;
+    float cloud_shadow = CloudShadowTransmittance(world_pos);
+    caustic_brdf = reflected * cloud_shadow;
+    vec3 color = (reflected + transmitted) * ground_light.rgb * cloud_shadow;
 #if SHADOW_SSS_DEBUG > 0
     diagnostic_output = true;
     if (!plant_receiver) return vec3(0.0);

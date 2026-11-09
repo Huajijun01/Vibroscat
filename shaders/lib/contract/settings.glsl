@@ -44,6 +44,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 // 2. CLOUDS - Cloud layers (volumetric + cirrus)
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
+#define CLOUD_SHADOWS // Single-lookup cloud shadows on direct sunlight and its RSM bounce.
 #define CIRRUS // Enable the high-altitude cirrus shell; independent of the volumetric layer.
 #define CLOUD_VIEW_MIN_STEPS 20 // [20 24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
 #define CLOUD_VIEW_MAX_STEPS 40 // [40 64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
@@ -631,6 +632,8 @@ const float centerDepthHalflife = 1.0;
 #endif
 // Clouds
 #ifdef VOLUMETRIC_CLOUDS
+#endif
+#ifdef CLOUD_SHADOWS
 #endif
 #ifdef CIRRUS
 #endif

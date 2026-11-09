@@ -186,6 +186,8 @@ value.CLOUD_TEMPORAL_UPSCALING.4 = 4x (1/4 res)
 
 #Clouds: rendering
 option.VOLUMETRIC_CLOUDS = Volumetric Clouds
+option.CLOUD_SHADOWS = Cloud Shadows
+option.CLOUD_SHADOWS.comment = Moving cloud shadows on direct sunlight and RSM bounce. Requires volumetric clouds. Fades smoothly between sun elevations of 18 and 5 degrees; no shadows below 5 degrees.
 option.VOLUMETRIC_CLOUDS.comment = Replaces flat cloud sprites with real 3D clouds that have depth and proper sunlight. One of the most expensive effects in the pack.
 option.CIRRUS = Cirrus Clouds
 option.CIRRUS.comment = Thin high-altitude cloud sheet with silver-lining lighting. Far cheaper than volumetric clouds and independent of them.

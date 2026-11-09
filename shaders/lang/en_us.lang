@@ -38,7 +38,7 @@ screen.TAA_SETTINGS = Temporal Antialiasing
 screen.TAA_SETTINGS.comment = Settings shared by native TAA and Temporal Upscaling.
 screen.ANTIALIASING.comment = Smooths jagged edges, then re-sharpens the image. TAA blends many frames; CAS is AMD FidelityFX sharpening.
 screen.LIGHTING = Lighting
-screen.LIGHTING.comment = Reflections, bounced sunlight, shadows, corner darkening and light brightness.
+screen.LIGHTING.comment = The material map format, reflections, bounced sunlight, shadows, corner darkening and light brightness.
 screen.REFLECTION = Reflections
 screen.REFLECTION.comment = Screen-space reflections on solid surfaces: range, quality, and the blend into the sky sheen.
 screen.GI = Global Illumination
@@ -331,6 +331,12 @@ option.CONTACT_SHADOW_DEBUG.comment = Requires Contact Shadows. Shows the raw sh
 value.CONTACT_SHADOW_DEBUG.0 = Off
 value.CONTACT_SHADOW_DEBUG.1 = Raw Mask
 value.CONTACT_SHADOW_DEBUG.2 = Exaggerated Darkness
+
+#Material format
+option.MATERIAL_FORMAT = Material Map Format
+option.MATERIAL_FORMAT.comment = Convention used to read the resource pack's specular and normal maps. LabPBR is the current standard; oldPBR (seusPBR) is the pre-1.14 convention. Pick what your textures actually use - a pack may omit the declaration the game keys on. Host-side PBR mipmap quality still follows the resource pack's own declaration.
+value.MATERIAL_FORMAT.0 = LabPBR
+value.MATERIAL_FORMAT.1 = oldPBR
 
 #AO
 option.AO_MODE = Ambient Occlusion Mode

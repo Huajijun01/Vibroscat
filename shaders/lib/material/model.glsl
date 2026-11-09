@@ -1,20 +1,20 @@
 #ifndef LIB_MATERIAL_MODEL_GLSL
 #define LIB_MATERIAL_MODEL_GLSL
 
+#include "/lib/contract/settings.glsl"
 #include "/lib/core/math_scalar.glsl"
 
 // ============================================================================
-// Material model - oldPBR/seusPBR-style specular map convention
+// Material model - specular map decoding and the opaque PBR resolve
 // ============================================================================
 //
-// Specular map channels used by this shader pack:
-//   R = smoothness  (0=dull, 1=polished)
-//   G = metalness   (stored without thresholding)
-//   B = emission    (0=dark, 1=self-illuminated)
-//   A = reserved
-//
-// oldPBR convention above; under MC_TEXTURE_FORMAT_LAB_PBR the atlas is
-// LabPBR instead: B = auxiliary, A = emission (see DecodeOpaqueMaterial).
+// Specular map channels follow the user-selected MATERIAL_FORMAT convention
+// (contract/settings.glsl); both store smoothness in R and the F0/metalness
+// byte in G:
+//   LabPBR: R = perceptual smoothness (roughness = 1 - R), G = F0 or metal
+//           range byte, B = auxiliary, A = emission (255 = none)
+//   oldPBR: R = smoothness, G = continuous metalness, B = emission,
+//           A = reserved
 //
 // materialID ranges (see block.properties for per-block assignment):
 //   80-95   water
@@ -48,7 +48,7 @@ OpaqueMaterial DecodeOpaqueMaterial(vec4 spec) {
     OpaqueMaterial m;
     m.perceptual_roughness = 1.0 - spec.r;
     m.specular_selector = spec.g;
-#ifdef MC_TEXTURE_FORMAT_LAB_PBR
+#if MATERIAL_FORMAT == 0
     m.emission = LabPBREmission(spec.a);
     m.auxiliary = spec.b;
 #else
@@ -64,7 +64,7 @@ PBRMaterial ResolveOpaquePBR(vec3 albedo, float roughness, float selector,
     float selector_byte = floor(selector * 255.0 + 0.5);
     m.perceptual_roughness = roughness;
     m.alpha = max(roughness * roughness, 0.002);
-#ifdef MC_TEXTURE_FORMAT_LAB_PBR
+#if MATERIAL_FORMAT == 0
     bool metal = selector_byte >= 230.0;
     m.f0 = metal ? albedo : vec3(selector_byte / 255.0);
     m.diffuse_weight = metal ? 0.0 : 1.0;
@@ -102,12 +102,17 @@ bool PlantUsesTiltedSheets(int id) {
 }
 
 // -- Normal-map decoding --
-// LabPBR format (default since MC 1.14): X and Y channels store the 2D
-// tangent-space normal (Z reconstructed). Compatible with OptiFine / Iris
-// LabPBR normal maps (normal.xy remapped from [0,1] to [-1,1]).
-vec3 DecodeLabPBR(vec3 packed_normal) {
+// LabPBR (default since MC 1.14): X and Y channels store the 2D
+// tangent-space normal remapped from [0,1] to [-1,1]; Z is reconstructed
+// positive. oldPBR: the full RGB vector is stored, and bilinear filtering
+// can shorten it below unit length, so it is renormalized.
+vec3 DecodeMaterialNormal(vec3 packed_normal) {
+#if MATERIAL_FORMAT == 0
     vec2 xy = packed_normal.xy * 2.0 - 1.0;
     return vec3(xy, sqrt(saturate(1.0 - dot(xy, xy))));
+#else
+    return normalize(packed_normal * 2.0 - 1.0);
+#endif
 }
 
 #endif // LIB_MATERIAL_MODEL_GLSL

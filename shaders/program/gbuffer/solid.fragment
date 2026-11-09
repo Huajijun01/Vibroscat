@@ -174,7 +174,7 @@ void main() {
             - position_dy * uv_dx.y) * uv_sign;
         float tangent_handedness = -face_sign * uv_sign;
         vec3 bitangent_view = cross(tangent_view, normal_view) * tangent_handedness;
-        vec3 ts_normal = DecodeLabPBR(normal_tex);
+        vec3 ts_normal = DecodeMaterialNormal(normal_tex);
         vec3 shading_normal_view = tangent_view * ts_normal.x
             + bitangent_view * ts_normal.y + normal_view * ts_normal.z;
         w_normal = normalize(mat3(gbufferModelViewInverse) * shading_normal_view);
@@ -182,13 +182,13 @@ void main() {
 #elif defined(HAS_AT_TANGENT)
     if (has_normal_texture) {
         mat3 tbn = mat3(v_world_tangent, v_world_bitangent, v_world_normal);
-        vec3 ts_normal = DecodeLabPBR(normal_tex);
+        vec3 ts_normal = DecodeMaterialNormal(normal_tex);
         w_normal = normalize(tbn * ts_normal);
     }
 #endif
 
     float material_ao = 1.0;
-#ifdef MC_TEXTURE_FORMAT_LAB_PBR
+#if MATERIAL_FORMAT == 0
     material_ao = normal_tex.b;
 #endif
     float combined_ao = min(v_color.a, material_ao);

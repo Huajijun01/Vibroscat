@@ -38,7 +38,7 @@ screen.TAA_SETTINGS = 时域抗锯齿
 screen.TAA_SETTINGS.comment = 原生 TAA 与时域超分辨率共用的设置。
 screen.ANTIALIASING.comment = 平滑物体边缘的锯齿，之后再重新锐化。TAA 靠混合多帧消除锯齿；CAS 为 AMD FidelityFX 锐化。
 screen.LIGHTING = 光照
-screen.LIGHTING.comment = 反射、反弹阳光、阴影、边角压暗与光源亮度。
+screen.LIGHTING.comment = 材质贴图格式、反射、反弹阳光、阴影、边角压暗与光源亮度。
 screen.REFLECTION = 反射
 screen.REFLECTION.comment = 实体表面的屏幕空间反射：作用距离、质量，以及与天空光泽的过渡。
 screen.GI = 全局光照
@@ -331,6 +331,12 @@ option.CONTACT_SHADOW_DEBUG.comment = 需要开启接触阴影。查看原始遮
 value.CONTACT_SHADOW_DEBUG.0 = 关
 value.CONTACT_SHADOW_DEBUG.1 = 原始遮罩
 value.CONTACT_SHADOW_DEBUG.2 = 放大暗度
+
+#材质格式
+option.MATERIAL_FORMAT = 材质贴图格式
+option.MATERIAL_FORMAT.comment = 读取资源包高光与法线贴图时使用的约定。LabPBR 是现行标准；oldPBR（seusPBR）是 1.14 之前的旧约定。按资源包实际使用的格式选择——并非所有包都带有游戏识别所需的声明。主机侧的 PBR mipmap 质量仍由资源包自身的声明决定。
+value.MATERIAL_FORMAT.0 = LabPBR
+value.MATERIAL_FORMAT.1 = oldPBR
 
 #AO
 option.AO_MODE = 环境光遮蔽模式

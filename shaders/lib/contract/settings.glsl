@@ -248,6 +248,19 @@ const float ambientOcclusionLevel = 1.0;
 // 7. LIGHTING - Lighting constants
 // ==========================================================================
 
+// Material map convention the specular and normal atlases follow. Picked by
+// the user instead of the host MC_TEXTURE_FORMAT_LAB_PBR macro, which only
+// exists when the active resource pack declares format=lab-pbr in
+// texture.properties, so a pack shipping LabPBR data without that
+// declaration would silently decode as oldPBR. Host-side PBR mipmap
+// generation and sampler filtering still follow the resource pack
+// declaration.
+// 0 = LabPBR: specular B=auxiliary, A=emission (255=none), G>=230 metal;
+//     normal XY with reconstructed Z and B=material AO.
+// 1 = oldPBR (seusPBR): specular G=continuous metalness, B=emission; RGB
+//     tangent-space normals.
+#define MATERIAL_FORMAT 0 // [0 1] 0=LabPBR 1=oldPBR
+
 // Warm artificial-light palette, shared by deferred5 and the forward
 // translucent passes. TORCH_BRIGHTNESS scales the light intensity only;
 // the warm tint stays fixed.

@@ -131,7 +131,7 @@ const float eyeBrightnessHalflife = 3.0;
 // ==========================================================================
 // 4. SHADOWS - Shadows / PCSS / SSS
 // ==========================================================================
-const int shadowMapResolution = 2048; // [1024 1536 2048 3072 4096 6144 8192]
+const int shadowMapResolution = 1536; // [1024 1536 2048 3072 4096 6144 8192]
 const bool shadowHardwareFiltering = true;
 const float sunPathRotation = -15.0; // [-60.0 -45.0 -30.0 -15.0 0.0 15.0 30.0 45.0 60.0]
 const float shadowIntervalSize = 2.0;

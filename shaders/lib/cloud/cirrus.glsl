@@ -1,7 +1,7 @@
 #ifndef LIB_CLOUD_CIRRUS_GLSL
 #define LIB_CLOUD_CIRRUS_GLSL
 
-// World-anchored cirrus deck, sampled once at the thin shell's crossing.
+// Wind-advected cirrus deck, sampled once at the thin shell's crossing.
 // Returns cloud radiance and true transmittance, without the sky background.
 
 #include "/lib/contract/settings.glsl"
@@ -45,8 +45,9 @@ struct CirrusLayerSample {
 // call site already sits behind its own #ifdef CIRRUS gate.
 #ifdef CIRRUS
 float SampleCirrusOpticalDepth(vec3 sample_pos_km) {
-    vec2 absolute_km = sample_pos_km.xz + (cameraPosition.xz) * 0.001;
-    vec2 uv = absolute_km.yx / CIRRUS_TILE_SIZE_KM;
+    vec2 density_xz_km = sample_pos_km.xz + cameraPosition.xz * 0.001
+        + vec2(frameTimeCounter * CIRRUS_WIND_SPEED, 0.0);
+    vec2 uv = density_xz_km.yx / CIRRUS_TILE_SIZE_KM;
     float encoded = textureLod(utex_cirrus_body, uv, 0.0).r;
     if (encoded < 0.001) return 0.0;
 

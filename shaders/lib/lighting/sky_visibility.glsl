@@ -15,6 +15,8 @@
 // the weight w.
 vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         float beta, float horizon_cos) {
+    vec3 result = vec3(0.0);
+    bool valid;
     float theta_lo;
     float sin_lo;
     float cos_lo;
@@ -30,7 +32,7 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         theta_lo = acos(horizon_cos);
         sin_lo = sqrt(saturate(1.0 - horizon_cos * horizon_cos));
         cos_lo = horizon_cos;
-        if (theta_hi <= theta_lo) return vec3(0.0);
+        valid = !(theta_hi <= theta_lo);
     } else {
         // The band wraps past pi: the upper end is pi and the lower end is
         // the horizon or beta - pi/2, whichever is larger.
@@ -46,21 +48,24 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
             sin_lo = -cos_beta;
             cos_lo = sin_beta;
         }
-        if (theta_lo >= PI) return vec3(0.0);
+        valid = !(theta_lo >= PI);
     }
-    float sin_hi2 = sin_hi * sin_hi;
-    float sin_lo2 = sin_lo * sin_lo;
-    float cos_hi3 = cos_hi * cos_hi * cos_hi;
-    float cos_lo3 = cos_lo * cos_lo * cos_lo;
-    float d_jcs = 0.5 * (sin_hi2 - sin_lo2);
-    float d_jss = 0.5 * ((theta_hi - theta_lo)
-        - (sin_hi * cos_hi - sin_lo * cos_lo));
-    float d_jccs = (cos_lo3 - cos_hi3) * (1.0 / 3.0);
-    float d_jcss = (sin_hi2 * sin_hi - sin_lo2 * sin_lo) * (1.0 / 3.0);
-    float d_jsss = (cos_hi3 - cos_lo3) * (1.0 / 3.0) - (cos_hi - cos_lo);
-    return vec3(a * d_jcs + b * d_jss,
-        a * d_jccs + b * d_jcss,
-        a * d_jcss + b * d_jsss);
+    if (valid) {
+        float sin_hi2 = sin_hi * sin_hi;
+        float sin_lo2 = sin_lo * sin_lo;
+        float cos_hi3 = cos_hi * cos_hi * cos_hi;
+        float cos_lo3 = cos_lo * cos_lo * cos_lo;
+        float d_jcs = 0.5 * (sin_hi2 - sin_lo2);
+        float d_jss = 0.5 * ((theta_hi - theta_lo)
+            - (sin_hi * cos_hi - sin_lo * cos_lo));
+        float d_jccs = (cos_lo3 - cos_hi3) * (1.0 / 3.0);
+        float d_jcss = (sin_hi2 * sin_hi - sin_lo2 * sin_lo) * (1.0 / 3.0);
+        float d_jsss = (cos_hi3 - cos_lo3) * (1.0 / 3.0) - (cos_hi - cos_lo);
+        result = vec3(a * d_jcs + b * d_jss,
+            a * d_jccs + b * d_jcss,
+            a * d_jcss + b * d_jsss);
+    }
+    return result;
 }
 
 // Returns (blocked mass, view-axis moment, signed tangent moment).

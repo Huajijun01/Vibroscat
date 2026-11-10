@@ -86,33 +86,40 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma,
 bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
         vec2 receiver_pixel, vec4 receiver_plane, float inverse_tolerance,
         vec3 normal_world, float spatial_falloff, out vec3 irradiance, out float age, out float weight) {
+    bool result = false;
     irradiance = vec3(0.0);
     age = 0.0;
     weight = 0.0;
-    if (any(lessThan(sample_texel, ivec2(0))) || any(greaterThanEqual(sample_texel, gi_size))) return false;
-    vec4 metadata = texelFetch(colortex10, sample_texel, 0);
-    irradiance = texelFetch(colortex9, sample_texel, 0).rgb;
-    age = GIHistoryAge(metadata);
-    if (age < 1.0) return false;
-    float normal_dot = dot(normal_world, GIHistoryNormal(metadata));
-    if (normal_dot < GI_NORMAL_DOT_FLOOR) return false;
-    vec2 sample_pixel = RepresentativePixel(sample_texel, GIHistoryOffset(metadata), block_scale);
-    // Receiver-plane distance in the per-pixel plane form built in
-    // ReconstructGI: the pixel evaluation times the sample's stored view
-    // depth (metadata.b) recovers the sample's n . v.
-    float plane_distance = abs(dot(vec3(sample_pixel, 1.0), receiver_plane.xyz)
-        * metadata.b - receiver_plane.w) * inverse_tolerance;
-    if (plane_distance >= 1.0) return false;
-    if (any(isnan(irradiance)) || any(isinf(irradiance))) return false;
-    vec2 spatial_delta = (sample_pixel - receiver_pixel) / block_scale;
-    float plane_weight = 1.0 - plane_distance;
-    // A one-frame estimate is not almost a third of a converged estimate.
-    // Keep its real age and let stable geometry-matched neighbors dominate.
-        float confidence = saturate(age / 64.0);
-    confidence *= confidence;
-    weight = exp2(-spatial_falloff * dot(spatial_delta, spatial_delta))
-        * plane_weight * plane_weight * confidence;
-    return true;
+    if (!(any(lessThan(sample_texel, ivec2(0))) || any(greaterThanEqual(sample_texel, gi_size)))) {
+        vec4 metadata = texelFetch(colortex10, sample_texel, 0);
+        irradiance = texelFetch(colortex9, sample_texel, 0).rgb;
+        age = GIHistoryAge(metadata);
+        if (!(age < 1.0)) {
+            float normal_dot = dot(normal_world, GIHistoryNormal(metadata));
+            if (!(normal_dot < GI_NORMAL_DOT_FLOOR)) {
+                vec2 sample_pixel = RepresentativePixel(sample_texel, GIHistoryOffset(metadata), block_scale);
+                // Receiver-plane distance in the per-pixel plane form built in
+                // ReconstructGI: the pixel evaluation times the sample's stored view
+                // depth (metadata.b) recovers the sample's n . v.
+                float plane_distance = abs(dot(vec3(sample_pixel, 1.0), receiver_plane.xyz)
+                    * metadata.b - receiver_plane.w) * inverse_tolerance;
+                if (!(plane_distance >= 1.0)) {
+                    if (!(any(isnan(irradiance)) || any(isinf(irradiance)))) {
+                        vec2 spatial_delta = (sample_pixel - receiver_pixel) / block_scale;
+                        float plane_weight = 1.0 - plane_distance;
+                        // A one-frame estimate is not almost a third of a converged estimate.
+                        // Keep its real age and let stable geometry-matched neighbors dominate.
+                        float confidence = saturate(age / 64.0);
+                        confidence *= confidence;
+                        weight = exp2(-spatial_falloff * dot(spatial_delta, spatial_delta))
+                            * plane_weight * plane_weight * confidence;
+                        result = true;
+                    }
+                }
+            }
+        }
+    }
+    return result;
 }
 
 bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out vec3 reconstructed) {

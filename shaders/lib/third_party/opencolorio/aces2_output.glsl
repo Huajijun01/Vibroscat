@@ -7,6 +7,7 @@
 // Modified for Vibroscat: immutable hue tables replace texture bindings;
 // the final RGB-to-XYZ conversion is omitted to return display-linear Rec.709;
 // the pack's saturate() helper replaces the explicit min/max range clamps.
+// 2026-11-10: Selected helpers use one exit; formulas and branch domains are preserved.
 // These tables contain gamut boundaries, not sampled tone curves.
 // See licenses/THIRD_PARTY_NOTICES.md, section 22.
 // Copyright Contributors to the OpenColorIO Project.
@@ -585,38 +586,36 @@ vec3 ocio_gamut_cusp_table_0_sample(float h)
 }
 float ocio_get_focus_gain0(float J, float cuspJ)
 {
-  float thr = mix(cuspJ, 100.000000, 0.300000);
-  if (J > thr)
-  {
-    float gain = ( 100. - thr) / max(0.0001, 100. - J);
-    gain = log(gain)/log(10.0);
-    return gain * gain + 1.0;
-  }
-  else
-  {
-    return 1.0;
-  }
+    float result;
+    float thr = mix(cuspJ, 100.000000, 0.300000);
+    if (J > thr) {
+        float gain = ( 100. - thr) / max(0.0001, 100. - J);
+        gain = log(gain)/log(10.0);
+        result = gain * gain + 1.0;
+    } else {
+        result = 1.0;
+    }
+    return result;
 }
 float ocio_solve_J_intersect0(float J, float M, float focusJ, float slope_gain)
 {
-  float M_scaled = M / slope_gain;
-  float a = M_scaled / focusJ;
-  if (J < focusJ)
-  {
-    float b = 1.0 - M_scaled;
-    float c = -J;
-    float det =  b * b - 4.f * a * c;
-    float root =  sqrt(det);
-    return -2.0 * c / (b + root);
-  }
-  else
-  {
-    float b = - (1.0 + M_scaled + 100. * a);
-    float c = 100. * M_scaled + J;
-    float det =  b * b - 4.f * a * c;
-    float root =  sqrt(det);
-    return -2.0 * c / (b - root);
-  }
+    float result;
+    float M_scaled = M / slope_gain;
+    float a = M_scaled / focusJ;
+    if (J < focusJ) {
+        float b = 1.0 - M_scaled;
+        float c = -J;
+        float det =  b * b - 4.f * a * c;
+        float root =  sqrt(det);
+        result = -2.0 * c / (b + root);
+    } else {
+        float b = - (1.0 + M_scaled + 100. * a);
+        float c = 100. * M_scaled + J;
+        float det =  b * b - 4.f * a * c;
+        float root =  sqrt(det);
+        result = -2.0 * c / (b - root);
+    }
+    return result;
 }
 float ocio_find_gamut_boundary_intersection0(vec2 JM_cusp, float gamma_top_inv, float gamma_bottom_inv, float J_intersect_source, float J_intersect_cusp, float slope)
 {
@@ -634,19 +633,21 @@ float ocio_find_gamut_boundary_intersection0(vec2 JM_cusp, float gamma_top_inv, 
 }
 float ocio_remap_M_fwd0(float M, float gamut_boundary_M, float reach_boundary_M)
 {
-  float boundary_ratio = gamut_boundary_M / reach_boundary_M;
-  float proportion = max(boundary_ratio, 0.75);
-  float threshold = proportion * gamut_boundary_M;
-  if (proportion >= 1.0f || M <= threshold)
-  {
-    return M;
-  }
-  float m_offset = M - threshold;
-  float gamut_offset = gamut_boundary_M - threshold;
-  float reach_offset = reach_boundary_M - threshold;
-  float scale = reach_offset / ((reach_offset / gamut_offset) - 1.0f);
-  float nd = m_offset / scale;
-  return threshold + scale * nd / (1.0f + nd);
+    float result;
+    float boundary_ratio = gamut_boundary_M / reach_boundary_M;
+    float proportion = max(boundary_ratio, 0.75);
+    float threshold = proportion * gamut_boundary_M;
+    if (proportion >= 1.0f || M <= threshold) {
+        result = M;
+    } else {
+        float m_offset = M - threshold;
+        float gamut_offset = gamut_boundary_M - threshold;
+        float reach_offset = reach_boundary_M - threshold;
+        float scale = reach_offset / ((reach_offset / gamut_offset) - 1.0f);
+        float nd = m_offset / scale;
+        result = threshold + scale * nd / (1.0f + nd);
+    }
+    return result;
 }
 vec3 ocio_gamut_compress0(vec3 JMh, float Jx, vec3 JMGcusp, float reachMaxM)
 {

@@ -232,7 +232,7 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
 #if defined(PLANT_SHADOW_DIAGNOSTICS)
         result.hit_gap_ratio = gap_m / slab_m;
 #endif
-        return result;
+        break;
     }
     return result;
 }

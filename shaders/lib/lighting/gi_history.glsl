@@ -97,12 +97,15 @@ struct GIReprojectedHistory {
 // Barycentric coordinates at the origin. Affine interpolation has zero
 // spatial first moment, so repeated reprojection cannot advect a light ramp.
 vec3 GIHistoryTriangleWeights(vec2 a, vec2 b, vec2 c) {
+    vec3 result = vec3(-1.0);
     vec2 ab = b - a;
     vec2 ac = c - a;
     float area = ab.x * ac.y - ab.y * ac.x;
-    if (abs(area) < 1.0e-5) return vec3(-1.0);
-    return vec3(b.x * c.y - b.y * c.x, c.x * a.y - c.y * a.x,
-        a.x * b.y - a.y * b.x) / area;
+    if (!(abs(area) < 1.0e-5)) {
+        result = vec3(b.x * c.y - b.y * c.x, c.x * a.y - c.y * a.x,
+            a.x * b.y - a.y * b.x) / area;
+    }
+    return result;
 }
 
 // Neighboring rays on a grazing plane can meet meters apart. Reject the

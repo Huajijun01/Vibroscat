@@ -72,21 +72,21 @@ float CloudBaseDensity(float distribution_density, CloudHeightProfile profile) {
 float DecodeCloudDensity(vec3 atmosphere_position, CloudDensityFrame frame, CloudHeightProfile profile,
     float distribution_fetch
 ) {
+    float result = 0.0;
     vec2 density_absolute_km = atmosphere_position.xz + frame.camera_xz_km;
     float distribution_density = saturate((distribution_fetch
         - frame.distribution_floor) * frame.inv_coverage);
-    if (distribution_density < 0.001) {
-        return 0.0;
+    if (!(distribution_density < 0.001)) {
+        float lq_density = CloudBaseDensity(distribution_density, profile);
+        if (!(lq_density < 0.001)) {
+            float detailed_noise = texture(utex_cloud_voronoise_tex,
+                vec3(density_absolute_km, length(atmosphere_position) - ATM_PLANET_R) * CLOUD_FINE_EROSION_SCALE).r;
+            float hq_density = CloudRemapErosion(lq_density,
+                detailed_noise * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
+            result = hq_density;
+        }
     }
-    float lq_density = CloudBaseDensity(distribution_density, profile);
-    if (lq_density < 0.001) {
-        return 0.0;
-    }
-    float detailed_noise = texture(utex_cloud_voronoise_tex,
-        vec3(density_absolute_km, length(atmosphere_position) - ATM_PLANET_R) * CLOUD_FINE_EROSION_SCALE).r;
-    float hq_density = CloudRemapErosion(lq_density,
-        detailed_noise * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
-    return hq_density;
+    return result;
 }
 
 // Mean-erosion density for the directional light transport.
@@ -110,14 +110,15 @@ float CloudVerticalOpticalDepth(float distribution_density, float height_fractio
 // erosion threshold uses the texture mean, saving one 3D read per light step.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudDensityFrame frame, CloudHeightProfile profile
 ) {
+    float result = 0.0;
     float distribution_density = saturate((
         texture(utex_cloud_distribution_tex,
             CloudDistributionUV(atmosphere_position.xz, frame)).r
         - frame.distribution_floor) * frame.inv_coverage);
-    if (distribution_density < 0.001) {
-        return 0.0;
+    if (!(distribution_density < 0.001)) {
+        result = CloudDensityLowQuality(distribution_density, profile);
     }
-    return CloudDensityLowQuality(distribution_density, profile);
+    return result;
 }
 
 #endif // LIB_CLOUD_DENSITY_GLSL

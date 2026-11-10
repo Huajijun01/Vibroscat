@@ -111,11 +111,14 @@ vec3 RotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
 // recomputing both here cost 64 redundant sin per pixel at 16 steps.
 float SliceRelativeCDF(float x, float angle_normal, float cos_normal,
         float sin_normal, float cdf_inv_denominator) {
-    if (x <= 0.0 || x >= 1.0) return x;
-    float phi = x * PI - PI * 0.5;
-    float numerator = 3.0 * cos_normal - cos(angle_normal - 2.0 * phi)
-        + (4.0 * angle_normal - 2.0 * phi + PI) * sin_normal;
-    return numerator * cdf_inv_denominator;
+    float result = x;
+    if (!(x <= 0.0 || x >= 1.0)) {
+        float phi = x * PI - PI * 0.5;
+        float numerator = 3.0 * cos_normal - cos(angle_normal - 2.0 * phi)
+            + (4.0 * angle_normal - 2.0 * phi + PI) * sin_normal;
+        result = numerator * cdf_inv_denominator;
+    }
+    return result;
 }
 
 // Quantize the remapped arc into 32 sectors and mask the covered span

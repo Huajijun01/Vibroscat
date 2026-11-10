@@ -57,26 +57,25 @@ vec2 ScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float r
 // Update one side with the original depth rejection and radius falloff.
 float UpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
                         float center_depth, vec3 view_axis, float horizon_cos) {
-    if (sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7) {
-        // Same surface: the height field below the pixel is its horizon,
-        // not an occluder (else far blocky terrain reads grid-like steps).
-        return horizon_cos;
+    float result = horizon_cos;
+    // Same-surface and sky samples do not update the horizon.
+    if (!(sample_depth >= 1.0 || abs(sample_depth - center_depth) < 3.0e-7)) {
+        vec3 sample_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
+        vec3 offset = sample_view - center_view;
+        float offset_len_sq = dot(offset, offset);
+        if (!(offset_len_sq < 1.0e-6)) {
+            float inv_offset_len = inversesqrt(offset_len_sq);
+            float offset_len = offset_len_sq * inv_offset_len;
+            // Near-field fade (Jimenez section4.3): linear band [GTAO_FALLOFF_START*R, R]
+            // applied to the sample cosine (no hard cut at the radius).
+            float fade = saturate(
+                (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
+                    / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4));
+            float sample_cos = dot(view_axis, offset) * inv_offset_len * (1.0 - fade) - fade;
+            result = max(horizon_cos, sample_cos);
+        }
     }
-    vec3 sample_view = NDCToViewSparse(sample_uv * 2.0 - 1.0, sample_depth * 2.0 - 1.0);
-    vec3 offset = sample_view - center_view;
-    float offset_len_sq = dot(offset, offset);
-    if (offset_len_sq < 1.0e-6) {
-        return horizon_cos;
-    }
-    float inv_offset_len = inversesqrt(offset_len_sq);
-    float offset_len = offset_len_sq * inv_offset_len;
-    // Near-field fade (Jimenez section4.3): linear band [GTAO_FALLOFF_START*R, R]
-    // applied to the sample cosine (no hard cut at the radius).
-    float fade = saturate(
-        (offset_len - GTAO_RADIUS * GTAO_FALLOFF_START)
-            / max(GTAO_RADIUS * (1.0 - GTAO_FALLOFF_START), 1.0e-4));
-    float sample_cos = dot(view_axis, offset) * inv_offset_len * (1.0 - fade) - fade;
-    return max(horizon_cos, sample_cos);
+    return result;
 }
 
 // March both sides at the same distance in one loop. Each side keeps its

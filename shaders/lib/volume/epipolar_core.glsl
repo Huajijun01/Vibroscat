@@ -43,12 +43,14 @@ ivec2 ScreenTexel(vec2 uv01) {
 
 // Shadow visibility on the undistorted segment; apply distortion at each step.
 float ShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
+    float result = 1.0;
     vec3 clip = mix(shadow_clip_start, shadow_clip_end, u);
     vec2 uv = clip.xy / GetDistortFactor(clip.xy) * 0.5 + 0.5;
     float shadow_depth = ProtectShadowDepth(clip.z * 0.5 + 0.5);
-    if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))
-        || shadow_depth <= 0.0 || shadow_depth >= 1.0) return 1.0;
-    return texture(shadowtex1, vec3(uv, shadow_depth));
+    if (!(any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))) || shadow_depth <= 0.0 || shadow_depth >= 1.0)) {
+        result = texture(shadowtex1, vec3(uv, shadow_depth));
+    }
+    return result;
 }
 
 // Project the active light into NDC. The pole is the light's projective

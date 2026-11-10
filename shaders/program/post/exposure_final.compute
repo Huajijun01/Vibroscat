@@ -23,13 +23,15 @@ shared uint histogram_cache[64];
 float HistogramPercentile(float fraction, uint total_weight) {
     uint threshold = uint(float(total_weight) * fraction);
     uint cumulative = 0u;
+    float result = 8.0;
     for (uint i = 0u; i < 64u; ++i) {
         cumulative += histogram_cache[i];
         if (cumulative >= threshold) {
-            return -12.0 + (float(i) + 0.5) * (20.0 / 64.0);
+            result = -12.0 + (float(i) + 0.5) * (20.0 / 64.0);
+            break;
         }
     }
-    return 8.0;
+    return result;
 }
 
 void main() {

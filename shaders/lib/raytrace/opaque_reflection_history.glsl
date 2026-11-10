@@ -166,141 +166,149 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
 vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
         vec3 receiver_view, vec3 view_to_eye, vec3 normal_world, vec3 geo_normal_world, vec3 geo_view,
         vec2 material, int material_id, out uvec4 metadata) {
+    vec3 result;
     // View-model samples cannot become history for newly uncovered world surfaces.
     if (material_id == 64) {
         metadata = uvec4(0u);
-        return sample_z;
-    }
-    float age = 1.0;
-    float variance = 0.0;
-    int change_state = 0;
-    vec3 mean_z = sample_z;
-    float sample_y = Luminance(sample_z);
-    // Resizing/reloading recreates and clears both sides. Abrupt translation,
-    // view rotation, or projection discontinuities must not reuse old samples.
-    vec3 current_forward = gbufferModelViewInverse[2].xyz;
-    vec3 previous_forward = transpose(mat3(gbufferPreviousModelView)) * vec3(0.0, 0.0, 1.0);
-    bool camera_valid = u_camera_delta_sq < 16.0 && dot(current_forward, previous_forward) > 0.85
-        && abs(gbufferPreviousProjection[1][1] / gbufferProjection[1][1] - 1.0) < 0.15;
-    if (frameCounter > 1 && camera_valid) {
-        // Reproject a displacement, not a view -> world -> view round trip.
-        // This preserves exact zero pixel motion for identical camera frames;
-        // round-off must not activate three almost-zero bilinear taps.
-        vec3 previous_view = receiver_view;
-        vec2 ndc_delta = vec2(0.0);
-        if (!u_ssr_history_static) {
-            vec4 receiver_world = vec4(world_pos, 1.0);
-            vec3 delta_view = vec3(dot(u_ssr_previous_delta_x, receiver_world),
-                dot(u_ssr_previous_delta_y, receiver_world), dot(u_ssr_previous_delta_z, receiver_world));
-            previous_view += delta_view;
-            vec2 current_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
-            ndc_delta = (vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1])
-                * delta_view.xy + u_ssr_projection_delta * receiver_view.xy + current_ndc * delta_view.z
-                + gbufferPreviousProjection[2].xy * previous_view.z) / -previous_view.z;
-        }
-        vec2 pixel_motion = ndc_delta * (0.5 * u_render_res);
-        vec2 history_pixel = vec2(texel) + pixel_motion;
-        vec2 previous_uv = (history_pixel + 0.5) * u_render_pixel_size;
-        if (previous_view.z < 0.0 && all(greaterThanEqual(previous_uv, vec2(0.0)))
-                && all(lessThan(previous_uv, vec2(1.0)))) {
-            ivec2 base = ivec2(floor(history_pixel));
-            vec2 fraction = fract(history_pixel);
-            OpaqueHistoryGather gather;
-            gather.sum_z = vec3(0.0);
-            gather.sum_second = 0.0;
-            gather.sum_age = 0.0;
-            gather.weight_sum = 0.0;
-            gather.dominant_weight = 0.0;
-            gather.dominant_data = 0u;
-            vec2 inverse_fraction = vec2(1.0) - fraction;
-            OpaqueHistoryGuide guide;
-            guide.receiver_view = receiver_view;
-            guide.previous_receiver_view = previous_view;
-            guide.geo_previous_view = u_ssr_history_static
-                ? geo_view : mat3(gbufferPreviousModelView) * geo_normal_world;
-            guide.geo_view = geo_view;
-            guide.normal_world = normal_world;
-            guide.material = material;
-            guide.normal_floor = mix(0.999, 0.92, material.x * material.x);
-            // Four fixed bilinear taps in the original order. Explicit calls
-            // specialize offsets without changing visibility or response.
-            GatherOpaqueHistoryTap(texel, base, inverse_fraction.x * inverse_fraction.y,
-                guide, gather);
-            GatherOpaqueHistoryTap(texel, base + ivec2(1, 0), fraction.x * inverse_fraction.y,
-                guide, gather);
-            GatherOpaqueHistoryTap(texel, base + ivec2(0, 1), inverse_fraction.x * fraction.y,
-                guide, gather);
-            GatherOpaqueHistoryTap(texel, base + ivec2(1, 1), fraction.x * fraction.y,
-                guide, gather);
-            if (gather.weight_sum > 0.2) {
-                vec3 old_z = gather.sum_z / gather.weight_sum;
-                float old_y = Luminance(old_z);
-                float old_variance = max(gather.sum_second / gather.weight_sum - old_y * old_y, 0.0);
-                float old_age = gather.sum_age / gather.weight_sum * saturate(gather.weight_sum);
-                float angle_motion = 0.0;
-                if (!u_ssr_history_static) {
-                    vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);
-                    angle_motion = length(view_to_eye - old_eye_world);
+        result = sample_z;
+    } else {
+        float age = 1.0;
+        float variance = 0.0;
+        int change_state = 0;
+        vec3 mean_z = sample_z;
+        float sample_y = Luminance(sample_z);
+        // Resizing/reloading recreates and clears both sides. Abrupt translation,
+        // view rotation, or projection discontinuities must not reuse old samples.
+        vec3 current_forward = gbufferModelViewInverse[2].xyz;
+        vec3 previous_forward = transpose(mat3(gbufferPreviousModelView)) * vec3(0.0, 0.0, 1.0);
+        bool camera_valid = u_camera_delta_sq < 16.0 && dot(current_forward, previous_forward) > 0.85
+            && abs(gbufferPreviousProjection[1][1] / gbufferProjection[1][1] - 1.0) < 0.15;
+        if (frameCounter > 1 && camera_valid) {
+            // Reproject a displacement, not a view -> world -> view round trip.
+            // This preserves exact zero pixel motion for identical camera frames;
+            // round-off must not activate three almost-zero bilinear taps.
+            vec3 previous_view = receiver_view;
+            vec2 ndc_delta = vec2(0.0);
+            if (!u_ssr_history_static) {
+                vec4 receiver_world = vec4(world_pos, 1.0);
+                vec3 delta_view = vec3(dot(u_ssr_previous_delta_x, receiver_world),
+                    dot(u_ssr_previous_delta_y, receiver_world), dot(u_ssr_previous_delta_z, receiver_world));
+                previous_view += delta_view;
+                vec2 current_ndc = (vec2(texel) + 0.5) * u_render_pixel_size * 2.0 - 1.0;
+                ndc_delta = (vec2(gbufferPreviousProjection[0][0], gbufferPreviousProjection[1][1])
+                    * delta_view.xy + u_ssr_projection_delta * receiver_view.xy + current_ndc * delta_view.z
+                    + gbufferPreviousProjection[2].xy * previous_view.z) / -previous_view.z;
+            }
+            vec2 pixel_motion = ndc_delta * (0.5 * u_render_res);
+            vec2 history_pixel = vec2(texel) + pixel_motion;
+            vec2 previous_uv = (history_pixel + 0.5) * u_render_pixel_size;
+            if (previous_view.z < 0.0 && all(greaterThanEqual(previous_uv, vec2(0.0)))
+                    && all(lessThan(previous_uv, vec2(1.0)))) {
+                ivec2 base = ivec2(floor(history_pixel));
+                vec2 fraction = fract(history_pixel);
+                OpaqueHistoryGather gather;
+                gather.sum_z = vec3(0.0);
+                gather.sum_second = 0.0;
+                gather.sum_age = 0.0;
+                gather.weight_sum = 0.0;
+                gather.dominant_weight = 0.0;
+                gather.dominant_data = 0u;
+                vec2 inverse_fraction = vec2(1.0) - fraction;
+                OpaqueHistoryGuide guide;
+                guide.receiver_view = receiver_view;
+                guide.previous_receiver_view = previous_view;
+                guide.geo_previous_view = u_ssr_history_static
+                    ? geo_view : mat3(gbufferPreviousModelView) * geo_normal_world;
+                guide.geo_view = geo_view;
+                guide.normal_world = normal_world;
+                guide.material = material;
+                guide.normal_floor = mix(0.999, 0.92, material.x * material.x);
+                // Four fixed bilinear taps in the original order. Explicit calls
+                // specialize offsets without changing visibility or response.
+                GatherOpaqueHistoryTap(texel, base, inverse_fraction.x * inverse_fraction.y,
+                    guide, gather);
+                GatherOpaqueHistoryTap(texel, base + ivec2(1, 0), fraction.x * inverse_fraction.y,
+                    guide, gather);
+                GatherOpaqueHistoryTap(texel, base + ivec2(0, 1), inverse_fraction.x * fraction.y,
+                    guide, gather);
+                GatherOpaqueHistoryTap(texel, base + ivec2(1, 1), fraction.x * fraction.y,
+                    guide, gather);
+                if (gather.weight_sum > 0.2) {
+                    vec3 old_z = gather.sum_z / gather.weight_sum;
+                    float old_y = Luminance(old_z);
+                    float old_variance = max(gather.sum_second / gather.weight_sum - old_y * old_y, 0.0);
+                    float old_age = gather.sum_age / gather.weight_sum * saturate(gather.weight_sum);
+                    float angle_motion = 0.0;
+                    if (!u_ssr_history_static) {
+                        vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);
+                        angle_motion = length(view_to_eye - old_eye_world);
+                    }
+                    // Valid reprojection still carries useful samples in motion.
+                    // Reserve fast replacement for sustained radiance changes;
+                    // a receiver moving on screen does not invalidate its history.
+                    float rough_history = smoothstep(0.08, 0.4, material.x);
+                    float responsive_frames = mix(2.0, 8.0, rough_history);
+                    float motion_risk = angle_motion / max(material.x * material.x, 0.002);
+                    float angular_response = smoothstep(0.1, 1.0, motion_risk);
+                    // A fixed world receiver can keep the same eye direction
+                    // during camera rotation while its reflection moves on screen.
+                    // Account for that resampling/visibility change independently
+                    // of angular parallax. Only camera motion enters this velocity.
+                    float screen_speed = length(ndc_delta * (0.5 * u_render_res));
+                    float motion_response = max(angular_response, smoothstep(0.25, 2.0, screen_speed));
+                    float moving_frames = mix(8.0, 20.0, rough_history);
+                    // Even full motion response retains 7/8 of valid smooth
+                    // history at convergence, instead of injecting 50% new noise.
+                    float history_limit = 1.0 / mix(1.0 / OPAQUE_HISTORY_MAX,
+                        1.0 / moving_frames, motion_response);
+                    // Random VNDF hit/miss changes at reflection silhouettes are
+                    // estimator noise. Geometry, camera motion and sustained
+                    // radiance changes govern validity and temporal response.
+                    // Generic entities share class zero with unclassified terrain.
+                    // Keep that class conservative; no exact entity motion is available.
+                    if (material_id == 0) {
+                        history_limit = min(history_limit, 16.0);
+                    }
+                    if ((material_id >= 128 && material_id <= 137)
+                            || (wetness > 0.01 && geo_normal_world.y > 0.9)) {
+                        history_limit = min(history_limit, 4.0);
+                    }
+                    uint state = gather.dominant_data >> 13;
+                    int old_change = state <= 3u ? int(state) : state <= 6u ? 3 - int(state) : 0;
+                    float residual = sample_y - old_y;
+                    // A wider noise threshold keeps motion from turning ordinary
+                    // stochastic variation into a sustained radiance-change event.
+                    float change_response = motion_response * (1.0 - rough_history);
+                    float threshold = max(mix(2.5, 2.0, change_response) * sqrt(old_variance),
+                        0.12 * max(old_y, 0.05));
+                    if (abs(residual) > threshold) {
+                        int direction = residual > 0.0 ? 1 : -1;
+                        change_state = old_change * direction > 0 ? old_change + direction : direction;
+                        change_state = clamp(change_state, -3, 3);
+                        int change_frames = change_response > 0.5 ? 2 : 3;
+                        if (abs(change_state) >= change_frames) {
+                            history_limit = min(history_limit, responsive_frames);
+                        }
+                    }
+                    old_age = min(old_age, history_limit - 1.0);
+                    float beta = 1.0 / (old_age + 1.0);
+                    mean_z = mix(old_z, sample_z, beta);
+                    variance = (1.0 - beta) * (old_variance + beta * residual * residual);
+                    age = min(old_age + 1.0, OPAQUE_HISTORY_MAX);
                 }
-                // Valid reprojection still carries useful samples in motion.
-                // Reserve fast replacement for sustained radiance changes;
-                // a receiver moving on screen does not invalidate its history.
-                float rough_history = smoothstep(0.08, 0.4, material.x);
-                float responsive_frames = mix(2.0, 8.0, rough_history);
-                float motion_risk = angle_motion / max(material.x * material.x, 0.002);
-                float angular_response = smoothstep(0.1, 1.0, motion_risk);
-                // A fixed world receiver can keep the same eye direction
-                // during camera rotation while its reflection moves on screen.
-                // Account for that resampling/visibility change independently
-                // of angular parallax. Only camera motion enters this velocity.
-                float screen_speed = length(ndc_delta * (0.5 * u_render_res));
-                float motion_response = max(angular_response, smoothstep(0.25, 2.0, screen_speed));
-                float moving_frames = mix(8.0, 20.0, rough_history);
-                // Even full motion response retains 7/8 of valid smooth
-                // history at convergence, instead of injecting 50% new noise.
-                float history_limit = 1.0 / mix(1.0 / OPAQUE_HISTORY_MAX,
-                    1.0 / moving_frames, motion_response);
-                // Random VNDF hit/miss changes at reflection silhouettes are
-                // estimator noise. Geometry, camera motion and sustained
-                // radiance changes govern validity and temporal response.
-                // Generic entities share class zero with unclassified terrain.
-                // Keep that class conservative; no exact entity motion is available.
-                if (material_id == 0) history_limit = min(history_limit, 16.0);
-                if ((material_id >= 128 && material_id <= 137)
-                        || (wetness > 0.01 && geo_normal_world.y > 0.9)) {
-                    history_limit = min(history_limit, 4.0);
-                }
-                uint state = gather.dominant_data >> 13;
-                int old_change = state <= 3u ? int(state) : state <= 6u ? 3 - int(state) : 0;
-                float residual = sample_y - old_y;
-                // A wider noise threshold keeps motion from turning ordinary
-                // stochastic variation into a sustained radiance-change event.
-                float change_response = motion_response * (1.0 - rough_history);
-                float threshold = max(mix(2.5, 2.0, change_response) * sqrt(old_variance),
-                    0.12 * max(old_y, 0.05));
-                if (abs(residual) > threshold) {
-                    int direction = residual > 0.0 ? 1 : -1;
-                    change_state = old_change * direction > 0 ? old_change + direction : direction;
-                    change_state = clamp(change_state, -3, 3);
-                    int change_frames = change_response > 0.5 ? 2 : 3;
-                    if (abs(change_state) >= change_frames) history_limit = min(history_limit, responsive_frames);
-                }
-                old_age = min(old_age, history_limit - 1.0);
-                float beta = 1.0 / (old_age + 1.0);
-                mean_z = mix(old_z, sample_z, beta);
-                variance = (1.0 - beta) * (old_variance + beta * residual * residual);
-                age = min(old_age + 1.0, OPAQUE_HISTORY_MAX);
             }
         }
+        // Out-of-range input is exposed by debug 14, never silently clamped to black.
+        // Reset confidence; finite RGB export still exposes an overflow as Inf.
+        if (!IsFinite(mean_z) || any(greaterThan(mean_z, OPAQUE_HISTORY_RGB_MAX))) {
+            metadata = uvec4(0u);
+            result = mean_z;
+        } else {
+            metadata = PackOpaqueHistory(-receiver_view.z, material, age, change_state, variance);
+            result = mean_z;
+        }
     }
-    // Out-of-range input is exposed by debug 14, never silently clamped to black.
-    // Reset confidence; finite RGB export still exposes an overflow as Inf.
-    if (!IsFinite(mean_z) || any(greaterThan(mean_z, OPAQUE_HISTORY_RGB_MAX))) {
-        metadata = uvec4(0u);
-        return mean_z;
-    }
-    metadata = PackOpaqueHistory(-receiver_view.z, material, age, change_state, variance);
-    return mean_z;
+    return result;
 }
 
 #endif

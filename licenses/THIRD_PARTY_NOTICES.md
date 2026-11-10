@@ -407,7 +407,7 @@ Tonescale 可单独覆盖曲线。原始数值全部固定，包含 Contrast Low
 
 恢复的极线几何来源及许可证见第 5 节。指数高度密度、昼夜调节和天气响应的概念比较参考 iterationT 3.2.0 的 `shaders/Lib/IndividualFounctions/VolumetricFog.glsl`，以及 Photon v1.3b 的 `shaders/include/weather/fog.glsl`、`shaders/include/fog/overworld/{analytic,raymarched,constants}.glsl`。iterationT 未提供包级许可证，按保留权利处理；Photon 自定义许可证明确允许检视和学习（上游 https://github.com/sixthsurge/photon）。两者只作只读概念参考，没有移植或近似翻译源代码、特征表达式、常数或资源。
 
-本包独立推导晴天指数高度密度和单独的中性雨天米氏常值增益。光学厚度与晴天散射保持闭式解，混合雨雾的独立源项积分经推导后数值求值；雨天不增益瑞利散射、臭氧或有色气溶胶吸收。沿用本包四波段介质及相函数，E 为无量纲的有阴影／无阴影散射比值，采用均匀分层阴影步进。默认密度、参考高度与标高为本包独立调节值。
+The pack independently derives a bounded clear-air height profile: exponential decay above the reference height joins a lower saturating exponential with matching density and slope, approaching twice the reference density. A separate uniform, neutral rain Mie increment remains height independent. Column optical depth and dry-air scattering under constant incident light are closed form; mixed rain/clear scattering uses a column-averaged constant source function. Rain increases neither Rayleigh scattering nor ozone/aerosol absorption. The pack retains its own four-band reference medium and phase functions, the dimensionless shadowed/unshadowed scattering ratio E, and uniform stratified shadow marching. The bounded profile, integral, density defaults, reference height and scale height are independently authored.
 
 ## 27. 植物风场（概念研究与独立生成资产）
 

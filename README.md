@@ -34,7 +34,8 @@ Vibroscat profile.
   TAA disabled. Checkerboard is the default.
 - Daylight, sunsets, moonlight, stars, Milky Way glow through clouds and in
   reflections, horizon haze, and boundary fog
-- Exponential height air fog with shadow-map light shafts, thinner daytime haze,
+- Exponential height air fog with shadow-map light shafts, smooth low-altitude
+  density saturation at twice the reference density, thinner daytime haze,
   denser twilight/night haze, and additional rain density
 - Clear water with waves, reflections, refraction, always-on analytic
   underwater fog, and moving caustics

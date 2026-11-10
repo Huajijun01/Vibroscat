@@ -16,7 +16,9 @@ const HenyeyGreensteinTripleLobe AIRFOG_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.5, 0.8,  // forward mid
     0.3, 0.05); // backward
 
-// Exponential-height density with day/night and weather response.
+const float AIR_FOG_MAX_HEIGHT_MULTIPLIER = 2.0;
+
+// Bounded exponential-height density with day/night and weather response.
 struct AirFogDensityProfile {
     float clear_density;
     float rain_density;
@@ -59,23 +61,46 @@ AirFogMedium AirFogReferenceMedium() {
         dot(reference.sigma_s_mie, vec4(0.25)) * 0.001);
 }
 
-// Clear-air column: integral of D exp(-(y0 + direction_y*s - y_ref)/H).
-// Rain's constant column R*L is added only to its own Mie coefficient.
-// Factor the lower endpoint so every exp in the quotient has a nonpositive
-// argument. For near-horizontal rays use the Taylor limit of (1-exp(-x))/x.
+// Integrate one portion entirely above or below the reference height, with
+// ordered absolute endpoint heights. The upper profile is exp(-u); the lower
+// is C-(C-1)*exp(u/(C-1)), u=(y-y_ref)/H. Their value and slope match at u=0.
+// C>1 bounds the height gain while retaining denser lowland air. Every exp
+// argument is nonpositive.
+float AirFogHeightColumn(float lower_height_m, float upper_height_m, float length_m) {
+    bool above_reference = lower_height_m >= AIR_FOG_REFERENCE_HEIGHT_M;
+    float lower_density_span = AIR_FOG_MAX_HEIGHT_MULTIPLIER - 1.0;
+    float scale_height_m = above_reference ? AIR_FOG_SCALE_HEIGHT_M
+        : lower_density_span * AIR_FOG_SCALE_HEIGHT_M;
+    float x = (upper_height_m - lower_height_m) / scale_height_m;
+    float height_integral = (1.0 - exp(-x)) / x;
+    float mean_density;
+    if (above_reference) {
+        mean_density = exp((AIR_FOG_REFERENCE_HEIGHT_M - lower_height_m) / scale_height_m)
+            * height_integral;
+    } else {
+        mean_density = AIR_FOG_MAX_HEIGHT_MULTIPLIER - lower_density_span
+            * exp((upper_height_m - AIR_FOG_REFERENCE_HEIGHT_M) / scale_height_m) * height_integral;
+    }
+    return length_m * mean_density;
+}
+
+// The whole-ray composite and every epipolar bin integrate this same medium.
+// Split crossing rays at the reference plane to preserve column additivity.
+// Rain's independent constant column R*L is added only to its own Mie coefficient.
 float AirFogColumnDensity(AirFogDensityProfile profile, float direction_y, float length_m) {
     float height_delta = direction_y * length_m;
-    float x = abs(height_delta) / AIR_FOG_SCALE_HEIGHT_M;
-    float height_integral;
-    if (x < 0.01) {
-        height_integral = 1.0 - x * 0.5 + x * x / 6.0 - x * x * x / 24.0;
+    float lower_height_m = profile.eye_height_m + min(height_delta, 0.0);
+    float upper_height_m = profile.eye_height_m + max(height_delta, 0.0);
+    float column;
+    if (lower_height_m < AIR_FOG_REFERENCE_HEIGHT_M && upper_height_m > AIR_FOG_REFERENCE_HEIGHT_M) {
+        float lower_length_m = length_m * (AIR_FOG_REFERENCE_HEIGHT_M - lower_height_m)
+            / (upper_height_m - lower_height_m);
+        column = AirFogHeightColumn(lower_height_m, AIR_FOG_REFERENCE_HEIGHT_M, lower_length_m)
+            + AirFogHeightColumn(AIR_FOG_REFERENCE_HEIGHT_M, upper_height_m, length_m - lower_length_m);
     } else {
-        height_integral = (1.0 - exp(-x)) / x;
+        column = AirFogHeightColumn(lower_height_m, upper_height_m, length_m);
     }
-    float lower_height = profile.eye_height_m + min(height_delta, 0.0);
-    float density_at_lower = profile.clear_density
-        * exp((AIR_FOG_REFERENCE_HEIGHT_M - lower_height) / AIR_FOG_SCALE_HEIGHT_M);
-    return length_m * density_at_lower * height_integral;
+    return profile.clear_density * column;
 }
 
 vec3 AirFogOpticalDepth(AirFogDensityProfile profile, AirFogMedium medium,
@@ -118,7 +143,7 @@ AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float
 }
 
 // For a constant source S, integral S*sigma_t(s)*T(s) ds = S*(1-T(L)),
-// since dT/ds = -sigma_t(s)*T(s). T uses the full exponential-height column
+// since dT/ds = -sigma_t(s)*T(s). T uses the full bounded-height column
 // plus the height-independent rain column. No numerical integration/cutoff.
 AirFogIntegral IntegrateAirFogScattering(AirFogDensityProfile profile, AirFogMedium medium,
         float direction_y, float length_m) {

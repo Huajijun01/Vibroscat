@@ -530,6 +530,23 @@ https://github.com/HaringPro/Revelation .
 完整 HSV 色相保持。该模式已随 2026-10-30 的色调映射模式列表精简一并移除，不再随包
 分发；代码移除后无剩余分发义务。
 
+## 34. Depth of field (Sundial-Lite concept study)
+
+The DOF pipeline was studied against Sundial-Lite by GeForceLegend,
+Copyright 2026, GNU GPL v3, revision
+`1a747115277292e67cdadd004bbe703eede2613e`:
+https://github.com/GeForceLegend/Sundial-Lite .
+
+The references are `shaders/programs/composite/Composite6.frag` through
+`Composite8.frag` and autofocus in `shaders/programs/common/Common.vert`.
+Concepts retained are axial inverse-depth defocus, a search for incoming
+foreground support, and distinct base/foreground reconstruction. Vibroscat
+independently implements native depth ordering, a 16-byte focus SSBO,
+crop-aware processing, HDR sampling, and a focus response in its existing
+temporal resolver. It does not transplant Sundial-Lite source, compressed-color
+encoding, history-buffer texels, or material/depth packing. The lens constants
+and sample budgets are Vibroscat tuning, not Sundial-Lite defaults.
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

@@ -45,8 +45,9 @@
 //                                deferred5 clears alt for translucency, then
 //                                1. translucent premultiplied-over color + alpha
 //                                2. composite1 refracts, fogs and over-composites once
-//                                3. bloom pyramid workspace
-//                                4. tonemapped LDR scene consumed by final/CAS
+//                                3. optional DOF (HDR RGB, 1/z; hand=-1)
+//                                4. bloom pyramid workspace
+//                                5. tonemapped LDR scene consumed by final/CAS
 //
 // TAAU uses a cropped lower-left scene rectangle through composite3, then
 // composite4 restores display-sized colortex0/5. Allocations/formats stay the same.
@@ -95,6 +96,7 @@ const bool colortex10Clear = false;   // actual previous GI receiver geometry/ag
 const bool colortex11Clear = false;  // opaque geometry overwrites before depth-valid reads
 // colortex12 hands one buffer forward through the frame: clouds use alt,
 // deferred5 zero-fills the active scene before translucency,
+// optional DOF overwrites the active scene metadata before its gather,
 // bloom rewrites each atlas tile before sampling it, and tonemap rewrites the
 // whole display rect. TAAU's inactive margin is never read, and Iris still
 // clears on allocation and resize, so the recurring clear only re-zeroes

@@ -90,7 +90,6 @@ uniform float u_pixel_world_scale_prev;// abs(Pprev[1][1]) * resY
 uniform vec2 u_ao_half_res;           // ceil(res / 2)
 uniform float u_star_cos_theta;       // star-map rotation cosine term
 uniform float u_star_sin_theta;       // -sun.x
-uniform float centerDepthSmooth;   // DOF focus distance
 uniform ivec2 eyeBrightnessSmooth; // water sky access (block/sky brightness, /240)
 
 // -- Time (Iris system built-ins) --

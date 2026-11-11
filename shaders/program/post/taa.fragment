@@ -24,6 +24,9 @@ layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec3 out_scene;
 
 flat in int v_history_frame_valid;
+#ifdef DOF
+flat in float v_dof_current_weight;
+#endif
 
 ivec2 ClampTexel(ivec2 texel, ivec2 texture_size) {
     return clamp(texel, ivec2(0), texture_size - 1);
@@ -142,6 +145,9 @@ void main() {
     }
     vec3 clamped = clamp(history, clip_min, clip_max);
     float current_weight = GetBlendWeight(history, clamped, clip_max - clip_min, velocity);
+#ifdef DOF
+    current_weight = max(current_weight, v_dof_current_weight);
+#endif
     if (!valid) current_weight = 1.0;
 
     vec3 result = HDRDecompress(mix(HDRCompress(clamped), HDRCompress(current_color), current_weight));

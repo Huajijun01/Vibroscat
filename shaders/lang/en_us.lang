@@ -120,7 +120,14 @@ option.PURKINJE_STRENGTH.comment = Strength of the night-time color fade: 0 = of
 
 #Post: camera & effects
 option.DOF = Depth of Field
-option.DOF.comment = Blurs what the crosshair is not focused on, like a camera lens; the aimed-at spot stays sharp. Costs performance.
+option.DOF.comment = Planar autofocus on the opaque scene behind the crosshair. Foreground bokeh respects depth; the hand stays sharp. Works with temporal upscaling.
+option.DOF_STRENGTH = Lens Strength
+option.DOF_STRENGTH.comment = Scales the inverse-depth lens response. The maximum radius is 8 display pixels at 1080p, scaled with resolution.
+option.DOF_QUALITY = Bokeh Quality
+option.DOF_QUALITY.comment = Support search / color samples: 6/8, 10/12, or 12/24. Higher levels reduce sparse-sampling noise at a greater GPU cost.
+value.DOF_QUALITY.0 = Low
+value.DOF_QUALITY.1 = Medium
+value.DOF_QUALITY.2 = High
 option.MOTION_BLUR = Motion Blur
 option.MOTION_BLUR.comment = Slightly smears the image during fast movement, like a real camera sensor.
 option.MB_STRENGTH = Motion Blur Strength

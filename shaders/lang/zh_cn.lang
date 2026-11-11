@@ -120,7 +120,14 @@ option.PURKINJE_STRENGTH.comment = 夜间褪色强度：0 = 关闭，1 = 最暗�
 
 #Post: camera & effects
 option.DOF = 景深
-option.DOF.comment = 像相机镜头一样虚化准星未对准的景物，瞄准处保持清晰。有性能开销。
+option.DOF.comment = 对准星后的不透明场景进行平面自动对焦，前景散景按深度遮挡，手持物保持清晰。支持时域超分辨率。
+option.DOF_STRENGTH = 镜头强度
+option.DOF_STRENGTH.comment = 调整逆深度散焦强度。最大半径以 1080p 的 8 个显示像素为基准，随分辨率缩放。
+option.DOF_QUALITY = 散景质量
+option.DOF_QUALITY.comment = 范围搜索/颜色采样数：6/8、10/12 或 12/24。更高档位减少稀疏采样噪点，也增加 GPU 耗时。
+value.DOF_QUALITY.0 = 低
+value.DOF_QUALITY.1 = 中
+value.DOF_QUALITY.2 = 高
 option.MOTION_BLUR = 运动模糊
 option.MOTION_BLUR.comment = 快速移动或转身时画面出现轻微拖影，接近真实相机。
 option.MB_STRENGTH = 运动模糊强度

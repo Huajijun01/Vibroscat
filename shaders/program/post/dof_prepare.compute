@@ -1,0 +1,37 @@
+#include "/lib/contract/dof_data.glsl"
+#include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
+#include "/lib/post/dof.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+#if defined(TAAU_ACTIVE)
+const vec2 workGroupsRender = vec2(TAAU_RENDER_SCALE, TAAU_RENDER_SCALE);
+#else
+const vec2 workGroupsRender = vec2(1.0, 1.0);
+#endif
+layout(rgba16f) writeonly uniform image2D colorimg12;
+
+void main() {
+    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(texel, ivec2(u_render_res)))) return;
+
+    if (all(equal(texel, ivec2(0)))) {
+        // Only this invocation reads/writes focus. Packing never consumes it;
+        // the host's compute-to-draw barrier exposes it to the gather and TAA.
+        float target_inverse_m = DofInverseDepth(texelFetch(depthtex2, ivec2(u_render_res * 0.5), 0).r);
+        float previous_inverse_m = dof_focus_inverse_m;
+        if (frameCounter <= 1) previous_inverse_m = target_inverse_m;
+        float focus_inverse_m = mix(target_inverse_m, previous_inverse_m,
+            exp2(-frameTime / DOF_FOCUS_HALFLIFE_SECONDS));
+        dof_focus_inverse_m = focus_inverse_m;
+        dof_focus_change_px = abs(focus_inverse_m - previous_inverse_m)
+            * (DOF_LENS_SCALE * DOF_STRENGTH * viewHeight / 1080.0);
+        dof_target_inverse_m = target_inverse_m;
+        dof_focus_frame = uint(frameCounter);
+    }
+
+    // Pack HDR color and its matching physical inverse depth once. The
+    // fragment's support search reads A; each color gather reads one RGBA.
+    // R11G11B10F color is exactly representable in the existing RGBA16F target.
+    imageStore(colorimg12, texel, vec4(texelFetch(colortex0, texel, 0).rgb, DofSceneInverseDepth(texel)));
+}

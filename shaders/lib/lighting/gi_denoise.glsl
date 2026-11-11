@@ -93,7 +93,9 @@ bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
     if (!(any(lessThan(sample_texel, ivec2(0))) || any(greaterThanEqual(sample_texel, gi_size)))) {
         vec4 metadata = texelFetch(colortex10, sample_texel, 0);
         irradiance = texelFetch(colortex9, sample_texel, 0).rgb;
-        age = GIHistoryAge(metadata);
+        // deferred4 initializes every current texel and writes an exact age
+        // code; source/format validation belongs to previous-frame readers.
+        age = float(int(metadata.a) & 255);
         if (!(age < 1.0)) {
             float normal_dot = dot(normal_world, GIHistoryNormal(metadata));
             if (!(normal_dot < GI_NORMAL_DOT_FLOOR)) {

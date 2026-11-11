@@ -29,6 +29,7 @@ uniform float far;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform vec2 u_view_pixel_size;    // 1 / (viewWidth, viewHeight)
+uniform vec2 u_bloom_max_uv;       // last texel center of the ceil-sized half-resolution tile
 uniform vec2 u_render_res;         // active pre-TAA scene rectangle, integer pixels
 uniform vec2 u_render_pixel_size;  // 1 / u_render_res (projection UVs)
 uniform vec2 u_render_scale;       // u_render_res / display allocation size

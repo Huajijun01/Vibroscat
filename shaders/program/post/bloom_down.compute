@@ -6,74 +6,40 @@
 #endif
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/contract/uniforms.glsl"
 #include "/lib/post/bloom.glsl"
+#include "/lib/post/bloom_downsample.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(rgba16f) uniform restrict image2D colorimg12;
-
-// Source values already reside in RGBA16F; packing preserves their precision.
-shared uvec2 tile[33][33];
-
-vec3 LoadBloomTile(ivec2 coord) {
-    uvec2 value = tile[coord.y][coord.x];
-    return vec3(unpackHalf2x16(value.x), unpackHalf2x16(value.y).x);
-}
+layout(rgba16f) uniform image2D colorimg12;
 
 void main() {
-#ifndef BLOOM
-    // The first down runs beside the AE reduction, whose letter entries share
-    // one AE || BLOOM enable condition; it must not touch colortex12 when
-    // only AE is on. The body is compiled out, not skipped after a return,
-    // because barrier() may not follow a return statement.
-    return;
-#else
-    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+#ifdef BLOOM
     ivec2 full_size = imageSize(colorimg12);
     ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);
-    ivec2 src_size   = GetBloomMipSize(full_size, BLOOM_SRC_MIP);
+    ivec2 src_size = GetBloomMipSize(full_size, BLOOM_SRC_MIP);
     ivec2 dst_origin = GetBloomMipOrigin(full_size, BLOOM_DST_MIP);
-    ivec2 dst_size   = GetBloomMipSize(full_size, BLOOM_DST_MIP);
-    bool valid = all(lessThan(gid, dst_size));
-
-    ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 16;
-    ivec2 input_base = src_origin + group_base * 2 - 1;
-    ivec2 src_limit  = src_origin + src_size - 1;
-
-    for (uint i = gl_LocalInvocationIndex; i < 1089u; i += 256u) {
-        uint ty = i / 33u;
-        uint tx = i % 33u;
-        ivec2 coord = clamp(input_base + ivec2(tx, ty), src_origin, src_limit);
-        vec3 value = imageLoad(colorimg12, coord).rgb;
-        tile[ty][tx] = uvec2(packHalf2x16(value.rg), packHalf2x16(vec2(value.b, 0.0)));
+    ivec2 dst_size = GetBloomMipSize(full_size, BLOOM_DST_MIP);
+    vec2 pixel_size = 1.0 / vec2(full_size);
+    vec2 src_min = vec2(src_origin) + 0.5;
+    vec2 src_max = vec2(src_origin + src_size) - 0.5;
+    ivec2 group_base = ivec2(gl_WorkGroupID.xy) * 32;
+    for (uint index = gl_LocalInvocationIndex; index < 630u; index += 256u) {
+        int row = int(index / 18u);
+        int column = int(index % 18u);
+        ivec2 source_texel = group_base + ivec2(column * 2 + (row & 1), row) - 1;
+        vec2 sample_texel = vec2(src_origin + source_texel);
+        vec3 value = textureLod(colortex12, clamp(sample_texel, src_min, src_max) * pixel_size, 0.0).rgb;
+        // Alpha's cleared tile padding contributes half a texel at each edge.
+        vec2 coverage = vec2(source_texel.x <= 0 || source_texel.x >= src_size.x ? 0.5 : 1.0,
+                             source_texel.y <= 0 || source_texel.y >= src_size.y ? 0.5 : 1.0);
+        StoreBloomDownTile(ivec2(column, row), max(value, vec3(0.0)) * coverage.x * coverage.y);
     }
-
     barrier();
-
-    ivec2 tile_center = ivec2(gl_LocalInvocationID.xy) * 2 + 1;
-
-    // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block center (see
-    // bloom_extract.compute for the low-pass rationale).
-    vec3 s_center = LoadBloomTile(tile_center);
-    vec3 s_left   = LoadBloomTile(tile_center + ivec2(-1, 0));
-    vec3 s_right  = LoadBloomTile(tile_center + ivec2(1, 0));
-    vec3 s_up     = LoadBloomTile(tile_center + ivec2(0, -1));
-    vec3 s_down   = LoadBloomTile(tile_center + ivec2(0, 1));
-    vec3 s_tl     = LoadBloomTile(tile_center + ivec2(-1, -1));
-    vec3 s_tr     = LoadBloomTile(tile_center + ivec2(1, -1));
-    vec3 s_bl     = LoadBloomTile(tile_center + ivec2(-1, 1));
-    vec3 s_br     = LoadBloomTile(tile_center + ivec2(1, 1));
-
-    vec3 result = vec3(0.0);
-    result += s_center * 0.25;
-    result += s_left * 0.125;
-    result += s_right * 0.125;
-    result += s_up * 0.125;
-    result += s_down * 0.125;
-    result += s_tl * 0.0625;
-    result += s_tr * 0.0625;
-    result += s_bl * 0.0625;
-    result += s_br * 0.0625;
-
-    if (valid) imageStore(colorimg12, dst_origin + gid, vec4(result, 0.0));
+    ivec2 dst_coord = ivec2(gl_GlobalInvocationID.xy);
+    if (all(lessThan(dst_coord, dst_size))) {
+        imageStore(colorimg12, dst_origin + dst_coord,
+                   vec4(FilterBloomDownTile(ivec2(gl_LocalInvocationID.xy)), 0.0));
+    }
 #endif
 }

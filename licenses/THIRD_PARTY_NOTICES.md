@@ -547,6 +547,16 @@ temporal resolver. It does not transplant Sundial-Lite source, compressed-color
 encoding, history-buffer texels, or material/depth packing. The lens constants
 and sample budgets are Vibroscat tuning, not Sundial-Lite defaults.
 
+## 35. Bloom filtering (Alpha Piscium algorithm reference)
+
+Bloom filtering follows Alpha Piscium v1.9.1 (GPL-3.0),
+https://github.com/Luna5ama/Alpha-Piscium: the 13-tap multibox downsample,
+staggered half cache, and radius-1 tent reconstruction. Vibroscat independently
+implements these algorithms in `shaders/lib/post/bloom*.glsl` and
+`shaders/program/post/bloom_*.compute`; the tent is evaluated with four paired
+bilinear samples. No generated Alpha shader source was imported. Final
+full-resolution composition retains one bilinear bloom fetch.
+
 ## 附录 A：Apache License 2.0 全文
 
                                  Apache License

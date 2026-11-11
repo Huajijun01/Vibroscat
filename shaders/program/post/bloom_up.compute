@@ -5,128 +5,20 @@
 #define BLOOM_DST_MIP 1
 #endif
 
-#include "/lib/post/bloom.glsl"
-
-// Large tiles use paired sampling with one output per invocation.
-#if BLOOM_DST_MIP <= 3
 #include "/lib/contract/uniforms.glsl"
+#include "/lib/post/bloom.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba16f) uniform image2D colorimg12;
 
 void main() {
     ivec2 full_size = imageSize(colorimg12);
-    ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);
-    ivec2 src_size = GetBloomMipSize(full_size, BLOOM_SRC_MIP);
     ivec2 dst_origin = GetBloomMipOrigin(full_size, BLOOM_DST_MIP);
     ivec2 dst_size = GetBloomMipSize(full_size, BLOOM_DST_MIP);
     ivec2 dst_coord = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(dst_coord, dst_size))) return;
-    vec2 pixel_size = 1.0 / vec2(full_size);
-    vec2 src_min = vec2(src_origin) + 0.5;
-    vec2 src_max = vec2(src_origin + src_size) - 0.5;
-    vec2 center = vec2(src_origin + (dst_coord >> 1)) + 0.5;
-
-    const vec3 WEIGHTS_EVEN = vec3(0.3125, 0.375, 0.3125);
-    const vec3 OFFSETS_EVEN = vec3(-1.2, 0.0, 1.2);
-    const vec3 WEIGHTS_ODD = vec3(0.109959, 0.780082, 0.109959);
-    const vec3 OFFSETS_ODD = vec3(-1.0 - 0.007144 / 0.109959, 0.5, 2.0 + 0.007144 / 0.109959);
-    vec3 weights_x = (dst_coord.x & 1) == 0 ? WEIGHTS_EVEN : WEIGHTS_ODD;
-    vec3 offsets_x = (dst_coord.x & 1) == 0 ? OFFSETS_EVEN : OFFSETS_ODD;
-    vec3 weights_y = (dst_coord.y & 1) == 0 ? WEIGHTS_EVEN : WEIGHTS_ODD;
-    vec3 offsets_y = (dst_coord.y & 1) == 0 ? OFFSETS_EVEN : OFFSETS_ODD;
-
-    vec3 result = vec3(0.0);
-    for (int y = 0; y < 3; y++) {
-        for (int x = 0; x < 3; x++) {
-            vec2 position = clamp(center + vec2(offsets_x[x], offsets_y[y]), src_min, src_max);
-            result += textureLod(colortex12, position * pixel_size, 0.0).rgb * weights_x[x] * weights_y[y];
-        }
-    }
+    vec3 result = SampleBloomTent(colortex12, GetBloomMipOrigin(full_size, BLOOM_SRC_MIP),
+                                 GetBloomMipSize(full_size, BLOOM_SRC_MIP), dst_coord, 1.0 / vec2(full_size));
     ivec2 destination = dst_origin + dst_coord;
     imageStore(colorimg12, destination, vec4(imageLoad(colorimg12, destination).rgb + result, 0.0));
 }
-
-#else
-layout(local_size_x = 16, local_size_y = 16) in;
-layout(rgba16f) uniform restrict image2D colorimg12;
-
-shared vec3 tile[21][21];
-shared vec3 horizontal[21][32];
-
-// 5x5 Gaussian bloom upsample, pixel-center aligned, on the output's source
-// position. Even axis: 5-tap binomial [1,4,6,4,1]/16 (sigma 1.0); odd axis:
-// 6-tap Gaussian, sigma ~0.866 (half-texel center - a truncated 5-tap drifts
-// ~0.045 texel/level through the cascade).
-void main() {
-    ivec2 full_size = imageSize(colorimg12);
-    ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);
-    ivec2 src_size   = GetBloomMipSize(full_size, BLOOM_SRC_MIP);
-    ivec2 dst_origin = GetBloomMipOrigin(full_size, BLOOM_DST_MIP);
-    ivec2 dst_size   = GetBloomMipSize(full_size, BLOOM_DST_MIP);
-
-    ivec2 src_limit = src_origin + src_size - 1;
-    ivec2 group_base = src_origin + ivec2(gl_WorkGroupID.xy) * 16;
-
-    for (uint i = gl_LocalInvocationIndex; i < 441u; i += 256u) {
-        uint ty = i / 21u;
-        uint tx = i % 21u;
-        ivec2 coord = clamp(group_base + ivec2(tx, ty) - 2, src_origin, src_limit);
-        tile[ty][tx] = imageLoad(colorimg12, coord).rgb;
-    }
-
-    barrier();
-
-    ivec2 local = ivec2(gl_LocalInvocationID.xy);
-    ivec2 out_base = ivec2(gl_WorkGroupID.xy) * 32 + local * 2;
-
-    // Separable 5x5 Gaussian on the output's source position: even axis
-    // 5-tap binomial; odd axis 6 taps at half offsets (center stays at
-    // k+1/2).
-    const float weights_even[5] = float[5](0.0625, 0.25, 0.375, 0.25, 0.0625);
-    const float weights_odd[6] = float[6](0.007144, 0.102815, 0.390041, 0.390041, 0.102815, 0.007144);
-
-    // Each source row/column pair is filtered once for the whole workgroup.
-    // The second barrier publishes both phases to neighbouring output rows.
-    for (uint index = gl_LocalInvocationIndex; index < 336u; index += 256u) {
-        int row = int(index / 16u);
-        int column = int(index % 16u);
-        vec3 e = vec3(0.0);
-        for (int i = 0; i < 5; i++) {
-            e += tile[row][column + i] * weights_even[i];
-        }
-        horizontal[row][column * 2] = e;
-
-        vec3 o = vec3(0.0);
-        for (int i = 0; i < 6; i++) {
-            o += tile[row][column + i] * weights_odd[i];
-        }
-        horizontal[row][column * 2 + 1] = o;
-    }
-
-    barrier();
-
-    vec3 c00 = vec3(0.0);
-    vec3 c10 = vec3(0.0);
-    for (int j = 0; j < 5; j++) {
-        c00 += horizontal[local.y + j][local.x * 2] * weights_even[j];
-        c10 += horizontal[local.y + j][local.x * 2 + 1] * weights_even[j];
-    }
-    vec3 c01 = vec3(0.0);
-    vec3 c11 = vec3(0.0);
-    for (int j = 0; j < 6; j++) {
-        c01 += horizontal[local.y + j][local.x * 2] * weights_odd[j];
-        c11 += horizontal[local.y + j][local.x * 2 + 1] * weights_odd[j];
-    }
-
-    if (all(lessThan(out_base, dst_size)))
-        imageStore(colorimg12, dst_origin + out_base, vec4(imageLoad(colorimg12, dst_origin + out_base).rgb + c00, 0.0));
-    if (all(lessThan(out_base + ivec2(1, 0), dst_size)))
-        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 0), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 0)).rgb + c10, 0.0));
-    if (all(lessThan(out_base + ivec2(0, 1), dst_size)))
-        imageStore(colorimg12, dst_origin + out_base + ivec2(0, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(0, 1)).rgb + c01, 0.0));
-    if (all(lessThan(out_base + ivec2(1, 1), dst_size)))
-        imageStore(colorimg12, dst_origin + out_base + ivec2(1, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 1)).rgb + c11, 0.0));
-}
-
-#endif

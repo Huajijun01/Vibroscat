@@ -4,8 +4,7 @@
 #include "/lib/contract/settings.glsl"
 
 // Compact approximation of this pack's GGX unit-environment response.
-// Independently fitted coefficients; E = A + B and M = F0 * A + B.
-// Demodulation concept: NVIDIA NRD README, MATERIAL DEMODULATION.
+// Fitted coefficients; E = A + B and M = F0 * A + B.
 // Exists only while demodulation runs; without temporal filtering both the
 // trace and shading use raw contributions, so consumers skip the factor
 // entirely and it does not compile.

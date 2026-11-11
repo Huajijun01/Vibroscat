@@ -9,7 +9,7 @@
 
 // Colored absorption/scattering model adapted from Revelation Shaders.
 // Copyright (C) 2026 HaringPro. Licensed under Apache-2.0; see
-// licenses/THIRD_PARTY_NOTICES.md section 29 and Appendix A.
+// licenses/THIRD_PARTY_NOTICES.md section 6 and Appendix A.
 // Coefficients use the reference model's empirical transport-depth units.
 void PlantScatteringCoefficients(vec3 color, float amount,
         out vec3 sigma_a, out vec3 sigma_s) {
@@ -26,9 +26,7 @@ float PlantScatteringPhase(float light_view) {
 #else
 
 // Effective thin-layer reflection/transmission, anchored to linear biome-tinted
-// texture color. R + T <= 1 per channel; absorption is the remainder. These
-// reference-layer coefficients are not measured volume coefficients. See
-// licenses/THIRD_PARTY_NOTICES.md section 29 for concepts and provenance.
+// texture color. R + T <= 1 per channel; absorption is the remainder.
 vec3 PlantTransmission(vec3 color, float transmission_prior) {
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
     float dark_gate = luminance / (luminance + 0.04);

@@ -1,168 +1,26 @@
 # Third-Party Notices
 
-[中文版](THIRD_PARTY_NOTICES.md) | [English](THIRD_PARTY_NOTICES.en.md)
+[English](THIRD_PARTY_NOTICES.en.md)
 
-本文件是 Vibroscat 全部第三方代码、资产与算法引用的单一声明点。主许可证见根目录 `LICENSE`（GNU GPL v3）。
+本文件只声明随包分发且附带许可证义务的第三方代码与资产。主许可证见根目录 `LICENSE`（GNU GPL v3）。
 
-## 1. Photon Shaders（历史参考；当前代码不含实质副本）
+## 1. DRT Bench — AgX-HSV（GPL-3.0）
 
-Photon Shaders（Copyright © 2021-2025 Benjamin Stott "SixthSurge"，自定义许可协议）曾是两个功能的早期来源，均已于 2026-08 移除并替换：
+`shaders/lib/color/tonemap_agx.glsl` 移植自 [DRT Bench](https://github.com/bWFuanVzYWth/DRT) 的 `shaders/agx_hsv.wgsl`（GPL-3.0-only）。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——输入为场景线性 Rec.709，输出为显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
 
-- `GetNdotHSquared` in `shaders/lib/lighting/brdf.glsl` was originally transcribed from Photon's `include/lighting/bsdf.glsl`, then replaced using the Guerrilla Decima Engine public lecture (Johan Andersson, SIGGRAPH 2017). The current small-disc approximation uses reflection-chord shrinkage without Newton iteration; see section 10. It contains no Photon code expression.
-- `shaders/lib/lighting/temporal_ao.glsl` 的时序 AO 深度/offcenter 拒绝（GTAO_DEPTH_REJECTION=16.0、GTAO_OFFCENTER_STRENGTH=0.25，与 Photon `d3_ao.fsh` 相同；offcenter 技巧由 Photon 自身标注源自 Zombye/Jessie）已整体重写为独立实现（世界位移 + 法线一致性拒绝，见该文件头注释），原公式与常量已全部删除。
+## 2. AMD FidelityFX CAS（MIT）
 
-Photon 自定义许可协议中的再分发限制不适用于本包当前代码。
+`shaders/lib/third_party/fidelityfx/cas.glsl` 是 [AMD FidelityFX CAS](https://github.com/GPUOpen-Effects/FidelityFX-CAS) 的精简 GLSL 改编（Copyright (c) 2017-2019 Advanced Micro Devices, Inc.），MIT 许可全文保留在该文件头部。
 
-## 2. AgX（概念；当前实现见第 3 节）
+## 3. Academy ACES 2.0 / OpenColorIO（Apache-2.0 / BSD-3-Clause）
 
-`shaders/lib/color/tonemap_agx.glsl` 的 `TonemapAGX` 是 AgX 家族的 HSV 色相修复变体。AgX 概念来源为 Troy Sobotka：
+`shaders/lib/third_party/opencolorio/aces2_output.glsl` 由 [OpenColorIO](https://github.com/AcademySoftwareFoundation/OpenColorIO/tree/v2.6.0) 2.6.0 的内置变换 `ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-100nit-REC709_2.0` 生成，BSD-3-Clause 版权与许可条件保留在该文件头部。
 
-- [SOB22] Sobotka, Troy. "AgX". 2022. https://github.com/sobotka/AgX （概念与配置；上游仓库无许可证，仅作概念引用）
+`shaders/lib/color/tonemap_aces2.glsl` 的输入适配采用 [Academy ACES 2.0 参考实现](https://github.com/ampas/aces-core)（Copyright Contributors to the ACES Project，Apache-2.0，全文见附录 A）。
 
-曲线、对数整形与色相修复的出处见第 3 节（DRT Bench）。2026-10 之前本包使用 linlin 的 AgX-S2O3 解析实现（MIT，https://github.com/bWFuanVzYWth/AgX @ 0796e1b4aa9df94152eff353bae131eae1a4c087）；该曲线与实现已随 2026-10 的模式列表更换一并移除，不再随包分发。
+## 4. GT7 Tone Mapping（MIT）
 
-## 3. DRT 色调映射（GPL-3.0）
-
-`TonemapAGX`（`TONEMAP_MODE == 0`）移植自 DRT Bench（github.com/bWFuanVzYWth/DRT，作者 linlin）的 `shaders/agx_hsv.wgsl`，采用该工具的 `AgxParameters::hsv_default()` 曲线：−10…+6.5 EV 的对数编码范围、sRGB OETF(0.18) 输出枢轴、1.55 / 5.2 的 toe 与 shoulder 幂、0.05 的色域压缩，以及该变体得名的 HSV 色相修复阶段。
-
-该仓库自 2026-09 起以 `GPL-3.0-only` 发布（commit 49e67a3 加入 LICENSE），与本包 GPLv3
-兼容。算子使用参考实现的固定默认值，包括黑端/白端色相保留 1.0/0.5。原先本包额外叠加的
-对比度、伽马、饱和度与自行编造的 look 已移除。参考实现的最终显示信号钳制之后，解码 sRGB
-以供本包显示线性后处理使用。此 HSV 变体的参考实现不提供艺术风格预设。
-
-历史：2026-08 至 2026-10 期间本包还移植过该工具的 Oklab DRT、Reinhard-Gamut 与 Reinhard-AgX（当时该仓库尚未选择许可证，按作者直接授权使用）。三者在 2026-10 的模式列表更换中全部移除，不再随包分发。
-
-## 4. AMD FidelityFX CAS（MIT）
-
-`shaders/lib/third_party/fidelityfx/cas.glsl` 是 AMD FidelityFX Contrast Adaptive Sharpening 的精简 GLSL 改编（Copyright (c) 2017-2019 Advanced Micro Devices, Inc.），MIT 许可全文保留在该文件头部。原始来源：https://github.com/GPUOpen-Effects/FidelityFX-CAS
-
-## 5. Intel Outdoor Light Scattering（Apache-2.0，概念与框架）
-
-`shaders/lib/volume/epipolar_core.glsl` 的 epipolar 切片/扇形参数化跟随 Intel Outdoor Light Scattering Sample（Intel，Apache-2.0）。另参考 Yusov, Egor. "Practical Implementation of Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary Trees". GDC 2013。本包实现为独立表达，未逐行复制。Apache-2.0 全文见本文件附录 A。
-
-## 6. Unreal Engine Sky Atmosphere（MIT，算法引用）
-
-大气透射率 LUT 重建（cloud/render.glsl 的 GetTransmittance 方案）与云体积噪声布局（TileableVolumeNoise）参考 Sebastien Hillaire 的 UE4 SkyAtmosphere 实现（Epic Games, MIT）：
-
-> MIT License
->
-> Copyright (c) 2020 Epic Games, Inc.
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
-
-另引用 Bruneton & Neyret, "Precomputed Atmospheric Scattering", CGF 27(4), 2008（概念）。
-
-## 7. NASA Deep Star Maps 2020（公有领域）
-
-`shaders/textures/starmap_2020_4k_logluv32.dat` 由 NASA SVS #4851 "Deep Star Maps 2020" 线性 EXR 烘焙而来（Plate Carrée 投影，LogLuv32 编码，raw RGBA8）。
-`shaders/textures/starmap_2020_256x128_logluv32.dat` 是同一素材的 16x16 盒式降采样衍生（线性空间块均值后按运行时解码器的精确逆重新编码 LogLuv32），供大面积光源消费端使用。
-
-> Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
-> 来源：https://svs.gsfc.nasa.gov/4851/ 。NASA 素材为美国政府作品，属于公有领域。
-
-## 8. 时空蓝噪声 STBN（算法引用）
-
-`shaders/textures/stbn_scalar_128x128x64.dat` 按 void-and-cluster 算法独立生成，算法与默认参数来自：Wolfe, Morrical, Akenine-Möller, Ramamoorthi. "Scalar Spatiotemporal Blue Noise Masks". 2022. （前身为 Heitz, Belcour, Ostromoukhov. "Spatiotemporal Blue Noise Masks". ACM TOG 2019.）
-
-## 9. LogLuv32 编码（算法引用）
-
-LogLuv32 解码（color.glsl 的 `LogLuv32ToLinear`）遵循：Ericson, Christer. "Converting RGB to LogLuv in a fragment shader". 2007. 矩阵流与 Alpha Piscium v1.9.1（GPLv3）一致；GPLv3 与包主许可证兼容。
-
-## 10. Guerrilla Decima Engine（算法引用）
-
-The reference for the spherical-area highlight target in `GetNdotHSquared` is Andersson, Johan. "Decima Engine: Advances in Lighting and AA". SIGGRAPH 2017 Advances in Real-Time Rendering in Games. https://www.guerrilla-games.com/read/decima-engine-advances-in-lighting-and-aa (PDF: https://www.realtimerendering.com/advances/s2017/DecimaSiggraph2017.pdf). The current implementation approximates the small sun/moon discs by shrinking the half-vector angular distance using the reflection-to-light chord; it does not retain the lecture's bent-light Newton solve.
-
-## 11. Blender EEVEE（GPL-2.0-or-later，算法引用）
-
-`F0ToIOR` 的折射率恢复采用 Blender EEVEE 的近似（GPL-2.0-or-later，与 GPLv3 兼容）。
-
-## 12. SSR 血统与独立重写（chocapic13）
-
-`lib/raytrace/ssr.glsl` 原实现属 chocapic13 血统（早期来源标注有误，已更正）。当前文件已整体重写为独立实现：线性深度命中判据、覆盖屏幕边界或远平面的常数步长、区间折半细化，未沿用原结构、常量或写法。
-
-## 13. 其它数学/惯例引用
-
-- `FastSin`：Bhaskara I 正弦近似（约 12 世纪，公有领域数学）
-- R2 序列（lib/core/noise.glsl 的 R2Offset，用于云等时间累积的连续抖动）：Roberts, Martin. "The Unreasonable Effectiveness of Quasirandom Sequences"（公开常数 1.3247179572 / 1.7548776662）
-- `material/core.glsl` 的 specular 通道约定：oldPBR/seusPBR 规格（数据格式约定，非代码）
-- `lib/core/noise.glsl` 的 `LowBias32Hash`：Wellons, Chris. “Prospecting for Hash Functions” 的 lowbias32 常量（作者声明为公有领域）
-
-## 14. 大气模型出处说明
-
-`lib/atmosphere/` 的 4-波谱大气模型使用 OPAC/libRadtran 的输入表：波长 450/510/580/650 nm，介质为 US-standard 空气、臭氧与 inso/waso/soot/suso 四种气溶胶的分段线性剖面。密度/相位模型参考 Hillaire 2020（见第 6 节）。其余模型、拟合与烘焙均为本包自有实现。
-
-## 15. GT-VBGI / ReferenceGI（CC0 1.0）
-
-`shaders/program/deferred/recursive_gi.fragment` 的屏幕空间可见性位掩码 GI 移植自
-Mirko Salm 的单向 GT-VBGI 参考实现。该参考源码声明可在 CC0 1.0 Universal
-或 MIT License 中任选其一；本包依据 CC0 1.0 Universal 使用：
-https://creativecommons.org/publicdomain/zero/1.0/ 。参考实现：
-https://www.shadertoy.com/view/XcdBWf （双向变体：https://www.shadertoy.com/view/lfdBWn ）。
-参考源码中的快速反正切近似另标注来源为 https://www.shadertoy.com/view/lXBfWm 。
-
-溯源更正（2026-09-09）：该 GI 的早期适配曾借用 Sundial-Lite（GPL-3.0，
-Copyright © 2026 GeForceLegend）移植版中的若干表达：切片相对 CDF 的内联
-简化与 [w0,1] 偏移重映射形式、`floatBitsToUint` 扇区量化、随距离缩放的
-几何厚度项。本次变更已将其全部替换为上述 CC0/MIT 参考实现中的对应形式，
-仅保留齐次空间屏幕边缘射线截断（含 `far + 32.0` 上限）一项，经 Sundial
-作者口头许可继续使用（2026-09）。
-
-追记（2026-09-12）：最后保留的该项也已替换为 `lib/core/coordinates.glsl`
-的自有求解器 `ClipRayScreenExitT`（逐轴正 t slab 语义，独立编写，SSR 与
-GI 共用；`far + 32.0` 回退上限作为调用方实参保留）。Sundial-Lite 的表达
-自此不在本包残留；`gi_denoise.glsl` 的时域重建为独立 SVGF 风格实现，其
-设计层面采用 2×2 历史模式比较。
-
-追记（2026-10-24）：SSGI 回退的可选方向天空可见性
-（`lib/lighting/ssgi_sky_visibility.glsl`，`SSGI_DIRECTIONAL_SKY`）为本包
-自有数学，不属于 GT-VBGI 参考：它把追踪的占用位掩码经八个四比特组的
-条件方向均值与 Walsh 变换归约为方向矩，并按可见质量缩放天空 SH 的 L2
-波段。各组系数由本项目离线拟合；SH 漫反射传输常数沿用
-`lib/atmosphere/sky_light.glsl` 所引 Ramamoorthi & Hanrahan 2001。
-
-## 16. Reflective Shadow Maps 与时域重建（算法引用）
-
-`shaders/lib/lighting/rsm_data.glsl`、`reflective_shadow_map.glsl` 和
-`gi_history.glsl`、`gi_denoise.glsl` 中的 RSM 数据编码、采样与 GI 重建为 Vibroscat 独立实现。
-`gi_sampling.glsl` 独立实现三维数字平移 Sobol 序列，方向数通过二进制递推生成；
-未复制外部方向数表或采样代码。历史的重心插值由平面三角形面积独立推导。
-
-- Carsten Dachsbacher、Marc Stamminger，*Reflective Shadow Maps*，I3D 2005，
-  [DOI: 10.1145/1053427.1053460](https://doi.org/10.1145/1053427.1053460)：
-  从光源可见表面构造虚拟点光源。
-- I. M. Sobol，*On the distribution of points in a cube and the approximate
-  evaluation of integrals*，1967：低差异数字序列的算法参考。
-- Christoph Schied 等，*Spatiotemporal Variance-Guided Filtering:
-  Real-Time Reconstruction for Path-Traced Global Illumination*，HPG 2017，
-  [作者发布页及论文](https://research.nvidia.com/publication/2017-07_spatiotemporal-variance-guided-filtering-real-time-reconstruction-path-traced)，
-  [DOI: 10.1145/3105762.3105770](https://doi.org/10.1145/3105762.3105770)：
-  去除材质调制的辐照度、逐采样历史有效性检查和边缘感知重建。本包并未实现完整 SVGF。
-- iterationT 3.2.0（`GlobalIllumination.glsl` 与阴影输出）仅用于架构比较。其再分发许可
-  未经确认。本次变更未复制该包的源码或资产。
-
-## 17. GT7 Tone Mapping（MIT，Polyphony Digital 官方样例移植）
-
-`shaders/lib/color/tonemap_gt7.glsl` 的 `TonemapGT7`（`TONEMAP_MODE == 5`）移植自
-Polyphony Digital 随 SIGGRAPH 2025 课程材料发布的官方样例实现
-`gt7_tone_mapping.cpp`，课程为 *Driving Toward Reality: Physically Based Tone
-Mapping and Perceptual Fidelity in Gran Turismo 7*（Kentaro Suzuki、Kenichiro
-Yasutomi），样例代码明确以 MIT 许可发布：
+`shaders/lib/color/tonemap_gt7.glsl` 移植自随 SIGGRAPH 2025 课程 *Driving Toward Reality: Physically Based Tone Mapping and Perceptual Fidelity in Gran Turismo 7* 发布的官方样例 `gt7_tone_mapping.cpp`。
 
 > gt7_tone_mapping.cpp is licensed under the MIT license.
 >
@@ -187,375 +45,21 @@ Yasutomi），样例代码明确以 MIT 许可发布：
 > SOFTWARE.
 
 来源：<https://blog.selfshadow.com/publications/s2025-shading-course/pdi/supplemental/gt7_tone_mapping.cpp>
-（版本 1.0，2025-08-10）
-（课程幻灯片 `s2025_pbs_pdi_slides_v1.1.pdf` 及配套 `gt7_tone_mapping.cpp`）。
 
-移植适配说明：
+## 5. OpenDRT（GPL-3.0）
 
-- 线性 Rec.709 输入/输出与样例 Rec.2020 framebuffer（1.0 = 100 nits）之间转换。
-  恢复本包改写前的 2.508318700610 倍输入校准，使 18% 场景中灰映射为 18% 显示中灰。
-- 保留官方 SDR 的 peak 2.5、gray point 0.538、linear section 0.444、toe strength
-  1.28、blend 0.6、chroma fade 0.98–1.16；恢复本包原有 alpha 0 高光曲线（样例为
-  0.25），使高光平滑趋近白点。参数固定；此 SDR 适配为本包默认色调映射。
-- 采用默认 ICtCp UCS 及 ITU 正/逆矩阵；PQ 解码按样例钳制 [0,1]。最终 SDR 钳制在
-  Rec.2020→Rec.709 转换之后执行，使锐化收到合法显示范围。
-- 官方样例提供 SDR/HDR 显示目标和另一内部色彩空间 JzAzBz，并非一组艺术 look。
-  本包的 SDR 路径固定默认 ICtCp，不开放 GT7 数值调节项。
-- 实际 GLSL 与改写前本包 GT7 的固定 GPU 输出比对；允许 ST2084 float32 舍入差异，
-  显示白归一化误差预算为 5e-4。此适配不宣称与官方 SDR 输出完全一致。
+`shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPLv3），官方 Look 与 Tonescale 参数固定于 `tonemap_opendrt_presets.glsl`。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——固定 SDR 100 尼特显示目标，输出显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
 
-## 18. 云内多重散射近似（算法出处）
+## 6. Revelation — 植物 SSS 材质（Apache-2.0）
 
-本包的云内多重散射近似出自
+`shaders/lib/lighting/plant_subsurface.glsl` 的吸收/散射材质模型改编自 [Revelation Shaders](https://github.com/HaringPro/Revelation)（Copyright (C) 2026 HaringPro，Apache License 2.0，全文见附录 A）。
 
-<https://zhuanlan.zhihu.com/p/457997155>
+## 7. NASA Deep Star Maps 2020（公有领域）
 
-即饱和因子与代表首次以后各阶散射的各向同性几何级数。出处写作 `fms = ω0 · (1 - exp2(-300 · σ_t))`，
-自变量是每米消光。本包把该自变量改写成**无量纲的参考光学厚度**，膝点落在"该层自身参考长度上一个
-光学厚度"处，参考长度由各层自己持有：体积云为 300 m，卷云为 0.5 km（1 km 壳层厚度的一半）。
-卷云参考光学厚度为 `tau_vertical * 0.5 km / 1 km`，其级数强度默认 1.0。参考长度与强度是本包
-针对各层的标定量；它们不代替视线方向的消光，也不再给首次散射额外乘一次密度。
+`shaders/textures/starmap_2020_4k_logluv32.dat` 与 `shaders/textures/starmap_2020_256x128_logluv32.dat` 源自 NASA SVS #4851 "Deep Star Maps 2020"。
 
-The saturation albedo is owned per layer. Volumetric clouds use
-`CLOUD_MS_SAT_ALBEDO` (default 0.9); cirrus uses the fixed value 0.999.
-The independent strength controls scale the isotropic added orders.
-
-`shaders/lib/cloud/multiple_scattering.glsl` 是这条无量纲形式的唯一归属，体积云与卷云两个云层
-共同包含它。两个层都把它加在日月的直射项上；环境光路径不经过它。体积云另加把日月折叠成
-单一方向的光照追踪，卷云不折叠。
-
-文件头与常量注释记录了本包在这些环节上的取值与实现方式。`volumetric.glsl` 同样记录在案的
-三 octave 方向相位求和与 `1 / (1 + τ)` 光路透过率是本包自己的选择，不属于本节出处。
-
-The independent volumetric skylight path studies the separate upward sky-access
-coefficient in Photon v1.3b's `shaders/include/sky/clouds/cumulus.glsl`
-(<https://github.com/sixthsurge/photon>, custom license permitting examination
-and learning). It reuses this pack's distribution and mean-erosion height field
-with four upward midpoint samples and a soft `1 / (1 + tau_up)` response.
-No Photon source, scattering-order implementation, constants or assets are
-copied or closely translated. This sky path does not use the geometric series
-described above.
-
-## 19. 雨滴涟漪（独立实现与自生成资产）
-
-雨滴涟漪采用离线生成周期坡度贴图的思路。设计比较参考了
-Zavie / Ctrl-Alt-Test 的 [Rain drops](https://www.shadertoy.com/view/ldfyzl)
-研究效果及其空间、时间循环方案，仅作为概念研究。
-本包的运行时代码与 `rain_ripples_rg8_256x256x64.dat` 均为独立实现：
-使用雨滴尺寸分布、终端落速与撞击能量驱动的空腔近似，以及有限水深线性水波的
-频谱解、傅里叶高度导数和线性坡度编码。落速参考 Atlas、Srivastava 和 Sekhon (1973)
-的通用经验关系（[doi:10.1029/RG011i001p00001](https://doi.org/10.1029/RG011i001p00001)）；
-相速度与群速度由通用毛细-重力波色散关系计算。等效水深、冲击能量传递率及周期化
-为本包的建模近似，不宣称完整流体模拟。
-为保持圆形涟漪可辨认，贴图只保留稀疏的大雨滴落点，省略小雨滴叠加形成的密集波场；
-单个落点仍按上述模型传播。运行时只扰动法线，不执行雨滴涟漪 POM。
-未复制上述参考的代码、哈希、烘焙程序、解码器或贴图；自生成资产适用本包 GPL-3.0 许可。
-
-## 20. 解析水雾（近海实测光学数据与独立实现）
-
-`shaders/lib/water/fog.glsl` 始终使用均匀介质的
-Beer–Lambert 透射与闭式单次散射积分，由本包独立实现。
-观感与流程比较参考 iterationT 3.2.0 的 `shaders/composite1.fsh`
-（蓝绿色、低亮度的距离雾）以及 Photon v1.3b 的
-`shaders/include/fog/simple_fog.glsl`（解析积分）。
-iterationT 的再分发许可未经确认，Photon 为自定义许可；两者仅用于观察与
-概念比较，未复制源码、独特表达、常量或资产，不包含参考包的多重散射增强项。
-
-光学常量改编自 Giuseppe Zibordi 与 Jean-François Berthon (2024) 的
-[CoASTS–BiOMaP 数据集](https://doi.org/10.1594/PANGAEA.971945)
-（[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)，
-[方法论文](https://doi.org/10.5194/essd-16-5477-2024)）。
-选用北亚得里亚海 Acqua Alta Oceanographic Tower 近海站点样本 `V770201`：
-2007-06-14 08:40:52，45.31390°N、12.50830°E，光学测量深度约 1 m，
-水温 23.207 °C、盐度 36.831。AC9 的 `a_t-w` 与 `c_t-w` 均不含纯海水；
-非水散射按 `b_p = c_t-w - a_t-w` 求得。650 nm 直接取样，550 nm 在
-510/555 nm 间、450 nm 在 440/488 nm 间线性插值，作为本包的有效 RGB 波长。
-
-纯水吸收使用 Pope 与 Fry (1997) 的积分腔实测值
-（[doi:10.1364/AO.36.008710](https://doi.org/10.1364/AO.36.008710)，
-[OMLC 数值表](https://omlc.org/spectra/water/data/pope97.dat)），
-将表中 cm⁻¹ 乘以 100 换成 m⁻¹：RGB 为 `(0.34000, 0.05650, 0.00922)`。
-海水分子散射按 Zhang、Hu 与 He (2009) 的温盐模型在该样本条件下计算
-（[doi:10.1364/OE.17.005698](https://doi.org/10.1364/OE.17.005698)，
-[作者计算方法](https://www.oceanopticsbook.info/packages/iws_l2h/conversion/files/betasw_ZHH2009.m)，
-Ocean Optics Web Book，[CC BY 2.0](https://creativecommons.org/licenses/by/2.0/)），
-RGB 为 `(0.00085607, 0.00171818, 0.00400705) m⁻¹`。
-最终吸收为 `(0.341030, 0.065223, 0.054923) m⁻¹`，总散射为
-`(0.130766, 0.140677, 0.147750) m⁻¹`，未人为缩放这些光学系数。
-没有将后向散射 `bb` 或漫射衰减 `Kd` 当作总散射或消光。
-
-三波长 RGB、均匀介质、Cornette–Shanks 参数 0.15、方向光权重 0.25、
-中性入射光权重 0.10，以及天空亮度和雨天权重均为本包的解析渲染近似，
-不是该样本实测的完整相位函数或水下光场。入射光权重控制没有遮挡追踪的
-解析雾亮度，不改变实测消光或单次散射反照率。入射直射光用实测消光作
-Beer–Lambert 衰减，漫射天空光以吸收衰减近似角度再分配；代表水深采用
-与焦散相同的天空亮度代理 `(1 - skylight) * 15 m`，最小 1 m。
-该深度和均匀光源不是逐像素水柱测量，未实现遮挡积分、多重散射或完整
-光谱输运；不宣称重现全部实测水色。
-
-## 21. TAA 与时域超分辨率
-
-TAAU 扩展 `shaders/program/post/taa.fragment`，复用其中的最近深度采样、
-重投影、邻域 AABB 裁剪、混合权重与 HDR 压缩。三次重建复用现有
-`FastCatmullRom5Tap`，补充场景边界限制；`shaders/lib/core/render_scale.glsl`
-负责渲染矩形的坐标映射。
-设计研究了 Photon v1.3b 的 `shaders/program/c3_taau_prep.fsh`、
-`c4_taa_exposure.fsh` 及其低分辨率场景/全分辨率历史布局，以及 Revelation-dev 的
-`shaders/program/post/TemporalAA.frag`。Photon 自定义许可允许学习与检视，
-Revelation 采用 Apache-2.0；本次仅研究数据流与通用算法，没有复制或近似翻译其源码。
-上游：https://github.com/sixthsurge/photon 与 https://github.com/HaringPro/Revelation 。
-
-时域重建参考 Yang、Liu、Salvi 的 "A Survey of Temporal Antialiasing
-Techniques"（2020）。扩展沿用本包现有的 RGB 边界与 HDRCompress/HDRDecompress。
-最终锐化复用本包现有 AMD FidelityFX CAS（第 4 节）。
-
-2026-10 的统一历史路径共用原生与低分辨率设置；RGB 邻域越界可信度、
-双侧颜色尺度及平滑运动上限为本包独立设计。对照研究了 Playdead 的公开
-TemporalReprojection（MIT，https://github.com/playdeadgames/temporal ）和 Unity
-HDRP TemporalAntialiasing（https://github.com/Unity-Technologies/Graphics ）的通用
-历史限制思路，未复制或近似翻译其源码。Salvi 的 *An Excursion in Temporal
-Supersampling*（GDC 2016）方差裁剪仅作为实验对照，未并入发布实现。
-
-## 22. ACES 2.0 Output Transform（Apache-2.0 / BSD-3-Clause）
-
-`shaders/lib/color/tonemap_aces2.glsl` 的 `TonemapACES2`（`TONEMAP_MODE == 1`）
-适配完整的 ACES 2.0 SDR 100 nit Rec.709 输出变换。Academy 参考实现与输入色适应来自
-<https://github.com/ampas/aces-core>（2.0，2025-04-04）和
-<https://github.com/ampas/aces-output>，采用 Apache-2.0（全文见附录 A）：
-
-> Copyright Contributors to the ACES Project.
-> SPDX-License-Identifier: Apache-2.0
-
-`shaders/lib/third_party/opencolorio/aces2_output.glsl` 由 OpenColorIO 2.6.0 的官方内置变换
-`ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-100nit-REC709_2.0` 生成：
-
-- 上游：<https://github.com/AcademySoftwareFoundation/OpenColorIO/tree/v2.6.0>。
-- 许可证：BSD-3-Clause；版权归 Contributors to the OpenColorIO Project。
-  完整版权、许可条件和免责声明保留在随包分发的上述 GLSL 文件中。
-- GPU 生成器：`src/OpenColorIO/ops/fixedfunction/FixedFunctionOpGPU.cpp`。
-
-修改与集成说明：
-
-- 场景 Rec.709/D65 先经 Bradford 色适应转换为 AP0，再由官方变换在 AP1 内钳制。
-  不预先裁切源 RGB，避免改变带负分量的超色域颜色的色相。
-- 完整正向变换包含 Hellwig-2022 JMh、MM 色调曲线、色度压缩和显示 cusp 色域压缩。
-  SDR 观看条件及色域边界均采用官方内置变换的常量。
-- OpenColorIO 的 reach 和 cusp/gamma 纹理改为不可变 GLSL 常量数组，保持原有色相插值。
-  这些是色域边界表，不是采样色调曲线；本包没有新增纹理、自定义图像、缓冲区或 pass。
-- 去掉末尾 Rec.709→XYZ 转换，直接返回显示线性 Rec.709；sRGB OETF 由最终 pass 统一执行一次。
-  不包含逆向输出变换。
-- 使用官方参考曝光，不添加中灰校准或用户输入缩放。ACES 输出变换是显示目标配置，
-  并非艺术风格预设；本包固定 SDR 100 nit Rec.709。
-- 实际 GLSL 与完整 OpenColorIO CPU 变换比较 12,276 个中性、饱和、随机 HDR 和
-  带负分量输入，显示线性误差预算为 5e-5。
-
-## 23. Blender AgX（GPL-2.0-or-later / BSD-3-Clause；已移除）
-
-`shaders/lib/color/tonemap_blender_agx.glsl` 的 `TonemapBlenderAGX`（`TONEMAP_MODE == 2`）
-曾解析重建 Blender 4.0 AgX 视图变换的 Base Contrast 成像（Blender，GPL-2.0-or-later；
-AgX 概念来自 Troy Sobotka，配置来自 EaryChow，sigmoid 来自 Jed Smith），官方 look 由
-`shaders/lib/third_party/opencolorio/blender_agx_looks.glsl` 提供（OpenColorIO 2.6.0
-生成，BSD-3-Clause）。该模式已随 2026-10-30 的色调映射模式列表精简一并移除，不再随包
-分发；代码移除后无剩余分发义务。
-
-## 24. AMD FidelityFX LPM（MIT；已随 V0.4.0 移除）
-
-`shaders/lib/color/tonemap_lpm.glsl` 的 `TonemapLPM`（`TONEMAP_MODE == 4`）曾移植自
-AMD 的 FidelityFX Luma Preserving Mapper，`ffx-lpm/ffx_lpm.h`（文件头标记
-`[LPM] LUMA PRESERVING MAPPER 1.20200225`，MIT）。上游：
-<https://github.com/GPUOpen-Effects/FidelityFX-LPM>（2026-10-11 取用）。该模式已随
-V0.4.0 的色调映射模式列表更换一并移除，不再随包分发；代码移除后无剩余分发义务。
-
-## 25. OpenDRT（GPL-3.0）
-
-`shaders/lib/color/tonemap_opendrt.glsl` 的 `TonemapOpenDRT`（`TONEMAP_MODE == 3`）
-移植自 Jed Smith 的 OpenDRT（Open Display Rendering Transform）参考 DCTL
-`display-transforms/opendrt/OpenDRT.dctl`（文件头标注 OpenDRT v1.1.0，GPLv3）：
-
-> OpenDRT v1.1.0
-> Written by Jed Smith
-> https://github.com/jedypod/open-display-transform
-> License: GPLv3
-
-上游：<https://github.com/jedypod/open-display-transform>。仓库根 `LICENSE` 为
-GNU GPL v3，与本包主许可证一致，故按 GPL-3.0 移植并保留署名；依据 GPL-3.0
-第 5(a) 条在此声明本包对其作了修改（修改内容见下）。取用日期 2026-10-11，
-源文件 SHA-256 `645ba89745691742c5403f8de5964b5934cd1c59bf06fb1f1a1f6b45f54830a1`。
-
-移植范围：七个官方默认启用的 Look（Standard、Arriba、Sylvan、Colorful、Aery、Dystopic、
-Umbra）和全部十四种 Tonescale 选择，包含 USE LOOK PRESET。上游 UI 默认禁用的开发者
-Base look 不作为玩家选项。`tonemap_opendrt_presets.glsl` 保存原始完整参数组；Look 选择整组，
-Tonescale 可单独覆盖曲线。原始数值全部固定，包含 Contrast Low/High、逐通道色相范围和
-创意白点适应。
-
-移植适配说明：
-
-- 输入为场景线性 Rec.709，输出为显示线性 Rec.709，固定 SDR 峰值 100 尼特、官方中灰
-  10 尼特和 sRGB Display 环境（`tn_su = 2`）。最终 pass 负责 sRGB OETF，省略 DCTL 信号
-  编码，不添加与其他算子的中灰对齐。
-- 100 尼特时 HDR 中灰提升为零，HDR 色纯度插值合为同一条曲线，不开放 HDR 数值或显示格式
-  开关。
-- 固定色域矩阵折叠，包含 P3D65→XYZ→创意白点 CAT→Rec.709；保留官方范围混合及归一化，
-  包含 Aery 的 D75、Dystopic 的 D60、Umbra 的 D50 白点。
-- 带负分量 RGB 不预裁切；对手色向量为零时取零角度，匹配参考中性路径并避开 GLSL
-  未定义的 `atan(0,0)`。
-- 实际 GLSL 对照编译执行的官方 DCTL；仅适配宿主向量/数学接口并绕过最终信号编码。
-  所有 Look、所有 Tonescale 和交叉覆盖均以每组 12,276 个 HDR/带负分量样本测试，
-  显示线性误差预算为 2e-5；另检查全部 98 种 Look/Tonescale 组合的有限值及显示范围。
-
-## 26. 空气雾密度模型（概念研究）
-
-恢复的极线几何来源及许可证见第 5 节。指数高度密度、昼夜调节和天气响应的概念比较参考 iterationT 3.2.0 的 `shaders/Lib/IndividualFounctions/VolumetricFog.glsl`，以及 Photon v1.3b 的 `shaders/include/weather/fog.glsl`、`shaders/include/fog/overworld/{analytic,raymarched,constants}.glsl`。iterationT 未提供包级许可证，按保留权利处理；Photon 自定义许可证明确允许检视和学习（上游 https://github.com/sixthsurge/photon）。两者只作只读概念参考，没有移植或近似翻译源代码、特征表达式、常数或资源。
-
-The pack independently derives a bounded clear-air height profile: exponential decay above the reference height joins a lower saturating exponential with matching density and slope, approaching twice the reference density. A separate uniform, neutral rain Mie increment remains height independent. Column optical depth and dry-air scattering under constant incident light are closed form; mixed rain/clear scattering uses a column-averaged constant source function. Rain increases neither Rayleigh scattering nor ozone/aerosol absorption. The pack retains its own four-band reference medium and phase functions, the dimensionless shadowed/unshadowed scattering ratio E, and uniform stratified shadow marching. The bounded profile, integral, density defaults, reference height and scale height are independently authored.
-
-## 27. 植物风场（概念研究与独立生成资产）
-
-只读研究 Photon v1.3b 的 `shaders/include/vertex/displacement.glsl` 与
-`shaders/block.properties`（自定义许可证，明确允许检视和学习；
-https://github.com/sixthsurge/photon），以及 MakeUp UltraFast 9.5c 的
-`shaders/src/position_vertex.glsl`、`shaders/lib/vector_utils.glsl`、
-`shaders/lib/config.glsl` 与 `shaders/block.properties`（LGPL-3.0；
-https://github.com/javiergcim/MakeUpUltraFast）。借鉴植物附着点、双层植物
-状态分类、完整树叶方块以及静止甘蔗的处理原则；没有复制或近似翻译源码、
-特征公式、常数或贴图。
-
-`lib/geometry/plant_wind.glsl` 和 `textures/plant_wind_rgba16f_64.dat`
-为独立实现及自生成资产：傅里叶无散度湍流与 von Karman 型能谱、Taylor
-冻结湍流平流、二次气动阻力、阻尼振子的频域强迫响应，以及 Euler-Bernoulli
-悬臂梁的静态弯曲形状。上述为经典数学和物理模型；未移植第三方求解器。
-本包的有效频率、阻尼、尺度和随机种子均独立选定，不宣称模拟障碍物绕流
-或实测植物物种。
-
-## 28. 水下极线光柱（概念研究与独立生成资产）
-
-沿用第 5 节的 Intel/Yusov 极线参数化。架构只读比较 Alpha Piscium v1.9.1
-的 `shaders/composite18.csh`（GPL-3.0；
-https://github.com/Luna5ama/Alpha-Piscium）与 Photon v1.3b 的
-`shaders/include/fog/overworld/raymarched.glsl` 和 `shaders/program/c0_vl.fsh`
-（自定义许可证，允许检视与学习；https://github.com/sixthsurge/photon）。
-没有复制或近似翻译上述光影包的源码、常数或纹理。
-
-`lib/volume/water_epipolar.glsl` 为独立实现。低频源纹理
-`textures/godray_caustics_r8_32x32x32.dat` 使用本包现有焦散的相同 Phillips
-频谱、种子、相位、解析法线与 Snell 光子追踪路径独立生成，输出 9 米焦深层，
-再作周期空间与时间低通；它不是第三方贴图。运行时沿未折射的世界太阳方向
-投影并积分，以艺术化亮度直接加到画面，不宣称完整模拟水下体积光输运。
-
-## 29. Plant subsurface scattering and distant shadows
-
-The PCSS-enabled RGB absorption/scattering material in
-`shaders/lib/lighting/plant_subsurface.glsl` is adapted from Revelation Shaders,
-Copyright (C) 2026 HaringPro, licensed under Apache License 2.0:
-https://github.com/HaringPro/Revelation, `shaders/program/CombineLighting.frag`.
-The license text is reproduced in Appendix A. Normalized texture color sets
-empirical absorption and scattering coefficients; a broad/forward HG phase
-and exponential depth attenuation supply directional SSS independently of
-ordinary PCSS-shadowed diffuse and GGX. Tissue scattering receives the final
-material tint once.
-
-Photon v1.3b (https://github.com/sixthsurge/photon; custom license permitting
-examination and learning) supplies the architectural reference for shared
-blocker-depth evidence, initial screen-depth segment/exit interpretation and
-coordinated near/far estimates. Its source was studied in
-`shaders/include/lighting/shadows/{pcss,ssrt}.glsl`,
-`shaders/include/lighting/diffuse_lighting.glsl` and
-`shaders/program/d4_deferred_shading.fsh`.
-Vibroscat expresses the projected ray with its own coordinate helpers, one
-fixed depth comparison, at most twelve existing pre-hand depth fetches and
-no sampled material or normal data. A single coverage/distance fade blends
-completed SSS contributions. The existing PCSS filter radius and samples are
-shared with ordinary surface lighting. These depths are attenuation proxies,
-not measured microscopic leaf thicknesses or volume coefficients.
-
-The artistic backlight adjustment also studies Complementary Reimagined
-r5.8.1 (https://github.com/ComplementaryDevelopment/ComplementaryReimagined;
-Complementary License Agreement 1.6),
-`shaders/lib/lighting/mainLighting.glsl`, and Photon
-`shaders/include/lighting/diffuse_lighting.glsl`. These references demonstrate
-an additive highlight whose brightness bypasses the dark tissue albedo.
-Vibroscat independently uses a power-eight view/light lobe, class-scaled
-surface sheen tinted by peak-normalized leaf color, and a twofold
-tissue-scattering brightness gain.
-Only the sheen follows ordinary shadow visibility; depth-attenuated tissue
-scattering remains separate. No reference code, distinctive expression,
-tuning constant or asset is transferred by this adjustment.
-
-The PCSS-disabled LOW path retains its independent thin-layer material and
-depth-only distant shadow approximation. Earlier iterationT study (no package
-license found; https://minegraph.cn/shaderpacks/12) contributed no source.
-No AO/GI material change, colored caster layers or additional GPU storage is
-introduced by this effect.
-
-## 30. 双档水面母基函数（概念与独立生成资产）
-
-水面质量的低档保留原有小波；高档的
-`textures/mother_medium_large_r8_128.dat` 与
-`textures/mother_medium_large_slope_rg8_128.dat` 是本项目独立烘焙的高度与 UV 斜率，
-分别为 128×128 R8 / RG8，不是第三方贴图。算法概念参考 Jerry Tessendorf，
-《Simulating Ocean Water》(SIGGRAPH 2001)：Phillips 频谱、Fourier 合成与深水色散。
-本项目独立实现连续可逆摆线压缩、解析导数、双线性最小二乘投影及单母图分层拟合，
-没有移植第三方生成器、代码或资产。高档复用同一份母图采样 5 层法线和 3 层 POM 高度；
-按层平移仅近似色散，不是逐模式 FFT 动画。独立生成资产按本包 GPL-3.0 使用。
-
-## 31. 不透明反射材质去调制（仅概念参考）
-
-对带有正确采样权重的镜面贡献除以稳定积分材质因子、降噪后恢复当前因子的
-信号约定，概念参考 NVIDIA NRD v4.18.0 README 的「MATERIAL DEMODULATION」：
-https://github.com/NVIDIA-RTX/NRD 。所检查快照采用 NVIDIA RTX SDKs LICENSE，
-不是 MIT。没有引入 NRD 源码、helper、拟合系数或资产。本项目
-`lib/lighting/specular_material_factor.glsl` 的有理近似，依据本包自身 GGX VNDF
-及 Smith 模型的数值积分独立拟合。反射历史、紧凑均值存储、当前帧法线估计、
-空间重建与异常亮点抑制均为本包独立实现，按本包 GPL-3.0 分发。
-
-## 32. Cloud checkerboard reconstruction (concept study)
-
-The optional cloud reconstruction mode was independently designed after studying
-Photon v1.3b's `program/d1_clouds.fsh`, `program/d2_clouds_upscaling.fsh`, and
-`include/utility/checkerboard.glsl`, with Revelation-dev's cloud render and
-reconstruction programs as a comparison. Photon permits examination and learning
-under its custom license; Revelation uses Apache-2.0. Only general sampling,
-reprojection and reconstruction concepts were used. No source, offset table,
-distinctive constants or assets were copied or closely translated.
-The independent modular phase permutation, existing packed cloud signal and
-camera-only history operate in Vibroscat's existing pass and resource graph.
-
-Upstream: https://github.com/sixthsurge/photon and
-https://github.com/HaringPro/Revelation .
-
-## 33. AgX Vivid（GPL-3.0；已移除）
-
-`shaders/lib/color/tonemap_agx_vivid.glsl` 的 `TonemapAgXVivid`（`TONEMAP_MODE == 6`）
-曾按 linlin 的 DRT Bench Reinhard/AgX 家族（GPL-3.0-only，见第 3 节）实现固定肩部与
-完整 HSV 色相保持。该模式已随 2026-10-30 的色调映射模式列表精简一并移除，不再随包
-分发；代码移除后无剩余分发义务。
-
-## 34. Depth of field (Sundial-Lite concept study)
-
-The DOF pipeline was studied against Sundial-Lite by GeForceLegend,
-Copyright 2026, GNU GPL v3, revision
-`1a747115277292e67cdadd004bbe703eede2613e`:
-https://github.com/GeForceLegend/Sundial-Lite .
-
-The references are `shaders/programs/composite/Composite6.frag` through
-`Composite8.frag` and autofocus in `shaders/programs/common/Common.vert`.
-Concepts retained are axial inverse-depth defocus, a search for incoming
-foreground support, and distinct base/foreground reconstruction. Vibroscat
-independently implements native depth ordering, a 16-byte focus SSBO,
-crop-aware processing, HDR sampling, and a focus response in its existing
-temporal resolver. It does not transplant Sundial-Lite source, compressed-color
-encoding, history-buffer texels, or material/depth packing. The lens constants
-and sample budgets are Vibroscat tuning, not Sundial-Lite defaults.
-
-## 35. Bloom filtering (Alpha Piscium algorithm reference)
-
-Bloom filtering follows Alpha Piscium v1.9.1 (GPL-3.0),
-https://github.com/Luna5ama/Alpha-Piscium: the 13-tap multibox downsample,
-staggered half cache, and radius-1 tent reconstruction. Vibroscat independently
-implements these algorithms in `shaders/lib/post/bloom*.glsl` and
-`shaders/program/post/bloom_*.compute`; the tent is evaluated with four paired
-bilinear samples. No generated Alpha shader source was imported. Final
-full-resolution composition retains one bilinear bloom fetch.
+> Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
+> 来源：<https://svs.gsfc.nasa.gov/4851/>
 
 ## 附录 A：Apache License 2.0 全文
 
@@ -573,8 +77,8 @@ full-resolution composition retains one bilinear bloom fetch.
       "Licensor" shall mean the copyright owner or entity authorized by
       the copyright owner that is granting the License.
 
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
+      "Legal Entity" shall mean the union of the acting entity and any
+      other entity that controls, is controlled by, or is under common
       control with that entity. For the purposes of this definition,
       "control" means (i) the power, direct or indirect, to cause the
       direction or management of such entity, whether by contract or
@@ -697,7 +201,7 @@ full-resolution composition retains one bilinear bloom fetch.
       with Licensor regarding such Contributions.
 
    6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
+      names, trademarks, service marks, product names of the Licensor,
       except as required for reasonable and customary use in describing the
       origin of the Work and reproducing the content of the NOTICE file.
 
@@ -760,7 +264,3 @@ full-resolution composition retains one bilinear bloom fetch.
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-
-## 附录 B：GNU GPL v3 说明
-
-包主许可证见根目录 LICENSE（GPL-3.0 全文）。第三方 MIT/Apache-2.0 组件与 GPLv3 兼容；第 1 节记录的 Photon 历史不向当前源码附加分发条件。

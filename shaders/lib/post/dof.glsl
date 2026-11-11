@@ -7,9 +7,8 @@
 
 // Signed thin-lens-inspired radius, in display pixels. The 80 px*m scale
 // and 8 px cap are specified at 1080p; axial depth gives a planar focus.
-// Sundial-Lite motivated the separate support search and foreground gather;
-// this implementation orders sources by an uncapped affine inverse-depth
-// coordinate, independent of the blur cap and support spread. See notices.
+// Sources are ordered by an uncapped affine inverse-depth coordinate,
+// independent of the blur cap and support spread.
 const float DOF_LENS_SCALE = 80.0;
 const float DOF_RADIUS_LIMIT = 8.0;
 const float DOF_FOCUS_HALFLIFE_SECONDS = 0.15;

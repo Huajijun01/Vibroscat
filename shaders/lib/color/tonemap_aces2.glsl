@@ -12,7 +12,8 @@
 // Input is scene-linear Rec.709/D65; output is display-linear Rec.709/D65.
 // The pack's shared sRGB OETF is applied once, in post/final.fragment.
 // Uses the reference exposure without a middle-gray prescale.
-// See notices section 22 for provenance.
+// The Academy ACES 2.0 reference transform is Copyright Contributors to the
+// ACES Project, Apache-2.0; see licenses/THIRD_PARTY_NOTICES.md section 3.
 const mat3 ACES2_SRGB_TO_AP0 = mat3(
     vec3(0.4396329819, 0.0897764430, 0.0175411704),
     vec3(0.3829886982, 0.8134394287, 0.1115465533),

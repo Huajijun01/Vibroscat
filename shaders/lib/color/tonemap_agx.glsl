@@ -9,9 +9,9 @@
 // ===========================================================================
 // AgX (mode 0): the HSV hue-repair variant of AgX, "AgX-HSV".
 //
-// Ported from DRT Bench (github.com/bWFuanVzYWth/DRT, GPL-3.0-only since
-// 2026-09), file shaders/agx_hsv.wgsl, with its `AgxParameters::hsv_default()`
-// curve; licenses/THIRD_PARTY_NOTICES.md section 3. The inset/outset pair,
+// Ported from DRT Bench (github.com/bWFuanVzYWth/DRT, GPL-3.0-only), file
+// shaders/agx_hsv.wgsl, with its `AgxParameters::hsv_default()` curve;
+// licenses/THIRD_PARTY_NOTICES.md section 1. The inset/outset pair,
 // the log2 shaper and the toe/shoulder power curve are the family the S2O3
 // variant also uses; what makes this variant "HSV" is the final hue repair,
 // which compares the hue of the tone-scaled result with the hue of the

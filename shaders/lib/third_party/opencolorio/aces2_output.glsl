@@ -9,7 +9,7 @@
 // the pack's saturate() helper replaces the explicit min/max range clamps.
 // 2026-11-10: Selected helpers use one exit; formulas and branch domains are preserved.
 // These tables contain gamut boundaries, not sampled tone curves.
-// See licenses/THIRD_PARTY_NOTICES.md, section 22.
+// See licenses/THIRD_PARTY_NOTICES.md, section 3.
 // Copyright Contributors to the OpenColorIO Project.
 //
 // Redistribution and use in source and binary forms, with or without

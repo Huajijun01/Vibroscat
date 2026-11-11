@@ -1,10 +1,7 @@
 #ifndef LIB_VOLUME_EPIPOLAR_CORE_GLSL
 #define LIB_VOLUME_EPIPOLAR_CORE_GLSL
-// Epipolar slice/quadrant parametrization follows the Intel Outdoor Light
-// Scattering Sample (Intel, Apache-2.0; license in licenses/THIRD_PARTY_NOTICES.md
-// section 5 and appendix A). Additional reference: Yusov, "Practical Implementation of
-// Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary
-// Trees", GDC 2013.
+// Epipolar parametrization: rays are sampled along slices through the light
+// direction, integrated at per-slice depth breakpoints and unwarped per pixel.
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
@@ -68,8 +65,8 @@ vec2 LightNDC(out bool pole_in_screen) {
     return clip.xy / max(abs(clip.w), 1e-6) * side;
 }
 
-// Exit point on the rect for slice i (Intel quadrant parametrization):
-// uniform perimeter placement keeps coverage even with a far/infinite pole.
+// Exit point on the rect for slice i: uniform perimeter placement keeps
+// coverage even with a far/infinite pole.
 vec2 SliceExit(int slice) {
     float f = (float(slice) + 0.5) / float(SliceCount());
     int sector = clamp(int(f * 4.0), 0, 3);

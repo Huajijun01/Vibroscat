@@ -13,7 +13,7 @@
 //
 // Ported from Jed Smith's OpenDRT (Open Display Rendering Transform),
 // github.com/jedypod/open-display-transform, display-transforms/opendrt/
-// OpenDRT.dctl, GPL-3.0; licenses/THIRD_PARTY_NOTICES.md section 25.
+// OpenDRT.dctl, GPL-3.0; licenses/THIRD_PARTY_NOTICES.md section 5.
 // Official look and tonescale presets select complete parameter sets,
 // including contrast-low/high and creative-white stages. All raw parameters
 // are fixed in tonemap_opendrt_presets.glsl.
@@ -33,7 +33,7 @@
 //   6. inverse render space, creative-white adaptation, Rec.709 conversion,
 //      and the final toe.
 //
-// Deviations from the reference, all recorded in the notices section:
+// Deviations from the reference:
 //   - SDR only: the peak luminance is fixed at 100 nits, so the display
 //     scale ts_dsc is 1, the HDR gray-boost term is log2(1) = 0, and the
 //     HDR purity lerp that would blend ts_s1 towards s_Lp100 has weight zero

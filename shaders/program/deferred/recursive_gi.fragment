@@ -23,13 +23,10 @@
 #include "/lib/shadow/reflective_shadow_map.glsl"
 #endif
 
-// Port of the unidirectional GT-VBGI visibility-bitmask screen-space GI by
-// Mirko Salm (CC0 1.0 / MIT dual license; this file follows CC0):
-//   https://www.shadertoy.com/view/XcdBWf  (bidirectional variant:
-//   https://www.shadertoy.com/view/lfdBWn)
-// The slice sampler's fast arctangent is from
-//   https://www.shadertoy.com/view/lXBfWm
-// Normal rendering reads current direct RGB from colortex0; diagnostics retain
+// Unidirectional visibility-bitmask screen-space GI: cosine-weighted slice
+// samplers trace the hemisphere and accumulate occupancy into a 32-sector
+// bitmask per slice. Normal rendering reads current direct RGB from
+// colortex0; diagnostics retain
 // the colortex5 history source. This pass
 // fuses the current estimate with unblurred GI history in colortex9. Metadata
 // in colortex10 records the selected receiver; deferred5 reconstructs spatially.
@@ -102,10 +99,9 @@ vec3 RotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
     return vec3(slice_direction, 0.0) + 2.0 * (basis * quaternion.yxw);
 }
 
-// Slice-relative CDF of the cosine-weighted distribution for the active
-// slice: the isPhiLargerThanAngN = true arm of the reference's
-// SliceRelCDF_Cos. Endpoint inputs pass through unchanged, as in the
-// reference. sin_normal and the reciprocal denominator are per-pixel
+// Slice-relative CDF of the cosine-weighted distribution over the active
+// slice's usable span. Endpoint inputs pass through unchanged.
+// sin_normal and the reciprocal denominator are per-pixel
 // constants hoisted by the caller: this CDF runs twice per march step and
 // recomputing both here cost 64 redundant sin per pixel at 16 steps.
 float SliceRelativeCDF(float x, float angle_normal, float cos_normal,
@@ -120,8 +116,8 @@ float SliceRelativeCDF(float x, float angle_normal, float cos_normal,
     return result;
 }
 
-// Quantize the remapped arc into 32 sectors and mask the covered span
-// (reference: uvec2(floor(hor01 * 32.0)) with the range-end masks ANDed).
+// Quantize the remapped arc into 32 sectors and mask the covered span; the
+// range-end masks keep fully covered spans exact.
 uint VisibilityMaskFromRange(vec2 range01) {
     uvec2 range_bits = uvec2(floor(range01 * 32.0));
     uint left = range_bits.x < 32u ? 0xFFFFFFFFu << range_bits.x : 0u;
@@ -167,7 +163,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     vec2 sample_range = (target_coord - origin_coord) * u_render_res;
     float inv_range = inversesqrt(dot(sample_range, sample_range));
     vec2 step_dir = sample_range * inv_range * u_render_pixel_size;
-    // Reference march schedule: SSGI_STEPS geometric steps that grow to the
+    // March schedule: SSGI_STEPS geometric steps that grow to the
     // clamped march width, with the first step jittered by stbn_noise.y.
     float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(saturate(inv_range), 1.0e-6));
     // (m^(1/n))^y == m^(y/n): the jittered start is the y-th element of the
@@ -199,8 +195,8 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     float cdf_denominator = cos_normal + angle_normal * sin_normal;
     // One reciprocal feeds both the w0 share and the [w0, 1] remap scale.
     float cdf_rcp = 1.0 / cdf_denominator;
-    // Share of the cosine-weighted slice the march cannot use, and the
-    // [w0, 1] remap of the slice-relative CDF (reference w0_remap_*).
+    // Share of the cosine-weighted slice below the usable horizon, and the
+    // [w0, 1] remap scale of the slice-relative CDF.
     float w0 = saturate((sin_normal * cdf_rcp) * (PI * 0.25) + 0.5);
     // A horizon-edge-on normal leaves the whole slice below the surface
     // horizon (w0 == 1): no usable cosine mass, so no hit can occlude SH and
@@ -250,19 +246,17 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         sample_view /= inverse_projection_depth_scale * (sample_depth * 2.0 - 1.0)
             + inverse_projection_depth_bias;
         vec3 delta_front = sample_view - origin_view_position;
-        // Reference perspective arm ("required for correctness"): the back
-        // face is the same pixel's ray reprojected at depth + Thickness,
-        // i.e. SSGI_THICKNESS farther along the camera-to-sample ray (equal
-        // to the reference's normalize(samplePosVS) * Thickness arm).
+        // Back face: the same pixel's ray reprojected SSGI_THICKNESS farther
+        // along the camera-to-sample ray.
         vec3 delta_back = delta_front + normalize(sample_view) * SSGI_THICKNESS;
         float front_dd = max(dot(delta_front, delta_front), 1.0e-6);
         float front_inv_len = inversesqrt(front_dd);
         float front_cos = dot(delta_front, view_dir) * front_inv_len;
         float back_cos = dot(delta_back, view_dir) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
-        // Reference hor01 pipeline: shift the horizon angles from V to N,
-        // evaluate the slice-relative cosine CDF, keep only the [w0, 1]
-        // share, then jitter both arc ends by one sector.
+        // Shift the horizon angles from V to N, evaluate the slice-relative
+        // cosine CDF, keep only the [w0, 1] share, then jitter both arc ends
+        // by one sector.
         vec2 horizontal01 = saturate((horizontal + angle_normal) / PI + 0.5);
         horizontal01 = vec2(
             SliceRelativeCDF(horizontal01.x, angle_normal, cos_normal, sin_normal, cdf_inv_denominator),

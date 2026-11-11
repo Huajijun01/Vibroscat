@@ -5,7 +5,8 @@
 
 // OpenDRT v1.1.0 preset values, by Jed Smith (GPLv3).
 // Source: display-transforms/opendrt/OpenDRT.dctl, LOOK PRESETS and
-// TONESCALE PRESETS; notices section 25. No numeric player controls.
+// TONESCALE PRESETS; licenses/THIRD_PARTY_NOTICES.md section 5. No numeric
+// player controls.
 // DCTL names map to descriptive ODT_* constants in the renderer.
 
 #if TONEMAP_ODT_LOOK == 0 // Standard

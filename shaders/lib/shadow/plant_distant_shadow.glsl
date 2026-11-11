@@ -33,9 +33,9 @@ float PlantDistantPrior(float skylight) {
 }
 
 // Depth-only projected ray: one initial tissue segment, then external shelter.
-// Photon VPS supplies the segment/exit interpretation. Its fixed occupancy
-// tolerance spans 0..20 m in positive view depth, and exit distance scales by
-// 0.2 into empirical transport units. Each ray performs at most twelve fetches.
+// The fixed occupancy tolerance spans 0..20 m in positive view depth, and
+// exit distance scales by 0.2 into empirical transport units. Each ray
+// performs at most twelve fetches.
 PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
         vec3 light_view, vec2 jitter_uv, float stbn_dither, float maximum_reach_m) {
     PlantShadowEstimate result;

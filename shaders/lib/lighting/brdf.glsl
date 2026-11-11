@@ -109,9 +109,9 @@ vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
         * VisibleGGXVisibility(ndotv, ndotl, alpha);
 }
 
-// Small-disc approximation to the Decima area-light target (see license notices).
-// Shrink sin(angle(N,H)) by the fraction of the reflection-to-light chord
-// outside the disc. Radius is in radians; the sun/moon use r <= 0.005.
+// Small-disc approximation: shrink sin(angle(N,H)) by the fraction of the
+// reflection-to-light chord outside the light disc. Radius is in radians;
+// the sun/moon use r <= 0.005.
 float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius) {
     float ndoth = ndotl + ndotv;
     // Opposing light/view directions make H undefined at the grazing horizon.

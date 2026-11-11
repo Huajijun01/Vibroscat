@@ -6,9 +6,7 @@
 // ===============================================================
 // Cloud multiple scattering - the shared form, owned once.
 //
-// The approximation is the one published at
-//   https://zhuanlan.zhihu.com/p/457997155
-// It splits a cloud sample's in-scattering into the single-scattering phase
+// A cloud sample's in-scattering splits into the single-scattering phase
 // and a geometric series standing for every order past the first:
 //
 //   fms    = omega_sat * (1 - exp2(-reference_optical_depth))

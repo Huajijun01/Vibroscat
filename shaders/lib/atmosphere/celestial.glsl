@@ -21,10 +21,8 @@ const float BRIGHTNESS_FACT = 0.03;
 
 // STAR_MAP_INTENSITY (linear gain after LogLuv32 decode) is a user
 // option declared in contract/settings.glsl.
-// LogLuv32 -> linear sRGB, per [ERI07] Ericson, Christer. "Converting RGB to
-// LogLuv in a fragment shader". 2007. R = u', G = v', B = int(Le),
-// A = frac(Le), Le = 2*log2(Y) + 127. Decodes the star map's RGBA8 HDR
-// encoding.
+// LogLuv32 -> linear sRGB: R = u', G = v', B = int(Le), A = frac(Le),
+// Le = 2*log2(Y) + 127. Decodes the star map's RGBA8 HDR encoding.
 const mat3 LOGLUV32_INVERSE_M = mat3(6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268);
 
 vec3 LogLuv32ToLinear(vec4 v_log_luv) {

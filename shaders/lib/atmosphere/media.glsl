@@ -8,14 +8,11 @@
 // ===============================================================
 // Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
 // Wavelengths: 450, 510, 580, 650 nm
-// Density/phase model: Hillaire-style (licenses/THIRD_PARTY_NOTICES.md section 6).
+// Density/phase model: 4-wave spectral fit.
 // The Mie model is a single jointly fitted aerosol that carries the visible
 // stratospheric sulfate contribution, so the medium has no separate sulfate
 // layer evaluation. The fit targets the installed transmittance and
-// multiscatter LUTs, and its per-band coefficients follow the OPAC/libRadtran
-// tables.
-// Provenance:
-// licenses/THIRD_PARTY_NOTICES.md section 14.
+// multiscatter LUTs.
 // ===============================================================
 
 // ===============================================================
@@ -65,7 +62,7 @@ const vec4 ATM_OZONE_SIGMA = 381.0 * ATM_OZONE_TENT_PEAK
 // fits, and the extinction fit already contains absorption. The coefficients
 // are km^-1 at sea level, ordered [450, 510, 580, 650] nm. The mask is C1 at
 // h = 0 and at Hc; negative altitude follows the signed Rayleigh continuation.
-// Source: the joint aerosol + sulfate fit (licenses/THIRD_PARTY_NOTICES.md section 14).
+// Source: the joint aerosol + sulfate fit.
 const float ATM_MIE_COMPACT_H_KM = 2.3632245061346153;
 const float ATM_MIE_COMPACT_INV_H = 1.0 / ATM_MIE_COMPACT_H_KM;
 // Multiply-add constant -R / Hc for the radius-space height ratio.
@@ -111,7 +108,7 @@ float AtmMiePhase(float cos_theta) {
 const vec4 ATM_GROUND_ALBEDO = vec4(0.06, 0.045, 0.025, 0.015);
 
 // ===============================================================
-// Density functions  (Hillaire / the pack's 4-wave spectral fit model)
+// Density functions (4-wave spectral fit model)
 // ===============================================================
 
 // Density profiles in signed planet-centered radius r = ATM_PLANET_R + h, in

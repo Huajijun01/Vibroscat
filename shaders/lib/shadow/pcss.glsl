@@ -144,7 +144,8 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
         dir, SHADOW_BLOCKER_SAMPLES, blocker_depth);
     float depth_delta = blocker_found ? saturate(sp.z - blocker_depth) : 0.0;
     float world_depth_gap = ShadowDepthGapToWorld(depth_delta);
-    // Photon and Revelation use half the coverage-weighted world separation.
+    // Half the coverage-weighted world separation, in the tissue model's
+    // transport units.
     sss_depth = 0.5 * world_depth_gap;
     if (!blocker_found && !plant_receiver) {
         return 1.0;

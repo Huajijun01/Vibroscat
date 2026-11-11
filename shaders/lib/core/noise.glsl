@@ -1,10 +1,8 @@
 #ifndef LIB_CORE_NOISE_GLSL
 #define LIB_CORE_NOISE_GLSL
 
-// STBN volume: independently generated (void-and-cluster) from
-// Wolfe, Morrical, Akenine-Möller, Ramamoorthi, "Scalar Spatiotemporal Blue
-// Noise Masks", 2022; lineage Heitz et al., "Spatiotemporal Blue Noise
-// Masks", ACM TOG 2019. See licenses/THIRD_PARTY_NOTICES.md section 8.
+// STBN volume: 128x128x64 spatiotemporal blue-noise masks, baked offline
+// with a void-and-cluster generator.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"

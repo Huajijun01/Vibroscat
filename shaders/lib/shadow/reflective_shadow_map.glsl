@@ -60,7 +60,7 @@ vec3 GatherRSM(vec3 receiver_world, vec3 receiver_view, vec3 normal_world,
     // The azimuth sequence TAU * fract(seed + k * GOLDEN_RATIO_CONJUGATE) is the orbit of
     // one fixed rotation (TAU-periodic), so one sin/cos pair per pixel seeds a
     // rotation recurrence and the per-sample angle never needs fract, a float
-    // convert, a multiply or a sin/cos pair. Same recurrence the SSAO, DOF and
+    // convert, a multiply or a sin/cos pair. Same recurrence the DOF and
     // GTAO samplers already use.
     float cos_step = cos(TAU * GOLDEN_RATIO_CONJUGATE);
     float sin_step = sin(TAU * GOLDEN_RATIO_CONJUGATE);

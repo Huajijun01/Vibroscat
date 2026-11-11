@@ -56,11 +56,9 @@ screen.PLANT_SSS.comment = 光线穿过薄叶片和草的效果：透亮的草�
 screen.CONTACT = 接触阴影
 screen.CONTACT.comment = 物体与地面、墙面相接处的短距离阴影。仅主世界与末地生效。
 screen.AO = 环境光遮蔽
-screen.AO.comment = 墙角、缝隙和物体接地处的柔和压暗。GTAO = 地平线扫描法，SSAO = 半球采样法。
+screen.AO.comment = 墙角、缝隙和物体接地处的柔和压暗。GTAO = 屏幕空间地平线扫描法，原版AO = 游戏自带的顶点压暗。
 screen.AO_GTAO = GTAO
 screen.AO_GTAO.comment = 地平线扫描法的参数。环境光遮蔽模式为 GTAO 时生效。
-screen.AO_SSAO = SSAO
-screen.AO_SSAO.comment = 半球采样法的参数，开销更高但过渡更柔。环境光遮蔽模式为 SSAO 时生效。
 screen.AO_TEMPORAL_SETTINGS = AO 历史
 screen.AO_TEMPORAL_SETTINGS.comment = AO 历史被信任的时长与对移动的反应。开启时域累积时生效。
 screen.ENVIRONMENT = 环境
@@ -350,10 +348,9 @@ value.MATERIAL_FORMAT.1 = oldPBR
 
 #AO
 option.AO_MODE = 环境光遮蔽模式
-option.AO_MODE.comment = 墙角、缝隙和物体接地处的柔和压暗。GTAO 高效；SSAO 开销更高、观感略不同。关闭 = 无边角压暗。
-value.AO_MODE.0 = 关
+option.AO_MODE.comment = 墙角、缝隙和物体接地处的柔和压暗。GTAO = 屏幕空间地平线扫描法；原版AO = 仅保留游戏自带的顶点压暗。
+value.AO_MODE.0 = 原版AO
 value.AO_MODE.1 = GTAO
-value.AO_MODE.2 = SSAO
 option.AO_TEMPORAL = 时域累积
 option.AO_TEMPORAL.comment = 跨帧平滑压暗效果，消除颗粒。关闭后噪点更明显，但即时响应。
 option.GTAO_SLICES = GTAO 切片数
@@ -376,13 +373,6 @@ suffix.AO_HISTORY_DISTANCE_LIMIT = 米
 option.AO_HISTORY_DISTANCE_LIMIT.comment = 复用历史时允许的深度偏差上限：越低越少跨表面串色，可能更噪。
 option.AO_HISTORY_NORMAL_DOT_FLOOR = AO 历史法线阈值
 option.AO_HISTORY_NORMAL_DOT_FLOOR.comment = 表面朝向需保持一致才能复用历史（余弦值，0.866 相当于 30 度）：越高转视角残影越少，可能更噪。
-option.SSAO_SAMPLES = SSAO 采样数
-option.SSAO_SAMPLES.comment = SSAO 的采样精度：越高压暗越平滑，速度越慢。
-option.SSAO_RADIUS = SSAO 半径
-suffix.SSAO_RADIUS = 米
-option.SSAO_RADIUS.comment = 世界空间半径。屏幕采样半径同时不超过画面短边的 5%。
-option.SSAO_STRENGTH = SSAO 对比度
-option.SSAO_STRENGTH.comment = 边角压暗的程度。SSAO 观感比 GTAO 淡，默认值因此更陡。1.0 为线性。
 
 #Water
 option.WATER_SURFACE_QUALITY = 水面质量

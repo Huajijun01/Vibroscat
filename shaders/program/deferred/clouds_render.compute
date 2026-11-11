@@ -32,7 +32,7 @@ layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 void main() {
 #ifndef VOLUMETRIC_CLOUDS
-    // deferred2 is shared with GTAO/SSAO (VOLUMETRIC_CLOUDS || GTAO || SSAO):
+    // deferred2 is shared with GTAO (VOLUMETRIC_CLOUDS || GTAO):
     // nothing to do without clouds.
     return;
 #endif

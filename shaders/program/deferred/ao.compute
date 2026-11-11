@@ -3,7 +3,7 @@
 // ============================================================================
 // Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/(16,32)),
 // local 16x32). Each invocation covers one 2x2 full-res block, evaluates the
-// kernel (ComputeGTAOFromGeometry / ComputeSSAOFromGeometry) at a fixed receiver in that block.
+// kernel (ComputeGTAOFromGeometry) at a fixed receiver in that block.
 // Every half-res texel is evaluated every frame. deferred2 reconstructs
 // the accumulated field with depth/normal guidance on this exact lattice.
 // Runs with the cloud compute in deferred2; outputs are disjoint.
@@ -22,7 +22,6 @@
 #include "/lib/core/noise.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/lighting/gtao.glsl"
-#include "/lib/lighting/ssao.glsl"
 #include "/lib/lighting/temporal_ao.glsl"
 
 // Each invocation covers one 2x2 full-res block regardless of the group
@@ -62,11 +61,9 @@ void main() {
     vec3 ao_history = ReprojectAOHistory(sample_pixel, scene_depth, normal_oct);
 #if defined(GTAO)
     float ao = ComputeGTAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
-#elif defined(SSAO)
-    float ao = ComputeSSAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
 #else
     // Unreachable while deferred2_a is scheduled (AO_MODE != 0 with
-    // GI_MODE == 0 implies GTAO or SSAO); keeps `ao` defined if that gating
+    // GI_MODE == 0 implies GTAO); keeps `ao` defined if that gating
     // and these macros ever drift apart.
     float ao = 1.0;
 #endif

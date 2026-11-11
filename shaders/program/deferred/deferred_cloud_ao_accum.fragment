@@ -1,6 +1,6 @@
 // ============================================================================
 // Deferred cloud/AO history fragment: cloud temporal upsampling and guided
-// reconstruction of accumulated screen-space AO (GTAO or SSAO).
+// reconstruction of accumulated screen-space AO (GTAO).
 // ============================================================================
 // Runs after the deferred2 cloud/AO computes in the same program.
 // Clouds and AO supply this history; direct RGB is consumed by later passes.
@@ -157,7 +157,7 @@ void main() {
     }
 
     // -- Geometry: guided AO reconstruction; cloud history invalid --
-#if defined(GTAO) || defined(SSAO)
+#if defined(GTAO)
     vec2 geo_normal_oct = texelFetch(colortex4, tx, 0).xy;
     // AO history was validated and accumulated at half resolution by the
     // preceding compute. Full-res output uses depth/normal bilateral weights.

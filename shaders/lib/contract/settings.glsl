@@ -212,22 +212,20 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // ==========================================================================
 const float ambientOcclusionLevel = 1.0;
 
-// AO_MODE selects the algorithm (settings slider, 0/1/2): GTAO is the
-// horizon-based method (Jimenez et al. 2016), SSAO the Monte-Carlo
-// hemisphere estimator (Crytek 2007). Both share the deferred2_a half-res
-// temporal generator and deferred2 guided reconstruction without GI. RSM
-// evaluates the chosen kernel in deferred4 and filters its AO-weighted sky.
-// SSGI supplies its own visibility and ignores this selector.
-#define AO_MODE 1 // [0 1 2] 0=off 1=GTAO 2=SSAO
+// AO_MODE selects the algorithm (settings slider, 0/1): GTAO is the
+// horizon-based method (Jimenez et al. 2016); vanilla AO keeps only the
+// per-vertex darkening baked into geometry. GTAO owns the deferred2_a
+// half-res temporal generator and deferred2 guided reconstruction without
+// GI. RSM evaluates the GTAO kernel in deferred4 and filters its
+// AO-weighted sky. SSGI supplies its own visibility and ignores this
+// selector.
+#define AO_MODE 1 // [0 1] 0=vanilla AO 1=GTAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
 #define GTAO_RADIUS 1.5 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
 #define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
 #define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
-// #define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
-#define SSAO_SAMPLES 16 // [8 12 16 24 32 48 64] hemisphere samples per pixel
-#define SSAO_RADIUS 2.0 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
-#define SSAO_STRENGTH 8.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0 8.0] AO contrast (exponent; SSAO looks lighter, so steeper than GTAO)
+#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
 // Temporal accumulation runs in deferred2_a against full-resolution history
 // in colortex8. One hardware bilinear history sample passes depth/normal rejection.
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
@@ -569,14 +567,11 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #if AO_MODE == 1 && GI_MODE == 0
 #define GTAO
 #endif
-#if AO_MODE == 2 && GI_MODE == 0
-#define SSAO // Monte-Carlo hemisphere AO (heavier; temporal accumulation replaces spatial filtering)
-#endif
 
 // Directional sky ambient for the RSM fallback integrates the raw sky SH
 // over the GTAO horizon arcs, so occluders tint the sky light by direction.
-// Applies only to Overworld RSM (GI_MODE=2) with GTAO (AO_MODE=1); other
-// AO algorithms, SSGI, no-GI and other dimensions keep the undirected path.
+// Applies only to Overworld RSM (GI_MODE=2) with GTAO (AO_MODE=1); vanilla
+// AO, SSGI, no-GI and other dimensions keep the undirected path.
 #if defined(RSM_DIRECTIONAL_SKY) && GI_MODE == 2 && AO_MODE == 1 && defined(WORLD_OVERWORLD)
 #define RSM_DIRECTIONAL_SKY_ACTIVE
 #endif

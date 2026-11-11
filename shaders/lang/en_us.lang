@@ -56,11 +56,9 @@ screen.PLANT_SSS.comment = Light passing through thin leaves and grass: bright t
 screen.CONTACT = Contact Shadows
 screen.CONTACT.comment = Short screen-space shadows where objects meet the ground or a wall. Overworld and End only.
 screen.AO = Ambient Occlusion
-screen.AO.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO = horizon-based method; SSAO = hemisphere sampling.
+screen.AO.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO = screen-space horizon method; Vanilla AO = the game's per-vertex darkening.
 screen.AO_GTAO = GTAO
 screen.AO_GTAO.comment = Settings of the horizon-based method. Used while the AO mode is GTAO.
-screen.AO_SSAO = SSAO
-screen.AO_SSAO.comment = Settings of the hemisphere-sampling method: heavier but softer. Used while the AO mode is SSAO.
 screen.AO_TEMPORAL_SETTINGS = AO History
 screen.AO_TEMPORAL_SETTINGS.comment = How long AO history is trusted and how it reacts to motion. Used while temporal accumulation is on.
 screen.ENVIRONMENT = Environment
@@ -350,10 +348,9 @@ value.MATERIAL_FORMAT.1 = oldPBR
 
 #AO
 option.AO_MODE = Ambient Occlusion Mode
-option.AO_MODE.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO is the efficient standard; SSAO is heavier with a slightly different look. Off = no corner darkening.
-value.AO_MODE.0 = Off
+option.AO_MODE.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO is the screen-space horizon method; Vanilla AO keeps only the per-vertex darkening baked into geometry.
+value.AO_MODE.0 = Vanilla AO
 value.AO_MODE.1 = GTAO
-value.AO_MODE.2 = SSAO
 option.AO_TEMPORAL = Temporal Accumulation
 option.AO_TEMPORAL.comment = Smooths the darkening across frames to remove grain. Off = grainier but reacts instantly.
 option.GTAO_SLICES = GTAO Slices
@@ -376,13 +373,6 @@ suffix.AO_HISTORY_DISTANCE_LIMIT = \ m
 option.AO_HISTORY_DISTANCE_LIMIT.comment = Maximum depth mismatch allowed when reusing history: lower = less bleeding across surfaces, possibly more grain.
 option.AO_HISTORY_NORMAL_DOT_FLOOR = AO History Normal Threshold
 option.AO_HISTORY_NORMAL_DOT_FLOOR.comment = How strictly a surface must keep its facing for history reuse (cosine value; 0.866 = 30 degrees): higher = fewer smears when turning, possibly more grain.
-option.SSAO_SAMPLES = SSAO Samples
-option.SSAO_SAMPLES.comment = Quality of the SSAO mode: higher = smoother darkening, slower.
-option.SSAO_RADIUS = SSAO Radius
-suffix.SSAO_RADIUS = \ m
-option.SSAO_RADIUS.comment = World radius in metres. The on-screen radius is also capped at 5% of the shorter scene dimension.
-option.SSAO_STRENGTH = SSAO Contrast
-option.SSAO_STRENGTH.comment = How dark corners become. SSAO reads lighter than GTAO, so its default is steeper. 1.0 is linear.
 
 #Water
 option.WATER_SURFACE_QUALITY = Water Surface Quality

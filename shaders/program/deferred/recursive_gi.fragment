@@ -20,7 +20,6 @@
 #endif
 #if GI_MODE == 2
 #include "/lib/lighting/gtao.glsl"
-#include "/lib/lighting/ssao.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
 #endif
 
@@ -395,8 +394,6 @@ void main() {
 #else
 #if AO_MODE == 1
     float screen_ao = ComputeGTAOFromGeometry(uv, scene_depth, geometry_data.xy, ao_noise);
-#elif AO_MODE == 2
-    float screen_ao = ComputeSSAOFromGeometry(uv, scene_depth, geometry_data.xy, ao_noise);
 #else
     float screen_ao = surface_data.a;
 #endif

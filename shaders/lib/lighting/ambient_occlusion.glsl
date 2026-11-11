@@ -11,11 +11,7 @@
 // irradiance together with its bounce instead of filtering AO separately.
 vec3 ApplySurfaceAO(inout float screen_ao, vec3 albedo) {
     screen_ao = saturate(screen_ao);
-#if AO_MODE == 2
-    if (SSAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, SSAO_STRENGTH);
-#else
     if (GTAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, GTAO_STRENGTH);
-#endif
 #ifdef GTAO_MULTIBOUNCE
     // Jimenez et al. 2016, albedo-dependent multiple-bounce AO.
     vec3 a = 2.0404 * albedo - 0.3324;
@@ -34,7 +30,7 @@ vec3 ResolveSurfaceAO(ivec2 texel, vec3 albedo, float vertex_ao, bool is_hand, o
     return vec3(1.0);
 #else
     if (is_hand) return vec3(1.0);
-#if defined(GTAO) || defined(SSAO)
+#if defined(GTAO)
     screen_ao = DecodeAOHistory(texelFetch(colortex8, texel, 0).r);
     return ApplySurfaceAO(screen_ao, albedo);
 #else

@@ -10,8 +10,8 @@
 // The skybox feeds the L0-L2 SH probe and the reflection fallbacks (fine detail
 // averaged away), so it bakes with a reduced march budget; the screen pass keeps
 // the settings-level budgets.
-#define CLOUD_SKYBOX_VIEW_STEPS 48
-#define CLOUD_SKYBOX_MIN_STEPS 16
+#define CLOUD_SKYBOX_VIEW_STEPS 24
+#define CLOUD_SKYBOX_MIN_STEPS 12
 #define CLOUD_SKYBOX_LIGHT_STEPS 2
 #undef CLOUD_VIEW_MAX_STEPS
 #define CLOUD_VIEW_MAX_STEPS CLOUD_SKYBOX_VIEW_STEPS
@@ -30,8 +30,9 @@ const ivec3 workGroups = ivec3(16, 16, 1);
 layout(rgba16f) uniform image2D uimg_sky_radiance;
 
 // Fixed-ratio EMA per texel refresh: one texel per cell per 4-frame cycle,
-// so the SH probe converges smoothly without re-baking every frame.
-const float CLOUD_SKYBOX_HISTORY_ALPHA = 0.25;
+// so the SH probe converges smoothly without re-baking every frame. This is
+// the fresh-sample weight; the history frame keeps the remaining 0.93.
+const float CLOUD_SKYBOX_FRESH_ALPHA = 0.07;
 
 // 2x2 checkerboard refresh order (same coarse-to-fine order as the screen
 // pass); 128x128 cells, one phase-matched texel re-marched per frame.
@@ -155,7 +156,7 @@ void main() {
         }
         float alpha = (full_init || previous.a < 0.5)
             ? 1.0
-            : CLOUD_SKYBOX_HISTORY_ALPHA;
+            : CLOUD_SKYBOX_FRESH_ALPHA;
         imageStore(
             uimg_sky_radiance,
             texel,

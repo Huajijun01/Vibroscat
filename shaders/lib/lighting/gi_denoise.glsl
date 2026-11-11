@@ -85,7 +85,8 @@ vec3 AccumulateGI(vec3 current_irradiance, float sample_sigma,
 // geometry, then weight by spatial distance, plane agreement and convergence.
 bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
         vec2 receiver_pixel, vec4 receiver_plane, float inverse_tolerance,
-        vec3 normal_world, float spatial_falloff, out vec3 irradiance, out float age, out float weight) {
+        vec3 normal_world, uint normal_code, float spatial_falloff,
+        out vec3 irradiance, out float age, out float weight) {
     bool result = false;
     irradiance = vec3(0.0);
     age = 0.0;
@@ -97,7 +98,15 @@ bool SampleGITap(ivec2 sample_texel, ivec2 gi_size, vec2 block_scale,
         // code; source/format validation belongs to previous-frame readers.
         age = float(int(metadata.a) & 255);
         if (!(age < 1.0)) {
-            float normal_dot = dot(normal_world, GIHistoryNormal(metadata));
+            // An oct8 receiver and its oct6 center have dot >= 0.9977,
+            // inside the 0.95 cone. Other cells still need the full dot test.
+            uint payload = GIHistoryPayload(metadata);
+            float normal_dot = 1.0;
+            if ((payload & 4095u) != normal_code) {
+                vec3 sample_normal = DecodeOctahedralNormal(
+                    vec2(payload & 63u, (payload >> 6) & 63u) * (1.0 / 63.0));
+                normal_dot = dot(normal_world, sample_normal);
+            }
             if (!(normal_dot < GI_NORMAL_DOT_FLOOR)) {
                 vec2 sample_pixel = RepresentativePixel(sample_texel, GIHistoryOffset(metadata), block_scale);
                 // Receiver-plane distance in the per-pixel plane form built in
@@ -142,6 +151,8 @@ bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out
     vec4 receiver_plane = vec4(plane_xy * (2.0 / u_render_res),
         dot(plane_xy, ray_bias) - normal_view.z, dot(receiver_view, normal_view));
     float inverse_tolerance = 1.0 / (0.015 + abs(receiver_view.z) * 0.0015);
+    uvec2 normal_oct = uvec2(round(saturate(EncodeOctahedralNormal(normal_world)) * 63.0));
+    uint normal_code = normal_oct.x + (normal_oct.y << 6);
     vec3 irradiance_sum = vec3(0.0);
     float weight_sum = 0.0;
     float maximum_age = 0.0;
@@ -152,7 +163,7 @@ bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out
             float weight;
             if (!SampleGITap(base_texel + ivec2(x, y), gi_size, block_scale,
                     receiver_pixel, receiver_plane, inverse_tolerance,
-                    normal_world, 0.25, irradiance, age, weight)) continue;
+                    normal_world, normal_code, 0.25, irradiance, age, weight)) continue;
             irradiance_sum += irradiance * weight;
             weight_sum += weight;
             maximum_age = max(maximum_age, age);
@@ -168,7 +179,7 @@ bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out
             float weight;
             if (!SampleGITap(base_texel + offset, gi_size, block_scale,
                     receiver_pixel, receiver_plane, inverse_tolerance,
-                    normal_world, 0.25, irradiance, age, weight)) continue;
+                    normal_world, normal_code, 0.25, irradiance, age, weight)) continue;
             irradiance_sum += irradiance * weight;
             weight_sum += weight;
         }
@@ -187,7 +198,7 @@ bool ReconstructGI(ivec2 scene_texel, vec3 receiver_view, vec3 normal_world, out
             float weight;
             if (!SampleGITap(base_texel + offset, gi_size, block_scale,
                     receiver_pixel, receiver_plane, inverse_tolerance,
-                    normal_world, 0.04, irradiance, age, weight) || age < 16.0) continue;
+                    normal_world, normal_code, 0.04, irradiance, age, weight) || age < 16.0) continue;
             weight *= support_strength;
             irradiance_sum += irradiance * weight;
             weight_sum += weight;

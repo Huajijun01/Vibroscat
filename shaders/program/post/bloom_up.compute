@@ -7,6 +7,47 @@
 
 #include "/lib/post/bloom.glsl"
 
+// Large tiles use paired sampling with one output per invocation.
+#if BLOOM_DST_MIP <= 3
+#include "/lib/contract/uniforms.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(rgba16f) uniform image2D colorimg12;
+
+void main() {
+    ivec2 full_size = imageSize(colorimg12);
+    ivec2 src_origin = GetBloomMipOrigin(full_size, BLOOM_SRC_MIP);
+    ivec2 src_size = GetBloomMipSize(full_size, BLOOM_SRC_MIP);
+    ivec2 dst_origin = GetBloomMipOrigin(full_size, BLOOM_DST_MIP);
+    ivec2 dst_size = GetBloomMipSize(full_size, BLOOM_DST_MIP);
+    ivec2 dst_coord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(dst_coord, dst_size))) return;
+    vec2 pixel_size = 1.0 / vec2(full_size);
+    vec2 src_min = vec2(src_origin) + 0.5;
+    vec2 src_max = vec2(src_origin + src_size) - 0.5;
+    vec2 center = vec2(src_origin + (dst_coord >> 1)) + 0.5;
+
+    const vec3 WEIGHTS_EVEN = vec3(0.3125, 0.375, 0.3125);
+    const vec3 OFFSETS_EVEN = vec3(-1.2, 0.0, 1.2);
+    const vec3 WEIGHTS_ODD = vec3(0.109959, 0.780082, 0.109959);
+    const vec3 OFFSETS_ODD = vec3(-1.0 - 0.007144 / 0.109959, 0.5, 2.0 + 0.007144 / 0.109959);
+    vec3 weights_x = (dst_coord.x & 1) == 0 ? WEIGHTS_EVEN : WEIGHTS_ODD;
+    vec3 offsets_x = (dst_coord.x & 1) == 0 ? OFFSETS_EVEN : OFFSETS_ODD;
+    vec3 weights_y = (dst_coord.y & 1) == 0 ? WEIGHTS_EVEN : WEIGHTS_ODD;
+    vec3 offsets_y = (dst_coord.y & 1) == 0 ? OFFSETS_EVEN : OFFSETS_ODD;
+
+    vec3 result = vec3(0.0);
+    for (int y = 0; y < 3; y++) {
+        for (int x = 0; x < 3; x++) {
+            vec2 position = clamp(center + vec2(offsets_x[x], offsets_y[y]), src_min, src_max);
+            result += textureLod(colortex12, position * pixel_size, 0.0).rgb * weights_x[x] * weights_y[y];
+        }
+    }
+    ivec2 destination = dst_origin + dst_coord;
+    imageStore(colorimg12, destination, vec4(imageLoad(colorimg12, destination).rgb + result, 0.0));
+}
+
+#else
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba16f) uniform restrict image2D colorimg12;
 
@@ -87,3 +128,5 @@ void main() {
     if (all(lessThan(out_base + ivec2(1, 1), dst_size)))
         imageStore(colorimg12, dst_origin + out_base + ivec2(1, 1), vec4(imageLoad(colorimg12, dst_origin + out_base + ivec2(1, 1)).rgb + c11, 0.0));
 }
+
+#endif

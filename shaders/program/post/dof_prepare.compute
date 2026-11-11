@@ -15,23 +15,23 @@ void main() {
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(texel, ivec2(u_render_res)))) return;
 
+    // Previous/current slots are disjoint throughout this dispatch. Every
+    // invocation derives the same focus; only (0,0) publishes current state.
+    int focus_slot = frameCounter & 1;
+    float target_inverse_m = DofInverseDepth(texelFetch(depthtex2, ivec2(u_render_res * 0.5), 0).r);
+    float previous_inverse_m = dof_focus_inverse_m[focus_slot ^ 1];
+    if (frameCounter <= 1) previous_inverse_m = target_inverse_m;
+    float focus_inverse_m = mix(target_inverse_m, previous_inverse_m,
+        exp2(-frameTime / DOF_FOCUS_HALFLIFE_SECONDS));
+    float lens_scale = DOF_LENS_SCALE * DOF_STRENGTH * viewHeight / 1080.0;
     if (all(equal(texel, ivec2(0)))) {
-        // Only this invocation reads/writes focus. Packing never consumes it;
-        // the host's compute-to-draw barrier exposes it to the gather and TAA.
-        float target_inverse_m = DofInverseDepth(texelFetch(depthtex2, ivec2(u_render_res * 0.5), 0).r);
-        float previous_inverse_m = dof_focus_inverse_m;
-        if (frameCounter <= 1) previous_inverse_m = target_inverse_m;
-        float focus_inverse_m = mix(target_inverse_m, previous_inverse_m,
-            exp2(-frameTime / DOF_FOCUS_HALFLIFE_SECONDS));
-        dof_focus_inverse_m = focus_inverse_m;
-        dof_focus_change_px = abs(focus_inverse_m - previous_inverse_m)
-            * (DOF_LENS_SCALE * DOF_STRENGTH * viewHeight / 1080.0);
-        dof_target_inverse_m = target_inverse_m;
+        dof_focus_inverse_m[focus_slot] = focus_inverse_m;
+        dof_focus_change_px = abs(focus_inverse_m - previous_inverse_m) * lens_scale;
         dof_focus_frame = uint(frameCounter);
     }
-
-    // Pack HDR color and its matching physical inverse depth once. The
-    // fragment's support search reads A; each color gather reads one RGBA.
-    // R11G11B10F color is exactly representable in the existing RGBA16F target.
-    imageStore(colorimg12, texel, vec4(texelFetch(colortex0, texel, 0).rgb, DofSceneInverseDepth(texel)));
+    float inverse_m = DofSceneInverseDepth(texel);
+    // Convert once, before FP16 storage. Keeping this coordinate uncapped
+    // preserves source ordering even when both optical disks reach the cap.
+    float coc_px = inverse_m < 0.0 ? DOF_HAND_COC : (focus_inverse_m - inverse_m) * lens_scale;
+    imageStore(colorimg12, texel, vec4(texelFetch(colortex0, texel, 0).rgb, coc_px));
 }

@@ -12,64 +12,66 @@ const float COLOR_JITTER_SEED = 29.0;
 layout(location = 0) out vec3 out_color;
 
 vec3 DepthOfField(ivec2 texel) {
+#if defined(TAAU_ACTIVE)
+    vec2 sample_scale = u_render_scale;
+#else
+    const vec2 sample_scale = vec2(1.0);
+#endif
     vec4 center_data = texelFetch(colortex12, texel, 0);
     vec3 center_color = center_data.rgb;
-    if (center_data.a < 0.0) return center_color;
+    if (center_data.a == DOF_HAND_COC) return center_color;
     float resolution_scale = viewHeight / 1080.0;
-    float lens_scale_px_m = DOF_LENS_SCALE * DOF_STRENGTH * resolution_scale;
     float radius_limit_px = DOF_RADIUS_LIMIT * resolution_scale;
-    float center_radius_px = abs(DofRadius(center_data.a, lens_scale_px_m, radius_limit_px));
+    float center_radius_px = min(abs(center_data.a), radius_limit_px);
     float gather_radius_px = center_radius_px;
 
 #ifdef TAA
-    vec2 dither = SampleSTBNPair(texel, STBNFrame(), STBN_STREAM_1, ivec2(43, 17));
+    float dither = SampleSTBN(texel, STBNFrame());
 #else
-    vec2 dither = SampleSTBNPair(texel, 0, STBN_STREAM_1, ivec2(43, 17));
+    float dither = SampleSTBN(texel, 0);
 #endif
-    vec2 direction = vec2(cos(dither.x * 6.28318530718), sin(dither.x * 6.28318530718));
+    vec2 direction = vec2(cos(dither * 6.28318530718), sin(dither * 6.28318530718));
     vec2 search_direction = direction;
-    for (int i = 0; i < DOF_SEARCH_SAMPLES; i++) {
-        float search_radius_px = radius_limit_px * sqrt((float(i) + dither.y) / float(DOF_SEARCH_SAMPLES));
-        ivec2 source_texel = texel + ivec2(round(search_direction * search_radius_px * u_render_scale));
+    for (int i = 0; i < DOF_SEARCH_SAMPLES && gather_radius_px < radius_limit_px; i++) {
+        float search_radius_px = radius_limit_px * DOF_SEARCH_RADII[i];
+        ivec2 source_texel = texel + ivec2(round(search_direction * search_radius_px * sample_scale));
         source_texel = clamp(source_texel, ivec2(0), ivec2(u_render_res) - 1);
-        float source_inverse_m = texelFetch(colortex12, source_texel, 0).a;
-        if (source_inverse_m > center_data.a) {
-            float source_radius_px = abs(DofRadius(source_inverse_m, lens_scale_px_m, radius_limit_px));
-            vec2 separation_px = vec2(source_texel - texel) / u_render_scale;
-            if (dot(separation_px, separation_px) < source_radius_px * source_radius_px) {
-                gather_radius_px = max(gather_radius_px, source_radius_px);
-            }
-        }
+        float source_coc_px = texelFetch(colortex12, source_texel, 0).a;
+        float source_radius_px = min(abs(source_coc_px), radius_limit_px);
+        vec2 separation_px = vec2(source_texel - texel) / sample_scale;
+        float coverage = float(source_coc_px < center_data.a
+            && dot(separation_px, separation_px) < source_radius_px * source_radius_px);
+        gather_radius_px = max(gather_radius_px, source_radius_px * coverage);
         search_direction = mat2(DOF_GOLDEN_ROTATION.x, DOF_GOLDEN_ROTATION.y,
             -DOF_GOLDEN_ROTATION.y, DOF_GOLDEN_ROTATION.x) * search_direction;
     }
     if (gather_radius_px < 0.5) return center_color;
 
-    float inverse_depth_tolerance_m = 0.5 / lens_scale_px_m;
     vec3 base_sum = vec3(0.0);
     float base_weight = 0.0;
     vec3 foreground_sum = vec3(0.0);
     float foreground_weight = 0.0;
     for (int i = 0; i < DOF_GATHER_SAMPLES; i++) {
-        float sample_radius_px = gather_radius_px * sqrt((float(i) + dither.y) / float(DOF_GATHER_SAMPLES));
-        ivec2 source_texel = texel + ivec2(round(direction * sample_radius_px * u_render_scale));
+        float sample_radius_px = gather_radius_px * DOF_GATHER_RADII[i];
+        ivec2 source_texel = texel + ivec2(round(direction * sample_radius_px * sample_scale));
         source_texel = clamp(source_texel, ivec2(0), ivec2(u_render_res) - 1);
         vec4 source_data = texelFetch(colortex12, source_texel, 0);
-        vec2 separation_px = vec2(source_texel - texel) / u_render_scale;
+        vec2 separation_px = vec2(source_texel - texel) / sample_scale;
         float separation_squared = dot(separation_px, separation_px);
-        float foreground = float(source_data.a > center_data.a + inverse_depth_tolerance_m);
-        float world_sample = float(source_data.a >= 0.0);
-        float source_radius_px = DofRadius(source_data.a, lens_scale_px_m, radius_limit_px);
-        float source_radius_squared = source_radius_px * source_radius_px;
-        // Unit-energy source disk with a one-pixel reconstruction footprint.
-        float near_weight = world_sample * foreground * float(separation_squared < source_radius_squared)
-            / max(source_radius_squared, 1.0);
-        float far_weight = world_sample * (1.0 - foreground)
-            * float(separation_squared <= center_radius_px * center_radius_px);
-        foreground_sum += source_data.rgb * near_weight;
-        foreground_weight += near_weight;
-        base_sum += source_data.rgb * far_weight;
-        base_weight += far_weight;
+        // Ordinary base samples do not evaluate the foreground disk's
+        // reciprocal-area weight or update its independent accumulator.
+        if (source_data.a < center_data.a - 0.5) {
+            float source_radius_squared = min(source_data.a * source_data.a, radius_limit_px * radius_limit_px);
+            // Unit-energy source disk with a one-pixel reconstruction footprint.
+            float near_weight = float(separation_squared < source_radius_squared) / max(source_radius_squared, 1.0);
+            foreground_sum += source_data.rgb * near_weight;
+            foreground_weight += near_weight;
+        } else {
+            float far_weight = float(source_data.a != DOF_HAND_COC
+                && separation_squared <= center_radius_px * center_radius_px);
+            base_sum += source_data.rgb * far_weight;
+            base_weight += far_weight;
+        }
         direction = mat2(DOF_GOLDEN_ROTATION.x, DOF_GOLDEN_ROTATION.y,
             -DOF_GOLDEN_ROTATION.y, DOF_GOLDEN_ROTATION.x) * direction;
     }

@@ -11,7 +11,13 @@
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba16f) uniform restrict image2D colorimg12;
 
-shared vec3 tile[33][33];
+// Source values already reside in RGBA16F; packing preserves their precision.
+shared uvec2 tile[33][33];
+
+vec3 LoadBloomTile(ivec2 coord) {
+    uvec2 value = tile[coord.y][coord.x];
+    return vec3(unpackHalf2x16(value.x), unpackHalf2x16(value.y).x);
+}
 
 void main() {
 #ifndef BLOOM
@@ -37,7 +43,8 @@ void main() {
         uint ty = i / 33u;
         uint tx = i % 33u;
         ivec2 coord = clamp(input_base + ivec2(tx, ty), src_origin, src_limit);
-        tile[ty][tx] = imageLoad(colorimg12, coord).rgb;
+        vec3 value = imageLoad(colorimg12, coord).rgb;
+        tile[ty][tx] = uvec2(packHalf2x16(value.rg), packHalf2x16(vec2(value.b, 0.0)));
     }
 
     barrier();
@@ -46,15 +53,15 @@ void main() {
 
     // Separable 3x3 tent (1/4, 1/2, 1/4) on the 2x2 block center (see
     // bloom_extract.compute for the low-pass rationale).
-    vec3 s_center = tile[tile_center.y + 0][tile_center.x + 0];
-    vec3 s_left   = tile[tile_center.y + 0][tile_center.x - 1];
-    vec3 s_right  = tile[tile_center.y + 0][tile_center.x + 1];
-    vec3 s_up     = tile[tile_center.y - 1][tile_center.x + 0];
-    vec3 s_down   = tile[tile_center.y + 1][tile_center.x + 0];
-    vec3 s_tl     = tile[tile_center.y - 1][tile_center.x - 1];
-    vec3 s_tr     = tile[tile_center.y - 1][tile_center.x + 1];
-    vec3 s_bl     = tile[tile_center.y + 1][tile_center.x - 1];
-    vec3 s_br     = tile[tile_center.y + 1][tile_center.x + 1];
+    vec3 s_center = LoadBloomTile(tile_center);
+    vec3 s_left   = LoadBloomTile(tile_center + ivec2(-1, 0));
+    vec3 s_right  = LoadBloomTile(tile_center + ivec2(1, 0));
+    vec3 s_up     = LoadBloomTile(tile_center + ivec2(0, -1));
+    vec3 s_down   = LoadBloomTile(tile_center + ivec2(0, 1));
+    vec3 s_tl     = LoadBloomTile(tile_center + ivec2(-1, -1));
+    vec3 s_tr     = LoadBloomTile(tile_center + ivec2(1, -1));
+    vec3 s_bl     = LoadBloomTile(tile_center + ivec2(-1, 1));
+    vec3 s_br     = LoadBloomTile(tile_center + ivec2(1, 1));
 
     vec3 result = vec3(0.0);
     result += s_center * 0.25;

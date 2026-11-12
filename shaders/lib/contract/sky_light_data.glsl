@@ -8,7 +8,7 @@
 //   sky_sh_*2 = (L2(x^2-z^2), unused, unused, unused)
 // Upper-sky radiance plus a uniform Lambertian lower-hemisphere ground
 // (20% neutral reflectance, illuminated by upper-sky irradiance). These stay
-// raw radiance coefficients: diffuse, rough-reflection and fog consumers
+// raw radiance coefficients: diffuse, cloud, rough-reflection and fog consumers
 // apply their own kernels. Clouds break sun-azimuth mirror symmetry, so the
 // L1x and xz/xy L2 terms stay nonzero. ground_light is direct sun/moon light
 // sampled at the camera altitude, not the diffuse ground closure already

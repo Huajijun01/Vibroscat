@@ -6,6 +6,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/atmosphere/illumination.glsl"
+#include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/cloud/density.glsl"
 #include "/lib/cloud/geometry.glsl"
 #include "/lib/cloud/signal.glsl"
@@ -130,13 +131,16 @@ vec3 RelightClouds(CloudSignal signal, vec3 surface_position, float surface_r,
     vec3 sun_color = AtmosphereDirectIrradianceAt(surface_r, surface_r2, sun_mu, ATM_SOLAR);
     vec3 moon_color = AtmosphereDirectIrradianceAt(surface_r, surface_r2, moon_mu, ATM_MOON_IRR);
     // The integrated sky weight already includes view absorption; only its
-    // incident color is evaluated here. As the view transmittance rises
-    // toward the thin edges, the incident color hands over from the
-    // multiple-scattering LUT to the background sky itself, so the edge tint
-    // matches the color the compositor blends over instead of carrying a
-    // mismatched LUT color.
+    // incident color is evaluated here. L0 irradiance / PI is the camera
+    // probe's spherical-average radiance, independent of the cloud surface.
+    // The skybox bake reads the previous frame's SH before prepare2 updates
+    // it; the first frame seeds from clear sky while that probe is unavailable.
+    vec3 ambient_sky_color = frameCounter == 0
+        ? background_sky_color
+        : EvalSkyLightAverage() / PI;
+    // Thin edges receive the background color the compositor blends over.
     vec3 ambient_cloud_radiance = mix(
-        AtmosphereAmbientRadianceAt(surface_r, sun_mu) * CLOUD_SKY_LIGHT_STRENGTH,
+        ambient_sky_color * CLOUD_AMBIENT_STRENGTH,
         background_sky_color,
         signal.transmittance) * signal.scattering.y;
     // One trace means one directional channel, so the light color carries both

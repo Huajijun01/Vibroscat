@@ -2,7 +2,6 @@
 #define LIB_ATMOSPHERE_ILLUMINATION_GLSL
 
 #include "/lib/contract/uniforms.glsl"
-#include "/lib/atmosphere/media.glsl"
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 
@@ -23,15 +22,6 @@ vec3 AtmosphereDirectIrradianceAt(float radius_km, float radius_squared_km, floa
 ) {
     vec4 transmittance = SampleTransmittance(utex_tslut, radius_km, radius_squared_km, light_mu);
     return SpectralToLinearSRGBWhiteBalanced(transmittance * irradiance) * ATM_EXPOSURE;
-}
-
-// Local solar multiple-scattering source used for volumetric-cloud fill.
-// This is distinct from the clear directional sky color used by cirrus.
-vec3 AtmosphereAmbientRadianceAt(float radius_km, float sun_mu) {
-    AtmosphereMedia medium = AtmosphereMediaAt(radius_km);
-    vec4 multiple_scattering = SampleMultiScatter(utex_mslut, radius_km, sun_mu);
-    return SpectralToLinearSRGBWhiteBalanced(
-        medium.sigma_s * multiple_scattering * ATM_SOLAR) * ATM_EXPOSURE;
 }
 
 #endif // LIB_ATMOSPHERE_ILLUMINATION_GLSL

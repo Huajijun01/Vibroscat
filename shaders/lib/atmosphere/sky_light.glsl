@@ -116,7 +116,7 @@ vec3 EvalSkyLightL2(vec3 normal_world) {
 }
 
 // Isotropic component of the SH sky irradiance (L0 only). Used for
-// multiple-scattered air/water fog, where the scattered light is treated as
+// cloud fill and multiple-scattered air/water fog, where light is treated as
 // direction-independent instead of using the view-direction irradiance.
 vec3 EvalSkyLightAverage() {
     return max(vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * (SH_Y0 * SH_A0), vec3(0.0));

@@ -255,10 +255,12 @@ option.CLOUD_MS_ECCENTRICITY = Multi-Scatter Eccentricity
 option.CLOUD_MS_ECCENTRICITY.comment = How strongly the interior bounce glow concentrates toward the sun: higher = a stronger halo around the sun inside the cloud.
 option.CLOUD_MS_ISOTROPIC = Multi-Scatter Fill Light
 option.CLOUD_MS_ISOTROPIC.comment = Direction-independent fill light that keeps shadowed cloud interiors from going black: higher = brighter, milkier cores.
-option.CLOUD_SKY_LIGHT_STRENGTH = Cloud Sky Light Strength
-option.CLOUD_SKY_LIGHT_STRENGTH.comment = Ambient sky light received by both cloud layers: higher = brighter shadowed sides and undersides, a softer look.
+option.CLOUD_AMBIENT_STRENGTH = Cloud Ambient Strength
+option.CLOUD_AMBIENT_STRENGTH.comment = Multiplier on volumetric clouds' average sky ambient color: higher = brighter shadowed sides and undersides. Thin edges retain their transition to background sky color.
+option.CLOUD_SKY_LIGHT_STRENGTH = Cirrus Sky Light Strength
+option.CLOUD_SKY_LIGHT_STRENGTH.comment = Ambient sky fill received by cirrus: higher = brighter shadowed regions.
 option.CIRRUS_MS_ISOTROPIC = Cirrus Fill Light
-option.CIRRUS_MS_ISOTROPIC.comment = Multiple scattering inside the cirrus sheet, scaled by optical depth: higher = brighter, fuller bodies. Sky fill is controlled separately by Cloud Sky Light Strength.
+option.CIRRUS_MS_ISOTROPIC.comment = Multiple scattering inside the cirrus sheet, scaled by optical depth: higher = brighter, fuller bodies. Sky fill is controlled separately by Cirrus Sky Light Strength.
 option.CLOUD_MILKYWAY_GLOW = Milky Way Cloud Glow
 option.CLOUD_MILKYWAY_GLOW.comment = Night glow of the Milky Way scattered inside the volumetric clouds. The transmission slider below controls its strength.
 option.CLOUD_MILKYWAY_TRANSMISSION = Milky Way Cloud Transmission

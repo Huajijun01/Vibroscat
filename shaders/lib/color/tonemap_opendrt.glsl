@@ -34,6 +34,8 @@
 //      and the final toe.
 //
 // Deviations from the reference:
+//   - Gaussian hue windows use degree-six fits in the cosine of the hue
+//     offset, evaluated directly from the opponent direction.
 //   - SDR only: the peak luminance is fixed at 100 nits, so the display
 //     scale ts_dsc is 1, the HDR gray-boost term is log2(1) = 0, and the
 //     HDR purity lerp that would blend ts_s1 towards s_Lp100 has weight zero
@@ -61,7 +63,6 @@ const mat3 ODT_P3D65_TO_SRGB = mat3(
     vec3(0.0000000000, 0.0000000000, 1.0982736001));
 
 const float ODT_PI = 3.14159265358979323846;
-const float ODT_TWO_PI = 6.28318530717958647692;
 const float ODT_SQRT3_INVERSE = 0.57735026918962576;
 // SDR paper white in nits, the reference's fixed SDR peak luminance.
 const float ODT_PEAK_LUMINANCE = 100.0;
@@ -137,20 +138,18 @@ vec2 ODTOpponent(vec3 rgb) {
     return vec2(rgb.r - rgb.b, rgb.g - (rgb.r + rgb.b) * 0.5);
 }
 
-// Truncated remainder, the reference's C `fmod`. GLSL has no `fmod`, and its
-// `mod` floors the quotient instead, which folds a negative argument by a
-// full turn and would hand the hue windows a different angle than the
-// reference computes. The explicit trunc form keeps the port comparable with
-// the DCTL:
-float ODTTruncatedRemainder(float x, float y) {
-    return x - y * trunc(x / y);
-}
-
-// Gaussian hue-angle window: the reference's gauss_window over a hue offset
-// wrapped into [-PI, PI].
-float ODTWindow(float hue, float center, float width) {
-    float offset = ODTTruncatedRemainder(hue - center + ODT_PI, ODT_TWO_PI) - ODT_PI;
-    return exp(-offset * offset / width);
+// Degree-six fits of exp(-acos(cosine)^2 / width) for cosine in [-1, 1].
+// Constant window centers fold into unit vectors; no hue angle is needed.
+float ODTWindow(vec2 direction, float center, float width) {
+    float angle = center - ODT_PI - ODT_HUE_ORIGIN;
+    float cosine = dot(direction, vec2(cos(angle), sin(angle)));
+    float rgb_window = (((((0.038401652025 * cosine + 0.11732008925) * cosine + 0.20402394936)
+        * cosine + 0.26837042811) * cosine + 0.23376258945) * cosine + 0.11397148313)
+        * cosine + 0.024149808674;
+    float cmy_window = (((((0.13953249567 * cosine + 0.27290991169) * cosine + 0.22216742163)
+        * cosine + 0.1753894888) * cosine + 0.13085745147) * cosine + 0.049597223466)
+        * cosine + 0.0095460072666;
+    return max(width == ODT_HUE_WINDOW_RGB ? rgb_window : cmy_window, 0.0);
 }
 
 // Softplus with the reference's early-out; the per-channel purity softclip
@@ -196,23 +195,22 @@ vec3 TonemapOpenDRT(vec3 linear_rgb) {
 
     vec2 opponent = ODTOpponent(rgb);
     float ach_d = 1.25 * ODTToeQuadratic(0.5 * length(opponent), ODT_ACHROMATIC_TOE);
-    // DCTL atan2(0, 0) selects zero for neutrals; GLSL atan(0, 0) is undefined.
-    float opponent_angle = all(equal(opponent, vec2(0.0))) ? 0.0 : atan(opponent.x, opponent.y);
-    float hue = ODTTruncatedRemainder(opponent_angle + ODT_PI + ODT_HUE_ORIGIN,
-        ODT_TWO_PI);
+    // Neutral colors routinely have zero opponent length; their hue weights
+    // are immaterial because the achromatic-distance multiplier is zero.
+    vec2 hue_direction = opponent.yx * inversesqrt(max(dot(opponent, opponent), 1.0e-20));
 
     vec3 hue_rgb = vec3(
-        ODTWindow(hue, ODT_HUE_ANGLE_R, ODT_HUE_WINDOW_RGB),
-        ODTWindow(hue, ODT_HUE_ANGLE_G, ODT_HUE_WINDOW_RGB),
-        ODTWindow(hue, ODT_HUE_ANGLE_B, ODT_HUE_WINDOW_RGB));
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_R, ODT_HUE_WINDOW_RGB),
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_G, ODT_HUE_WINDOW_RGB),
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_B, ODT_HUE_WINDOW_RGB));
     vec3 hue_rgb_shift = vec3(
-        ODTWindow(hue, ODT_HUE_ANGLE_SHIFT_R, ODT_HUE_WINDOW_RGB),
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_SHIFT_R, ODT_HUE_WINDOW_RGB),
         hue_rgb.g,
-        ODTWindow(hue, ODT_HUE_ANGLE_SHIFT_B, ODT_HUE_WINDOW_RGB));
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_SHIFT_B, ODT_HUE_WINDOW_RGB));
     vec3 hue_cmy = vec3(
-        ODTWindow(hue, ODT_HUE_ANGLE_C, ODT_HUE_WINDOW_CMY),
-        ODTWindow(hue, ODT_HUE_ANGLE_M, ODT_HUE_WINDOW_CMY),
-        ODTWindow(hue, ODT_HUE_ANGLE_Y, ODT_HUE_WINDOW_CMY));
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_C, ODT_HUE_WINDOW_CMY),
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_M, ODT_HUE_WINDOW_CMY),
+        ODTWindow(hue_direction, ODT_HUE_ANGLE_Y, ODT_HUE_WINDOW_CMY));
 
     // --- Brilliance ---
     float brilliance_ramp = pow(tsn / (tsn + 1.0), 1.0 - ODT_BRILLIANCE_RANGE);

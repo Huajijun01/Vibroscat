@@ -25,21 +25,16 @@
 // display-linear" anchor exactly: 0.18 scene in gives 0.18 out.
 // The hue comparison itself stays in the reference's pure-2.2 domain.
 //
-// No lookup table: the curve is the reference's closed-form power form and
-// the hue repair is a handful of scalar operations.
+// Degree-six polynomials approximate the reference's toe and shoulder;
+// the hue repair retains the reference's signal-domain calculation.
 // ===========================================================================
 
 // AgX-HSV curve parameters (DRT Bench `AgxParameters::hsv_default()`).
-const float AGX_TOE_POWER = 1.55;
-const float AGX_SHOULDER_POWER = 5.2;
 const float AGX_GAMUT_COMPRESSION = 0.05;
 const float AGX_MIN_LOG2 = -12.473931188332412333;    // log2(0.18) - 10 EV
 const float AGX_INVERSE_DYNAMIC_RANGE = 0.060606060606060606; // 1 / 16.5 EV
 const float AGX_INPUT_PIVOT = 0.6060606060606061;     // 10 / 16.5 EV
 const float AGX_OUTPUT_PIVOT = 0.4613561300;          // sRGB OETF(0.18)
-const float AGX_PIVOT_SLOPE = 2.4606366;
-const float AGX_TOE_A = 11.2194730786;         // curve_coefficient(0.60606, 0.46136, 2.46064, 1.55)
-const float AGX_SHOULDER_A = 2568.7503334098;  // curve_coefficient(0.39394, 0.53864, 2.46064, 5.2)
 const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.3958121374360396);
 
 const float AGX_WHITE_HUE_RETENTION = 0.5;
@@ -60,17 +55,16 @@ vec3 AgXOutset(vec3 color) {
         / (1.0 - AGX_GAMUT_COMPRESSION);
 }
 
-// One channel of the toe/shoulder power curve: continuous at the pivot with
-// the slope the reference's `curve_coefficient` solves for.
+// Piecewise degree-six fits over the normalized log shaper [0, 1].
+// Both segments preserve the pivot and their outer endpoint values.
 float AgXCurveComponent(float value) {
     bool toe = value <= AGX_INPUT_PIVOT;
-    float power = toe ? AGX_TOE_POWER : AGX_SHOULDER_POWER;
-    float coefficient = toe ? AGX_TOE_A : AGX_SHOULDER_A;
-    float inverse_power = toe ? -1.0 / AGX_TOE_POWER
-                              : -1.0 / AGX_SHOULDER_POWER;
-    float pivot_offset = value - AGX_INPUT_PIVOT;
-    return AGX_OUTPUT_PIVOT + AGX_PIVOT_SLOPE * pivot_offset
-        * pow(1.0 + coefficient * pow(abs(pivot_offset), power), inverse_power);
+    float t = (value - AGX_INPUT_PIVOT) * (toe ? -1.65 : 2.5384615384615385);
+    float toe_value = (((((-1.0720958708 * t + 3.1268145866) * t - 2.7914172515) * t
+        - 0.27643456832) * t + 2.1409202513) * t - 1.5891432771) * t + AGX_OUTPUT_PIVOT;
+    float shoulder_value = (((((-4.8885598032 * t + 14.96519738) * t - 15.989722099) * t
+        + 6.5648895721) * t - 1.1605649624) * t + 1.0474037825) * t + AGX_OUTPUT_PIVOT;
+    return toe ? toe_value : shoulder_value;
 }
 
 // Hue repair: keep the original hue, faded by how bright the pixel became.
@@ -99,7 +93,7 @@ vec3 TonemapAGX(vec3 linear_rgb) {
     working = (log2(max(working, 2e-10)) - AGX_MIN_LOG2) * AGX_INVERSE_DYNAMIC_RANGE;
     working = saturate(working);
 
-    // Toe/shoulder power curve, then back out of the working gamut.
+    // Toe/shoulder curve, then back out of the working gamut.
     working = vec3(AgXCurveComponent(working.x), AgXCurveComponent(working.y),
         AgXCurveComponent(working.z));
     working = AgXOutset(working);

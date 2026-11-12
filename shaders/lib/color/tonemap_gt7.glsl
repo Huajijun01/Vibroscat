@@ -18,7 +18,8 @@
 // twist. The sample's frame-buffer domain (1.0 = 100 nits, linear
 // Rec.2020, SDR paper white 250 nits) is entered and left through the
 // BT.709 <-> BT.2020 matrices below. The pack's SDR adaptation
-// anchors scene 18% gray at 18% display-linear and approaches paper white
+// approximately anchors scene 18% gray at 18% display-linear and approaches
+// paper white
 // smoothly; see GT7_MID_GREY_SCALE and the alpha-0 shoulder below.
 // ===========================================================================
 
@@ -60,17 +61,25 @@ const mat3 GT7_ICTCP_TO_LMS = mat3(
     vec3(0.0086090370, -0.0086090370, 0.5600313357),
     vec3(0.1110296250, -0.1110296250, -0.3206271750));
 
-// ST 2084 transfer on the sample's frame-buffer scale (1.0 = 100 nits).
+// ST 2084 approximations on the frame-buffer scale (1.0 = 100 nits).
+// The encoder is a degree-4/4 rational fit in the fourth root of [0, 200000].
+// The decoder fits sqrt(luminance) over PQ [0, 1] and squares the result.
 float InverseEotfST2084(float framebuffer) {
-    float shaped = pow(max(framebuffer, 0.0) * 0.01, 0.1593017578125);
-    return pow((0.8359375 + 18.8515625 * shaped) / (1.0 + 18.6875 * shaped), 78.84375);
+    float t = sqrt(sqrt(max(framebuffer, 0.0)));
+    float numerator = (((2.3004936807 * t + 19.578484656) * t + 2.3376490862) * t
+        - 0.035154822768) * t + 0.00013389250855;
+    float denominator = (((1.2172895108 * t + 15.544603934) * t + 23.932019724) * t
+        + 5.9143226671) * t + 1.0;
+    return numerator / denominator;
 }
 
 float EotfST2084(float pq) {
-    // The official EOTF limits PQ to its normalized signal domain before
-    // decoding; above 1 its rational denominator can become negative.
-    float shaped = pow(saturate(pq), 1.0 / 78.84375);
-    return 100.0 * pow(saturate(shaped - 0.8359375) / (18.8515625 - 18.6875 * shaped), 6.277394636015);
+    float t = saturate(pq);
+    float numerator = ((-0.5306719001 * t + 0.6658327258) * t + 0.39794461679) * t
+        + 0.00065304196493;
+    float denominator = ((-0.30650758822 * t + 1.3182563834) * t - 1.9583739718) * t + 1.0;
+    float root = numerator / denominator;
+    return root * root;
 }
 
 vec3 RGBToICtCp(vec3 rgb) {

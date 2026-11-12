@@ -120,7 +120,7 @@ const float eyeBrightnessHalflife = 3.0;
 #define WATER_GODRAYS
 #define WATER_GODRAYS_STRENGTH 3.0 // [0.0 0.5 1.0 1.5 2.0 3.0 4.0 6.0 8.0]
 #define WATER_GODRAYS_STEPS 32 // [8 12 16 24 32]
-#define WATER_GODRAYS_DISTANCE_M 32.0 // [2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0]
+#define WATER_GODRAYS_DISTANCE_M 16.0 // [2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0]
 #define WATER_GODRAYS_DEBUG 0 // [0 1]
 
 // Fade near-boundary geometry into the cloud-free sky in composite2.

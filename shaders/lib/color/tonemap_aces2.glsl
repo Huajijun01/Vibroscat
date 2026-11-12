@@ -6,9 +6,10 @@
 #if TONEMAP_MODE == 1
 #include "/lib/third_party/opencolorio/aces2_output.glsl"
 
-// Complete ACES 2.0 SDR output: AP1 clamp, Hellwig-2022 JMh, MM tonescale,
-// chroma compression and display-cusp gamut compression. The official
-// OpenColorIO implementation owns the transform and its immutable hue tables.
+// ACES 2.0 SDR approximation with a rational achromatic tonescale, analytic
+// hue boundaries and an interior gamut-compression bypass. The OpenColorIO-
+// derived transform retains the AP1 clamp, Hellwig-2022 responses and chroma
+// compression; saturated colors use the display-cusp intersection model.
 // Input is scene-linear Rec.709/D65; output is display-linear Rec.709/D65.
 // The pack's shared sRGB OETF is applied once, in post/final.fragment.
 // Uses the reference exposure without a middle-gray prescale.
@@ -20,10 +21,10 @@ const mat3 ACES2_SRGB_TO_AP0 = mat3(
     vec3(0.1773783199, 0.0967841283, 0.8709122763));
 
 vec3 TonemapACES2(vec3 linear_rgb) {
-    // Clamp in AP1 inside the reference transform, after converting the
+    // Clamp in AP1 inside the output transform, after converting the
     // signed source RGB; clipping Rec.709 first changes out-of-gamut hues.
     vec3 aces = ACES2_SRGB_TO_AP0 * linear_rgb;
-    return ACES2Official(vec4(aces, 1.0)).rgb;
+    return ACES2Output(vec4(aces, 1.0)).rgb;
 }
 #endif
 

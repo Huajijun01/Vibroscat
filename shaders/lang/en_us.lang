@@ -297,7 +297,7 @@ option.SHADOW_PCF_GAIN.comment = How fast the sample count grows as shadows get 
 option.SHADOW_PENUMBRA_CAP_BOOST = Penumbra Cap Boost
 option.SHADOW_PENUMBRA_CAP_BOOST.comment = Raises the maximum width soft shadows may reach. A fixed multiplier, the same at noon and sunset: higher = wider soft shadows, slower.
 option.SHADOW_SSS = Plant Translucency (SSS)
-option.SHADOW_SSS.comment = PCSS combines colored tissue scattering with a light-colored backlight sheen. LOW retains thin-sheet lighting.
+option.SHADOW_SSS.comment = PCSS combines isotropic colored tissue scattering with a light-colored backlight sheen. LOW uses thin-sheet lighting.
 option.SHADOW_SSS_TRANSMISSION = Plant SSS Intensity
 option.SHADOW_SSS_TRANSMISSION.comment = Scales colored scattering and the pale highlight toward the sun. Zero keeps ordinary diffuse, GGX and foliage shadow filtering; LOW scales thin-sheet transmission.
 option.SHADOW_SSS_STEPS = Plant Soft Shadow Samples

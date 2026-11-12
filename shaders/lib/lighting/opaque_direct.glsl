@@ -11,6 +11,7 @@
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/plant_subsurface.glsl"
 #include "/lib/material/model.glsl"
+#include "/lib/scattering/phase.glsl"
 #include "/lib/shadow/contact_shadow.glsl"
 #include "/lib/shadow/pcss.glsl"
 #include "/lib/shadow/plant_distant_shadow.glsl"
@@ -138,7 +139,7 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     if (scatter_active) {
         PlantScatteringCoefficients(albedo, amount, sigma_a, sigma_s);
         float light_view = dot(u_world_light_dir, view_to_eye);
-        phase = PlantScatteringPhase(light_view);
+        phase = PHASE_ISOTROPIC;
         vec3 sigma_t = sigma_a + sigma_s;
         vec3 attenuation;
         if (map_confidence >= 1.0) {
@@ -152,7 +153,7 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         // Art-directed tissue brightness and a pale, leaf-tinted backlight sheen.
         // Only the surface sheen uses visibility; tissue SSS retains its depth
         // attenuation independently of ordinary PCSS visibility.
-        vec3 tissue_scatter = 2.0 * albedo * sigma_s * phase * attenuation;
+        vec3 tissue_scatter = 2.0 * sigma_s * phase * attenuation;
         float sun_alignment = saturate(-light_view);
         float backlight_sheen = 0.35 * amount * Pow4(sun_alignment * sun_alignment)
             * shadow_visibility;

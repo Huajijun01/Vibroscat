@@ -50,11 +50,7 @@
 
 `shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPLv3），官方 Look 与 Tonescale 参数固定于 `tonemap_opendrt_presets.glsl`。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——固定 SDR 100 尼特显示目标，输出显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
 
-## 6. Revelation — 植物 SSS 材质（Apache-2.0）
-
-`shaders/lib/lighting/plant_subsurface.glsl` 的吸收/散射材质模型改编自 [Revelation Shaders](https://github.com/HaringPro/Revelation)（Copyright (C) 2026 HaringPro，Apache License 2.0，全文见附录 A）。
-
-## 7. NASA Deep Star Maps 2020（公有领域）
+## 6. NASA Deep Star Maps 2020（公有领域）
 
 `shaders/textures/starmap_2020_4k_logluv32.dat` 与 `shaders/textures/starmap_2020_256x128_logluv32.dat` 源自 NASA SVS #4851 "Deep Star Maps 2020"。
 

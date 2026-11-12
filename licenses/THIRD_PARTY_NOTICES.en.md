@@ -50,11 +50,7 @@ Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/suppl
 
 `shaders/lib/color/tonemap_opendrt.glsl` is ported from Jed Smith's [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl` (GPLv3), with the official Look and Tonescale parameters fixed in `tonemap_opendrt_presets.glsl`. Per GPL-3.0 section 5(a), this pack modified it: the SDR display target is fixed at 100 nits, the output is display-linear Rec.709, and the sRGB OETF is applied once by the final pass.
 
-## 6. Revelation — plant SSS material (Apache-2.0)
-
-The absorption/scattering material model in `shaders/lib/lighting/plant_subsurface.glsl` is adapted from [Revelation Shaders](https://github.com/HaringPro/Revelation) (Copyright (C) 2026 HaringPro, Apache License 2.0, full text in Appendix A).
-
-## 7. NASA Deep Star Maps 2020 (public domain)
+## 6. NASA Deep Star Maps 2020 (public domain)
 
 `shaders/textures/starmap_2020_4k_logluv32.dat` and `shaders/textures/starmap_2020_256x128_logluv32.dat` derive from NASA SVS #4851 "Deep Star Maps 2020".
 

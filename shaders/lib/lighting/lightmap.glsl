@@ -9,19 +9,22 @@
 
 // Block light: steep power curve for high dynamic range (torches are bright).
 float BlockLightFalloff(float lm_block) {
-    float d = (1.0 - lm_block) * 15.0 + 1.5;
+    float d = (1.0 - lm_block) * 15.0 + 1.0;
     return 1.0 / (d * d);
 }
 
 float BlockLightFromLm(float lm_block) {
-    float light = BlockLightFalloff(lm_block);
-    float light_zero = BlockLightFalloff(0.0);
-    return (light - light_zero) / (1.0 - light_zero);
+    // float light = BlockLightFalloff(lm_block);
+    // float light_zero = BlockLightFalloff(0.0);
+    // return (light - light_zero) / (1.0 - light_zero);
+    return lm_block * lm_block * lm_block;
 }
 
 // Sky light: rational ramp (FastAdjust, c=-0.85) - outdoor areas ramp quickly with sky access.
 float SkyLightFromLm(float lm_sky) {
-    return FastAdjust(lm_sky, -0.85);
+    // return FastAdjust(lm_sky, -0.85);
+    float k = lm_sky * lm_sky;
+    return k * k;
 }
 
 #endif // LIB_LIGHTING_LIGHTMAP_GLSL

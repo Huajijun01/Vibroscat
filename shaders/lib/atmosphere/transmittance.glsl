@@ -31,6 +31,10 @@ const float ATM_MS_RCP_SPAN = 1.0 / ATM_MS_SPAN_KM;
 
 // ===============================================================
 // LUT UV mapping
+//
+// The parameterization is ported from UE SkyAtmosphere
+// (github.com/sebh/UnrealEngineSkyAtmosphere, MIT;
+// licenses/THIRD_PARTY_NOTICES.md section 5).
 // ===============================================================
 
 vec2 GetTransmittanceLUTUV(float r, float r2, float mu) {
@@ -101,12 +105,9 @@ vec4 SampleMultiScatter(sampler2D lut_tex, float r, float mu) {
     return textureLod(lut_tex, GetMultiScatterLUTUV(r, mu), 0.0);
 }
 
-// Atmospheric transmittance along the camera->cloud-surface ray (UE
-// GetTransmittance scheme; (r, mu) camera, (r_d, mu_d) surface, same ray):
-//   ground miss:  T = T_lut(r, mu)      / T_lut(r_d, mu_d)
-//   ground hit:   T = T_lut(r_d, -mu_d) / T_lut(r, -mu)   (reciprocity)
-// The baked LUT stores the full chord for non-ground directions (incl.
-// slightly negative cosines), so the first branch is valid for dir.y < 0.
+// Camera->cloud-surface transmittance (UE GetTransmittance scheme):
+// miss: T_lut(r, mu) / T_lut(r_d, mu_d); hit: T_lut(r_d, -mu_d) / T_lut(r, -mu).
+// The LUT stores the full chord, so the miss branch is valid for dir.y < 0.
 vec3 AtmosphereTransmittanceToSurface(vec3 surface_pos, vec3 view_dir, float surface_r,
     bool ground_hit, vec4 camera_transmittance
 ) {

@@ -44,7 +44,33 @@ Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/suppl
 
 `shaders/lib/color/tonemap_opendrt.glsl` is ported from Jed Smith's [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl` (GPLv3), with the official Standard Look parameters fixed as immutable constants in that file. Per GPL-3.0 section 5(a), this pack modified it: the SDR display target is fixed at 100 nits, the output is display-linear Rec.709, and the sRGB OETF is applied once by the final pass.
 
-## 5. NASA Deep Star Maps 2020 (public domain)
+## 5. UE SkyAtmosphere transmittance LUT (MIT)
+
+The transmittance LUT sampling scheme and UV parameterization (`GetTransmittanceLUTUV`) in `shaders/lib/atmosphere/transmittance.glsl` are ported from Sebastien Hillaire's UE SkyAtmosphere implementation ([github.com/sebh/UnrealEngineSkyAtmosphere](https://github.com/sebh/UnrealEngineSkyAtmosphere), Copyright (c) 2020 Epic Games, Inc.).
+
+> MIT License
+>
+> Copyright (c) 2020 Epic Games, Inc.
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+## 6. NASA Deep Star Maps 2020 (public domain)
 
 `shaders/textures/starmap_2020_4k_logluv32.dat` and `shaders/textures/starmap_2020_256x128_logluv32.dat` derive from NASA SVS #4851 "Deep Star Maps 2020".
 

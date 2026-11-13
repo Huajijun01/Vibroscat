@@ -44,7 +44,33 @@
 
 `shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPLv3），官方 Standard Look 参数固定为该文件内的不可变常量。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——固定 SDR 100 尼特显示目标，输出显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
 
-## 5. NASA Deep Star Maps 2020（公有领域）
+## 5. UE SkyAtmosphere 透射率 LUT（MIT）
+
+`shaders/lib/atmosphere/transmittance.glsl` 的透射率 LUT 采样方案与 UV 参数化（`GetTransmittanceLUTUV`）移植自 Sebastien Hillaire 的 UE SkyAtmosphere 实现（[github.com/sebh/UnrealEngineSkyAtmosphere](https://github.com/sebh/UnrealEngineSkyAtmosphere)，Copyright (c) 2020 Epic Games, Inc.）。
+
+> MIT License
+>
+> Copyright (c) 2020 Epic Games, Inc.
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+## 6. NASA Deep Star Maps 2020（公有领域）
 
 `shaders/textures/starmap_2020_4k_logluv32.dat` 与 `shaders/textures/starmap_2020_256x128_logluv32.dat` 源自 NASA SVS #4851 "Deep Star Maps 2020"。
 

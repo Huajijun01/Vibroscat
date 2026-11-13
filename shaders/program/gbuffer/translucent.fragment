@@ -169,6 +169,15 @@ void main() {
     current_normal = normalize(mix(current_normal, v_normal, (1.0 - Pow4(dot(-view_dir, v_normal))) * 0.7));
 
     if (is_water) {
+        // Only back-facing water normals are projected to the view horizon.
+        // A small positive component keeps the projection finite and prevents
+        // roundoff from crossing the horizon; front-facing normals stay intact.
+        float water_ndotv = dot(current_normal, -view_dir);
+        if (water_ndotv < 0.0) {
+            const float horizon_ndotv = 1.0e-4;
+            current_normal = normalize(current_normal
+                - view_dir * (horizon_ndotv - water_ndotv));
+        }
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
         // Refraction perturbation stored for blend: the clamped normal minus
         // the flat-surface reference in the wave field's frame: world up

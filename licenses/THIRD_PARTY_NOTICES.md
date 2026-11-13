@@ -76,3 +76,9 @@
 
 > Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey
 > 来源：<https://svs.gsfc.nasa.gov/4851/>
+
+## 7. ACES Fitted (MIT)
+
+`shaders/lib/third_party/aces.glsl` is adapted from Stephen Hill's ACES fit in
+[BakingLab/ACES.hlsl](https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl).
+Copyright (c) 2016 MJP. The full MIT license is retained in that file.

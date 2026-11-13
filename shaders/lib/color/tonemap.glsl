@@ -2,10 +2,14 @@
 #define LIB_COLOR_TONEMAP_GLSL
 
 #include "/lib/contract/settings.glsl"
+#include "/lib/color/tonemap_aces_filmic.glsl"
+#include "/lib/color/tonemap_aces_fitted.glsl"
 #include "/lib/color/tonemap_agx.glsl"
 #include "/lib/color/tonemap_gt7.glsl"
+#include "/lib/color/tonemap_hable.glsl"
+#include "/lib/color/tonemap_hejl2015.glsl"
+#include "/lib/color/tonemap_lottes.glsl"
 #include "/lib/color/tonemap_opendrt.glsl"
-#include "/lib/third_party/aces.glsl"
 
 
 vec3 Tonemap(vec3 linear_rgb) {
@@ -15,6 +19,14 @@ vec3 Tonemap(vec3 linear_rgb) {
     return TonemapOpenDRT(linear_rgb);
 #elif TONEMAP_MODE == 6
     return TonemapACESFitted(linear_rgb);
+#elif TONEMAP_MODE == 7
+    return TonemapHable(linear_rgb);
+#elif TONEMAP_MODE == 8
+    return TonemapACESFilmic(linear_rgb);
+#elif TONEMAP_MODE == 9
+    return TonemapLottes(linear_rgb);
+#elif TONEMAP_MODE == 10
+    return TonemapHejl2015(linear_rgb);
 #else
     return TonemapGT7(linear_rgb);
 #endif

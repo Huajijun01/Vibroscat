@@ -79,6 +79,14 @@
 
 ## 7. ACES Fitted (MIT)
 
-`shaders/lib/third_party/aces.glsl` is adapted from Stephen Hill's ACES fit in
+`shaders/lib/color/tonemap_aces_fitted.glsl` is adapted from Stephen Hill's ACES fit in
 [BakingLab/ACES.hlsl](https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl).
 Copyright (c) 2016 MJP. The full MIT license is retained in that file.
+
+## 8. glsl-tone-map (MIT)
+
+`shaders/lib/color/tonemap_hable.glsl`, `shaders/lib/color/tonemap_aces_filmic.glsl`,
+`shaders/lib/color/tonemap_lottes.glsl`, and `shaders/lib/color/tonemap_hejl2015.glsl`
+adapt `uncharted2.glsl`, `aces.glsl`, `lottes.glsl`, and `hejl.glsl` from
+[glsl-tone-map](https://github.com/dmnsgn/shaders-tone-map/tree/main/packages/glsl-tone-map).
+Copyright (C) 2019 Damien Seguin. The full MIT license is retained in each file.

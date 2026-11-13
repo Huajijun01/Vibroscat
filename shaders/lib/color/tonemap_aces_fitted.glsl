@@ -20,8 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef LIB_THIRD_PARTY_ACES_GLSL
-#define LIB_THIRD_PARTY_ACES_GLSL
+#ifndef LIB_COLOR_TONEMAP_ACES_FITTED_GLSL
+#define LIB_COLOR_TONEMAP_ACES_FITTED_GLSL
 
 #include "/lib/core/math_scalar.glsl"
 
@@ -45,4 +45,4 @@ vec3 TonemapACESFitted(vec3 linear_rgb) {
     return saturate(ACES_OUTPUT_MAT * (numerator / denominator));
 }
 
-#endif // LIB_THIRD_PARTY_ACES_GLSL
+#endif // LIB_COLOR_TONEMAP_ACES_FITTED_GLSL

@@ -13,7 +13,9 @@
 //   colortex0   R11F_G11F_B10F   deferred1 fragment writes direct RGB + emission
 //                                to the non-selected side (geometry texels only;
 //                                sky discards); the pass flip promotes it; deferred5
-//                                writes completed color to the opposite side
+//                                writes completed color to the opposite side;
+//                                with CAS, composite21 writes the tonemapped
+//                                display color that final sharpens
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
 //   colortex2   RGBA8            deferred2_a half-res AO workspace on alt;
 //                                later translucent RGB UNORM16 low bytes/flag,
@@ -47,7 +49,6 @@
 //                                2. composite1 refracts, fogs and over-composites once
 //                                3. optional DOF (HDR RGB, 1/z; hand=-1)
 //                                4. bloom pyramid workspace
-//                                5. tonemapped LDR scene consumed by final/CAS
 //
 // TAAU uses a cropped lower-left scene rectangle through composite3, then
 // composite4 restores display-sized colortex0/5.
@@ -95,10 +96,10 @@ const bool colortex11Clear = false;  // opaque geometry overwrites before depth-
 // colortex12 hands one buffer forward through the frame: clouds use alt,
 // deferred5 zero-fills the active scene before translucency,
 // optional DOF overwrites the active scene metadata before its gather,
-// bloom rewrites each atlas tile before sampling it, and tonemap rewrites the
-// whole display rect. TAAU's inactive margin is never read, and Iris still
-// clears on allocation and resize, so the recurring clear only re-zeroes
-// regions that every reader overwrites first.
+// and bloom rewrites each atlas tile before sampling it. TAAU's inactive
+// margin is never read, and Iris still clears on allocation and resize, so
+// the recurring clear only re-zeroes regions that every reader overwrites
+// first.
 const bool colortex12Clear = false;  // sequential workspace
 
 #endif // LIB_CONTRACT_RESOURCES_GLSL

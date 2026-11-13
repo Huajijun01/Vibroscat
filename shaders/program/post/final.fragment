@@ -5,6 +5,7 @@
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/color/spaces.glsl"
 #include "/lib/color/dither.glsl"
+#include "/lib/post/display_tonemap.glsl"
 #include "/lib/third_party/fidelityfx/cas.glsl"
 
 const float COLOR_JITTER_SEED = 127.0;
@@ -15,9 +16,11 @@ void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
 
 #ifdef CAS
-    vec3 ldr = CASSharpen(colortex12, uv, u_view_pixel_size, CAS_SHARPNESS);
+    vec3 ldr = CASSharpen(colortex0, uv, u_view_pixel_size, CAS_SHARPNESS);
 #else
-    vec3 ldr = texture(colortex12, uv).rgb;
+    // composite21 is CAS-gated in shaders.properties; without it the display
+    // tonemap runs here over the routed HDR scene, with no LDR round trip.
+    vec3 ldr = ApplyDisplayTonemap(uv);
 #endif
 
     vec3 srgb = FromLinear(ldr);

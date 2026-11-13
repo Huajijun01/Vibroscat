@@ -213,7 +213,7 @@ void main() {
 #endif
 
 #if defined(RAIN_WETNESS_ACTIVE) && !defined(PROGRAM_GBUFFERS_PARTICLES)
-    ApplyRainWetness(
+    bool wetness_applied = ApplyRainWetness(
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE) && defined(RAIN_WETNESS_POSITION_ACTIVE)
         surface_view_pos,
 #endif
@@ -223,7 +223,11 @@ void main() {
 #if !defined(PROGRAM_GBUFFERS_PARTICLES) && !defined(PROGRAM_GBUFFERS_HAND)
     // The view reconstruction is valid for the world gbuffer projection only,
     // so the hand keeps its unclamped normal.
-    if (has_normal_texture) {
+    if (has_normal_texture
+#if defined(RAIN_WETNESS_ACTIVE)
+            || wetness_applied
+#endif
+        ) {
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
         vec3 view_to_eye_world = mat3(gbufferModelViewInverse) * -normalize(surface_view_pos);
 #else

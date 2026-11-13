@@ -14,7 +14,9 @@
 // fragment position when the derivative terrain basis already reconstructed
 // one; otherwise this library reconstructs it locally after the cheap
 // rejection tests, so dry and ineligible surfaces never pay for it.
-void ApplyRainWetness(
+// Returns whether the wet layer was applied, so its final shading normal
+// receives view-facing protection even without a normal-map atlas.
+bool ApplyRainWetness(
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE) && defined(RAIN_WETNESS_POSITION_ACTIVE)
         vec3 surface_view_pos,
 #endif
@@ -26,14 +28,14 @@ void ApplyRainWetness(
     // decides which faces are upward-facing.
     if (u_wetness_weight <= 0.001 || isEyeInWater != 0 ||
         geo_normal_y <= 0.95 || sky_light <= 15.0 / 16.0 ||
-        material_id >= 112 || (material_id >= 80 && material_id < 96)) return;
+        material_id >= 112 || (material_id >= 80 && material_id < 96)) return false;
 #ifdef RAIN_PUDDLES
-    if (RAIN_PUDDLE_COVERAGE <= 0.0) return;
+    if (RAIN_PUDDLE_COVERAGE <= 0.0) return false;
 #endif
 
     float rain_exposure = smoothstep(15.0 / 16.0, 1.0, sky_light);
     float wet_surface = u_wetness_weight * rain_exposure * smoothstep(0.95, 1.0, geo_normal_y);
-    if (wet_surface <= 0.001) return;
+    if (wet_surface <= 0.001) return false;
 
 #if defined(RAIN_WETNESS_POSITION_ACTIVE)
 #if !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
@@ -52,7 +54,7 @@ void ApplyRainWetness(
     float distribution = textureLod(utex_cloud_distribution_tex, uv, 0.0).r;
     float threshold = 1.0 - RAIN_PUDDLE_COVERAGE;
     puddle = smoothstep(threshold - 0.08, threshold + 0.08, distribution) * wet_surface;
-    if (puddle <= 0.001) return;
+    if (puddle <= 0.001) return false;
 #else
     puddle = wet_surface;
 #endif
@@ -71,6 +73,7 @@ void ApplyRainWetness(
     }
 #endif
     normal_world = normalize(mix(normal_world, puddle_normal, puddle));
+    return true;
 }
 
 #endif // LIB_MATERIAL_RAIN_WETNESS_GLSL

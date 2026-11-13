@@ -337,10 +337,10 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 // #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
 #define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
-// Mesopic band: 0.004 anchors the full-moon night key, 0.04 stays below the
-// daylight key; PURKINJE_CONE_LUMINANCE is the post-exposure cone pivot.
-const float PURKINJE_SCOTOPIC_KEY = 0.004;
-const float PURKINJE_PHOTOPIC_KEY = 0.04;
+// Exposure-derived key: 2x exposure starts the transition; 16x reaches full
+// rod adaptation within AE's 32x limit, independently of its target luminance.
+const float PURKINJE_SCOTOPIC_KEY = AE_TARGET_LUMINANCE / 16.0;
+const float PURKINJE_PHOTOPIC_KEY = AE_TARGET_LUMINANCE / 2.0;
 const float PURKINJE_CONE_LUMINANCE = 0.35;
 const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 

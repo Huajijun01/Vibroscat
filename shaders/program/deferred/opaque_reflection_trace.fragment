@@ -100,18 +100,6 @@ void main() {
             reflection_direction, geometry_data.w);
     }
 
-#if OPAQUE_SSR_DEBUG == 4
-    out_reflection_radiance = shared_hit.valid
-        ? vec3(shared_hit.sky ? 1.0 : 0.0)
-        : vec3(0.0);
-#elif OPAQUE_SSR_DEBUG == 9
-    // Direct dump: R = selected floating LOD, G = accepted history mask,
-    // B = receiver roughness. Reuses the reflection target only for diagnosis.
-    out_reflection_radiance = history_accepted
-        ? vec3(OpaqueHistoryLod(shared_hit, ToPrevious(shared_hit.screen),
-            trace_origin, material_data.r), 1.0, material_data.r)
-        : vec3(0.0);
-#else
     PBRMaterial material = ResolveOpaquePBR(ToLinear(albedo_data.rgb),
         material_data.r, material_data.g, 0.0, 0.0);
     float ndotv = saturate(dot(normal_world, view_to_eye));
@@ -126,6 +114,5 @@ void main() {
         view_to_eye, normal_world, geo_normal_world, geo_view_normal, material_data.rg, material_id, out_history_metadata);
 #else
     out_reflection_radiance = sample_z;
-#endif
 #endif
 }

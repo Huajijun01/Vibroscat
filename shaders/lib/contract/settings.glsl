@@ -109,7 +109,6 @@ const float eyeBrightnessHalflife = 3.0;
 #define WATER_GODRAYS_STRENGTH 3.0 // [0.0 0.5 1.0 1.5 2.0 3.0 4.0 6.0 8.0]
 #define WATER_GODRAYS_STEPS 32 // [8 12 16 24 32]
 #define WATER_GODRAYS_DISTANCE_M 16.0 // [2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0]
-#define WATER_GODRAYS_DEBUG 0 // [0 1]
 
 // Fade near-boundary geometry into the cloud-free sky in composite2.
 // Overworld only; independent of the always-on analytic water fog.
@@ -160,7 +159,6 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_SSS_SCREEN
 #define SHADOW_SSS_SCREEN_DISTANCE 48.0 // [16.0 32.0 48.0 64.0 96.0] Meters; at most 12 depth-only reads.
 #define SHADOW_SSS_FADE_START 0.75 // [0.5 0.6 0.7 0.75 0.8 0.9 0.95]
-#define SHADOW_SSS_DEBUG 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13]
 
 // Screen-space contact shadows (short-range, alongside the shadow map):
 // deferred1's direct fragment marches a screen-projected ray toward the active directional
@@ -172,7 +170,6 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define CONTACT_SHADOW_STEPS 12 // [4 6 8 12 16 24] depth samples per receiver pixel.
 #define CONTACT_SHADOW_MAX_DISTANCE 24.0 // [4.0 6.0 8.0 10.0 12.0 16.0 24.0] world-space march reach cap (m); the reach scales with view distance.
 #define CONTACT_SHADOW_THICKNESS 0.02 // [0.02 0.05 0.1 0.25 0.5 1.0] near-field occluder thickness slab (m); it also widens with view distance.
-#define CONTACT_SHADOW_DEBUG 0 // [0 1 2] debug view: 0 = scene, 1 = raw mask, 2 = boosted darkness.
 const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion guard (m)
 
 // ==========================================================================
@@ -193,8 +190,6 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define RSM_STRENGTH 1.5 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0 2.5 3.0]
 #define RSM_DIRECTIONAL_SKY // Directional sky visibility for RSM with GTAO; extra shading cost.
 #define SSGI_DIRECTIONAL_SKY // Directional sky visibility for SSGI; extra GPU cost.
-#define SSGI_SKY_MOMENT_DEBUG 0 // [0 1] 0=shared curves 1=independent per-mode fits for the SSGI sky L1 moment reconstruction.
-#define RSM_DEBUG 0 // [0 1] 0=Scene 1=Raw
 
 // ==========================================================================
 // 6. AO - Ambient occlusion
@@ -267,7 +262,6 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // #define OPAQUE_REFLECTION // opaque screen-space reflection toggle; off = sky SH only
 #define OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD 0.5 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] roughness at which opaque reflections become SH-only and dielectric reflection fades out
 #define OPAQUE_REFLECTION_ROUGHNESS_TRANSITION 0.1 // [0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.4 0.5] roughness span used to blend SSR into SH
-#define OPAQUE_SSR_DEBUG 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14]
 // 0 = unfiltered, 1 = temporal denoising.
 #define OPAQUE_SSR_FILTER 1 // [0 1]
 #define OPAQUE_SSR_DEMODULATION
@@ -376,7 +370,6 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define TAA_HISTORY_WEIGHT 0.90 // [0.70 0.75 0.80 0.85 0.90 0.95 0.97]
 #define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
 #define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
-#define TAA_DEBUG 0 // [0 1 2] 0=Scene 1=SpatialReconstruction 2=HistoryRejection
 
 // ==========================================================================
 // 10. UI-ONLY - display-only pseudo options, never read by shader code
@@ -520,13 +513,6 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 // RSM, no-GI and other dimensions keep the undirected path.
 #if defined(SSGI_DIRECTIONAL_SKY) && GI_MODE == 1 && defined(WORLD_OVERWORLD)
 #define SSGI_DIRECTIONAL_SKY_ACTIVE
-#endif
-
-// Visual lighting diagnostics: evaluator-internal views flow through the
-// direct fragment and deferred5 passes them through; SSGI falls back to the
-// history source.
-#if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG > 0 || OPAQUE_SSR_DEBUG > 0 || RSM_DEBUG > 0
-#define LIGHTING_DIAGNOSTIC
 #endif
 
 #if defined(AO_TEMPORAL)

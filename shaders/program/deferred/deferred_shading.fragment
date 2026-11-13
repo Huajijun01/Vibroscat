@@ -55,10 +55,6 @@ void main() {
     // -- Sky (far plane) --
     // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
     if (scene_depth >= 1.0) {
-#if SHADOW_SSS_DEBUG > 0 || OPAQUE_SSR_DEBUG > 0 || (GI_MODE == 2 && RSM_DEBUG > 0)
-        out_color = vec3(0.0);
-        return;
-#else
         vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
         vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
             * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
@@ -132,7 +128,6 @@ void main() {
         out_color = sky_color;
 #endif
         return;
-#endif
     }
 
     // -- GBuffer decode --
@@ -147,45 +142,6 @@ void main() {
     PBRMaterial material = ResolveOpaquePBR(
         albedo, g2.r, g2.g, g2.b, 0.0);
 
-#if OPAQUE_SSR_DEBUG == 1
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 2
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 3
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 4
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 5
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif defined(OPAQUE_SSR) && OPAQUE_SSR_DEBUG == 13 && OPAQUE_SSR_FILTER > 0
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif OPAQUE_SSR_DEBUG == 9 || OPAQUE_SSR_DEBUG == 13
-    out_color = texelFetch(colortex3, tx, 0).rgb;
-    return;
-#elif defined(OPAQUE_SSR) && OPAQUE_SSR_DEBUG == 10 && OPAQUE_SSR_FILTER > 0
-    out_color = vec3(OpaqueHistoryAge(texelFetch(colortex6, tx, 0)) / 31.0);
-    return;
-#elif defined(OPAQUE_SSR) && OPAQUE_SSR_DEBUG == 11 && OPAQUE_SSR_FILTER > 0
-    out_color = vec3(log2(1.0 + OpaqueHistoryVariance(texelFetch(colortex6, tx, 0))) * 0.1);
-    return;
-#elif OPAQUE_SSR_DEBUG == 14
-    vec3 history_z = texelFetch(colortex3, tx, 0).rgb;
-    out_color = !IsFinite(history_z) || any(greaterThanEqual(history_z, OPAQUE_HISTORY_RGB_MAX))
-        ? vec3(1.0, 0.0, 1.0) : vec3(0.0);
-    return;
-#elif OPAQUE_SSR_DEBUG == 6
-    out_color = material.f0;
-    return;
-#elif OPAQUE_SSR_DEBUG == 7
-    out_color = vec3(material.perceptual_roughness);
-    return;
-#endif
     vec3 normal_world = DecodeOctahedralNormal(surface.rg);
     // g2.a: vanilla/material ambient occlusion (screen-AO-off fallback).
     float screen_ao;
@@ -225,22 +181,9 @@ void main() {
     // -- Directional light (sun or moon) --
     // Unit normal/view/light inputs bound these cosines to [0,1].
     float ndotv = saturate(dot(normal_world, view_to_eye));
-#if OPAQUE_SSR_DEBUG == 12
-#if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
-    out_color = SpecularMaterialFactor(material.f0, ndotv, material.perceptual_roughness);
-#else
-    out_color = vec3(1.0);
-#endif
-    return;
-#endif
     vec3 diffuse_reflectance;
     vec3 color;
     color = texelFetch(colortex0, tx, 0).rgb;
-#if CONTACT_SHADOW_DEBUG > 0 || SHADOW_SSS_DEBUG > 0
-    // Evaluator-internal debug views arrive from the direct fragment.
-    out_color = color;
-    return;
-#endif
     diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
 
@@ -262,10 +205,6 @@ void main() {
     } else if (!ReconstructGI(tx, view_pos, geo_normal, gi_ambient)) {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
     }
-#endif
-#if GI_MODE == 2 && RSM_DEBUG > 0
-    out_color = gi_ambient;
-    return;
 #endif
     // SSGI supplies visibility itself; RSM has already multiplied AO into
     // its sky fallback before denoising. Neither bounce is darkened again.
@@ -359,11 +298,7 @@ void main() {
 #endif
         indirect_specular *= reflection_strength;
     }
-#if OPAQUE_SSR_DEBUG == 8
-    color = indirect_specular + albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
-#else
     color += indirect_specular;
-#endif
 
 #ifdef COLOR_DITHER
     out_color = JitterR11G11B10F(color, gl_FragCoord.xy, COLOR_JITTER_SEED);

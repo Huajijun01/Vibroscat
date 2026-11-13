@@ -298,7 +298,6 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 }
             }
         }
-        // Out-of-range input is exposed by debug 14, never silently clamped to black.
         // Reset confidence; finite RGB export still exposes an overflow as Inf.
         if (!IsFinite(mean_z) || any(greaterThan(mean_z, OPAQUE_HISTORY_RGB_MAX))) {
             metadata = uvec4(0u);

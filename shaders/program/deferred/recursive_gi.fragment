@@ -25,12 +25,10 @@
 
 // Unidirectional visibility-bitmask screen-space GI: cosine-weighted slice
 // samplers trace the hemisphere and accumulate occupancy into a 32-sector
-// bitmask per slice. Normal rendering reads current direct RGB from
-// colortex0; diagnostics retain
-// the colortex5 history source. This pass
-// fuses the current estimate with unblurred GI history in colortex9. Metadata
-// in colortex10 records the selected receiver; deferred5 reconstructs spatially.
-// Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
+// bitmask per slice. Normal rendering reads current direct RGB from colortex0.
+// This pass fuses the current estimate with unblurred GI history in colortex9.
+// Metadata in colortex10 records the selected receiver; deferred5 reconstructs
+// spatially. Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
 
 layout(location = 0) out vec3 out_gi;
 layout(location = 1) out vec4 out_gi_metadata;
@@ -271,25 +269,14 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
             // whether or not its radiance can be read back. Unavailable source
             // data still occludes, so covered directions gain no sky fallback.
             hit_coverage += visible_weight;
-#ifndef LIGHTING_DIAGNOSTIC
             ivec2 source_texel = min(ivec2(sample_uv * u_render_res), ivec2(u_render_res) - 1);
             int source_id = int(texelFetch(colortex1, source_texel, 0).a * 255.0 + 0.5);
             // depthtex2 sees the world behind the hand; its visible RGB is unavailable.
             if (source_id != 64) {
-#else
-            // Visual diagnostics retain their original history source.
-            vec2 previous_uv = ToPrevious(vec3(sample_uv, sample_depth)).xy;
-            if (all(greaterThanEqual(previous_uv, vec2(0.0)))
-                    && all(lessThan(previous_uv, vec2(1.0)))) {
-#endif
                 // The visibility mask estimates a normalized cosine-weighted
                 // hemisphere average (E / PI). Store irradiance so deferred5
                 // consumes it with the same unit as AmbientLight().
-#ifndef LIGHTING_DIAGNOSTIC
                 vec3 incident_irradiance = texelFetch(colortex0, source_texel, 0).rgb * PI;
-#else
-                vec3 incident_irradiance = textureLod(colortex5, previous_uv, 0.0).rgb * PI;
-#endif
                 gi += incident_irradiance * visible_weight;
 #if !defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
                 // Only the non-directional caller consumes the march second

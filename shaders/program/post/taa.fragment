@@ -1,11 +1,11 @@
 #include "/lib/contract/settings.glsl"
 
 // Motion blur encodes velocity into colortex0 and blurs the color from
-// colortex5; the debug views display colortex0. Without either, the display
-// color exists only in colortex5 (which doubles as the TAA history side), and
-// colortex0 stays unwritten between blend and final. tonemap, the exposure
-// sweep, and bloom extract read colortex5 in that case.
-#if defined(MOTION_BLUR) || TAA_DEBUG > 0
+// colortex5. Without it, the display color exists only in colortex5 (which
+// doubles as the TAA history side), and colortex0 stays unwritten between
+// blend and final. tonemap, the exposure sweep, and bloom extract read
+// colortex5 in that case.
+#ifdef MOTION_BLUR
 /* RENDERTARGETS: 0,5 */
 #else
 /* RENDERTARGETS: 5 */
@@ -156,11 +156,7 @@ void main() {
 #else
     vec3 jittered_result = result;
 #endif
-#if TAA_DEBUG == 1
-    out_color = current_color;
-#elif TAA_DEBUG == 2
-    out_color = vec3(current_weight, 1.0 - current_weight, 0.0);
-#elif defined(MOTION_BLUR)
+#ifdef MOTION_BLUR
     // Unsigned R11G11B10F cannot store negative values: RG keep the motion
     // magnitude (small values stay precise near zero) and B holds two sign
     // bits, matching the motion-blur decode at every scene resolution.

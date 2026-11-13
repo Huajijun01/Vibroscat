@@ -50,16 +50,14 @@ void main() {
     vec3 world_pos = ViewToWorldSpace(view_pos);
     vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
     float ndotv = saturate(dot(normal_world, view_to_eye));
-    // Both out-params are initialized at evaluator entry, so the debug
-    // early-returns leave them defined; the reflectance out-param is a
-    // write-only sink here (deferred5 recomputes it for its own consumers).
+    // Both out-params are initialized at evaluator entry; the reflectance
+    // out-param is a write-only sink here (deferred5 recomputes it for its own
+    // consumers).
     vec3 caustic_brdf;
     vec3 diffuse_reflectance;
-    bool diagnostic_output;
     vec3 direct_rgb = EvaluateOpaqueDirectLight(tx, albedo, material, material_id,
         material_data.a, geometry_data.w, normal_world, geo_normal, view_pos,
-        world_pos, view_to_eye, ndotv, caustic_brdf, diffuse_reflectance,
-        diagnostic_output);
+        world_pos, view_to_eye, ndotv, caustic_brdf, diffuse_reflectance);
     out_direct_rgb = direct_rgb;
     out_caustic = caustic_brdf;
 }

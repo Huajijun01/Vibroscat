@@ -71,9 +71,6 @@ void main() {
         float water_depth = texelFetch(depthtex0, tx, 0).r;
         vec3 shafts = SampleEpipolarTerm(uv * 2.0 - 1.0,
             LinearDepthFromScreenDepth(water_depth), vec3(0.0));
-#if WATER_GODRAYS_DEBUG == 1
-        scene = vec3(0.0);
-#endif
         scene += shafts;
 #endif
         out_color = scene;

@@ -18,8 +18,8 @@ const ivec3 workGroups = ivec3(8, 8, 1);
 const uint AE_SAMPLE_STRIDE = 2u;
 
 // Match taa's output routing: colortex0 holds the blur/velocity result only
-// with motion blur or a debug view; otherwise the color is only in colortex5.
-#if defined(MOTION_BLUR) || TAA_DEBUG > 0
+// with motion blur; otherwise the color is only in colortex5.
+#ifdef MOTION_BLUR
 layout(r11f_g11f_b10f) readonly uniform image2D colorimg0;
 #define SCENE_HDR_IMAGE colorimg0
 #else

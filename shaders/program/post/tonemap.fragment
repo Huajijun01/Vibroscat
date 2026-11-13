@@ -15,9 +15,9 @@ layout(location = 0) out vec4 out_color;
 void main() {
     vec2 uv = gl_FragCoord.xy * u_view_pixel_size;
 
-    // Match taa's output routing: motion blur and the debug views leave the
-    // display color in colortex0; otherwise it exists only in colortex5.
-#if defined(MOTION_BLUR) || TAA_DEBUG > 0
+    // Motion blur leaves the display color in colortex0; otherwise it exists
+    // only in colortex5.
+#ifdef MOTION_BLUR
     vec3 hdr = texture(colortex0, uv).rgb;
 #else
     vec3 hdr = texture(colortex5, uv).rgb;

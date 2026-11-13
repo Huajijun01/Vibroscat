@@ -19,7 +19,7 @@ void main() {
         int column = int(index % 18u);
         vec2 sample_texel = vec2(group_base + ivec2(column * 2 + (row & 1), row) - 1);
         vec2 sample_uv = clamp(sample_texel, src_min, src_max) * pixel_size;
-#if defined(MOTION_BLUR) || TAA_DEBUG > 0
+#ifdef MOTION_BLUR
         vec3 value = textureLod(colortex0, sample_uv, 0.0).rgb;
 #else
         vec3 value = textureLod(colortex5, sample_uv, 0.0).rgb;

@@ -6,19 +6,12 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 
-#if SHADOW_SSS_DEBUG >= 11
-#define PLANT_SHADOW_DIAGNOSTICS
-#endif
-
 #if defined(SHADOW_PCSS)
 
 struct PlantShadowEstimate {
     float visibility;
     // Negative depth marks a blocker after the receiver's initial segment.
     float sss_depth;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    int depth_reads;
-#endif
 };
 
 float PlantMapConfidence(vec3 shadow_clip, vec3 view_pos) {
@@ -41,9 +34,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
     PlantShadowEstimate result;
     result.visibility = 1.0;
     result.sss_depth = 0.0;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    result.depth_reads = 0;
-#endif
     vec4 origin_clip = ViewToClip(gbufferProjection, receiver_view);
     vec3 origin_ndc = origin_clip.xyz / origin_clip.w;
     vec4 light_clip = gbufferProjection * vec4(light_view, 0.0);
@@ -71,9 +61,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
         if (any(lessThan(vec3(sample_uv, sample_screen.z), vec3(0.0)))
                 || any(greaterThanEqual(vec3(sample_uv, sample_screen.z), vec3(1.0)))) break;
         float screen_depth = texelFetch(depthtex2, ivec2(sample_uv * u_render_res), 0).r;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-        ++result.depth_reads;
-#endif
         float gap_m = LinearDepthFromScreenDepth(sample_screen.z)
             - LinearDepthFromScreenDepth(screen_depth);
         bool inside = gap_m > 0.0 && gap_m < 20.0;
@@ -98,13 +85,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
 // No sampled material or normal data is required. Misses do not prove light.
 struct PlantShadowEstimate {
     float blocking_confidence;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    int depth_reads;
-    int duplicate_skips;
-    float hit_gap_ratio;
-    bool valid_projected_extent;
-    bool rejected_self;
-#endif
 };
 
 float PlantPixelWorld(float view_depth) {
@@ -144,13 +124,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
         float stbn_dither, float maximum_reach_m) {
     PlantShadowEstimate result;
     result.blocking_confidence = 0.0;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    result.depth_reads = 0;
-    result.duplicate_skips = 0;
-    result.hit_gap_ratio = 0.0;
-    result.valid_projected_extent = false;
-    result.rejected_self = false;
-#endif
     float receiver_pixel_m = PlantPixelWorld(-receiver_view.z);
     float origin_bias_m = clamp(0.25 * receiver_pixel_m, 0.002, 0.05);
     vec3 p0 = receiver_view + origin_bias_m * light_view;
@@ -171,9 +144,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
     vec2 span_pixels = abs(uv1 - uv0) * u_render_res;
     float major_pixels = max(span_pixels.x, span_pixels.y);
     if (major_pixels < 2.0) return result;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    result.valid_projected_extent = true;
-#endif
     int steps = min(12, int(ceil(major_pixels)));
     float inverse_steps = 1.0 / float(steps);
     float k0 = 1.0 / clip0.w;
@@ -189,18 +159,12 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
         ivec2 texel = ivec2(floor((sample_uv + jitter_uv) * u_render_res));
         if (any(lessThan(texel, ivec2(0))) || any(greaterThanEqual(texel, ivec2(u_render_res)))) continue;
         if (all(equal(texel, previous_texel))) {
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-            ++result.duplicate_skips;
-#endif
             continue;
         }
         previous_texel = texel;
         // Iris copies opaque depth before the hand and before deferred.
         // This existing depth layer excludes hand geometry without ID reads.
         float screen_depth = texelFetch(depthtex2, texel, 0).r;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-        ++result.depth_reads;
-#endif
         if (screen_depth >= 1.0) continue;
         float surface_depth_m = LinearDepthFromScreenDepth(screen_depth);
         // Reciprocal W gives exact point depth for the pack's perspective
@@ -219,9 +183,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
             vec3 separation = surface_view - receiver_view;
             if (dot(separation, separation) <= self_radius_m * self_radius_m
                     && abs(dot(separation, receiver_normal_view)) <= plane_epsilon_m) {
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-                result.rejected_self = true;
-#endif
                 continue;
             }
         }
@@ -229,9 +190,6 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
             * smoothstep(0.0, 4.0, PlantBorderPixels(sample_uv))
             * (1.0 - smoothstep(0.5 * slab_m, slab_m, gap_m))
             * (1.0 - smoothstep(0.0625, 0.25, quantum_m));
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-        result.hit_gap_ratio = gap_m / slab_m;
-#endif
         break;
     }
     return result;

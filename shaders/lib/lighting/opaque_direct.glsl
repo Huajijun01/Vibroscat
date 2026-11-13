@@ -22,10 +22,9 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         int material_id, float vertex_ao, float sky_light,
         vec3 normal_world, vec3 geo_normal, vec3 view_pos, vec3 world_pos,
         vec3 view_to_eye, float ndotv, out vec3 caustic_brdf,
-        out vec3 diffuse_reflectance, out bool diagnostic_output) {
+        out vec3 diffuse_reflectance) {
     caustic_brdf = vec3(0.0);
     diffuse_reflectance = vec3(0.0);
-    diagnostic_output = false;
     float ndotl = saturate(dot(normal_world, u_world_light_dir));
     float amount = 0.0;
 #if defined(WORLD_OVERWORLD) || defined(WORLD_END)
@@ -78,14 +77,8 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     float screen_visibility = 1.0;
     float screen_depth = 0.0;
     bool screen_eligible = false;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    int depth_reads = 0;
-#endif
 #if defined(SHADOW_SSS_SCREEN) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     screen_eligible = plant_receiver && shadow_needed && plant_prior > 0.0 && map_confidence < 1.0;
-#if SHADOW_SSS_DEBUG == 3 || SHADOW_SSS_DEBUG == 8 || SHADOW_SSS_DEBUG >= 12
-    screen_eligible = plant_receiver && shadow_needed;
-#endif
     if (screen_eligible) {
         vec2 jitter_uv = vec2(0.0);
 #ifdef TAA
@@ -95,28 +88,16 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
             u_view_light_dir, jitter_uv, stbn_dither, SHADOW_SSS_SCREEN_DISTANCE);
         screen_visibility = estimate.visibility;
         screen_depth = estimate.sss_depth;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-        depth_reads = estimate.depth_reads;
-#endif
         shadow_visibility = mix(plant_prior * screen_visibility, map_visibility, map_confidence);
     }
 #endif
 
 #if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-#if CONTACT_SHADOW_DEBUG > 0
-    if (!plant_receiver && shadow_needed) {
-#else
     if (!plant_receiver && shadow_needed && shadow_visibility > 0.0) {
-#endif
         vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
         float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal,
             dot(geo_normal, u_world_light_dir), stbn_dither);
         shadow_visibility = min(shadow_visibility, contact_shadow);
-#if CONTACT_SHADOW_DEBUG > 0
-        diagnostic_output = true;
-        return vec3(CONTACT_SHADOW_DEBUG == 1
-            ? contact_shadow : saturate((1.0 - contact_shadow) * 4.0));
-#endif
     }
 #endif
 
@@ -165,37 +146,6 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     float cloud_shadow = CloudShadowTransmittance(world_pos);
     caustic_brdf = reflected * cloud_shadow;
     vec3 color = (reflected + scatter) * ground_light.rgb * cloud_shadow;
-#if SHADOW_SSS_DEBUG > 0
-    diagnostic_output = true;
-    if (!plant_receiver) return vec3(0.0);
-#if SHADOW_SSS_DEBUG == 1
-    return scatter * ground_light.rgb;
-#elif SHADOW_SSS_DEBUG == 2
-    return vec3(1.0 - map_confidence, map_confidence, 0.0);
-#elif SHADOW_SSS_DEBUG == 3
-    return vec3(screen_visibility);
-#elif SHADOW_SSS_DEBUG == 4
-    return vec3(map_visibility);
-#elif SHADOW_SSS_DEBUG == 5
-    return albedo;
-#elif SHADOW_SSS_DEBUG == 6
-    return sigma_s;
-#elif SHADOW_SSS_DEBUG == 7
-    return sigma_a;
-#elif SHADOW_SSS_DEBUG == 8
-    return vec3(1.0 - screen_visibility);
-#elif SHADOW_SSS_DEBUG == 9
-    return vec3(shadow_visibility);
-#elif SHADOW_SSS_DEBUG == 10
-    return vec3(map_depth, max(screen_depth, 0.0), phase);
-#elif SHADOW_SSS_DEBUG == 11
-    return vec3(1.0, float(screen_eligible), 0.0);
-#elif SHADOW_SSS_DEBUG == 12
-    return vec3(float(depth_reads) / 12.0, 0.0, 0.0);
-#elif SHADOW_SSS_DEBUG == 13
-    return vec3(screen_depth < 0.0 ? 1.0 : 0.0, max(screen_depth, 0.0), map_depth);
-#endif
-#endif
     return color + albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 }
 
@@ -205,10 +155,9 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         int material_id, float vertex_ao, float sky_light,
         vec3 normal_world, vec3 geo_normal, vec3 view_pos, vec3 world_pos,
         vec3 view_to_eye, float ndotv, out vec3 caustic_brdf,
-        out vec3 diffuse_reflectance, out bool diagnostic_output) {
+        out vec3 diffuse_reflectance) {
     caustic_brdf = vec3(0.0);
     diffuse_reflectance = vec3(0.0);
-    diagnostic_output = false;
     float ndotl = saturate(dot(normal_world, u_world_light_dir));
 #if defined(SHADOW_SSS) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     float transmission_prior = PlantTransmissionPrior(material_id);
@@ -265,20 +214,8 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
 
     float screen_blocking = 0.0;
     bool screen_eligible = false;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-    PlantShadowEstimate screen_diagnostic;
-    screen_diagnostic.depth_reads = 0;
-    screen_diagnostic.duplicate_skips = 0;
-    screen_diagnostic.hit_gap_ratio = 0.0;
-    screen_diagnostic.valid_projected_extent = false;
-    screen_diagnostic.rejected_self = false;
-#endif
 #if defined(SHADOW_SSS_SCREEN) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
     screen_eligible = plant_receiver && shadow_needed && plant_prior > 0.0 && map_confidence < 1.0;
-#if SHADOW_SSS_DEBUG == 3 || SHADOW_SSS_DEBUG == 8 || SHADOW_SSS_DEBUG >= 12
-    // Diagnostic queries may expose the ray even under full map coverage.
-    screen_eligible = plant_receiver && shadow_needed;
-#endif
     if (screen_eligible) {
         vec2 jitter_uv = vec2(0.0);
 #ifdef TAA
@@ -288,9 +225,6 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         PlantShadowEstimate estimate = TracePlantDistantShadow(view_pos, geo_view,
             u_view_light_dir, jitter_uv, stbn_dither, SHADOW_SSS_SCREEN_DISTANCE);
         screen_blocking = estimate.blocking_confidence;
-#if defined(PLANT_SHADOW_DIAGNOSTICS)
-        screen_diagnostic = estimate;
-#endif
         // Screen misses never release the skylight prior. The map and far
         // estimate blend once, rather than multiplying two shelter estimates.
         shadow_occlusion = mix(plant_prior * (1.0 - screen_blocking), map_visibility, map_confidence);
@@ -298,20 +232,11 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
 #endif
 
 #if defined(CONTACT_SHADOW) && (defined(WORLD_OVERWORLD) || defined(WORLD_END))
-#if CONTACT_SHADOW_DEBUG > 0
-    if (!plant_receiver && shadow_needed) {
-#else
     if (!plant_receiver && shadow_needed && shadow_occlusion > 0.0) {
-#endif
         vec3 geo_view_normal = normalize(mat3(gbufferModelView) * geo_normal);
         float contact_shadow = ContactShadowOcclusion(view_pos, geo_view_normal,
             dot(geo_normal, u_world_light_dir), stbn_dither);
         shadow_occlusion = min(shadow_occlusion, contact_shadow);
-#if CONTACT_SHADOW_DEBUG > 0
-        diagnostic_output = true;
-        return vec3(CONTACT_SHADOW_DEBUG == 1
-            ? contact_shadow : saturate((1.0 - contact_shadow) * 4.0));
-#endif
     }
 #endif
 
@@ -348,39 +273,6 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     float cloud_shadow = CloudShadowTransmittance(world_pos);
     caustic_brdf = reflected * cloud_shadow;
     vec3 color = (reflected + transmitted) * ground_light.rgb * cloud_shadow;
-#if SHADOW_SSS_DEBUG > 0
-    diagnostic_output = true;
-    if (!plant_receiver) return vec3(0.0);
-#if SHADOW_SSS_DEBUG == 1
-    return transmitted * ground_light.rgb;
-#elif SHADOW_SSS_DEBUG == 2
-    return vec3(1.0 - map_confidence, map_confidence, 0.0);
-#elif SHADOW_SSS_DEBUG == 3
-    return vec3(1.0 - screen_blocking);
-#elif SHADOW_SSS_DEBUG == 4
-    return vec3(map_visibility);
-#elif SHADOW_SSS_DEBUG == 5
-    return albedo;
-#elif SHADOW_SSS_DEBUG == 6
-    return PlantTransmission(albedo, transmission_prior);
-#elif SHADOW_SSS_DEBUG == 7
-    return vec3(1.0) - albedo - PlantTransmission(albedo, transmission_prior);
-#elif SHADOW_SSS_DEBUG == 8
-    return vec3(screen_blocking);
-#elif SHADOW_SSS_DEBUG == 9
-    return vec3(shadow_occlusion);
-#elif SHADOW_SSS_DEBUG == 10
-    return vec3(plant_angular, 0.0);
-#elif SHADOW_SSS_DEBUG == 11
-    return vec3(1.0, float(screen_eligible), float(screen_diagnostic.valid_projected_extent));
-#elif SHADOW_SSS_DEBUG == 12
-    return vec3(float(screen_diagnostic.depth_reads) / 12.0,
-        0.0, float(screen_diagnostic.duplicate_skips) / 12.0);
-#elif SHADOW_SSS_DEBUG == 13
-    return vec3(screen_blocking, screen_diagnostic.hit_gap_ratio,
-        float(screen_diagnostic.rejected_self));
-#endif
-#endif
     return color + albedo * material.emission * OPAQUE_PBR_EMISSION_SCALE;
 }
 

@@ -11,15 +11,14 @@
 // Perceptual Fidelity in Gran Turismo 7" [PDI25], SIGGRAPH 2025 courses.
 // Ported from the official sample implementation shipped with the course
 // material (gt7_tone_mapping.cpp, MIT; licenses/THIRD_PARTY_NOTICES.md
-// section 4). A per-channel pass of the GT Tone Mapping Curve V2 (linear
+// section 3). A per-channel pass of the GT Tone Mapping Curve V2 (linear
 // midtones, contrast toe, converging shoulder) is blended with an ICtCp
 // path that keeps the original chroma but fades it toward white across the
 // highlight, so saturated highlights roll off without the per-channel hue
 // twist. The sample's frame-buffer domain (1.0 = 100 nits, linear
 // Rec.2020, SDR paper white 250 nits) is entered and left through the
-// BT.709 <-> BT.2020 matrices below. The pack's SDR adaptation
-// approximately anchors scene 18% gray at 18% display-linear and approaches
-// paper white
+// BT.709 <-> BT.2020 matrices below. The pack's SDR adaptation keys scene
+// 18% gray at about 0.14 display-linear and approaches paper white
 // smoothly; see GT7_MID_GREY_SCALE and the alpha-0 shoulder below.
 // ===========================================================================
 
@@ -114,9 +113,10 @@ const float GT7_CHROMA_FADE_END = 1.16;
 // I is luma, so it is 0.5 * (L + M) and excludes S; the sample's equivalent
 // value is 0.602561.
 const float GT7_TARGET_LUMA_UCS = 0.6025591550;
-// Solve 0.4 * GT7Curve(scale * 0.18) = 0.18 for the scene exposure key.
-// Fold the input scale into the primaries matrix.
-const float GT7_MID_GREY_SCALE = 2.508318700610;
+// Scene exposure key: folds the input scale into the primaries matrix, so
+// scene 18% gray enters the curve at 0.36 and keys at
+// 0.4 * GT7Curve(0.36) ~= 0.14 display-linear.
+const float GT7_MID_GREY_SCALE = 2.0;
 const mat3 SRGB_TO_BT2020_SCALED = SRGB_TO_BT2020 * GT7_MID_GREY_SCALE;
 
 float GT7Curve(float x) {

@@ -32,7 +32,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 // 2. CLOUDS - Cloud layers (volumetric + cirrus)
 // ==========================================================================
 #define VOLUMETRIC_CLOUDS
-#define CLOUD_SHADOWS // Single-lookup cloud shadows on direct sunlight and its RSM bounce.
+//#define CLOUD_SHADOWS // Single-lookup cloud shadows on direct sunlight and its RSM bounce.
 #define CIRRUS // Independent of the volumetric layer.
 #define CIRRUS_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cirrus drift speed (km/s); moves the body and strands together.
 #define CLOUD_VIEW_MIN_STEPS 20 // [20 24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.

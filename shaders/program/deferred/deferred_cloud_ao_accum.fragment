@@ -1,24 +1,8 @@
-// ============================================================================
-// Deferred cloud/AO history fragment: cloud temporal upsampling and guided
-// reconstruction of accumulated screen-space AO (GTAO).
-// ============================================================================
-// Runs after the deferred2 cloud/AO computes in the same program.
-// Clouds and AO supply this history; direct RGB is consumed by later passes.
-// This fragment writes one merged full-res history frame to colortex8.
-// The two histories are spatially exclusive (depth branch):
-//   sky:      RG = scattering weights, B = transmittance, A = distance in km
-//   geometry: R = EncodeAOHistory(AO), G = age, B = encoded view depth (EncodeSquaredDepth
-//             curve, see lib/raytrace/ssr_depth.glsl), A = NaN
-//             ("not cloud": taps crossing the boundary propagate NaN and
-//             reject the history)
-// The colortex flip (read main / write alt) gives lighting the current
-// frame without an extra buffer or compute-side race.
-//
-// Sky pixels run cloud accumulation; geometry pixels reconstruct accumulated AO.
-// Type switches reset cleanly: cloud validation rejects NaN (AO pixels);
-// the AO side reseeds when the history is not AO-marked. AO generation is
-// half-res with joint depth/normal reconstruction on a fixed lattice.
-// AO_TEMPORAL off keeps the same edge protection without history.
+// Cloud temporal upsampling and guided AO reconstruction; writes one merged
+// colortex8 history frame.
+// Sky: RG scattering weights, B transmittance, A distance (km).
+// Geometry: R EncodeAOHistory(AO), G age, B encoded view depth
+// (EncodeSquaredDepth, see lib/raytrace/ssr_depth.glsl), A NaN ("not cloud").
 
 /* RENDERTARGETS: 8 */
 

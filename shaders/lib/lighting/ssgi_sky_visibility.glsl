@@ -15,10 +15,8 @@
 // three even modes share h^2*P1(x), four odd modes share h*Q2(x), where
 // x = 2*h^2/PI^2-1. Their weighted counts are collapsed before evaluation.
 // The constant mode keeps its original cubic; L0 mass m is unchanged.
-// SSGI_SKY_MOMENT_DEBUG 1 replaces the shared curves with seven independent
-// per-mode polynomial fits, an in-game A/B reference for the shared-curve
-// fit error; the Walsh statistics, the constant-mode cubic, and the L0 mass
-// are identical on both paths.
+// SSGI_SKY_MOMENT_DEBUG 1 replaces the shared curves with independent per-mode
+// fits as an A/B reference.
 // Full visibility uses the conditional slice mean, not a hemisphere mean.
 // The returned moment is not a unit vector and must not be normalized.
 // D_view = view_dir*result.x + ray_direction*result.y.
@@ -109,23 +107,15 @@ vec2 SSGISkySliceMoment(uint occupied, float m, float angle_normal) {
     return vec2(c * a - s * b, s * a + c * b);
 }
 
-// Visible sky irradiance from the raw radiance SH, the visible mass m, and
-// the directional moment. m and moment_world use the normalized cosine
-// measure; moment_world must not be normalized. l2_band is the receiver's
-// EvalSkyLightL2(fallback_normal), hoisted by the caller ahead of its march:
-// the band depends only on the receiver normal, and evaluating it after the
-// march left its SSBO reads exposed in the epilogue (backend placement
-// cliff; same rule as the sky_l2_blocked hoist in gtao.glsl). The L0/L1
-// bands take the moment directly as
-// PI*[Y0*L0*m + Y1*(L1 . D)]; EvalSkyLightL2 already carries the SH_A2
-// convolution and keeps its sign, so the L2 share is simply scaled by m and
-// the ignored L2/visibility correlation stays a model approximation of the
-// hybrid, not a numeric failure. The caller clamps the composed RGB once to
-// >= 0 - clamping a band separately would break the signed L2 lobes - and
-// adds no open-sky upper bound: the single random slice's positive swings
-// are part of the estimator and average out over frames, so truncating them
-// per frame would bias the result down. No second AO/multiplication on the
-// returned value; the ambient floor joins after, scaled by m.
+// moment_world uses the normalized cosine measure and must not be normalized.
+// l2_band is EvalSkyLightL2(fallback_normal), hoisted ahead of the march; the
+// band depends only on the receiver normal and its SSBO reads are
+// placement-sensitive in the epilogue (same rule as sky_l2_blocked in gtao).
+// The ignored L2/visibility correlation is a model approximation.
+// The caller clamps the composed RGB once to >= 0 (per-band clamping would
+// break the signed L2 lobes) and adds no open-sky upper bound; the single
+// random slice's positive swings average out over frames.
+// No second AO multiplication; the ambient floor joins after, scaled by m.
 vec3 EvalSSGISkyFromMoment(float m, vec3 moment_world, vec3 l2_band) {
     vec4 basis = vec4(SH_Y0 * m, SH_Y1 * moment_world.yzx);
     vec3 visible_l01 = PI * vec3(dot(sky_sh_r0, basis), dot(sky_sh_g0, basis),

@@ -1,20 +1,7 @@
-// ============================================================================
-// AO generation and accumulation (half resolution) - borrows colortex2 alt.
-// ============================================================================
-// Dispatch: half-res via workGroupsRender 0.5 (groups = ceil(view*0.5/(16,32)),
-// local 16x32). Each invocation covers one 2x2 full-res block, evaluates the
-// kernel (ComputeGTAOFromGeometry) at a fixed receiver in that block.
-// Every half-res texel is evaluated every frame. deferred2 reconstructs
-// the accumulated field with depth/normal guidance on this exact lattice.
-// Runs with the cloud compute in deferred2; outputs are disjoint.
-//
-// Storage: lower-left ceil-half-res rectangle of the RGBA8 workspace:
-// R = accumulated raw AO, GB = exact receiver octahedral geometric normal,
-// A = history age / 255. The receiver is the lower-left pixel of each block.
-// deferred_pre selects alt; deferred2 samples it, then restores the original
-// selection before deferred5 clears the next translucent side. Raw AO (no multibounce/strength): the nonlinear
-// transforms are applied by the lighting consumer after the temporal blend (the
-// accumulated field stays linear).
+// Half-res AO generation and accumulation; borrows colortex2 alt.
+// Storage: R = raw accumulated AO, GB = receiver oct8 geometric normal,
+// A = history age / 255. Multibounce and strength run in the lighting consumer
+// after the temporal blend, so the accumulated field stays linear.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"

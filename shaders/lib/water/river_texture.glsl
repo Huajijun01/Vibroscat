@@ -85,7 +85,6 @@ vec2 RiverTextureWarpPosition(vec2 xz) {
 #endif
 }
 
-// Height of layer j at world XZ: one bilinear fetch, hardware wrap.
 float RiverTextureLayerHeight(vec2 xz, float time, int j, float gain) {
     vec2 uv = vec2(dot(RIVER_TEX_ROT[j], xz), -RIVER_TEX_ROT[j].y * xz.x
                    + RIVER_TEX_ROT[j].x * xz.y);

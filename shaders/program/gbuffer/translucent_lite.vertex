@@ -31,8 +31,7 @@ void main() {
     v_shadow_proj_pos = vec3(shadow_ndc_xy, ProtectShadowDepth(shadow_ndc_z));
 
 #if defined(PROGRAM_GBUFFERS_HAND_WATER)
-    // The hand keeps the exact full projection product: the sparse form lost
-    // the walking hand sway here and the cause was never isolated.
+    // Keep the full product: ViewToClip drops the hand's walking sway.
     gl_Position = gl_ProjectionMatrix * vec4(view_pos, 1.0);
     v_view_pos = view_pos;
 #else
@@ -47,11 +46,6 @@ void main() {
 
     v_color = gl_Color;
     v_texcoord.xy = gl_MultiTexCoord0.xy;
-    // Same vanilla lightmap normalization as solid.vertex: the shared
-    // lighting curves (AmbientLight, BlockLightFromLm) are anchored on a
-    // [0, 1] domain, not the raw [1/32, 31/32] matrix output. The sky
-    // component stays local: AmbientLight applies its nonlinear curve here,
-    // so only the block component crosses the stage.
     vec2 lmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
     lmcoord = saturate(lmcoord * 1.103449 - 0.0689656);
     v_texcoord.z = lmcoord.x;

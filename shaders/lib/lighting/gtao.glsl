@@ -11,40 +11,15 @@
 #include "/lib/lighting/sky_visibility.glsl"
 #endif
 
-// ============================================================================
-// GTAO - horizon-based ambient occlusion (Jimenez et al. 2016)
-// ============================================================================
-//
-// Math contract. The AO integral
-//   A(P) = (1/pi) integral_Omegan V(P,omega) <omega,n> domega
-// is decomposed into azimuthal slices phi in [0,pi). On each half-slice,
-// theta in [0,pi] measures the angle from the toward-camera axis v.
-// The projected normal is a*cos(theta)+b*sin(theta), where a=<n,v>, b=<n,t>;
-// retain its magnitude and the spherical Jacobian sin(theta). The primitive is
-//   F(theta) = a*sin(theta)^2/2 + b*(theta/2 - sin(2*theta)/4).
-// Integrate the blocked arc [h,pi], clipped to the positive normal hemisphere.
-// Using the known open-hemisphere integral as a control variate gives
-//   A = 1 - sum(blocked_positive + blocked_negative)/GTAO_SLICES.
-// Open surfaces remain exactly one even with few slices; for n=v and equal
-// horizon angles h on both sides, A=sin(h)^2. Normalizing the projected normal
-// or dropping sin(theta) would change the spherical cosine integral.
-//
-// Horizon search conventions, exact for the height-field case that
-// dominates Minecraft: the search inits fully open (cosine -1) and skips sky and
-// same-surface samples, so open surfaces read exactly 1.0 for every normal
-// tilt, while walls in front clamp the arc and produce contact darkening.
-// Samples beyond the radius fade toward the open state (paper section4.3).
-//
-// Slice rotation is dithered per block and per frame with the STBN
-// blue-noise texture (point-sampled); the pack's TAA converges the residual
-// noise (STBN dithered, converged by TAA).
-// ============================================================================
+// GTAO (Jimenez et al. 2016): the AO integral is decomposed into azimuthal
+// slices; each half-slice integrates the cosine-weighted blocked arc against the
+// open-hemisphere control variate, so open surfaces read exactly 1.
+// Samples beyond the radius fade toward the open state (paper section 4.3).
+// Slice rotation is dithered with the STBN volume; TAA converges the residual.
 
 
-// Screen-space unit direction along the projected tangent and the pixel
-// length of the full search radius (projection of GTAO_RADIUS). center_ndc is
-// the caller's hoisted ViewToNDC(center_view).xy, loop-invariant across the
-// slices; the expression matches the inlined form exactly.
+// center_ndc is the caller's hoisted ViewToNDC(center_view).xy, loop-invariant
+// across the slices.
 vec2 ScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float radius_px) {
     vec3 end_view = center_view + tangent_view * GTAO_RADIUS;
     vec2 end_ndc = ViewToNDC(end_view).xy;
@@ -54,7 +29,6 @@ vec2 ScreenDir(vec3 tangent_view, vec3 center_view, vec2 center_ndc, out float r
     return delta / radius_px;
 }
 
-// Update one side with the original depth rejection and radius falloff.
 float UpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
                         float center_depth, vec3 view_axis, float horizon_cos) {
     float result = horizon_cos;
@@ -78,10 +52,8 @@ float UpdateHorizon(vec2 sample_uv, float sample_depth, vec3 center_view,
     return result;
 }
 
-// March both sides at the same distance in one loop. Each side keeps its
-// original screen-edge termination; leaving one edge never stops the other.
-// Issue the independent depth reads together before consuming either result.
-// Returns positive-side / negative-side cosines in [-1,1] (-1 = fully open).
+// Each side keeps its own screen-edge termination. Returns positive/negative
+// cosines in [-1,1], -1 = fully open.
 vec2 SearchHorizons(vec2 center_uv, vec3 center_view, vec2 screen_dir,
                         float radius_px, float center_depth, vec3 view_axis,
                         float step_noise) {
@@ -154,14 +126,8 @@ float BlockedArc(float a, float b, float normal_angle, float inv_normal_length, 
 }
 
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-// Combined GTAO and directional sky visibility at one receiver. ao is the raw
-// geometric GTAO before strength and multibounce. open_sky is the full
-// analytic EvalSkyLight at the shading normal; visible_sky is that irradiance
-// with the L0/L1 sky field integrated over the same GTAO blocked arcs plus
-// the blocked fraction applied to the L2 band of the same estimate, clamped
-// to [0, open_sky] at the receiver only. Neither RGB output carries
-// lightmap, SKY_AMBIENT_STRENGTH, material response or the ambient floor;
-// ambient_light.glsl owns that composition.
+// Neither RGB output carries lightmap, SKY_AMBIENT_STRENGTH, material response
+// or the ambient floor; ambient_light.glsl owns that composition.
 struct GTAOSkyResult {
     float ao;
     vec3 open_sky;
@@ -169,12 +135,8 @@ struct GTAOSkyResult {
 };
 #endif
 
-// Screen-space GTAO at one receiver (full-res UV, pre-fetched depth and oct
-// normal). stbn_noise is the SampleSTBNPair pair sampled by the pass main.
-// Returns AO in [0,1]. With RSM_DIRECTIONAL_SKY_ACTIVE the same horizon
-// search also integrates the raw L1 sky field over the blocked arcs: one
-// SearchHorizons call per slice feeds both results, and the function returns
-// the combined GTAOSkyResult.
+// AO is in [0,1]; with RSM_DIRECTIONAL_SKY_ACTIVE one SearchHorizons call per
+// slice feeds both the AO and the sky visibility.
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
 GTAOSkyResult ComputeGTAOSkyFromGeometry(vec2 uv, float center_depth,
         vec2 normal_oct, vec2 stbn_noise, vec3 sky_normal_world) {
@@ -196,10 +158,8 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
     }
     vec3 center_view = NDCToViewSparse(uv * 2.0 - 1.0, center_depth * 2.0 - 1.0);
     vec3 view_axis = normalize(-center_view);  // toward camera
-    // colortex4 carries the world-space geometric normal; the slices are built
-    // around the view axis, so the transform is paid once per pixel here. The
-    // octahedral decode returns a unit vector and the camera rotation
-    // preserves its length.
+    // colortex4 carries the world-space geometric normal; the octahedral decode
+    // returns a unit vector and the camera rotation preserves its length.
     vec3 normal_view = mat3(gbufferModelView)
         * DecodeOctahedralNormal(normal_oct);
 
@@ -222,8 +182,7 @@ float ComputeGTAOFromGeometry(vec2 uv, float center_depth,
     float sky_ndott_t = dot(sky_normal_view, slice_t);
     float sky_ndott_b = dot(sky_normal_view, slice_b);
     // Hoisted before the slice loop: the same evaluation in the function
-    // epilogue compiled into a far slower register allocation on this pass
-    // (paired A/B: ~106 us vs ~9 us at GTAO_SLICES=2).
+    // epilogue compiled into a far slower register allocation on this pass.
     vec3 sky_l2_blocked = EvalSkyLightL2(sky_normal_world);
     vec4 blocked_moments = vec4(0.0);
 #endif

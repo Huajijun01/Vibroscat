@@ -89,10 +89,6 @@ vec4 ComputeSkyRadiance(vec3 view_dir) {
         float r_lut   = max(r_mid, ATM_PLANET_R);
         float r2_lut  = r_lut * r_lut;
 
-        // Midpoint sigmas are 4-wave spectra (450/510/580/650 nm): sr/sm are
-        // the Rayleigh/Mie scattering terms, sigma_t the total extinction, ss
-        // the scattering sum; rs/ms_raw fold in the transmittance,
-        // ms is the multi-scatter LUT sample, xs their product.
         AtmosphereMedia media = AtmosphereMediaAt(r_mid);
 
         // dot(camera_pos + view_dir*t, sun) splits into two loop-invariant

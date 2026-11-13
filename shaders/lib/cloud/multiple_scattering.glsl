@@ -3,24 +3,10 @@
 
 #include "/lib/scattering/phase.glsl"
 
-// ===============================================================
-// Cloud multiple scattering - the shared form, owned once.
-//
-// A cloud sample's in-scattering splits into the single-scattering phase
-// and a geometric series standing for every order past the first:
-//
-//   fms    = omega_sat * (1 - exp2(-reference_optical_depth))
-//   orders = fms / (1 - fms)                    orders >= 1, isotropic
-//
-// reference_optical_depth is DIMENSIONLESS: the medium's extinction times the
-// reference length of the layer that owns it. The knee sits at one optical
-// depth over that length, which is the same statement for any medium only
-// because the length is supplied per layer.
-//
-// Each layer supplies its own reference length, saturation albedo and
-// strength. The exposed albedo remains below one, bounding the series by
-// omega / (1 - omega) and keeping the packed half-float cloud signal finite.
-// ===============================================================
+// Every scattering order past the first, isotropized:
+// fms = omega_sat * (1 - exp2(-reference_optical_depth)); orders = fms / (1 - fms).
+// reference_optical_depth is dimensionless (extinction times the owning layer's
+// reference length). omega_sat < 1 keeps the series finite in half-float.
 
 // fms / (1 - fms): every scattering order past the first, isotropized.
 float MultipleScatteringOrders(float reference_optical_depth, float saturation_albedo) {

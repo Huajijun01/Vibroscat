@@ -23,7 +23,6 @@ float FastAdjust(float x, float c) {
     return (c + 1.0) * x / (c * x + 1.0);
 }
 
-// True when every component is neither NaN nor infinite.
 bool IsFinite(vec3 value) {
     return !any(isnan(value)) && !any(isinf(value));
 }

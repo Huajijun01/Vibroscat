@@ -3,20 +3,12 @@
 
 #include "/lib/core/math_scalar.glsl"
 
-// ===============================================================
-// Scattering phase functions - single canonical owner.
-//
-// A phase p(cos_theta), with cos_theta = dot(view_dir, light_dir), is
-// normalized: the sphere integral of p dOmega = 1. The surface-normalized
-// variant instead uses a projected hemisphere integral. Tuned parameters stay with
-// the effect that owns them (atmosphere core, cirrus, volumetric clouds,
-// water fog, shadow SSS); this file owns the formulas only.
-// ===============================================================
+// Normalized phase functions: the sphere integral of p dOmega is 1. The
+// surface-normalized variant uses a projected hemisphere integral. Tuned
+// parameters stay with the effect that owns them.
 
-// Isotropic phase: equal scattering into every direction.
 const float PHASE_ISOTROPIC = 1.0 / (4.0 * PI);
 
-// Rayleigh phase, 3/(16pi) * (1 + cos^2); symmetric front/back.
 float PhaseRayleigh(float cos_theta) {
     return (cos_theta * cos_theta + 1.0) * (3.0 / (16.0 * PI));
 }

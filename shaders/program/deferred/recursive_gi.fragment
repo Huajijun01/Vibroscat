@@ -296,7 +296,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
                 // moment; the directional-sky main overwrites sample_sigma
                 // with 0.0. Keeping the accumulation compiled there anyway
                 // made the driver carry a loop-dependent value through the
-                // whole march (measured: 13 extra TEMP registers).
+                // whole march.
                 float sample_luminance = Luminance(incident_irradiance);
                 second_moment += sample_luminance * sample_luminance * visible_weight;
 #endif
@@ -448,7 +448,7 @@ void main() {
 #if GI_MODE != 2
     // SSGI's only world-receiver consumer sits after the march: computing it
     // here keeps the value from staying live across the whole screen-space
-    // trace (measured: 13 fewer TEMP registers on the driver's allocation).
+    // trace.
     vec3 receiver_world = ViewToWorldSpace(receiver_view);
 #endif
     GIReprojectedHistory history = ReprojectGIHistory(receiver_world, fallback_normal);

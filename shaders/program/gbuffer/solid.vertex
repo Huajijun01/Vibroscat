@@ -57,8 +57,7 @@ void SetupGbufferVertex() {
     }
 #endif
 #if defined(PROGRAM_GBUFFERS_HAND)
-    // The hand keeps the exact full projection product: the sparse form lost
-    // the walking hand sway here and the cause was never isolated.
+    // Keep the full product: ViewToClip drops the hand's walking sway.
     gl_Position = gl_ProjectionMatrix * view_pos;
 #else
     gl_Position = ViewToClip(gl_ProjectionMatrix, view_pos.xyz);

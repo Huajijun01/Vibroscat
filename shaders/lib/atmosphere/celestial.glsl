@@ -55,7 +55,6 @@ float CelestialAngularMask(float cos_view, float disc_radius, float glow_radius)
 // pair is one bilinear sample at their midpoint. Wraps horizontally at
 // RA 0/360; v clamped so the filter never bleeds across the poles.
 vec4 SampleStarMapFastBicubic(vec2 uv) {
-    // Baked map is 4096x2048 (customTexture.utex_starmap).
     const vec2 resolution = vec2(4096.0, 2048.0);
     vec2 rcp_resolution = 1.0 / resolution;
 
@@ -103,7 +102,6 @@ vec4 SampleStarMapFastBicubic(vec2 uv) {
 // Catmull-Rom kernel would. Wraps horizontally at RA 0/360 through the
 // sampler's repeat; v clamps so the filter never bleeds across the poles.
 vec4 SampleStarMapLowresBspline(vec2 uv) {
-    // Baked map is 256x128 (customTexture.utex_starmap_lowres).
     const vec2 resolution = vec2(256.0, 128.0);
     vec2 rcp_resolution = 1.0 / resolution;
 

@@ -93,9 +93,6 @@ float ContactShadowOcclusion(vec3 receiver_view, vec3 normal_view, float ndotl,
             i + 2 < CONTACT_SHADOW_STEPS && ray_depth.z >= 0.05 && edge_distance.z >= 0.0,
             i + 3 < CONTACT_SHADOW_STEPS && ray_depth.w >= 0.05 && edge_distance.w >= 0.0
         );
-        // for (int j = 0; j < 4; ++j) {
-        //     valid[j] = i + j < CONTACT_SHADOW_STEPS && ray_depth[j] >= 0.05 && edge_distance[j] >= 0.0;
-        // }
         // Stop at the first invalid sample, including a partial final batch.
         valid.y = valid.x && valid.y;
         valid.z = valid.y && valid.z;

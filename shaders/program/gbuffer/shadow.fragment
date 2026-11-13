@@ -1,11 +1,6 @@
-// ============================================================================
-// Shadow pass - fragment shader
-// ============================================================================
-//
-// Explicit out variables get no Iris-injected alpha test; the per-draw
-// reference arrives via alphaTestRef and USE_DISCARD casters apply it here.
-// RSM reuses the existing color attachment; depth remains an ordinary shadow map.
-// Depth is written by Iris to shadowtex0.
+// Explicit out variables get no Iris-injected alpha test: USE_DISCARD casters
+// apply alphaTestRef here. shadowcolor0 carries the RSM payload; Iris writes
+// depth to shadowtex0.
 
 /* RENDERTARGETS: 0 */
 

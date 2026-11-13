@@ -1,40 +1,9 @@
-// ============================================================================
-// Unified GBuffer fill - all opaque gbuffer programs route here
-// ============================================================================
-//
-// Program dispatch via #define (set in world*/ stub .fsh files):
-//   PROGRAM_GBUFFERS_TERRAIN / _TERRAIN_SOLID / _TERRAIN_CUTOUT
-//                                 terrain family (shared vertex branch)
-//   PROGRAM_GBUFFERS_BLOCK        block-model programs (unmasked material id)
-//   PROGRAM_GBUFFERS_ENTITIES     entities
-//   PROGRAM_GBUFFERS_HAND         hand
-//   PROGRAM_GBUFFERS_BEACONBEAM   beaconbeam
-//   PROGRAM_GBUFFERS_PARTICLES    particles (opaque quad particles; world-up
-//                                 dielectric surface, no PBR atlas)
-//   PROGRAM_GBUFFERS_BASIC / _LINE / _TEXTURED / _TEXTURED_LIT
-//                                 generic opaque class (material id 0)
-//
-// GBuffer layout:
-//   colortex1.rgb = albedo (sRGB, decoded to linear in deferred pass)
-//   colortex1.a   = material id / 255.0  (see lib/material/model.glsl for ranges)
-//   colortex11 (RGBA16 UNORM): oct8 shading normal RG, packed material BA
-//   colortex4.rg = octahedral-encoded geometric world normal
-//   colortex4.zw = lightmap coordinates
-//
-// Coordinate-first lightmap: v_lmcoord carries an affine remap of the raw UV
-// (clamp(x * 1.103449 - 0.0689656)); never sampled in the gbuffer pass
-// (sampled in deferred). Terrain classes dither the stored value by up to
-// half an 8-bit LSB against the RGBA8 lightmap store quantization.
-//
-// Attribute availability matrix:
-//   at_tangent -> terrain, entities, block (but NOT hand, basic, textured, particles)
-//   mc_Entity  -> terrain, block (NOT entities - the host supplies the batch
-//                 entity id the vertex stage folds into the material id)
-//
-// The material id crosses the stage only for terrain, block and entities;
-// every other class owns a compile-time constant below.
-//
-// Vertex variants (solid.vertex) selected by the same #defines.
+// Opaque GBuffer fill shared by every opaque gbuffer program.
+// colortex1: albedo (sRGB) + material id / 255 (ranges in lib/material/model.glsl);
+// colortex4: oct8 geometric world normal + lightmap; colortex11: oct8 shading
+// normal, rough/selector, emission/AO.
+// v_lmcoord is clamp(raw * 1.103449 - 0.0689656); terrain dithers the stored
+// value by half an 8-bit LSB against the RGBA8 lightmap quantization.
 
 /* RENDERTARGETS: 1,4,11 */
 
@@ -111,7 +80,6 @@ void main() {
     DiscardBelowAlphaTest(albedo_tex.a, 0.001);
 #endif
 
-    // -- albedo = texture x vertex color --
     vec3 albedo = albedo_tex.rgb * v_color.rgb;
 
 #if defined(GBUFFER_MATERIAL_ID_VARYING)
@@ -200,7 +168,6 @@ void main() {
     float combined_ao = 1.0;
 #endif
 
-    // -- Material from specular map --
     // The explicit zero default is rough, non-metallic and non-emissive.
     vec4 spec_tex = vec4(0.0);
 #ifndef PROGRAM_GBUFFERS_PARTICLES
@@ -238,10 +205,8 @@ void main() {
     }
 #endif
 
-    // -- Write GBuffer --
     out_albedo_material.rgb = albedo;
     out_albedo_material.a   = float(mat_id) / 255.0;
-    // Geometric normal/lightmap keep their existing RGBA8 encoding.
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
     // Dither the stored lightmap against the RGBA8 quantization: the deferred
     // blocklight falloff amplifies the 1/255 steps into visible bands around

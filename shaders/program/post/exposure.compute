@@ -1,12 +1,4 @@
-// Phase 1: 64 workgroups gather a log-luminance statistic and a weighted
-// histogram. The second pass derives robust percentiles from these bins.
-//
-// 64 bins over a full-resolution frame is a heavy oversampling, so the sweep
-// reads a strided sub-grid: a quarter of the pixels place the median and the
-// 90th percentile within a fraction of one bin while cutting image loads and
-// shared atomics to a quarter. The stride phase rotates over four frames so a
-// fixed screen-space pattern cannot bias the statistic.
-//
+// Phase 1: log-luminance statistic and 64-bin histogram for exposure_final.
 // The 64 workgroup count and the ExposureData arrays are one contract: wid
 // indexes log_lum_sums, weight_sums and a 64-bin slice of luminance_histogram,
 // and bufferObject.0 is sized for exactly 64 of each.
@@ -17,9 +9,8 @@
 #include "/lib/color/spaces.glsl"
 
 // 1024 threads per group: the dispatch is only 64 blocks, so wider groups
-// are the only way to raise in-flight warps (512 threads left roughly half
-// the warp slots idle and measured 3-4 us slower). The 64-group count stays
-// fixed - it is the ExposureData contract below.
+// are the only way to raise in-flight warps. The 64-group count stays fixed -
+// it is the ExposureData contract below.
 layout(local_size_x = 1024) in;
 const ivec3 workGroups = ivec3(8, 8, 1);
 
@@ -42,10 +33,8 @@ shared uint histogram_cache[64];
 
 void main() {
 #ifndef AE
-    // The pass runs whenever AE or BLOOM needs it; the letter entries share
-    // one enable condition, so the sweep must not write ExposureData when
-    // only BLOOM is on. The body is compiled out, not skipped after a
-    // return, because barrier() may not follow a return statement.
+    // BLOOM can enable this pass too; compile the body out (barrier() may not
+    // follow a return) so BLOOM-only never writes ExposureData.
     return;
 #else
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);

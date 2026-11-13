@@ -44,10 +44,8 @@ vec3 NDCToView(vec3 ndc) {
     return NDCToViewSparse(ndc.xy, ndc.z);
 }
 
-// Camera-relative view space to NDC ([-1,1]^3). Sparse forward form of the
-// full mat4 product under the same symmetric-perspective structure documented
-// above: rows 0/1 of the projection carry only their diagonal entries and
-// row 2 only its z/w entries, so the dropped products are exact zeros.
+// Camera-relative view space to NDC ([-1,1]^3); see NDCToViewSparse for the
+// symmetric-projection structure.
 vec3 ViewToNDC(vec3 view_pos) {
     vec3 clip = vec3(
         gbufferProjection[0][0] * view_pos.x,
@@ -56,14 +54,11 @@ vec3 ViewToNDC(vec3 view_pos) {
     return clip / -view_pos.z;
 }
 
-// View space to clip space for positions (homogeneous w = 1). Sparse forward
-// form of the full mat4 product under the symmetric-perspective structure
-// documented above: rows 0/1 carry only their diagonal entries, row 2 only
-// its z/w entries, and the w row is exactly [0, 0, -1, 0]. Callers pass the
-// pass-local matrix explicitly: gl_ProjectionMatrix carries the MC_HAND_DEPTH
-// clip-Z scale in gbuffers_hand(_water), which Iris applies as a
-// left-multiplied row scale that leaves the w row untouched, while
-// gbufferProjection always holds the unscaled world projection.
+// View space to clip space for positions (homogeneous w = 1); sparse form of
+// the symmetric projection documented above. Callers pass the pass-local
+// matrix: gl_ProjectionMatrix carries the MC_HAND_DEPTH clip-Z scale in
+// gbuffers_hand(_water), whose left-multiplied row scale leaves w untouched;
+// gbufferProjection is the unscaled world projection.
 vec4 ViewToClip(mat4 projection, vec3 view_pos) {
     return vec4(projection[0].x * view_pos.x,
         projection[1].y * view_pos.y,
@@ -169,7 +164,6 @@ vec2 ClipRayScreenCoordT(vec4 origin_clip, vec4 direction_clip,
 #define DISTORT_FACTOR 0.9
 
 vec2 GetDistortFactor(vec2 clip_pos) {
-    // Compress XY toward center (linear blend of uniform and |clip|).
     return mix(vec2(1.0), abs(clip_pos), DISTORT_FACTOR);
 }
 
@@ -185,7 +179,7 @@ float ShadowDepthGapToWorld(float protected_gap) {
     return 2.0 * protected_gap / (SHADOW_DEPTH_SCALE * max(abs(shadowProjection[2].z), 1e-6));
 }
 
-// Inverse of ShadowDepthGapToWorld: world meters -> protected shadow depth.
+// World meters -> protected shadow depth.
 float ShadowDepthGapFromWorld(float world_gap) {
     return 0.5 * SHADOW_DEPTH_SCALE * abs(shadowProjection[2].z) * world_gap;
 }

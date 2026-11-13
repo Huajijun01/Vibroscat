@@ -129,12 +129,8 @@ struct AirFogSource {
     vec3 mie;
 };
 
-// Approximate a mixed column with one constant scattering source function.
-// Clear/rain columns set its Rayleigh/Mie proportions; rain adds only neutral
-// Mie scattering and extinction. Pure clear air, pure rain and horizontal
-// columns have constant proportions already. The epipolar air-shadow ratio E
-// (see /lib/volume/air_epipolar.glsl) must reuse this WHOLE-ray source,
-// rather than recomputing different proportions inside each bin.
+// The epipolar air-shadow ratio (lib/volume/air_epipolar.glsl) must reuse this
+// whole-ray source instead of recomputing proportions inside each bin.
 AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float rain_tau) {
     vec3 tau = medium.extinction * clear_column + vec3(rain_tau);
     vec3 inv_tau = 1.0 / max(tau, vec3(1e-20));

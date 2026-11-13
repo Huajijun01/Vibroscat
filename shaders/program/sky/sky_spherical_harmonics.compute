@@ -9,14 +9,14 @@
 
 // Each workgroup owns one RGB SH coefficient, with no cross-group reads.
 // Project the upper sky and analytically close the lower hemisphere with a
-// uniform Lambertian ground, retaining the existing 20% fill reflectance.
+// uniform Lambertian ground at SKY_GROUND_REFLECTANCE.
 #define SH_ROW_STRIPES 2
 #define SH_WORKGROUP_THREADS (SKY_RADIANCE_LUT_SIZE * SH_ROW_STRIPES)
 #define SH_SKY_ROWS (SKY_RADIANCE_LUT_SIZE / 2)
 #define SH_ROWS_PER_STRIPE (SH_SKY_ROWS / SH_ROW_STRIPES)
 #define SH_ROW_SAMPLE_STRIDE 2
 const float SKY_GROUND_REFLECTANCE = 0.2;
-// Keep the existing even-row quadrature and solid angle per retained texel.
+// Even-row quadrature: the weight is the solid angle of one retained texel.
 const float SH_SAMPLE_WEIGHT = 8.0 * PI
     / (float(SKY_RADIANCE_LUT_SIZE) * float(SKY_RADIANCE_LUT_SIZE));
 layout(local_size_x = SKY_RADIANCE_LUT_SIZE, local_size_y = SH_ROW_STRIPES) in;

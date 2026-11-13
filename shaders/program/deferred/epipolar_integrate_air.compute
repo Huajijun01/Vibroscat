@@ -9,8 +9,7 @@
 
 // Two slices per workgroup (local_size_x = 2): a warp then holds two rays
 // x 16 consecutive samples, which keeps the per-warp shadow-map footprint
-// coherent; one slice per group (x = 1) measured ~17 us slower on the air
-// path. The sample columns stay 128 tall.
+// coherent. The sample columns stay 128 tall.
 layout(local_size_x = 2, local_size_y = 128) in;
 // Iris scans these consts after option defines and full preprocessing, so
 // the dispatch count follows EPIPOLAR_SLICES branch-wise (slices / 2 groups

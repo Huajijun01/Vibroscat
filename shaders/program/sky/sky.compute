@@ -8,8 +8,7 @@
 #include "/lib/atmosphere/spectral.glsl"
 
 // 8x4 workgroups spread the 128x128 bake over 512 blocks instead of 64, so
-// every SM receives work on this small dispatch; 16x16 (64 blocks) measured
-// 2-3 us slower.
+// every SM receives work on this small dispatch.
 layout(local_size_x = 8, local_size_y = 4) in;
 const ivec3 workGroups = ivec3(16, 32, 1);
 

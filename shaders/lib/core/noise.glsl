@@ -17,10 +17,8 @@ const int STBN_STREAM_1 = 16;
 const int STBN_STREAM_2 = 23;
 const int STBN_STREAM_3 = 32;
 
-// Baked volume is 128x128x64 (customTexture.utex_stbn_scalar).
 const ivec3 STBN_SCALAR_SIZE = ivec3(128, 128, 64);
 
-// Spatiotemporal blue-noise scalar from the shared 128x128x64 STBN volume.
 // Point sampling preserves the spatial and temporal blue-noise distribution.
 float SampleSTBN(ivec2 pixel, int frame) {
     return texelFetch(utex_stbn_scalar, ivec3(pixel & (STBN_SCALAR_SIZE.xy - ivec2(1)),

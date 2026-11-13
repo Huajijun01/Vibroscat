@@ -1,22 +1,10 @@
 #ifndef LIB_CONTRACT_SETTINGS_GLSL
 #define LIB_CONTRACT_SETTINGS_GLSL
 
-// Consolidated compile-time settings: every config module (sky, clouds, fog,
-// shadows, GI, AO, lighting, water, post) in one file. Edit the values here;
-// consumers include only this file.
-//
-// Sections follow the render pipeline from the sky down to post processing.
-// The settings screen order is a UI choice and lives in shaders.properties.
-//
-// Option forms:
-// - Toggles are bare defines: `#define NAME` (on) or `//#define NAME` (off).
-// - Sliders and enum selectors carry a bracketed value list:
-//   `#define NAME <default> // [v1 v2 ...] description`.
-// - Internal constants carry no value list and never appear on a screen.
-// Consumer code may test a toggle with any preprocessor form; Iris
-// recognition is anchored by the registration block at the end of this
-// file, not by the call sites. Derived internal state and the registration
-// block close the file.
+// Compile-time settings. Toggles are bare defines (`#define` on, `//#define`
+// off); sliders carry `// [values] description`; internal constants have no
+// value list. Iris recognizes a toggle through the registration block at the
+// end of this file, not through the call sites.
 
 // ==========================================================================
 // 1. SKY - atmosphere and celestial
@@ -43,9 +31,9 @@ const float MOON_GLOW_RADIUS = 0.012;
 // ==========================================================================
 // 2. CLOUDS - Cloud layers (volumetric + cirrus)
 // ==========================================================================
-#define VOLUMETRIC_CLOUDS // Enable volumetric cloud rendering.
+#define VOLUMETRIC_CLOUDS
 #define CLOUD_SHADOWS // Single-lookup cloud shadows on direct sunlight and its RSM bounce.
-#define CIRRUS // Enable the high-altitude cirrus shell; independent of the volumetric layer.
+#define CIRRUS // Independent of the volumetric layer.
 #define CIRRUS_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cirrus drift speed (km/s); moves the body and strands together.
 #define CLOUD_VIEW_MIN_STEPS 20 // [20 24 32 40 48 56 64 96 128] Minimum cloud steps for short view rays; higher values stabilize near silhouettes at higher cost.
 #define CLOUD_VIEW_MAX_STEPS 40 // [40 64 80 96 112 128 160 192 256] Maximum cloud steps for long view rays; controls horizon quality and cost.
@@ -54,7 +42,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 #define CLOUD_LIGHT_START_OFFSET_KM 0.0 // [0.0 0.025 0.05 0.075 0.1 0.15 0.2 0.3 0.4 0.5] Distance skipped toward the light before cloud self-shadow integration (km).
 #define CLOUD_BASE_ALTITUDE 1.4 // [0.8 1.0 1.2 1.4 1.6 1.8 2.0] Cloud base altitude above terrain (km).
 #define CLOUD_THICKNESS_KM 1.0 // [0.6 0.8 1.0 1.2 1.3 1.4 1.5 1.6 1.8 2.0] Cloud layer vertical thickness (km).
-#define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM) // Auto-computed from cloud base altitude and thickness.
+#define CLOUD_TOP_ALTITUDE (CLOUD_BASE_ALTITUDE + CLOUD_THICKNESS_KM)
 #define CLOUD_COVERAGE 0.5 // [0.4 0.5 0.55 0.6 0.65 0.7 0.8] Weather-map coverage bar; higher = a wider cloud footprint. Rain still pushes coverage to full overcast.
 #define CLOUD_DISTRIBUTION_SCALE_KM 70.0 // [48.0 64.0 70.0 80.0 96.0 128.0 160.0 192.0 240.0 280.0] 2D Worley fBm distribution map world-space scale for a full wrap (km).
 #define CLOUD_WIND_SPEED 0.01 // [0.0 0.005 0.01 0.015 0.02 0.03 0.04 0.06 0.08 0.1] Cloud wind speed (km/s); distribution drifts with wind, higher = faster motion.
@@ -213,34 +201,16 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // ==========================================================================
 const float ambientOcclusionLevel = 1.0;
 
-// AO_MODE selects the algorithm (settings slider, 0/1): GTAO is the
-// horizon-based method (Jimenez et al. 2016); vanilla AO keeps only the
-// per-vertex darkening baked into geometry. GTAO owns the deferred2_a
-// half-res temporal generator and deferred2 guided reconstruction without
-// GI. RSM evaluates the GTAO kernel in deferred4 and filters its
-// AO-weighted sky. SSGI supplies its own visibility and ignores this
-// selector.
 #define AO_MODE 1 // [0 1] 0=vanilla AO 1=GTAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
 #define GTAO_RADIUS 1.5 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)
 #define GTAO_HORIZON_STEPS 3 // [2 3 4 6 8] depth samples per horizon side
 #define GTAO_FALLOFF_START 0.75 // [0.0 0.25 0.5 0.6 0.7 0.75 0.8 0.9 1.0] radius fraction where the falloff begins
-#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12); default off.
-// Temporal accumulation runs in deferred2_a against full-resolution history
-// in colortex8. One hardware bilinear history sample passes depth/normal rejection.
+#define GTAO_MULTIBOUNCE // albedo-dependent energy recovery (paper Eq. 12).
+// Temporal accumulation details: lib/lighting/temporal_ao.glsl and ao.compute.
 #define AO_TEMPORAL // temporal toggle: enables the history accumulation
-// Every half-res texel evaluates the same receiver in its 2x2 block each frame.
-// deferred2 uses four-tap depth/normal bilateral upsampling; missing support
-// resolves to open AO rather than another full-resolution history lookup.
 #define AO_HISTORY_FRAMES 12 // [2 4 6 8 10 12 16 24 32 48] accumulated-average length cap (frames); fresh weight settles at 1/N
-// Rejection lifts the fresh-sample weight toward 1, so an untrusted history
-// (a vanished object's AO) is replaced within a few frames.
-// History rejection: the reprojected history is
-// trusted only when the previous surface stays within the receiver plane's
-// distance limit and its normal proxy, projected into the current frame,
-// agrees with the receiver beyond the dot floor; both weights
-// ramp smoothly to zero (AOHistoryWeight in lib/lighting/temporal_ao.glsl).
 #define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max receiver-plane distance (m)
 #define AO_HISTORY_NORMAL_DOT_FLOOR 0.866 // [0.5 0.71 0.82 0.866 0.91 0.94] history rejection: min normal dot (cos 30 deg)
 
@@ -267,12 +237,8 @@ const float ambientOcclusionLevel = 1.0;
 #define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
 const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
-// Sky ambient (SH) strength: scales the SH sky irradiance that
-// lib/lighting/ambient_light.glsl feeds into every surface's ambient term, so
-// the no-GI ambient of the deferred shading pass and the SH fallback both GI
-// sources leave in their uncovered directions share one control. Direct
-// sunlight, the AMBIENT_FLOOR floor below and the SH environment reflection are
-// outside this scale.
+// Scales the SH sky irradiance ambient_light.glsl feeds into every surface;
+// direct sun, AMBIENT_FLOOR and the SH environment reflection are outside it.
 #define SKY_AMBIENT_STRENGTH 0.9 // [0.0 0.25 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.25 1.5 2.0] sky SH ambient light intensity multiplier
 
 // Minimum ambient light floor added to every surface's sky ambient, so caves
@@ -280,12 +246,8 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // lib/lighting/ambient_light.glsl).
 #define AMBIENT_FLOOR 0.005 // [0.0 0.005 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
 
-// Forward-lit opaque particles, default off. gbuffers_particles switches from
-// the deferred solid GBuffer path to the forward solid_lite shader and
-// particles.ordering moves to after the deferred pass (see shaders.properties),
-// so quad particles no longer feed the opaque GBuffer, AO, or GI. Host
-// dependent: some Iris builds ignore particles.ordering for quad particles
-// and keep the draw order; the GBuffer skip still applies there.
+// Forward-lit opaque particles: moves quad particles to solid_lite and out of the
+// GBuffer, AO and GI. Some Iris builds ignore particles.ordering and keep the order.
 //#define PARTICLE_FORWARD
 
 // ==========================================================================
@@ -321,11 +283,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // sparkles through the temporal filter.
 #define OPAQUE_SSR_RADIANCE_LIMIT 12.0 // [2.0 4.0 8.0 12.0 16.0 24.0 32.0 64.0 128.0] cap on radiance sampled from the reflected scene
 
-// Opaque SSR march budget: samples along the full reflection path
-// (McGuire & Mara 2014). The default keeps the whole trace at 17 depth
-// samples: 12 march steps plus 5 refinement reads (4 bisection + 1
-// correction). Raising the march count extends how far reflections reach,
-// not how accurately they hit.
+// Opaque SSR march budget (McGuire & Mara 2014); more steps extend reach, not hit accuracy.
 #define OPAQUE_SSR_STEPS 12 // [8 12 16 20 24 32 40 48 64] opaque SSR march samples
 // Bisection iterations refining the accepted crossing; each halves the
 // march-step bracket, so 4 steps keep the hit within step/16 of the flip.
@@ -343,14 +301,9 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Off reports the raw march sample at the crossing.
 #define SSR_INTERPOLATION
 
-// Water SSR march budget: samples along the full reflection path
-// (McGuire & Mara 2014). The default keeps the whole trace at 17 depth
-// samples: 12 march steps plus 5 refinement reads (4 bisection + 1
-// correction). Raising the march count extends how far reflections reach,
-// not how accurately they hit.
+// Water SSR march budget (McGuire & Mara 2014).
 #define WATER_SSR_STEPS 10 // [8 10 12 16 20 24 32] water SSR march samples
-// Bisection iterations refining the accepted crossing; each halves the
-// march-step bracket, so 4 steps keep the hit within step/16 of the flip.
+// Same step/16 bound as the opaque path.
 #define WATER_SSR_BISECT_STEPS 4
 
 // Water parallax occlusion mapping (ocean.glsl): normal evaluated at the
@@ -360,8 +313,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 
 // Water surface quality: 0 = small waves (3 normal / 2 POM layers),
-// 1 = medium-large waves (5 normal / 3 POM layers). Profiles set 1 from
-// HIGH up; the shipped default keeps the small-wave shape.
+// 1 = medium-large waves (5 normal / 3 POM layers).
 #define WATER_SURFACE_QUALITY 0 // [0 1]
 
 // Normal gain for both sea states; also controls small-wave POM height.
@@ -386,20 +338,13 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure reference display key; 0.18 is middle gray
 #define AE_ADAPTATION_STRENGTH 0.70 // [0.0 0.25 0.40 0.55 0.70 0.85 1.0] Scene-key EV compensation; 0=fixed exposure, 1=full compensation
 
-// Tonemap operator (0 = AgX-HSV, 3 = OpenDRT, 5 = GT7)
 #define TONEMAP_MODE 5 // [0 3 5] Tonemap: 0=AgX-HSV 3=OpenDRT 5=GT7
 #define TONEMAP_EXPOSURE 0.0 // [-2.0 -1.5 -1.0 -0.75 -0.5 -0.25 0.0 0.25 0.5 0.75 1.0 1.5 2.0] Manual exposure (EV), applied before auto-exposure
 
 // #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
 #define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
-// Rod-vision (scotopic) model, gated by the exposure state alone. The
-// adaptation key is reconstructed from the persistent exposure EV and ramps
-// the rod share log-linearly across the mesopic band: 0.004 anchors near the
-// full-moon night key (moon ground irradiance ATM_MOON_IRR * ATM_EXPOSURE ~
-// 0.007), 0.04 stays below the daylight key. PURKINJE_CONE_LUMINANCE is the
-// post-exposure luminance pivot where cone color vision retakes over (0.35 ~
-// +1 EV over the 0.18 exposure target); the tint is the unit-luminance rod
-// gray.
+// Mesopic band: 0.004 anchors the full-moon night key, 0.04 stays below the
+// daylight key; PURKINJE_CONE_LUMINANCE is the post-exposure cone pivot.
 const float PURKINJE_SCOTOPIC_KEY = 0.004;
 const float PURKINJE_PHOTOPIC_KEY = 0.04;
 const float PURKINJE_CONE_LUMINANCE = 0.35;
@@ -459,12 +404,8 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define PLANT_WIND_GRASS 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Rooted-plant compliance.
 #define PLANT_WIND_LEAVES 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Canopy compliance.
 
-// Fragment-stage terrain TBN, default on. On: chunk terrain transmits no
-// N/T/B; the fragment stage rebuilds the full basis from the reconstructed
-// position and UV derivatives, so surface normals follow wind deformation.
-// Off: terrain keeps the flat per-face basis the chunk vertex writer
-// supplies. Chunk terrain only; block entities, entities, hand and water
-// keep their interfaces in both modes.
+// Rebuild the terrain TBN from derivatives so normals follow wind deformation;
+// off keeps the flat per-face basis. Chunk terrain only.
 #define TERRAIN_DERIVATIVE_TBN
 
 // ==========================================================================

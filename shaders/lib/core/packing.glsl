@@ -3,7 +3,6 @@
 
 #include "/lib/core/math_scalar.glsl"
 
-// Pack two [0,1] values into one 16-bit UNORM channel (8 bits each).
 float Pack2x8(float hi, float lo) {
     float hi8 = floor(hi * 255.0);
     float lo8 = floor(lo * 255.0);

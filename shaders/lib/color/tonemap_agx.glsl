@@ -6,28 +6,12 @@
 #include "/lib/color/spaces.glsl"
 
 
-// ===========================================================================
-// AgX (mode 0): the HSV hue-repair variant of AgX, "AgX-HSV".
-//
-// Ported from DRT Bench (github.com/bWFuanVzYWth/DRT, GPL-3.0-only), file
-// shaders/agx_hsv.wgsl, with its `AgxParameters::hsv_default()` curve;
-// licenses/THIRD_PARTY_NOTICES.md section 1. The inset/outset pair,
-// the log2 shaper and the toe/shoulder power curve are the family the S2O3
-// variant also uses; what makes this variant "HSV" is the final hue repair,
-// which compares the hue of the tone-scaled result with the hue of the
-// original scene color and pulls it back by a retention that falls from the
-// shadows to the highlights (1.0 at black -> AGX_WHITE_HUE_RETENTION).
-//
-// Domain: the reference's display value is sRGB-OETF encoded, anchored so
-// that its output pivot is OETF(0.18) = 0.46135613. This port therefore
-// decodes with the pack's exact sRGB EOTF (`ToLinear`) and returns
-// display-linear color, which keeps the shared "scene 18% gray -> 18%
-// display-linear" anchor exactly: 0.18 scene in gives 0.18 out.
-// The hue comparison itself stays in the reference's pure-2.2 domain.
-//
-// Degree-six polynomials approximate the reference's toe and shoulder;
-// the hue repair retains the reference's signal-domain calculation.
-// ===========================================================================
+// AgX-HSV (mode 0), ported from DRT Bench shaders/agx_hsv.wgsl,
+// `AgxParameters::hsv_default()` (GPL-3.0-only; licenses/THIRD_PARTY_NOTICES.md
+// section 1). The display value is sRGB-OETF encoded and anchored at
+// OETF(0.18), so the port decodes with ToLinear and returns display-linear
+// color (0.18 scene in -> 0.18 out). The hue repair compares the tone-scaled
+// and original hues in the reference's pure-2.2 signal domain.
 
 // AgX-HSV curve parameters (DRT Bench `AgxParameters::hsv_default()`).
 const float AGX_GAMUT_COMPRESSION = 0.05;
@@ -42,13 +26,11 @@ const float AGX_WHITE_HUE_RETENTION = 0.5;
 // fixed AGX_WHITE_HUE_RETENTION constant.
 const float AGX_BLACK_HUE_RETENTION = 1.0;
 
-// Inset: compress the working gamut toward the AgX neutral axis.
 vec3 AgXInset(vec3 color) {
     float neutral = dot(color, AGX_NEUTRAL_WEIGHTS);
     return mix(color, vec3(neutral), AGX_GAMUT_COMPRESSION);
 }
 
-// Outset: its exact inverse, applied after the curve.
 vec3 AgXOutset(vec3 color) {
     float neutral = dot(color, AGX_NEUTRAL_WEIGHTS);
     return (color - AGX_GAMUT_COMPRESSION * vec3(neutral))

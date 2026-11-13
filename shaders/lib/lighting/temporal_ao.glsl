@@ -9,20 +9,11 @@
 #include "/lib/lighting/ao_history.glsl"
 #include "/lib/raytrace/ssr_depth.glsl"
 
-// ============================================================================
-// AO temporal accumulation at the fixed half-resolution receivers.
-// ============================================================================
-// History in the merged colortex8 (R = EncodeAOHistory(AO), G = age, B = view depth
-// via the EncodeSquaredDepth curve, A = NaN "not cloud"); this module
-// provides per-pixel math only. Half-res generation accumulates before the
-// depth/normal-guided full-res reconstruction on the fixed sample lattice.
-// Rejection trusts the history only within the distance limit and the normal
-// dot floor (AOHistoryWeight); both ramp smoothly to zero.
+// AO temporal accumulation at the fixed half-res receivers. History uses the
+// merged colortex8 encoding documented in ao.compute.
 
-// Reproject a camera-relative world position into the previous jittered scene UV.
-// Also outputs the receiver in the previous frame's view space for
-// AOHistoryWeight (the forward push the reprojection already computed).
-// Returns false when the point is behind the previous camera or off-screen.
+// receiver_prev_view reuses the forward push the reprojection already computed
+// for AOHistoryWeight.
 bool AOReprojectToPrevious(vec3 world_pos, out vec2 previous_uv, out vec3 receiver_prev_view) {
     vec4 previous_view = gbufferPreviousModelView * vec4(world_pos + u_camera_delta, 1.0);
     receiver_prev_view = previous_view.xyz;

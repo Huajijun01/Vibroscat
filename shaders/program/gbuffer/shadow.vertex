@@ -3,9 +3,6 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/geometry/plant_wind.glsl"
 
-// ============================================================================
-// Shadow pass - vertex shader
-// ============================================================================
 // During the shadow pass Iris sets gl_ModelViewMatrix = model->shadow-view
 // and gl_ProjectionMatrix = orthographic shadow projection (no explicit
 // shadowModelView/shadowProjection needed). Water blocks (mc_Entity 80)
@@ -61,6 +58,5 @@ void main() {
     if (block_id == 80) { gl_Position.w = -1.0; return; }
 #endif
 
-    // Analytic distortion: compress XY toward center
     gl_Position.xy /= GetDistortFactor(gl_Position.xy);
 }

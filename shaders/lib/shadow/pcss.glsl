@@ -73,10 +73,8 @@ float ShadowReceiverBias(vec2 clip_extent, vec2 depth_gradient, float texel_radi
         + ShadowDepthGapFromWorld(RESIDUAL_BIAS_M) + DEPTH_ROUNDING_BIAS;
 }
 
-// Step 1: blocker search. Accumulates the receiver depth gap of shadow-map
-// samples that occlude the receiver (depth <= receiver depth). Returns false
-// when no blocker is found in the search disk, so the pixel can be treated
-// as lit. dir is the tap-0 disk direction; the walk is local to this call.
+// Step 1: blocker search. dir is the tap-0 disk direction; the walk is local
+// to this call.
 bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 projection_scale, vec2 depth_gradient,
     vec2 dir, int blocker_steps, out float blocker_depth) {
     // Convex corners project small false depth deltas; require a
@@ -132,7 +130,6 @@ float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 depth_gradient) {
 // class-based cutout footprint, independent of reflection/transmission energy.
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_dither,
     bool plant_receiver, float ndotl, float footprint_radius_m, out float sss_depth) {
-    // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     // One dither value + first direction serves both passes. The orthographic
     // XY scale projects their world-space disks before each sample is warped.
     float angle = stbn_dither * TAU;

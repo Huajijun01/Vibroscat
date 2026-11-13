@@ -1,8 +1,5 @@
-// Phase 2: combine log statistics and percentiles, then update the adapted
-// exposure. A geometric mean models the retina's approximately logarithmic
-// response; the median rejects small bright/dark outliers and P90 preserves
-// highlight headroom. The log-average/key-value approach follows Reinhard et
-// al., "Photographic Tone Reproduction for Digital Images" (SIGGRAPH 2002).
+// Phase 2: log-average/key-value exposure from the phase-1 statistics
+// (Reinhard et al., "Photographic Tone Reproduction for Digital Images", 2002).
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
@@ -36,10 +33,8 @@ float HistogramPercentile(float fraction, uint total_weight) {
 
 void main() {
 #ifndef AE
-    // The pass runs whenever AE or BLOOM needs it; the letter entries share
-    // one enable condition, so the reduction must not read or write
-    // ExposureData when only BLOOM is on. The body is compiled out, not
-    // skipped after a return, because barrier() may not follow a return.
+    // BLOOM can enable this pass too; compile the body out (barrier() may not
+    // follow a return) so BLOOM-only never touches ExposureData.
     return;
 #else
 

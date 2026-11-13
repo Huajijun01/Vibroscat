@@ -28,7 +28,6 @@ ivec2 CloudCurrentImageSize() {
     return max(ivec2(u_render_res * CLOUD_CURRENT_SCALE), ivec2(1));
 }
 
-// Return the full-resolution pixel's coordinate on the moving low-res lattice.
 // The low-res texel centers are at (id + r2_offset) * cell_size in full-res
 // pixel coordinates, so integer lattice coordinates are valid sample centers.
 vec2 CloudCurrentGridPosition(ivec2 full_res_texel) {
@@ -118,10 +117,8 @@ CloudFrame CloudAccumulate(CloudFrame current, CloudFrame history, int pixel_age
 
 #if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
 
-// Spatial fill is provisional. Only positive-distance current samples reached
-// the cloud interval; terrain and out-of-scene phases cannot contribute.
-// phase_offset is passed in because the caller already evaluated it for the
-// fresh-pixel test; the value is uniform per frame.
+// Spatial fill is provisional: only positive-distance samples reached the cloud
+// interval. phase_offset is uniform per frame and already evaluated by the caller.
 CloudFrame CloudCheckerboardCurrent(ivec2 full_res_texel, ivec2 phase_offset, float shell_distance) {
     vec2 grid = (vec2(full_res_texel) - vec2(phase_offset))
         / float(CLOUD_TEMPORAL_UPSCALING);
@@ -184,7 +181,6 @@ CloudFrame CloudCheckerboardHistory(vec2 previous_uv) {
 // Local age measures consecutive accepted screen frames, not transported
 // observations. The first full cycle replaces provisional spatial fills.
 CloudFrame CloudCheckerboardAccumulate(CloudFrame current, CloudFrame history, int pixel_age) {
-    // First cycle: the fresh observation fully replaces the provisional fill.
     if (pixel_age < CLOUD_CHECKERBOARD_AREA) return current;
     float dense_alpha = 1.0 / float(min(pixel_age + 1, CLOUD_HISTORY_FRAMES));
     // Constant integer exponent: exact multiplies replace the approximate

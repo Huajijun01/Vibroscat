@@ -1,21 +1,7 @@
-// ============================================================================
-// Direct lighting fragment: the complete current directional response
-// (BRDF, visibility, plant transmission, emission) evaluated once per opaque
-// pixel.
-// ============================================================================
-// Runs as deferred1 in all three dimensions, before clouds/AO (deferred2),
-// opaque SSR (deferred3), GI (deferred4) and shading (deferred5).
-// Writes the non-selected side of both targets: colortex0's fresh direct RGB
-// auto-flips to selected for every later consumer; colortex5 receives the
-// caustic BRDF on W, and flip.deferred1.colortex5=false in shaders.properties
-// keeps the history side selected so SSR and TAA keep reading H.
-// Sky pixels discard: no consumer reads either target at sky texels (deferred4
-// samples only at geometry hits; deferred5 takes its sky branch before the
-// direct read; caustics sample only at receiver projections), and this pass
-// has no depth attachment, so discarding loses no early-Z. Inputs:
-// depthtex0, colortex1/4/11, shadow maps, sky-light SSBO, STBN noise.
-// Evaluator-internal debug views (CONTACT_SHADOW_DEBUG, SHADOW_SSS_DEBUG)
-// leave this pass as the colortex0 color; deferred5 passes them through.
+// Current directional response (BRDF, visibility, plant transmission, emission)
+// once per opaque pixel. colortex0 receives direct RGB + emission; colortex5 W
+// receives the caustic BRDF with flip.deferred1.colortex5=false, which keeps the
+// history side selected for SSR and TAA. Sky texels discard from both targets.
 
 /* RENDERTARGETS: 0,5 */
 

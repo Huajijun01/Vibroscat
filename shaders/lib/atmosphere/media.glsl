@@ -5,15 +5,8 @@
 #include "/lib/atmosphere/atmosphere_geometry.glsl"
 #include "/lib/scattering/phase.glsl"
 
-// ===============================================================
-// Atmosphere Sky - 4-Wave Spectral (GLSL 430 desktop)
-// Wavelengths: 450, 510, 580, 650 nm
-// Density/phase model: 4-wave spectral fit.
-// The Mie model is a single jointly fitted aerosol that carries the visible
-// stratospheric sulfate contribution, so the medium has no separate sulfate
-// layer evaluation. The fit targets the installed transmittance and
-// multiscatter LUTs.
-// ===============================================================
+// 4-wave spectral media (450/510/580/650 nm). The Mie fit carries the
+// stratospheric sulfate contribution, so no separate sulfate layer is evaluated.
 
 // ===============================================================
 // Baked Constants

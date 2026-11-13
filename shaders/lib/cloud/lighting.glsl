@@ -81,10 +81,8 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return scattering + isotropic_orders / (1.0 + light_optical_depth);
 }
 
-// Optical depth toward the light, starting past a configurable near segment.
-// Jitter the ray origin once within the first step, then advance the entire
-// sequence with quadratic spacing. Each sample carries its full step length.
-// Densities take the low-quality path; every accepted view sample retraces it.
+// Light samples use the low-quality density path; every accepted view sample
+// retraces it.
 float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter,
     CloudDensityFrame frame
 ) {

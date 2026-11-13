@@ -27,8 +27,6 @@ screen.POSTPROC = Post Processing
 screen.POSTPROC.comment = Color grading, camera-lens effects and edge smoothing applied after the world is rendered.
 screen.TONEMAP = Tone Mapping
 screen.TONEMAP.comment = How scene brightness is compressed into your display's range. Pick a style and its presets.
-screen.TONEMAP_OPENDRT = OpenDRT
-screen.TONEMAP_OPENDRT.comment = Official OpenDRT v1.1.0 presets. Only used in OpenDRT mode.
 screen.EXPOSURE = Exposure
 screen.EXPOSURE.comment = Auto eye adaptation, a manual brightness offset, and the night-vision color effect.
 screen.CAMERA = Camera & Effects
@@ -518,31 +516,6 @@ option.ATM_HORIZON_DIP_SCALE.comment = How deep the horizon atmosphere extends: 
 
 
 
-option.TONEMAP_ODT_LOOK = OpenDRT Look
-option.TONEMAP_ODT_LOOK.comment = Select an official preset.
-value.TONEMAP_ODT_LOOK.0 = Standard
-value.TONEMAP_ODT_LOOK.1 = Arriba
-value.TONEMAP_ODT_LOOK.2 = Sylvan
-value.TONEMAP_ODT_LOOK.3 = Colorful
-value.TONEMAP_ODT_LOOK.4 = Aery
-value.TONEMAP_ODT_LOOK.5 = Dystopic
-value.TONEMAP_ODT_LOOK.6 = Umbra
-option.TONEMAP_ODT_TONESCALE = OpenDRT Tonescale
-option.TONEMAP_ODT_TONESCALE.comment = Select an official preset.
-value.TONEMAP_ODT_TONESCALE.0 = USE LOOK PRESET
-value.TONEMAP_ODT_TONESCALE.1 = Low Contrast
-value.TONEMAP_ODT_TONESCALE.2 = Medium Contrast
-value.TONEMAP_ODT_TONESCALE.3 = High Contrast
-value.TONEMAP_ODT_TONESCALE.4 = Arriba Tonescale
-value.TONEMAP_ODT_TONESCALE.5 = Sylvan Tonescale
-value.TONEMAP_ODT_TONESCALE.6 = Colorful Tonescale
-value.TONEMAP_ODT_TONESCALE.7 = Aery Tonescale
-value.TONEMAP_ODT_TONESCALE.8 = Dystopic Tonescale
-value.TONEMAP_ODT_TONESCALE.9 = Umbra Tonescale
-value.TONEMAP_ODT_TONESCALE.10 = ACES-1.x
-value.TONEMAP_ODT_TONESCALE.11 = ACES-2.0
-value.TONEMAP_ODT_TONESCALE.12 = Marvelous Tonescape
-value.TONEMAP_ODT_TONESCALE.13 = DaGrinchi ToneGroan
 
 # Epipolar air fog
 screen.AIR_FOG_DENSITY = Air Density

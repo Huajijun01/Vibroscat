@@ -42,7 +42,7 @@
 
 ## 4. OpenDRT（GPL-3.0）
 
-`shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPLv3），官方 Look 与 Tonescale 参数固定于 `tonemap_opendrt_presets.glsl`。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——固定 SDR 100 尼特显示目标，输出显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
+`shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPLv3），官方 Standard Look 参数固定为该文件内的不可变常量。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——固定 SDR 100 尼特显示目标，输出显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
 
 ## 5. NASA Deep Star Maps 2020（公有领域）
 

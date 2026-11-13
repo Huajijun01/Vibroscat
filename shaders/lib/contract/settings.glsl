@@ -350,11 +350,6 @@ const float PURKINJE_PHOTOPIC_KEY = 0.04;
 const float PURKINJE_CONE_LUMINANCE = 0.35;
 const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 
-// Only official artistic presets are user options. Numeric DRT parameters
-// are immutable constants in their owning color libraries.
-#define TONEMAP_ODT_LOOK 0 // [0 1 2 3 4 5 6] OpenDRT v1.1.0 look preset
-#define TONEMAP_ODT_TONESCALE 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13] OpenDRT tonescale preset; 0 uses the selected look
-
 #define BLOOM
 #define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
 // Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth

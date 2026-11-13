@@ -42,7 +42,7 @@ Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/suppl
 
 ## 4. OpenDRT (GPL-3.0)
 
-`shaders/lib/color/tonemap_opendrt.glsl` is ported from Jed Smith's [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl` (GPLv3), with the official Look and Tonescale parameters fixed in `tonemap_opendrt_presets.glsl`. Per GPL-3.0 section 5(a), this pack modified it: the SDR display target is fixed at 100 nits, the output is display-linear Rec.709, and the sRGB OETF is applied once by the final pass.
+`shaders/lib/color/tonemap_opendrt.glsl` is ported from Jed Smith's [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl` (GPLv3), with the official Standard Look parameters fixed as immutable constants in that file. Per GPL-3.0 section 5(a), this pack modified it: the SDR display target is fixed at 100 nits, the output is display-linear Rec.709, and the sRGB OETF is applied once by the final pass.
 
 ## 5. NASA Deep Star Maps 2020 (public domain)
 

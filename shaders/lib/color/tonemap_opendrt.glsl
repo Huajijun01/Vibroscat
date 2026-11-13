@@ -5,50 +5,16 @@
 #include "/lib/core/math_scalar.glsl"
 
 #if TONEMAP_MODE == 3
-#include "/lib/color/tonemap_opendrt_presets.glsl"
 
 
-// ===========================================================================
-// OpenDRT (mode 3)
-//
-// Ported from Jed Smith's OpenDRT (Open Display Rendering Transform),
-// github.com/jedypod/open-display-transform, display-transforms/opendrt/
-// OpenDRT.dctl, GPL-3.0; licenses/THIRD_PARTY_NOTICES.md section 5.
-// Official look and tonescale presets select complete parameter sets,
-// including contrast-low/high and creative-white stages. All raw parameters
-// are fixed in tonemap_opendrt_presets.glsl.
-//
-// The operator is a picture-formation chain, not a curve:
-//   1. input Rec.709 linear -> P3D65, which is the tool's rendering space;
-//   2. a "render space" desaturation that fixes how much of the color volume
-//      the RGB ratios below span;
-//   3. a scalar tone-scale driver with the color carried as RGB ratios;
-//   4. hue-angle windows, hue contrast and the two hue-shift stages, which
-//      are what give OpenDRT its filmic primary/secondary paths;
-//   5. purity compression (a lerp to the achromatic axis driven by the
-//      tone-scaled value), the mid-range purity trims that keep midtones
-//      colorful without chalky highlights, and brilliance, which scales the
-//      intensity of pure stimuli before the curve so darkening a primary
-//      also softens its compression;
-//   6. inverse render space, creative-white adaptation, Rec.709 conversion,
-//      and the final toe.
-//
-// Deviations from the reference:
-//   - Gaussian hue windows use degree-six fits in the cosine of the hue
-//     offset, evaluated directly from the opponent direction.
-//   - SDR only: the peak luminance is fixed at 100 nits, so the display
-//     scale ts_dsc is 1, the HDR gray-boost term is log2(1) = 0, and the
-//     HDR purity lerp that would blend ts_s1 towards s_Lp100 has weight zero
-//     - which collapses the reference's tsn_pt and tsn_const curves into one
-//     and removes pt_hdr, tn_gb and tn_Lp as parameters.
-//   - The output transfer is this pack's sRGB OETF in post/final.fragment, so
-//     the port returns display-linear and omits the reference's inverse
-//     display EOTF, and it uses the tool's "sRGB Display" preset surround
-//     (tn_su = 2, bright surround) instead of its default Rec.1886 preset.
-//   - Display gray stays at the reference's 10 nits; no calibration to
-//     another operator is applied. Input and display gamut are Rec.709.
-//     Creative-white matrices fold P3D65 -> XYZ -> CAT -> Rec.709.
-// ===========================================================================
+// OpenDRT (mode 3), ported from github.com/jedypod/open-display-transform,
+// display-transforms/opendrt/OpenDRT.dctl (GPL-3.0;
+// licenses/THIRD_PARTY_NOTICES.md section 4). Fixed official Standard look,
+// SDR only (100 nits).
+// Deviations from the reference: degree-six hue-window fits; the SDR peak
+// collapses the HDR purity and gray-boost terms; output is display-linear (the
+// pack applies its sRGB OETF) using the "sRGB Display" bright-surround preset;
+// display gray stays at 10 nits.
 
 // Rec.709 <-> P3D65, folded from the reference's XYZ D65 intermediate
 // matrices. Each vec3 is one column, so the GLSL mat3 holds the transpose of
@@ -61,6 +27,72 @@ const mat3 ODT_P3D65_TO_SRGB = mat3(
     vec3(1.2249401763, -0.0420569547, -0.0196375546),
     vec3(-0.2249401763, 1.0420569547, -0.0786360456),
     vec3(0.0000000000, 0.0000000000, 1.0982736001));
+
+// The official Standard look preset of OpenDRT v1.1.0 (the DCTL's "Standard"
+// LOOK PRESETS row), fixed as immutable constants. Both optional contrast
+// modules are disabled in this preset, the creative white is the plain
+// P3D65 -> Rec.709 matrix, and the hue/purity/brilliance trims use the
+// reference's shipped defaults.
+const float ODT_CONTRAST = 1.66;
+const float ODT_SHOULDER_CLIP = 0.5;
+const float ODT_TOE = 0.003;
+const float ODT_OFFSET = 0.005;
+const int ODT_HIGH_CONTRAST_ENABLE = 0;
+const float ODT_HIGH_CONTRAST = 0.0;
+const float ODT_HIGH_CONTRAST_PIVOT = 1.0;
+const float ODT_HIGH_CONTRAST_EXTENSION = 4.0;
+const int ODT_LOW_CONTRAST_ENABLE = 0;
+const float ODT_LOW_CONTRAST = 0.0;
+const float ODT_LOW_CONTRAST_WIDTH = 0.5;
+const float ODT_CREATIVE_WHITE_RANGE = 0.25;
+const float ODT_RENDER_SATURATION = 0.35;
+const float ODT_RENDER_WEIGHT_R = 0.25;
+const float ODT_RENDER_WEIGHT_B = 0.55;
+const float ODT_PURITY_LOW = 0.25;
+const float ODT_PURITY_LOW_R = 0.5;
+const float ODT_PURITY_LOW_G = 0.0;
+const float ODT_PURITY_LOW_B = 0.1;
+const float ODT_PURITY_HIGH = 0.25;
+const float ODT_PURITY_HIGH_R = 0.5;
+const float ODT_PURITY_HIGH_B = 0.0;
+const float ODT_PURITY_SOFTCLIP_C = 0.06;
+const float ODT_PURITY_SOFTCLIP_M = 0.08;
+const float ODT_PURITY_SOFTCLIP_Y = 0.06;
+const float ODT_MID_PURITY_LOW = 0.4;
+const float ODT_MID_PURITY_LOW_RANGE = 0.25;
+const float ODT_MID_PURITY_LOW_STRENGTH = 0.5;
+const float ODT_MID_PURITY_HIGH = -0.8;
+const float ODT_MID_PURITY_HIGH_RANGE = 0.35;
+const float ODT_MID_PURITY_HIGH_STRENGTH = 0.4;
+const float ODT_BRILLIANCE = 0.0;
+const float ODT_BRILLIANCE_R = -2.5;
+const float ODT_BRILLIANCE_G = -1.5;
+const float ODT_BRILLIANCE_B = -1.5;
+const float ODT_BRILLIANCE_RANGE = 0.5;
+const float ODT_BRILLIANCE_STRENGTH = 0.35;
+const float ODT_POST_BRILLIANCE = -0.5;
+const float ODT_POST_BRILLIANCE_R = -1.25;
+const float ODT_POST_BRILLIANCE_G = -1.25;
+const float ODT_POST_BRILLIANCE_B = -0.25;
+const float ODT_HUE_CONTRAST_R = 1.0;
+const float ODT_HUE_CONTRAST_RANGE = 0.3;
+const float ODT_HUE_SHIFT_R = 0.6;
+const float ODT_HUE_SHIFT_R_RANGE = 0.6;
+const float ODT_HUE_SHIFT_G = 0.35;
+const float ODT_HUE_SHIFT_G_RANGE = 1.0;
+const float ODT_HUE_SHIFT_B = 0.66;
+const float ODT_HUE_SHIFT_B_RANGE = 1.0;
+const float ODT_HUE_SHIFT_C = 0.25;
+const float ODT_HUE_SHIFT_C_RANGE = 1.0;
+const float ODT_HUE_SHIFT_M = 0.0;
+const float ODT_HUE_SHIFT_M_RANGE = 1.0;
+const float ODT_HUE_SHIFT_Y = 0.0;
+const float ODT_HUE_SHIFT_Y_RANGE = 1.0;
+const mat3 ODT_CREATIVE_WHITE_MATRIX = mat3(
+    vec3(1.224940176280561, -0.042056954709688, -0.019637554590334),
+    vec3(-0.224940176280560, 1.042056954709688, -0.078636045550632),
+    vec3(0.000000000000000, -0.000000000000000, 1.098273600140966));
+const float ODT_CREATIVE_WHITE_NORMALIZATION = 1.000000000000;
 
 const float ODT_PI = 3.14159265358979323846;
 const float ODT_SQRT3_INVERSE = 0.57735026918962576;

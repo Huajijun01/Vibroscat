@@ -27,8 +27,6 @@ screen.POSTPROC = 后期处理
 screen.POSTPROC.comment = 世界渲染完成后再叠加的画面处理：调色、镜头特效与边缘平滑。
 screen.TONEMAP = 色调映射
 screen.TONEMAP.comment = 决定场景亮度如何压缩到屏幕可显示的范围，可选择不同风格及其预设。
-screen.TONEMAP_OPENDRT = OpenDRT
-screen.TONEMAP_OPENDRT.comment = OpenDRT v1.1.0 官方预设，仅 OpenDRT 模式生效。
 screen.EXPOSURE = 曝光
 screen.EXPOSURE.comment = 自动亮度适应、手动亮度偏移与夜间视觉色彩效果。
 screen.CAMERA = 相机与特效
@@ -518,31 +516,6 @@ option.ATM_HORIZON_DIP_SCALE.comment = 地平线大气向下延伸的深度：�
 
 
 
-option.TONEMAP_ODT_LOOK = OpenDRT 预设
-option.TONEMAP_ODT_LOOK.comment = 选择官方预设。
-value.TONEMAP_ODT_LOOK.0 = Standard
-value.TONEMAP_ODT_LOOK.1 = Arriba
-value.TONEMAP_ODT_LOOK.2 = Sylvan
-value.TONEMAP_ODT_LOOK.3 = Colorful
-value.TONEMAP_ODT_LOOK.4 = Aery
-value.TONEMAP_ODT_LOOK.5 = Dystopic
-value.TONEMAP_ODT_LOOK.6 = Umbra
-option.TONEMAP_ODT_TONESCALE = OpenDRT Tonescale 预设
-option.TONEMAP_ODT_TONESCALE.comment = 选择官方预设。
-value.TONEMAP_ODT_TONESCALE.0 = 跟随 Look 预设
-value.TONEMAP_ODT_TONESCALE.1 = Low Contrast
-value.TONEMAP_ODT_TONESCALE.2 = Medium Contrast
-value.TONEMAP_ODT_TONESCALE.3 = High Contrast
-value.TONEMAP_ODT_TONESCALE.4 = Arriba Tonescale
-value.TONEMAP_ODT_TONESCALE.5 = Sylvan Tonescale
-value.TONEMAP_ODT_TONESCALE.6 = Colorful Tonescale
-value.TONEMAP_ODT_TONESCALE.7 = Aery Tonescale
-value.TONEMAP_ODT_TONESCALE.8 = Dystopic Tonescale
-value.TONEMAP_ODT_TONESCALE.9 = Umbra Tonescale
-value.TONEMAP_ODT_TONESCALE.10 = ACES-1.x
-value.TONEMAP_ODT_TONESCALE.11 = ACES-2.0
-value.TONEMAP_ODT_TONESCALE.12 = Marvelous Tonescape
-value.TONEMAP_ODT_TONESCALE.13 = DaGrinchi ToneGroan
 
 # Epipolar air fog
 screen.AIR_FOG_DENSITY = 空气密度

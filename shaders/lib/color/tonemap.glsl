@@ -2,7 +2,6 @@
 #define LIB_COLOR_TONEMAP_GLSL
 
 #include "/lib/contract/settings.glsl"
-#include "/lib/color/tonemap_aces2.glsl"
 #include "/lib/color/tonemap_agx.glsl"
 #include "/lib/color/tonemap_gt7.glsl"
 #include "/lib/color/tonemap_opendrt.glsl"
@@ -11,8 +10,6 @@
 vec3 Tonemap(vec3 linear_rgb) {
 #if TONEMAP_MODE == 0
     return TonemapAGX(linear_rgb);
-#elif TONEMAP_MODE == 1
-    return TonemapACES2(linear_rgb);
 #elif TONEMAP_MODE == 3
     return TonemapOpenDRT(linear_rgb);
 #else

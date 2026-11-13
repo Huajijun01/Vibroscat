@@ -104,9 +104,8 @@ value.INFO_TOOLTIPS.0 = 悬停查看说明
 
 #Post: tonemapping
 option.TONEMAP_MODE = 色调映射模式
-option.TONEMAP_MODE.comment = GT7（默认）为 Polyphony Digital 的 GT7 色彩体积色调映射：逐通道曲线与保持色度的高光路径混合。也可选择 AgX-HSV、ACES 2.0 或 OpenDRT。
+option.TONEMAP_MODE.comment = GT7（默认）为 Polyphony Digital 的 GT7 色彩体积色调映射：逐通道曲线与保持色度的高光路径混合。也可选择 AgX-HSV 或 OpenDRT。
 value.TONEMAP_MODE.0 = AgX-HSV
-value.TONEMAP_MODE.1 = ACES 2.0
 value.TONEMAP_MODE.3 = OpenDRT
 value.TONEMAP_MODE.5 = GT7
 option.TONEMAP_EXPOSURE = 手动曝光

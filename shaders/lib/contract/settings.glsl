@@ -239,7 +239,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 // Scales the SH sky irradiance ambient_light.glsl feeds into every surface;
 // direct sun, AMBIENT_FLOOR and the SH environment reflection are outside it.
-#define SKY_AMBIENT_STRENGTH 0.9 // [0.0 0.25 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.25 1.5 2.0] sky SH ambient light intensity multiplier
+#define SKY_AMBIENT_STRENGTH 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0 1.05 1.1 1.15 1.2 1.25 1.3 1.35 1.4 1.45 1.5 1.55 1.6 1.65 1.7 1.75 1.8 1.85 1.9 1.95 2.0] sky SH ambient light intensity multiplier
 
 // Minimum ambient light floor added to every surface's sky ambient, so caves
 // and deep shadows never render fully black (see AmbientLight in

@@ -1,14 +1,10 @@
 #ifndef LIB_LIGHTING_SPECULAR_MATERIAL_FACTOR_GLSL
 #define LIB_LIGHTING_SPECULAR_MATERIAL_FACTOR_GLSL
 
-#include "/lib/contract/settings.glsl"
-
 // Compact approximation of this pack's GGX unit-environment response.
 // Fitted coefficients; E = A + B and M = F0 * A + B.
-// Exists only while demodulation runs; without temporal filtering both the
-// trace and shading use raw contributions, so consumers skip the factor
-// entirely and it does not compile.
-#if defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
+// Consumers call it only while demodulation runs; without temporal filtering
+// both the trace and shading use raw contributions.
 vec3 SpecularMaterialFactor(vec3 f0, float ndotv, float roughness) {
     float r = max(roughness, 0.04472136); // sqrt(0.002): existing alpha floor
     float a = r * r;
@@ -23,6 +19,5 @@ vec3 SpecularMaterialFactor(vec3 f0, float ndotv, float roughness) {
     b = min(b, e);
     return max(f0 * (e - b) + vec3(b), vec3(1.0 / 1024.0));
 }
-#endif // defined(OPAQUE_SSR_DEMODULATION) && OPAQUE_SSR_FILTER > 0
 
 #endif // LIB_LIGHTING_SPECULAR_MATERIAL_FACTOR_GLSL

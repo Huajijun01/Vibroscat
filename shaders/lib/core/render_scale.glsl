@@ -1,15 +1,12 @@
 #ifndef LIB_CORE_RENDER_SCALE_GLSL
 #define LIB_CORE_RENDER_SCALE_GLSL
 
-#include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
 // TAAU renders the scene into the lower-left rectangle of the display-sized
-// allocations while projection UVs stay [0, 1]. The helpers below exist only
-// under TAAU_ACTIVE; without TAAU the scene fills the whole allocation, so
-// every consumer skips the call and uses its coordinate directly.
-
-#if defined(TAAU_ACTIVE)
+// allocations while projection UVs stay [0, 1]. Without TAAU the scene fills
+// the whole allocation, so every consumer skips the call and uses its
+// coordinate directly.
 
 vec2 SceneTextureUV(vec2 screen_uv) {
     return clamp(screen_uv * u_render_scale, 0.5 * u_view_pixel_size,
@@ -29,7 +26,5 @@ vec4 ScaleSceneClipPosition(vec4 clip_position) {
 bool OutsideSceneRender(vec2 pixel_position) {
     return any(greaterThanEqual(pixel_position, u_render_res));
 }
-
-#endif // TAAU_ACTIVE
 
 #endif // LIB_CORE_RENDER_SCALE_GLSL

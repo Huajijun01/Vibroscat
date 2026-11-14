@@ -27,9 +27,7 @@
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/lighting/specular_material_factor.glsl"
 #include "/lib/lighting/plant_subsurface.glsl"
-#if GI_MODE != 0
 #include "/lib/lighting/gi_denoise.glsl"
-#endif
 #include "/lib/material/model.glsl"
 #include "/lib/material/opaque_surface.glsl"
 #include "/lib/raytrace/opaque_reflection.glsl"

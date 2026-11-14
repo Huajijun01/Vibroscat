@@ -13,9 +13,6 @@
 #include "/lib/material/alpha_test.glsl"
 #include "/lib/material/legacy.glsl"
 
-#ifndef PROGRAM_GBUFFERS_PARTICLES
-flat in vec3 v_normal;
-#endif
 in vec3 v_ambient_col;
 in vec3 v_shadow_proj_pos;
 in vec4 v_color;
@@ -33,16 +30,10 @@ void main() {
     albedo *= v_color;
 
     vec3 base_color = ToLinear(albedo.rgb);
-#if defined(PROGRAM_GBUFFERS_PARTICLES)
     // World up expressed in view space: a literal (0,1,0) here would be
     // screen up and flip particle lighting with camera pitch. mat3(M) times
     // the y axis is exactly the second matrix column.
     vec3 surface_normal_view = normalize(gbufferModelView[1].xyz);
-#else
-    // v_normal is flat and already unit length at the vertex; interpolation
-    // of a per-primitive constant keeps those bits, so no renormalization.
-    vec3 surface_normal_view = v_normal;
-#endif
     vec3 view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
     vec3 view_to_eye = -normalize(view_pos);
     // Particles carry no PBR data: fixed dielectric defaults, never the

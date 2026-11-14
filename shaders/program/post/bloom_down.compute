@@ -1,10 +1,4 @@
-#ifndef BLOOM_SRC_MIP
-#define BLOOM_SRC_MIP 1
-#endif
-#ifndef BLOOM_DST_MIP
-#define BLOOM_DST_MIP 2
-#endif
-
+// BLOOM_SRC_MIP and BLOOM_DST_MIP are defined by the pass wrapper.
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/post/bloom.glsl"

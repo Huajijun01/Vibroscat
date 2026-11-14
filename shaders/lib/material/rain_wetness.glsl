@@ -6,9 +6,7 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/material/model.glsl"
 #include "/lib/water/rain_ripples.glsl"
-#if defined(RAIN_WETNESS_POSITION_ACTIVE) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
 #include "/lib/geometry/fragment_position.glsl"
-#endif
 
 // The wet surface position arrives as the caller's existing view-space
 // fragment position when the derivative terrain basis already reconstructed

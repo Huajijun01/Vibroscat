@@ -6,10 +6,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 #include "/lib/core/render_scale.glsl"
-#if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/lighting/sky_visibility.glsl"
-#endif
 
 // GTAO (Jimenez et al. 2016): the AO integral is decomposed into azimuthal
 // slices; each half-slice integrates the cosine-weighted blocked arc against the

@@ -46,14 +46,7 @@ void main() {
     // kernel and the kernel hides its latency; the accumulation below
     // consumes the fetched value.
     vec3 ao_history = ReprojectAOHistory(sample_pixel, scene_depth, normal_oct);
-#if defined(GTAO)
     float ao = ComputeGTAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
-#else
-    // Unreachable while deferred2_a is scheduled (AO_MODE != 0 with
-    // GI_MODE == 0 implies GTAO); keeps `ao` defined if that gating
-    // and these macros ever drift apart.
-    float ao = 1.0;
-#endif
     vec2 accumulated = ResolveTemporalAO(ao_history, ao);
     imageStore(colorimg2, half_texel, vec4(accumulated.x, normal_oct, accumulated.y * (1.0 / 255.0)));
 }

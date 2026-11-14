@@ -10,7 +10,6 @@
 #include "/lib/water/caustic_coordinates.glsl"
 #include "/lib/water/fog.glsl"
 
-#if defined(WATER_EPIPOLAR_ACTIVE)
 // R8 stores linear irradiance / 2 so trilinear filtering preserves light.
 const float GODRAY_CAUSTIC_IRRADIANCE_SCALE = 2.0;
 
@@ -60,6 +59,5 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
     return integral * (FAST_WATERFOG_SCATTERING / FAST_WATERFOG_EXTINCTION) * incident
         * (phase * u_water_skylight * u_water_skylight * u_water_sun_height * u_water_wetness_gain * WATER_GODRAYS_STRENGTH);
 }
-#endif // WATER_EPIPOLAR_ACTIVE
 
 #endif // LIB_VOLUME_WATER_EPIPOLAR_GLSL

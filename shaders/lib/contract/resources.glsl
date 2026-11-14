@@ -66,6 +66,7 @@ const int colortex2Format  = RGBA8;
 const int colortex3Format  = R11F_G11F_B10F;
 const int colortex4Format  = RGBA8;            // geometric world normal (octahedral RG) + lightmap
 const int colortex5Format  = R11F_G11F_B10F;
+const int colortex6Format  = RGBA16UI;
 const int colortex8Format  = RGBA16F;  // sky: primary/sky weights, T, km; geometry: AO*1020, age, view depth, A=NaN
 const int colortex9Format  = RGB16F; // half-res temporal irradiance (deferred4)
 const int colortex10Format = RGBA16F; // half-res GI geometry/age history (deferred4)
@@ -73,13 +74,6 @@ const int colortex11Format = RGBA16;          // normalized opaque surface packe
 const int colortex12Format = RGBA16F;
 const int shadowcolor0Format = RGBA8;
 */
-
-#if defined(OPAQUE_SSR) && OPAQUE_SSR_FILTER > 0
-/*
-const int colortex6Format = RGBA16UI;
-*/
-const bool colortex6Clear = false;
-#endif
 
 // -- Clear flags --
 // true = cleared each frame before shader writes. false = carry data across frames.
@@ -89,6 +83,7 @@ const bool colortex2Clear  = false;   // AO scratch, then translucent low bytes/
 const bool colortex3Clear  = false;   // unblurred opaque reflection history
 const bool colortex4Clear  = true;    // weather alt must start transparent
 const bool colortex5Clear  = false;  // TAA history
+const bool colortex6Clear  = false;  // SSR metadata history
 const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
 const bool colortex9Clear  = false;   // unblurred temporal GI history
 const bool colortex10Clear = false;   // actual previous GI receiver geometry/age

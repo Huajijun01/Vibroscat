@@ -13,15 +13,11 @@
 #include "/lib/lighting/gi_denoise.glsl"
 #include "/lib/lighting/gi_history.glsl"
 #include "/lib/lighting/gi_sampling.glsl"
-#if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
 #include "/lib/atmosphere/sky_light.glsl"
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/lighting/ssgi_sky_visibility.glsl"
-#endif
-#if GI_MODE == 2
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
-#endif
 
 // Unidirectional visibility-bitmask screen-space GI: cosine-weighted slice
 // samplers trace the hemisphere and accumulate occupancy into a 32-sector
@@ -344,7 +340,6 @@ void main() {
     // colortex4 carries the world-space geometric normal, which the SH
     // fallback consumes directly.
     vec3 fallback_normal = DecodeOctahedralNormal(geometry_data.xy);
-#if GI_MODE != 0
     vec3 fallback;
     vec2 reconstruction_uv = uv;
 #ifdef TAA
@@ -444,7 +439,4 @@ void main() {
     float stored_second_moment = QuantizeGISecondMoment(history.second_moment, gi_texel, frameCounter);
     out_gi_metadata = EncodeGIHistory(fallback_normal, -receiver_view.z, history_age,
         offset_code, stored_second_moment, history.change_count);
-#else
-    out_gi = vec3(0.0);
-#endif
 }

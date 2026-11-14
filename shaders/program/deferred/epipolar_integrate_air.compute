@@ -26,7 +26,6 @@ const ivec3 workGroups = ivec3(512, 1, 1);
 const ivec3 workGroups = ivec3(1024, 1, 1);
 #endif
 
-#if defined(EPIPOLAR_ACTIVE)
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_term;
 
 void main() {
@@ -95,6 +94,3 @@ void main() {
         imageStore(uimg_epipolar_term, ivec2(int(slice), int(sample_index)), vec4(air_transmittance, air_key));
     }
 }
-#else
-void main() {}
-#endif

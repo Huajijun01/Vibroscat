@@ -113,9 +113,7 @@ void main() {
         // plane through the geometry TBN (no POM: its march displaces along
         // world vertical). The world position exists only while the wave
         // field consumes it; every other consumer stays in view space.
-#if defined(WATER_SURFACE_POSITION_ACTIVE)
         vec3 world_pos = ViewToWorldSpace(view_pos);
-#endif
         vec3 world_n;
         if (abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y) {
 #ifdef WATER_POM

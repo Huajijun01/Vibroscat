@@ -9,7 +9,6 @@
 #include "/lib/scattering/phase.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
-#if defined(AIR_EPIPOLAR_ACTIVE)
 // E = shadowed direct source integral / unshadowed direct source integral.
 // It remains a dimensionless RGB visibility, without incident light color or
 // radiance. Each bin uses the composite's closed-form transmittance loss
@@ -47,5 +46,4 @@ vec3 AirShadowRatio(vec3 start_world, vec3 end_world, AirFogDensityProfile profi
         greaterThan(denominator, vec3(1e-20)));
 }
 
-#endif // AIR_EPIPOLAR_ACTIVE
 #endif // LIB_VOLUME_AIR_EPIPOLAR_GLSL

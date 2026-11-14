@@ -6,9 +6,6 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 
-#ifndef PROGRAM_GBUFFERS_PARTICLES
-flat out vec3 v_normal;
-#endif
 out vec3 v_ambient_col;
 out vec3 v_shadow_proj_pos;
 out vec4 v_color;
@@ -37,20 +34,9 @@ void main() {
     lmcoord = saturate(lmcoord * 1.103449 - 0.0689656);
     v_texcoord.z = lmcoord.x;
 
-#ifndef PROGRAM_GBUFFERS_PARTICLES
-    vec3 normal_view = gl_NormalMatrix * gl_Normal;
-    // Squared-length normalize with a degenerate-normal guard.
-    float normal_view_sq = dot(normal_view, normal_view);
-    v_normal = normal_view_sq < 1.0e-8
-        ? vec3(0.0, 0.0, 1.0)
-        : normal_view * inversesqrt(normal_view_sq);
-    // v_normal is unit and the camera rotation preserves its length.
-    vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
-#else
     // Particles shade as world-up surfaces: ambient must not use the
     // billboard normal, which points at the eye and swaps zenith/ground sky
-    // ambient with camera pitch. No surface normal crosses the stage.
+    // ambient with camera pitch.
     vec3 normal_world = vec3(0.0, 1.0, 0.0);
-#endif
     v_ambient_col = AmbientLight(normal_world, vec3(1.0), lmcoord.y);
 }

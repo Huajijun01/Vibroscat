@@ -28,11 +28,8 @@ vec3 PassthroughColor() {
 }
 
 void main() {
-    // Two independent fallbacks (MOTION_BLUR off, TAA off) keep the guards separate.
-#ifndef MOTION_BLUR
-    out_color = PassthroughColor();
-    return;
-#endif
+    // composite5 is MOTION_BLUR-gated in shaders.properties; TAA off is the
+    // only reachable fallback.
 #ifndef TAA
     out_color = PassthroughColor();
     return;

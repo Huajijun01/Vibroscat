@@ -7,12 +7,10 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/material/alpha_test.glsl"
-#if defined(SHADOW_RSM_PAYLOAD_ACTIVE)
 #include "/lib/color/spaces.glsl"
 #include "/lib/lighting/brdf.glsl"
 #include "/lib/shadow/rsm_data.glsl"
 #include "/lib/material/model.glsl"
-#endif
 
 #if defined(SHADOW_TEXCOORD_ACTIVE)
 in vec2 v_texcoord;

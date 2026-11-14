@@ -30,7 +30,7 @@ layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 void main() {
 #ifndef VOLUMETRIC_CLOUDS
-    // deferred2 is shared with GTAO, so this pass still dispatches without clouds.
+    // The following AO letter keeps this entry loadable even without clouds.
     return;
 #endif
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);

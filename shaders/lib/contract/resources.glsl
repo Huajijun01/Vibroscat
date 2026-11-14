@@ -11,7 +11,7 @@
 //                                promotes it; deferred5 writes completed color;
 //                                with CAS, composite21 writes the tonemapped display color
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
-//   colortex2   RGBA8            deferred2_a half-res AO workspace on alt;
+//   colortex2   RGBA8            deferred_c half-res AO workspace on alt;
 //                                later translucent RGB UNORM16 low bytes/flag,
 //                                paired with colortex1 high bytes/material ID
 //   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, direct RGB
@@ -35,7 +35,7 @@
 //   colortex11  RGBA16          Opaque surface: RG oct8 world shading normal;
 //                                B rough8/selector8, A emission8/AO8, UNORM16 pairs
 //   colortex12  RGBA16F          Sequential workspace:
-//                                deferred2 alt = low-res cloud current frame;
+//                                deferred_b alt = low-res cloud current frame;
 //                                deferred5 clears alt for translucency, then
 //                                1. translucent premultiplied-over color + alpha
 //                                2. composite1 refracts, fogs and over-composites once

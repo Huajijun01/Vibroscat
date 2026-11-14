@@ -52,7 +52,7 @@ screen.SHADOW_DEPTH.comment = 深度容差，以及限制软阴影模糊宽度�
 screen.PLANT_SSS = 植物透光
 screen.PLANT_SSS.comment = 光线穿过薄叶片和草的效果：透亮的草尖与柔和的半影。SSS = 次表面散射。
 screen.CONTACT = 接触阴影
-screen.CONTACT.comment = 物体与地面、墙面相接处的短距离阴影。仅主世界与末地生效。
+screen.CONTACT.comment = 物体与地面、墙面相接处的短距离阴影。仅主世界生效。
 screen.AO = 环境光遮蔽
 screen.AO.comment = 墙角、缝隙和物体接地处的柔和压暗。GTAO = 屏幕空间地平线扫描法，原版AO = 游戏自带的顶点压暗。
 screen.AO_GTAO = GTAO
@@ -307,7 +307,7 @@ option.SHADOW_SSS_FADE_START = 阴影过渡起点
 option.SHADOW_SSS_FADE_START.comment = 植物从阴影贴图向远处可见度过渡的范围比例。
 suffix.SHADOW_SSS_SCREEN_DISTANCE = m
 option.CONTACT_SHADOW = 屏幕空间接触阴影
-option.CONTACT_SHADOW.comment = 物体与地面、墙面相接处的短距离阴影，填补阴影贴图的接触断缝。仅主世界与末地生效。
+option.CONTACT_SHADOW.comment = 物体与地面、墙面相接处的短距离阴影，填补阴影贴图的接触断缝。仅主世界生效。
 option.CONTACT_SHADOW_STEPS = 接触阴影步数
 option.CONTACT_SHADOW_STEPS.comment = 接触阴影的精度：越高越少漏影或噪点，速度越慢。
 option.CONTACT_SHADOW_MAX_DISTANCE = 接触阴影距离

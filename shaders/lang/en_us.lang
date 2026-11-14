@@ -52,7 +52,7 @@ screen.SHADOW_DEPTH.comment = Depth tolerance and the two boosts that cap how wi
 screen.PLANT_SSS = Plant Translucency
 screen.PLANT_SSS.comment = Light passing through thin leaves and grass: bright tips and soft partial shade. SSS = subsurface scattering.
 screen.CONTACT = Contact Shadows
-screen.CONTACT.comment = Short screen-space shadows where objects meet the ground or a wall. Overworld and End only.
+screen.CONTACT.comment = Short screen-space shadows where objects meet the ground or a wall. Overworld only.
 screen.AO = Ambient Occlusion
 screen.AO.comment = Soft darkening in corners, crevices and where objects meet the ground. GTAO = screen-space horizon method; Vanilla AO = the game's per-vertex darkening.
 screen.AO_GTAO = GTAO
@@ -307,7 +307,7 @@ option.SHADOW_SSS_FADE_START = Shadow Fade Start
 option.SHADOW_SSS_FADE_START.comment = Fraction of shadow-map coverage where plants start blending toward distant visibility.
 suffix.SHADOW_SSS_SCREEN_DISTANCE = m
 option.CONTACT_SHADOW = Screen-Space Contact Shadows
-option.CONTACT_SHADOW.comment = Short screen-space shadows that close the gaps where objects meet the ground or a wall. Overworld and End only.
+option.CONTACT_SHADOW.comment = Short screen-space shadows that close the gaps where objects meet the ground or a wall. Overworld only.
 option.CONTACT_SHADOW_STEPS = Contact Shadow Steps
 option.CONTACT_SHADOW_STEPS.comment = Quality of these small shadows: higher = fewer missed or speckled shadows, slower.
 option.CONTACT_SHADOW_MAX_DISTANCE = Contact Shadow Distance

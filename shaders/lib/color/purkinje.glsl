@@ -5,10 +5,6 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 
-// Rod-vision (scotopic) shift: V' = Y * (1.33 * (1 + (Y + Z) / X) - 1.68),
-// blended on the exposure key between PURKINJE_SCOTOPIC_KEY and
-// PURKINJE_PHOTOPIC_KEY; cone vision returns above PURKINJE_CONE_LUMINANCE.
-
 vec3 ApplyPurkinjeEffect(vec3 color, float adaptation_luma) {
     float key = max(adaptation_luma, 1.0e-6);
     float rod_weight = saturate(

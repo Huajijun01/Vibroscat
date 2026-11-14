@@ -26,9 +26,7 @@ float PlantDistantPrior(float skylight) {
 }
 
 // Depth-only projected ray: one initial tissue segment, then external shelter.
-// The fixed occupancy tolerance spans 0..20 m in positive view depth, and
-// exit distance scales by 0.2 into empirical transport units. Each ray
-// performs at most twelve fetches.
+// Occupancy tolerance 0..20 m view depth; exit distance scales by 0.2 (transport units).
 PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
         vec3 light_view, vec2 jitter_uv, float stbn_dither, float maximum_reach_m) {
     PlantShadowEstimate result;
@@ -81,8 +79,8 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
 
 #else
 
-// Each ray uses at most twelve point depth reads, including sky samples.
-// No sampled material or normal data is required. Misses do not prove light.
+// At most twelve point depth reads per ray, no material/normal data;
+// misses do not prove light.
 struct PlantShadowEstimate {
     float blocking_confidence;
 };
@@ -162,21 +160,20 @@ PlantShadowEstimate TracePlantDistantShadow(vec3 receiver_view,
             continue;
         }
         previous_texel = texel;
-        // Iris copies opaque depth before the hand and before deferred.
-        // This existing depth layer excludes hand geometry without ID reads.
+        // Iris copies opaque depth before hand/deferred: this layer excludes
+        // hand geometry without ID reads.
         float screen_depth = texelFetch(depthtex2, texel, 0).r;
         if (screen_depth >= 1.0) continue;
         float surface_depth_m = LinearDepthFromScreenDepth(screen_depth);
-        // Reciprocal W gives exact point depth for the pack's perspective
-        // projection, whose clip W is -view Z.
+        // Reciprocal W gives exact point depth (clip W is -view Z).
         float ray_depth_m = 1.0 / mix(k0, k1, fraction);
         float gap_m = ray_depth_m - surface_depth_m;
         float quantum_m = PlantDepthQuantum(surface_depth_m);
         float slab_m = clamp(max(2.0 * PlantPixelWorld(surface_depth_m),
             2.0 * quantum_m), 0.02, 0.25);
         if (gap_m <= origin_bias_m || gap_m >= slab_m) continue;
-        // Only a near hit needs receiver-plane rejection. Direct lighting
-        // already supplies this normal; no normal texture is sampled here.
+        // Only near hits need receiver-plane rejection; the normal comes from
+        // direct lighting, no texture read.
         if (abs(surface_depth_m + receiver_view.z) <= self_radius_m) {
             vec2 texel_uv = (vec2(texel) + 0.5) / u_render_res - jitter_uv;
             vec3 surface_view = NDCToView(vec3(texel_uv * 2.0 - 1.0, screen_depth * 2.0 - 1.0));

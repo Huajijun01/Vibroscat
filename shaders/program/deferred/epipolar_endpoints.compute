@@ -3,9 +3,8 @@
 #include "/lib/volume/epipolar_core.glsl"
 
 layout(local_size_x = 128) in;
-// Iris scans these consts after option defines and full preprocessing, so
-// the group count follows EPIPOLAR_SLICES branch-wise; the in-shader slice
-// guard stays as the edge safety net.
+// Iris scans workGroups after option defines: the group count follows
+// EPIPOLAR_SLICES branch-wise.
 #if EPIPOLAR_SLICES == 256
 const ivec3 workGroups = ivec3(2, 1, 1);
 #elif EPIPOLAR_SLICES == 512
@@ -17,7 +16,6 @@ const ivec3 workGroups = ivec3(16, 1, 1);
 #endif
 
 #if defined(EPIPOLAR_ACTIVE)
-// Full uniform set (compiled even when unused here).
 layout(rgba16f) uniform writeonly image2D uimg_epipolar_endpoints;
 
 void main() {
@@ -25,9 +23,8 @@ void main() {
     bool pole_in_screen;
     vec2 pole = LightNDC(pole_in_screen);
     int sector = int(gl_GlobalInvocationID.x) / (SliceCount() / 4);
-    // A boundary sector is a valid EXIT edge only when it faces away from
-    // the pole (else it is the entry crossing, never addressed by the
-    // unwarp).
+    // A sector is a valid EXIT edge only when facing away from the pole;
+    // otherwise it is the entry crossing, never addressed by the unwarp.
     bool sector_valid = (sector == 0 && pole.x > -1.0)
                     || (sector == 1 && pole.y > -1.0)
                     || (sector == 2 && pole.x <  1.0)

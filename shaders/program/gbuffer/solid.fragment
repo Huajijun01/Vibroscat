@@ -1,9 +1,7 @@
 // Opaque GBuffer fill shared by every opaque gbuffer program.
-// colortex1: albedo (sRGB) + material id / 255 (ranges in lib/material/model.glsl);
-// colortex4: oct8 geometric world normal + lightmap; colortex11: oct8 shading
-// normal, rough/selector, emission/AO.
-// v_lmcoord is clamp(raw * 1.103449 - 0.0689656); terrain dithers the stored
-// value by half an 8-bit LSB against the RGBA8 lightmap quantization.
+// colortex1: albedo (sRGB) + material id / 255 (ranges in lib/material/model.glsl); colortex4: oct8
+// geometric world normal + lightmap; colortex11: oct8 shading normal, rough/selector, emission/AO.
+// v_lmcoord = clamp(raw * 1.103449 - 0.0689656).
 
 /* RENDERTARGETS: 1,4,11 */
 
@@ -59,10 +57,7 @@ layout(early_fragment_tests) in;
 #endif
 
 void main() {
-    // Derivatives are gathered before any discard or divergent return: the
-    // helper invocations around an alpha-tested texel still belong to the
-    // same primitive's neighborhood, but a 2x2 quad can straddle primitives,
-    // so the values must not be requested inside the rejection branches.
+    // Derivatives are gathered before any discard or divergent return: a 2x2 quad can straddle primitives.
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
     vec3 surface_view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
     vec3 position_dx = dFdx(surface_view_pos);
@@ -75,7 +70,7 @@ void main() {
 #endif
     vec4 albedo_tex = texture(gtexture, v_texcoord);
 
-    // -- alpha test (controlled by USE_DISCARD in the gbuffer wrapper) --
+    // USE_DISCARD is set by the gbuffer wrapper.
 #ifdef USE_DISCARD
     DiscardBelowAlphaTest(albedo_tex.a, 0.001);
 #endif
@@ -89,53 +84,39 @@ void main() {
 #elif defined(PROGRAM_GBUFFERS_BEACONBEAM)
     int mat_id = 112; // emissive class
 #else
-    // basic, line, textured, textured_lit and particles share the generic
-    // opaque class: no SSS, wetness, metal or emissive classification.
     int mat_id = 0;
 #endif
 
-    // -- program-specific overrides --
 #ifdef PROGRAM_GBUFFERS_ENTITIES
-    // entityColor is a tint overlay (e.g. sheep wool, dyed leather armor)
+    // entityColor is a host tint overlay (e.g. sheep wool, dyed leather armor).
     albedo = mix(albedo, entityColor.rgb, entityColor.a);
 #endif
 #ifdef PROGRAM_GBUFFERS_BEACONBEAM
-    // Pack special case: vanilla leaves the beam untested, and the beam
-    // texture's soft edge would otherwise render as a solid box.
+    // Vanilla leaves the beam untested; its soft edge would render as a solid box.
     if (albedo_tex.a < 0.5) discard;
 #endif
 
-    // -- Surface normal and material inputs --
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
-    // face_sign restores the primitive's intrinsic facing instead of forcing
-    // backfaces toward the eye. The camera rotation preserves unit length, so
-    // the transformed geometric normal keeps its normalization bits.
+    // face_sign restores the primitive's intrinsic facing; the view rotation preserves unit length, so no re-normalize after the transform.
     float face_sign = gl_FrontFacing ? 1.0 : -1.0;
     vec3 normal_view = face_sign * normalize(cross(position_dx, position_dy));
     vec3 geo_normal_world = mat3(gbufferModelViewInverse) * normal_view;
 #elif defined(PROGRAM_GBUFFERS_PARTICLES)
-    // Particles are camera-facing sprites from a dedicated atlas: their mesh
-    // normal would point at the eye, and the block normal and specular
-    // atlases say nothing about them. Both their geometric and shading
-    // normal are the world-up constant, so the deferred lighting agrees.
+    // Camera-facing sprites: the mesh normal points at the eye and no atlas covers them; world up keeps deferred lighting consistent.
     vec3 geo_normal_world = vec3(0.0, 1.0, 0.0);
 #else
     vec3 geo_normal_world = normalize(v_world_normal);
 #endif
     vec3 w_normal = geo_normal_world;
 #ifndef PROGRAM_GBUFFERS_PARTICLES
-    // Iris binds a 1x1 fallback when the resource pack has no normal atlas.
-    // Programs without at_tangent cannot interpret tangent-space normal maps.
+    // Iris binds a 1x1 fallback without a normal atlas; tangent-space maps need at_tangent.
     vec3 normal_tex = vec3(0.5, 0.5, 1.0);
     bool has_normal_texture = any(notEqual(textureSize(normals, 0), ivec2(1)));
     if (has_normal_texture) normal_tex = texture(normals, v_texcoord).rgb;
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
     if (has_normal_texture) {
-        // Full tangent basis from the position and UV Jacobians. Only the
-        // determinant's sign survives: T is normalized and lies in the
-        // geometric plane by construction, and B = cross(T, N) * handedness
-        // matches the host bitangent convention, preserving mirrored and
-        // rotated UV layouts. No Gram-Schmidt pass or repeated normalize.
+        // Tangent basis from the position/UV Jacobians, sign-only: matches the host bitangent
+        // convention (B = cross(T, N) * handedness) and preserves mirrored and rotated UV layouts.
         float uv_det = uv_dx.x * uv_dy.y - uv_dx.y * uv_dx.x;
         float uv_sign = sign(uv_det);
         vec3 tangent_view = normalize(position_dx * uv_dy.y
@@ -161,10 +142,7 @@ void main() {
 #endif
     float combined_ao = min(v_color.a, material_ao);
 #else
-    // Particles shade as rough, non-metallic, non-emissive opaque surfaces
-    // with no material AO and no wetness layer, so only the albedo, lightmap
-    // and world-up normal carry real data and neither atlas is sampled at
-    // the sprite UV.
+    // Particles shade as rough, non-metallic, non-emissive: no atlas data at the sprite UV.
     float combined_ao = 1.0;
 #endif
 
@@ -188,8 +166,7 @@ void main() {
 #endif
 
 #if !defined(PROGRAM_GBUFFERS_PARTICLES) && !defined(PROGRAM_GBUFFERS_HAND)
-    // The view reconstruction is valid for the world gbuffer projection only,
-    // so the hand keeps its unclamped normal.
+    // The view reconstruction is valid for the world gbuffer projection only; the hand keeps its unclamped normal.
     if (has_normal_texture
 #if defined(RAIN_WETNESS_ACTIVE)
             || wetness_applied
@@ -208,12 +185,8 @@ void main() {
     out_albedo_material.rgb = albedo;
     out_albedo_material.a   = float(mat_id) / 255.0;
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
-    // Dither the stored lightmap against the RGBA8 quantization: the deferred
-    // blocklight falloff amplifies the 1/255 steps into visible bands around
-    // torches, and a uniform +/- half-LSB offset ahead of the store turns the
-    // rounding stochastic. The STBN slice advances per frame under TAA, which
-    // averages the pattern into smooth gradients; without TAA the slice stays
-    // 0 so a static spatial hatch replaces shimmer.
+    // Half-LSB dither defeats the RGBA8 quantization that deferred blocklight falloff amplifies into bands; the
+    // STBN slice advances per frame under TAA, else stays 0 for a static hatch.
 #ifdef TAA
     float lmcoord_dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
 #else

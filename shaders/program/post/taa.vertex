@@ -12,12 +12,10 @@ flat out float v_dof_current_weight;
 void main() {
     gl_Position = vec4(float(gl_VertexID == 1) * 4.0 - 1.0, float(gl_VertexID == 2) * 4.0 - 1.0, 0.0, 1.0);
 #ifdef DOF
-    // A one-pixel change in blur support admits half current-frame color.
-    // Evaluate the frame-uniform focus response once per triangle vertex.
+    // A one-pixel change in blur support admits half current-frame color; frame-uniform, so once per triangle vertex.
     v_dof_current_weight = min(dof_focus_change_px * 0.5, 1.0);
 #endif
-    // Camera-cut checks depend only on the frame, so they run once per
-    // triangle vertex and reach every pixel through the flat varying.
+    // Frame-uniform camera-cut checks, delivered per pixel through the flat varying.
     vec3 camera_forward = gbufferModelViewInverse[2].xyz;
     vec3 previous_forward = vec3(gbufferPreviousModelView[0].z,
         gbufferPreviousModelView[1].z, gbufferPreviousModelView[2].z);

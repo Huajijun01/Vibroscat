@@ -8,12 +8,9 @@
 #include "/lib/water/rain_ripples.glsl"
 #include "/lib/geometry/fragment_position.glsl"
 
-// The wet surface position arrives as the caller's existing view-space
-// fragment position when the derivative terrain basis already reconstructed
-// one; otherwise this library reconstructs it locally after the cheap
-// rejection tests, so dry and ineligible surfaces never pay for it.
-// Returns whether the wet layer was applied, so its final shading normal
-// receives view-facing protection even without a normal-map atlas.
+// surface_view_pos: reuse the caller's derivative-basis position when available; otherwise
+// this library reconstructs it after the cheap rejections, so dry surfaces never pay for it.
+// Returns whether the wet layer was applied.
 bool ApplyRainWetness(
 #if defined(TERRAIN_DERIVATIVE_TBN_ACTIVE) && defined(RAIN_WETNESS_POSITION_ACTIVE)
         vec3 surface_view_pos,
@@ -21,9 +18,6 @@ bool ApplyRainWetness(
         float geo_normal_y, float sky_light, int material_id,
         inout OpaqueMaterial material, inout vec3 normal_world,
         inout vec3 albedo_srgb) {
-    // Reject before either lookup. Plants, emissive blocks and translucent
-    // classes cannot hold a puddle; geometry, rather than the normal map,
-    // decides which faces are upward-facing.
     if (u_wetness_weight <= 0.001 || isEyeInWater != 0 ||
         geo_normal_y <= 0.95 || sky_light <= 15.0 / 16.0 ||
         material_id >= 112 || (material_id >= 80 && material_id < 96)) return false;
@@ -47,8 +41,8 @@ bool ApplyRainWetness(
     vec2 camera_xz = vec2(cameraPositionInt.xz & ivec2(RAIN_PUDDLE_SCALE_M - 1))
         + cameraPositionFract.xz;
     vec2 uv = (world_xz + camera_xz) / float(RAIN_PUDDLE_SCALE_M);
-    // Fixed LOD is valid after non-uniform early-outs. Puddle shapes stay
-    // stationary and independent of cloud wind, coverage and cloud toggles.
+    // Fixed LOD: implicit derivatives are invalid after non-uniform early-outs; puddles stay
+    // independent of cloud wind, coverage and cloud toggles.
     float distribution = textureLod(utex_cloud_distribution_tex, uv, 0.0).r;
     float threshold = 1.0 - RAIN_PUDDLE_COVERAGE;
     puddle = smoothstep(threshold - 0.08, threshold + 0.08, distribution) * wet_surface;
@@ -60,8 +54,7 @@ bool ApplyRainWetness(
     material.perceptual_roughness = mix(material.perceptual_roughness,
         min(material.perceptual_roughness, 0.04), puddle);
     albedo_srgb *= 1.0 - 0.15 * puddle;
-    // Keep selector/emission/AO and the separate geometric normal intact:
-    // deferred lighting and its existing SSR gate consume this single layer.
+    // Selector/emission/AO and the geometric normal stay intact: deferred lighting and its SSR gate consume this single layer.
     vec3 puddle_normal = vec3(0.0, 1.0, 0.0);
 #ifdef RAIN_RIPPLES
     float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH * rain_exposure;

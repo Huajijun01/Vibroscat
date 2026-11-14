@@ -131,9 +131,8 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
             vec3 far_attenuation = screen_depth < 0.0 ? vec3(0.0) : exp(-sigma_t * screen_depth);
             attenuation = mix(far_attenuation, exp(-sigma_t * map_depth), map_confidence);
         }
-        // Art-directed tissue brightness and a pale, leaf-tinted backlight sheen.
-        // Only the surface sheen uses visibility; tissue SSS retains its depth
-        // attenuation independently of ordinary PCSS visibility.
+        // Art-directed constants. Only the sheen uses shadow visibility; tissue
+        // SSS keeps its depth attenuation independent of PCSS visibility.
         vec3 tissue_scatter = 2.0 * sigma_s * phase * attenuation;
         float sun_alignment = saturate(-light_view);
         float backlight_sheen = 0.35 * amount * Pow4(sun_alignment * sun_alignment)
@@ -164,8 +163,8 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
 #else
     float transmission_prior = 0.0;
 #endif
-    // Classification uses the base prior: setting transmission to zero must
-    // retain the angular material. Metal tissue can still require GGX shadows.
+    // Classification uses the base prior so SHADOW_SSS=0 keeps the angular
+    // material; metal tissue still needs GGX shadows.
     bool plant_receiver = transmission_prior > 0.0;
     vec2 plant_angular = vec2(0.0);
     if (plant_receiver) {
@@ -225,8 +224,8 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
         PlantShadowEstimate estimate = TracePlantDistantShadow(view_pos, geo_view,
             u_view_light_dir, jitter_uv, stbn_dither, SHADOW_SSS_SCREEN_DISTANCE);
         screen_blocking = estimate.blocking_confidence;
-        // Screen misses never release the skylight prior. The map and far
-        // estimate blend once, rather than multiplying two shelter estimates.
+        // Blend map and screen estimates once instead of multiplying two
+        // shelter factors; a screen miss never releases the skylight prior.
         shadow_occlusion = mix(plant_prior * (1.0 - screen_blocking), map_visibility, map_confidence);
     }
 #endif
@@ -240,7 +239,6 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
     }
 #endif
 
-    // Ambient/block-light consumers retain their existing reflectance law.
     diffuse_reflectance = EvaluateDiffuseReflectance(albedo, material.f0, material.diffuse_weight);
     vec3 reflected = vec3(0.0);
     vec3 transmitted = vec3(0.0);
@@ -251,7 +249,6 @@ vec3 EvaluateOpaqueDirectLight(ivec2 tx, vec3 albedo, PBRMaterial material,
             reflected = budget * albedo * plant_angular.x;
             transmitted = budget * PlantTransmission(albedo, transmission_prior) * plant_angular.y;
         }
-        // Keep the half vector and RGB optics outside the trace's live state.
         if (ndotl > 0.0) {
             vec3 half_vector = view_to_eye + u_world_light_dir;
             vec3 half_dir = half_vector * inversesqrt(max(dot(half_vector, half_vector), 1e-8));

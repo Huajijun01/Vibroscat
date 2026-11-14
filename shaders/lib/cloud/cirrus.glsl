@@ -1,8 +1,7 @@
 #ifndef LIB_CLOUD_CIRRUS_GLSL
 #define LIB_CLOUD_CIRRUS_GLSL
 
-// Wind-advected cirrus deck, sampled once at the thin shell's crossing.
-// Returns cloud radiance and true transmittance, without the sky background.
+// Cirrus deck sampled once at the thin shell's crossing; returned radiance excludes the sky background.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -15,8 +14,7 @@
 const float CIRRUS_HEIGHT_KM = 7.0;
 const float CIRRUS_RADIUS_KM = ATM_PLANET_R + CIRRUS_HEIGHT_KM;
 const float CIRRUS_LAYER_THICKNESS_KM = 1.0;
-// Grazing clamp for the slanted slab paths (sin of ~3.4 degrees): caps the
-// path where a ray skims the shell.
+// Grazing clamp (sin of ~3.4 degrees) for rays skimming the slab.
 const float CIRRUS_GRAZING_MIN_MU = 0.06;
 const float CIRRUS_BOTTOM_RADIUS_KM = CIRRUS_RADIUS_KM - 0.5 * CIRRUS_LAYER_THICKNESS_KM;
 const float CIRRUS_TILE_SIZE_KM = 24.0;
@@ -26,8 +24,7 @@ const float CIRRUS_OPTICAL_DEPTH_SCALE = 1.0;
 // The multiple-scatter reference spans half of the layer's thickness.
 const float CIRRUS_MS_REFERENCE_LENGTH_KM = 0.5;
 const float CIRRUS_MS_SAT_ALBEDO = 0.999;
-// View-dependent clear-sky fill: the shared default 8.0 gives 0.56 of
-// the input sky color before the layer's opacity integration.
+// View-dependent clear-sky fill: the shared default 8.0 gives 0.56 of the input sky before opacity integration.
 const float CIRRUS_SKY_LIGHT_WEIGHT = 0.07;
 const HenyeyGreensteinTripleLobe CIRRUS_MIE_PHASE = HenyeyGreensteinTripleLobe(
     0.92, 0.1,
@@ -41,8 +38,6 @@ struct CirrusLayerSample {
     float entry_km;
 };
 
-// Both entry points below exist only under CIRRUS; the sole RenderCirrusLayer
-// call site already sits behind its own #ifdef CIRRUS gate.
 #ifdef CIRRUS
 float SampleCirrusOpticalDepth(vec3 sample_pos_km) {
     vec2 density_xz_km = sample_pos_km.xz + cameraPosition.xz * 0.001
@@ -64,8 +59,7 @@ float SampleCirrusOpticalDepth(vec3 sample_pos_km) {
 }
 #endif
 
-// Source radiance: extinction is already integrated by RenderCirrusLayer.
-// Single scattering has no extra density factor, so thin edges respond linearly.
+// Returns source radiance; extinction is integrated by RenderCirrusLayer.
 vec3 EvaluateCirrusLighting(vec3 sample_pos_km, vec3 view_dir, float tau_vertical,
     vec3 sky_color
 ) {
@@ -83,8 +77,7 @@ vec3 EvaluateCirrusLighting(vec3 sample_pos_km, vec3 view_dir, float tau_vertica
         source_radiance += sun_color
             * (PhaseHenyeyGreensteinTripleLobe(sun_cos, CIRRUS_MIE_PHASE) + isotropic_orders);
     }
-    // Keep the moon lookup after the sun branch: mirrored straight-line
-    // lookups of this LUT have been merged incorrectly by the driver.
+    // Moon lookup stays after the sun branch: the driver merges mirrored LUT lookups incorrectly.
     if (!PlanetHorizonOccluded(sample_pos_km, sample_r_squared,
             -u_world_sun_dir, ATM_PLANET_R2)) {
         vec3 moon_color = AtmosphereDirectIrradianceAt(sample_r_km, sample_r_squared, -sun_mu, ATM_MOON_IRR);
@@ -113,16 +106,13 @@ CirrusLayerSample RenderCirrusLayer(vec3 view_dir, vec3 sky_color) {
     float tau_vertical = SampleCirrusOpticalDepth(sample_pos_km);
     if (tau_vertical <= 0.0) return result;
 
-    // For a normalized sphere ray, |dot(view, normal)| = (t_far - t_near) / (2R).
-    // The deck is a thin slab: slanted paths integrate extinction over H / |cos|,
-    // clamped where a ray skims the shell and capped by the crossing distance.
+    // view_mu is |dot(view, shell normal)| for a sphere chord: (t_far - t_near) / (2R).
     float view_mu = (t_far - t_near) * (0.5 / CIRRUS_RADIUS_KM);
     float view_path_km = min(entry_km,
         CIRRUS_LAYER_THICKNESS_KM / max(view_mu, CIRRUS_GRAZING_MIN_MU));
     float tau_view = tau_vertical * (view_path_km / CIRRUS_LAYER_THICKNESS_KM);
     float segment_transmittance = exp(-tau_view);
-    // Avoid cancellation in 1-exp(-tau) at the routinely sampled thin
-    // feather edges. The relative series error is below 5e-8 here.
+    // Series form avoids cancellation in 1-exp(-tau) on thin edges (relative error < 5e-8).
     float opacity = tau_view < 0.01
         ? tau_view * (1.0 - tau_view * (0.5 - tau_view * (1.0 / 6.0)))
         : 1.0 - segment_transmittance;

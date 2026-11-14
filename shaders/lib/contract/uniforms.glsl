@@ -3,13 +3,9 @@
 
 #include "/lib/contract/settings.glsl"
 
-// Consolidated uniform contract. Every sampler, shadow transform, Iris
-// matrix/camera built-in, and custom u_* uniform used by shared libraries is
-// declared here exactly once; shared libraries do not declare their own
-// copies, so no compile unit ever sees a duplicate declaration.
-//
-// Image uniforms (uimg_*) are not declared here: each compute entry
-// needs a format layout qualifier (r8 / rgba16f) that differs per pass.
+// Consolidated uniform contract: every uniform shared libraries use is declared
+// here exactly once. Image uniforms (uimg_*) declare per compute entry, whose
+// format layout qualifier differs per pass.
 
 // -- Iris built-in matrices (injected by Iris; no properties line) --
 uniform mat4 gbufferModelView;
@@ -95,7 +91,7 @@ uniform ivec2 eyeBrightnessSmooth; // water sky access (block/sky brightness, /2
 
 // -- Time (Iris system built-ins) --
 uniform float frameTimeCounter;
-uniform float frameTime;           // fractional render time (s)
+uniform float frameTime;
 uniform int frameCounter;
 
 // -- Previous-frame transforms (world space; supplied by Iris every frame,
@@ -175,13 +171,12 @@ uniform vec4 entityColor;
 
 // -- Custom uniforms (declared in shaders.properties) --
 uniform vec3 u_world_light_dir;   // active light direction, world space
-// Host contract: shaders.properties builds u_world_sun_dir normalized
-// (1/sqrt(sum x^2) then an orthonormal model-view-inverse rotation), so
-// consumers may treat it as unit without re-normalizing per pixel.
+// shaders.properties builds u_world_sun_dir normalized, so consumers may treat
+// it as unit without re-normalizing per pixel.
 uniform vec3 u_world_sun_dir;     // sun direction only (LUT / SH reference frame)
 uniform vec2 u_taa_offset;        // NDC jitter applied by opaque GBuffer vertices
 uniform vec2 u_taa_offset_previous; // previous frame's NDC jitter for scene-grid history
-uniform vec2 u_screen_res;        // viewport resolution in pixels
+uniform vec2 u_screen_res;
 uniform float rainStrength;
 uniform float wetness;
 uniform float u_fast_wetness;

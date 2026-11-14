@@ -5,27 +5,15 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
 
-// Percentage-Closer Soft Shadows.
-//
-// Framework: R. Fernando, "Percentage-closer soft shadows", ACM SIGGRAPH 2005
-// Sketches: 1) blocker search (shadowtex0); 2) penumbra estimate from the
-// receiver/blocker depth ratio; 3) PCF filtering with that radius
-// (shadowtex1, HW PCF).
-// Samples: golden-angle (Vogel) disk - equal-area stratified radii whose
-// direction advances by one constant rotation per tap, started from the
-// shared STBN rotation.
+// Percentage-Closer Soft Shadows: R. Fernando, "Percentage-closer soft
+// shadows", SIGGRAPH 2005. Blocker search (shadowtex0), PCF on shadowtex1.
 
-// ---- Golden-angle disk sampling ----
-
-// Golden-angle rotation between consecutive taps. Literal-argument trig in
-// a const initializer folds at compile time, so each tap costs one 2x2
-// multiply instead of a sincos pair.
+// Golden-angle rotation; const-initializer trig folds at compile time.
 const mat2 SHADOW_DISK_STEP = mat2(cos(2.39996323), sin(2.39996323),
     -sin(2.39996323), cos(2.39996323));
 
-// Offset of the current tap, then advance to the next. dir starts as the
-// STBN-rotated first direction; radius_sq walks (i + 0.5) / count in
-// squared-radius units, which gives every tap equal annulus area.
+// Advances the Vogel disk: radius_sq walks (i+0.5)/count in squared units for
+// equal annulus area.
 vec2 ShadowDiskOffset(inout vec2 dir, inout float radius_sq, float inv_count) {
     vec2 offset = (radius_sq * inversesqrt(radius_sq)) * dir;
     dir = SHADOW_DISK_STEP * dir;
@@ -33,20 +21,17 @@ vec2 ShadowDiskOffset(inout vec2 dir, inout float radius_sq, float inv_count) {
     return offset;
 }
 
-// Local texel -> undistorted clip scale, used only to budget PCF samples.
-// Physical search and filter radii are projected directly from world meters.
+// Local texel -> undistorted clip scale, for PCF sample budgeting only;
+// physical radii stay in world meters.
 vec2 ShadowFilterTexelScale(vec3 clip_pos) {
-    // The distorted UV map is
-    //   uv = clip / (2*factor) + 0.5,  factor = (1-D) + D*|clip|,
-    // whose local derivative is d(uv)/d(clip) = (1-D)/(2*factor^2), so the
-    // inverse per-axis scale is 2*factor^2/(1-D) clip units per UV unit.
+    // uv = clip / (2*factor) + 0.5, factor = (1-D) + D*|clip|; the local
+    // derivative inverts to 2*factor^2/(1-D) clip units per UV unit.
     vec2 factor = GetDistortFactor(clip_pos.xy);
     return 2.0 * factor * factor / (1.0 - DISTORT_FACTOR) / real_shadow_map_resolution;
 }
 
-// Protected depth gradient per undistorted clip XY. The geometric plane is
-// n.x*dx + n.y*dy + n.z*dz = 0 in shadow-view space. Preserve its sign for
-// two-sided foliage; near edge-on planes need a bounded extrapolation.
+// Depth gradient per undistorted clip XY, from the shadow-view plane
+// n.x*dx + n.y*dy + n.z*dz = 0; sign preserved for two-sided foliage.
 vec2 ShadowReceiverGradient(vec3 normal_world) {
     vec3 normal_shadow = mat3(shadowModelView) * normal_world;
     float normal_z = normal_shadow.z < 0.0
@@ -55,43 +40,36 @@ vec2 ShadowReceiverGradient(vec3 normal_world) {
         / (normal_z * u_shadow_projection_xy);
 }
 
-// Maximum depth decrease across the unresolved texel footprint. Inverting
-// u = 0.5 + c/(2*f), f = 1-D+D*abs(c), gives the exact outward span
-// dx = 2*r*f^2 / ((1-D)*N - 2*r*D*f), where r is measured in texels.
-// Use the largest |clip| reached by the disk to bound every tap once.
+// Max depth decrease across the texel footprint: inverting the distortion map
+// gives the exact outward span for r texels; pass the disk's largest |clip|.
 float ShadowReceiverBias(vec2 clip_extent, vec2 depth_gradient, float texel_radius) {
     vec2 factor = GetDistortFactor(clip_extent);
     vec2 clip_span = 2.0 * texel_radius * factor * factor
         / ((1.0 - DISTORT_FACTOR) * real_shadow_map_resolution
         - 2.0 * texel_radius * DISTORT_FACTOR * factor);
-    // One centimeter covers small reconstruction/rasterization mismatches;
-    // two 24-bit depth steps cover storage/comparison rounding independently
-    // of the XY warp. This residual is not a triangle-interpolation bound.
+    // 1 cm covers reconstruction/rasterization mismatch; 2*24-bit depth steps
+    // cover storage/comparison rounding. Not a triangle-interpolation bound.
     const float RESIDUAL_BIAS_M = 0.01;
     const float DEPTH_ROUNDING_BIAS = 2.0 / 16777216.0;
     return dot(abs(depth_gradient), clip_span)
         + ShadowDepthGapFromWorld(RESIDUAL_BIAS_M) + DEPTH_ROUNDING_BIAS;
 }
 
-// Step 1: blocker search. dir is the tap-0 disk direction; the walk is local
-// to this call.
+// dir is the tap-0 disk direction; the walk is local to this call.
 bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 projection_scale, vec2 depth_gradient,
     vec2 dir, int blocker_steps, out float blocker_depth) {
-    // Convex corners project small false depth deltas; require a
-    // world-space gap before counting a blocker (no corner darkening).
+    // Convex corners project small false depth deltas; require a world-space
+    // gap before counting a blocker (no corner darkening).
     float blocker_bias = ShadowDepthGapFromWorld(SHADOW_BLOCKER_DEPTH_TOLERANCE_M);
     vec2 blocker_offset_scale = SHADOW_BLOCKER_SEARCH_RADIUS * projection_scale;
     // Nearest depth fetches leave at most half a texel unresolved per axis.
     blocker_bias += ShadowReceiverBias(abs(clip_pos.xy) + blocker_offset_scale, depth_gradient, 0.5);
 
-    // The gap is summed over every tap but divided by the tap count, not the
-    // occluder count, so one stray occluder cannot widen the penumbra to its
-    // full depth gap alone.
+    // The gap is divided by the tap count, not the occluder count: one stray
+    // occluder cannot widen the penumbra to its full depth gap alone.
     float delta_sum = 0.0;
     float weight_sum = 0.0;
     ivec2 shadow_size = ivec2(shadowMapResolution);
-    // The texel-to-UV scale is loop-invariant; carry it as a float vector so
-    // each tap trades an int->float conversion of the resolution for a mul.
     vec2 shadow_size_f = vec2(shadow_size);
     float inv_steps = 1.0 / float(blocker_steps);
     float radius_sq = 0.5 * inv_steps;
@@ -100,8 +78,8 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 projection_scale, vec2 depth
         vec2 uv = DistortShadowClip(clip_pos.xy + offset);
         ivec2 sample_texel = clamp(ivec2(uv * shadow_size_f), ivec2(0), shadow_size - 1);
         float shadow_depth = texelFetch(shadowtex0, sample_texel, 0).x;
-        // Transport each blocker to the center receiver plane before both
-        // classification and gap averaging; slopes must not become penumbrae.
+        // Transport each blocker to the receiver plane first; slopes must not
+        // become penumbrae.
         shadow_depth -= dot(depth_gradient, offset);
         float w = step(shadow_depth, sp.z - blocker_bias);
         delta_sum += w * (sp.z - shadow_depth);
@@ -116,22 +94,17 @@ bool ShadowFindBlocker(vec3 sp, vec3 clip_pos, vec2 projection_scale, vec2 depth
     return true;
 }
 
-// LOW-tier filter (SHADOW_PCSS off): single hardware-bilinear PCF lookup,
-// no penumbra estimation or blocker search. Plant transmission shares this
-// visibility and retains its depth-only screen attenuation.
-// sp is unbiased protected shadow UV/depth in [0,1]^3.
+// LOW-tier filter (SHADOW_PCSS off): single hardware-bilinear PCF lookup, no
+// blocker search. sp is unbiased protected shadow UV/depth in [0,1]^3.
 float ShadowFilterHardwarePCF(vec3 sp, vec3 clip_pos, vec2 depth_gradient) {
     // The caller (deferred_shading) gates sp into [0,1]^3 before calling.
     sp.z -= ShadowReceiverBias(abs(clip_pos.xy), depth_gradient, 1.0);
     return texture(shadowtex1, sp);
 }
 
-// Full PCSS filter. Plants retain their full sample budget and a small
-// class-based cutout footprint, independent of reflection/transmission energy.
+// Plants keep their full sample budget and a small class-based cutout footprint.
 float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_dither,
     bool plant_receiver, float ndotl, float footprint_radius_m, out float sss_depth) {
-    // One dither value + first direction serves both passes. The orthographic
-    // XY scale projects their world-space disks before each sample is warped.
     float angle = stbn_dither * TAU;
     vec2 dir = vec2(cos(angle), sin(angle));
     vec2 projection_scale = abs(u_shadow_projection_xy);
@@ -153,36 +126,34 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
         return 0.0;
     }
 
-    // Step 2: world-space penumbra, using the small-angle approximation
-    // radius = gap * angular radius. XY distortion must not change its size.
+    // World-space penumbra: small-angle radius = gap * angular radius; XY
+    // distortion must not change its size.
     float penumbra_radius_m = world_depth_gap * SHADOW_SUN_ANGULAR_RADIUS;
-    // A world-space cap keeps the same maximum at every map position and
-    // resolution. The cutout footprint minimum wins if the controls overlap.
+    // World-space cap keeps one maximum across positions/resolutions; the
+    // footprint minimum wins if the controls overlap.
     float max_penumbra_radius_m = SHADOW_BLOCKER_SEARCH_RADIUS
         * (1.0 + SHADOW_PENUMBRA_CAP_BOOST);
     max_penumbra_radius_m = max(max_penumbra_radius_m, footprint_radius_m);
     penumbra_radius_m = clamp(penumbra_radius_m, footprint_radius_m, max_penumbra_radius_m);
     vec2 filter_offset_scale = penumbra_radius_m * projection_scale;
 
-    // Step 3: budget samples from the local texel footprint without changing
-    // the physical disk. Hardware bilinear PCF supplies subtexel filtering.
+    // Sample budget from the local texel footprint; the physical disk is
+    // unchanged and hardware bilinear PCF filters subtexel.
     vec2 filter_radius_texels = filter_offset_scale / ShadowFilterTexelScale(clip_pos);
     float penumbra_texels = max(filter_radius_texels.x, filter_radius_texels.y);
-    // Ordered bounds: the two sliders may be set either way round, and GLSL
-    // clamp is undefined for minVal > maxVal.
+    // Ordered bounds: the sliders may be set either way round and clamp() is
+    // undefined for minVal > maxVal.
     int step_count = clamp(int(SHADOW_PCF_MIN_SAMPLES + SHADOW_PCF_GAIN * penumbra_texels),
         min(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES),
         max(SHADOW_PCF_MIN_SAMPLES, SHADOW_PCF_MAX_SAMPLES));
     if (plant_receiver) step_count = SHADOW_SSS_STEPS;
 
-    // Hardware bilinear PCF may compare a texel center almost one full texel
-    // away. The disk itself is handled by the signed plane correction below,
-    // so increasing penumbra radius does not require a radius-sized bias.
+    // HW PCF may compare a texel center almost one texel away; the disk itself
+    // is handled by the signed plane correction below, so no radius-sized bias.
     float receiver_depth = sp.z
         - ShadowReceiverBias(abs(clip_pos.xy) + filter_offset_scale, depth_gradient, 1.0);
     float shadow = 0.0;
     int early_samples = min(4, step_count);
-    // The PCF disk restarts the radius walk under its own budget.
     float inv_pcf = 1.0 / float(step_count);
     float radius_sq = 0.5 * inv_pcf;
     for (int i = 0; i < early_samples; ++i) {
@@ -190,8 +161,8 @@ float ShadowFilterPCSS(vec3 sp, vec3 clip_pos, vec2 depth_gradient, float stbn_d
         vec2 uv = clamp(DistortShadowClip(clip_pos.xy + offset), vec2(0.0), vec2(1.0));
         shadow += texture(shadowtex1, vec3(uv, receiver_depth + dot(depth_gradient, offset)));
     }
-    // Opaque receivers retain the first-four classification. Plants complete
-    // their smaller budget so partial visibility is not rounded to black/white.
+    // Plants complete their smaller budget so partial visibility is not
+    // rounded to black/white.
     if (step_count > 4) {
         if (!plant_receiver && shadow < 0.5) {
             return 0.0;

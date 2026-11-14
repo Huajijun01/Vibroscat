@@ -9,12 +9,8 @@
 #include "/lib/scattering/phase.glsl"
 #include "/lib/volume/epipolar_core.glsl"
 
-// E = shadowed direct source integral / unshadowed direct source integral.
-// It remains a dimensionless RGB visibility, without incident light color or
-// radiance. Each bin uses the composite's closed-form transmittance loss
-// across its equal-distance interval.
-// In channel-wise RGB transport the constant whole-ray source cancels from
-// this ratio. The remaining weight is T(start)-T(end), never T alone.
+// Dimensionless RGB visibility (shadowed / unshadowed direct-source integral
+// ratio); no incident light color or radiance.
 vec3 AirShadowRatio(vec3 start_world, vec3 end_world, AirFogDensityProfile profile,
         AirFogMedium medium, float stbn_jitter) {
     vec3 delta = end_world - start_world;
@@ -29,8 +25,7 @@ vec3 AirShadowRatio(vec3 start_world, vec3 end_world, AirFogDensityProfile profi
     vec3 numerator = vec3(0.0);
     vec3 denominator = vec3(0.0);
     for (int k = 0; k < AIR_EPIPOLAR_SHADOW_STEPS; ++k) {
-        // Stratified, equal-length bins. One jitter offset per ray keeps
-        // the spacing exactly equal.
+        // One jitter offset per ray keeps the bin spacing exactly stratified.
         float u = (float(k) + stbn_jitter) * inv_steps;
         AirFogDensityProfile bin_profile = profile;
         bin_profile.eye_height_m += direction_y * (float(k) * bin_length);
@@ -41,7 +36,7 @@ vec3 AirShadowRatio(vec3 start_world, vec3 end_world, AirFogDensityProfile profi
         denominator += weight;
         prefix_transmittance *= bin_transmittance;
     }
-    // No scattering means no shadow contribution; choose neutral E=1.
+    // No in-scattering weight means no shadowing; return neutral E=1.
     return mix(vec3(1.0), numerator / max(denominator, vec3(1e-20)),
         greaterThan(denominator, vec3(1e-20)));
 }

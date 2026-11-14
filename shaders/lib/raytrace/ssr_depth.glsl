@@ -7,19 +7,16 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/render_scale.glsl"
 
-// Squaring normalized view depth halves FP16 relative distance error. Scale
-// to the largest finite half (65504), keeping near surfaces out of subnormals
-// for normal render distances. Sky uses the clipping-depth endpoint, so it
-// participates in ordinary depth comparisons without a separate rejection.
+// Squared depth halves FP16 relative distance error; scaled to the largest
+// finite half (65504) so near surfaces stay out of subnormals. Sky encodes to
+// the clipping-depth endpoint and passes ordinary depth comparisons without a separate rejection.
 const float SQUARED_DEPTH_HALF_MAX = 65504.0;
 const float SQUARED_DEPTH_HALF_MIN = 5.960464477539063e-8;
 const float SQUARED_DEPTH_HALF_RCP_SQRT = 0.0039072041399776936;  // inversesqrt(65504)
 
 float EncodeSquaredDepth(float screen_depth) {
-    // Iris 'far' is render distance, not the clipping plane. Use the inverse
-    // projection at screen depth 1 so visible geometry is never truncated.
-    // Linear depth is |view z| and the clip-depth reciprocal is positive, so
-    // the ratio never goes negative.
+    // Iris 'far' is render distance, not the clipping plane; the inverse
+    // projection at screen depth 1 never truncates visible geometry.
     float normalized_depth = saturate(LinearDepthFromScreenDepth(screen_depth) * u_inv_clip_depth);
     return max(SQUARED_DEPTH_HALF_MIN,
         SQUARED_DEPTH_HALF_MAX * normalized_depth * normalized_depth);
@@ -27,16 +24,14 @@ float EncodeSquaredDepth(float screen_depth) {
 
 float ReadDepthSample(vec2 uv) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
-    // Explicit base level: the march loops prefetch their next step across
-    // divergent exits, and the single-level image alias makes LOD 0 the only
-    // possible result, keeping the lookup defined in that control flow.
+    // Explicit base level: the single-level image alias makes LOD 0 the only
+    // defined result across the march loops' divergent prefetch exits.
 #if defined(TAAU_ACTIVE)
     float encoded_depth = textureLod(usam_ssr_depth, SceneImageUV(uv, vec2(textureSize(usam_ssr_depth, 0)), 0.25), 0.0).r;
 #else
     float encoded_depth = textureLod(usam_ssr_depth, uv, 0.0).r;
 #endif
-    // sqrt(E / MAX) == sqrt(E) * inversesqrt(MAX); the CPU folds the
-    // inverse-depth row-sum divide into u_squared_depth_decode.
+    // The CPU folds the inverse-depth row-sum divide into u_squared_depth_decode.
     return sqrt(encoded_depth) * u_squared_depth_decode;
 #else
 #if defined(TAAU_ACTIVE)
@@ -69,9 +64,9 @@ float RayDepthFromScreen(float screen_depth) {
 
 bool DepthSampleBeforeRay(float surface_depth, float ray_depth) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
-    // Encoded depths carry a strictly positive floor, so 1/d > r and
-    // r*d < 1 select identically in real numbers; the product form trades
-    // the per-step divide for a multiply (boundaries may flip within 1 ulp).
+    // Encoded depths carry a strictly positive floor, so 1/d > r and r*d < 1
+    // select identically; the product form trades the divide for a multiply
+    // (boundaries may flip within 1 ulp).
     return ray_depth * surface_depth < 1.0;
 #else
     return surface_depth < ray_depth;

@@ -7,8 +7,7 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/raytrace/ssr_depth.glsl"
 
-// Accepted-crossing thickness: a hit is valid when the surface sits within
-// SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS view-depth units of the ray depth.
+// Accepted-crossing tolerance in view-depth units: |ray - surface| <= SSR_TOL_SLOPE * travelled + SSR_TOL_BIAS.
 #define SSR_TOL_SLOPE 0.1
 #define SSR_TOL_BIAS 0.5
 
@@ -18,20 +17,18 @@ struct SSRHit {
     bool sky;
 };
 
-// Projected march chord: one straight (uv, NDC z) span from the origin to
-// the projected exit point.
+// Screen-space chord: a straight (uv, NDC z) span from the origin to the projected exit.
 struct SSRChord {
     vec3 start_pos;
     vec3 span;
-    // True when the clipped exit is the far-plane crossing rather than a
-    // screen-edge exit; only rays that do not travel toward the eye can
-    // reach it. Decided from the extent winner because the solved exit
-    // z/w straddles the plane within rounding.
+    // True when the clipped exit is the far-plane crossing, not a screen-edge
+    // exit; only away-from-eye rays reach it. Decided from the extent winner
+    // because the solved exit z/w straddles the plane within rounding.
     bool exit_on_far_plane;
 };
 
-// The march bracket: the two samples straddling the first accepted crossing,
-// with the ray depth and surface sample from the crossing end.
+// The two march samples straddling the first accepted crossing; the
+// un-prefixed fields are the crossing end.
 struct SSRBracket {
     vec3 previous_pos;
     vec3 sample_pos;
@@ -51,41 +48,32 @@ SSRHit Miss() {
 }
 
 bool ScreenUVInside(vec2 uv) {
-    // The [0,1] comparisons already reject NaN (unordered) and +-Inf for
-    // every input, so an explicit IsFinite sweep is redundant.
+    // [0,1] comparisons already reject NaN (unordered) and +-Inf; no explicit IsFinite sweep needed.
     return all(greaterThanEqual(uv, vec2(0.0)))
         && all(lessThanEqual(uv, vec2(1.0)));
 }
 
-// Project the origin and the ray direction through clip space once. Moving a
-// view-space distance t along the unit ray adds PROJ.xyz * t to the clip
-// position and -t * dir.z to the clip w, so the projected ray is rational in
-// t and every screen-space crossing solves in closed form (reference stepper
-// structure: one origin, one direction, one exit, one span). Toward-eye rays
-// leave through the near plane, all others through the far plane; the
-// screen-edge extent is the smallest forward clip parameter reaching any NDC
-// edge, with crossings at or behind the origin falling back to a beyond-far
-// sentinel so the minimum stays forward-facing.
+// One clip-space projection of origin and direction: moving a view-space
+// distance t along the unit ray adds PROJ.xyz * t to the clip position and
+// -t * dir.z to the clip w, so every screen-space crossing solves in closed form.
+// Toward-eye rays leave through the near plane, all others through the far
+// plane; crossings at or behind the origin fall back to a beyond-far sentinel.
 SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_dir, bool toward_eye) {
     vec4 origin_clip = gbufferProjection * vec4(view_origin, 1.0);
-    // Same value chain as ViewToNDC(origin) * 0.5 + 0.5 (identical operation
-    // order), derived from the clip position the ray stepper already needs.
     SSRChord chord;
     chord.start_pos = origin_clip.xyz / -view_origin.z * 0.5 + 0.5;
     vec4 direction_clip = gbufferProjection * vec4(view_dir, 0.0);
 
-    // Iris 'far' is the render distance, not the clipping plane, which is
-    // roughly far * 4.0. The no-crossing fallback
-    // must exceed the oblique distance to the true far plane, or chords stop
-    // short of it and their sky end never classifies.
+    // Iris 'far' is the render distance, not the clipping plane (~far * 4.0);
+    // the fallback must exceed the oblique distance to the true far plane, or
+    // chords stop short of it and their sky end never classifies.
     vec2 edge_near_t = ClipRayScreenCoordT(origin_clip, direction_clip,
         1.0, u_clip_far_distance * 4.0);
     vec2 edge_far_t = ClipRayScreenCoordT(origin_clip, direction_clip,
         -1.0, u_clip_far_distance * 4.0);
     float trace_length = min(min(edge_near_t.x, edge_near_t.y),
         min(edge_far_t.x, edge_far_t.y));
-    // Choose the forward NDC depth boundary; the far exit is behind
-    // toward-eye rays.
+    // The far exit is behind toward-eye rays; they cross the near boundary instead.
     float depth_plane = toward_eye ? -1.0 : 1.0;
     float depth_plane_t = (depth_plane * origin_clip.w - origin_clip.z)
         / (direction_clip.z - depth_plane * direction_clip.w);
@@ -97,10 +85,10 @@ SSRChord ComputeSSRChord(vec3 view_origin, vec3 view_dir, bool toward_eye) {
     return chord;
 }
 
-// Opaque rays need a front-to-behind bracket relative to the sampled surface,
-// independently of their view-space z direction. Initial occlusion is skipped
-// until the ray becomes visible, preventing an origin self-hit. Translucent
-// rays retain their segment/thickness test and away-from-eye policy.
+// Opaque rays bracket front-to-behind relative to the sampled surface,
+// independent of their view-space z direction; initial occlusion is skipped
+// until the ray becomes visible (no origin self-hit). Translucent rays keep
+// their segment/thickness test and away-from-eye policy.
 SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
         int step_budget, bool opaque_trace) {
     SSRBracket bracket;
@@ -128,9 +116,9 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
             ? behind_surface && !previous_behind
             : behind_surface;
         if (depth_crossing) {
-            // A coarse endpoint may sit far behind a sloping surface even
-            // when the bracket contains an exact hit. Validate opaque
-            // thickness at the refined intersection instead.
+            // A coarse endpoint may sit far behind a sloping surface even when
+            // the bracket contains an exact hit; validate opaque thickness at
+            // the refined intersection instead.
             if (opaque_trace) {
                 bracket.hit_found = true;
                 break;
@@ -139,8 +127,6 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
 #if !defined(SSR_QUARTER_DEPTH_ACTIVE)
             surface_view_depth = LinearDepthFromScreenDepth(surface_view_depth);
 #endif
-            // Accept segment/thickness overlap before spending work on
-            // refinement.
             float segment_start_depth = LinearDepthFromScreenDepth(
                 saturate(bracket.previous_pos.z));
             float segment_end_depth = LinearDepthFromScreenDepth(
@@ -166,10 +152,9 @@ SSRBracket MarchSSRChord(vec3 view_origin, SSRChord chord, float jitter,
     return bracket;
 }
 
-// Positive behind the surface in both depth encodings. Reciprocal view depth
-// and raw screen depth are affine along the projected ray and a planar face,
-// allowing a secant inside the narrowed bracket without projecting onto the
-// depth of an unrelated UV (which fails on slopes and constant-depth rays).
+// Positive behind the surface in both depth encodings. Both are affine along
+// the projected ray over a planar face, so a secant works inside the bracket
+// without sampling unrelated UV depth (which fails on slopes).
 float DepthResidual(float surface_sample, float ray_depth) {
 #if defined(SSR_QUARTER_DEPTH_ACTIVE)
     return 1.0 / surface_sample - ray_depth;
@@ -224,11 +209,9 @@ SSRHit RefineOpaqueSSR(SSRBracket bracket, float ray_start_depth) {
     return hit;
 }
 
-// Refine the accepted crossing: unconditional bisection localizes the depth
-// flip inside the march bracket (planar faces and silhouette steps alike),
-// then one chord-domain correction reads the surface at the bisected
-// position and projects the hit onto it, which restores the interpolation's
-// exact landing on planar surfaces without clamping the jittered endpoint.
+// Unconditional bisection localizes the depth flip inside the march bracket
+// (planar faces and silhouette steps alike); the final chord-domain correction
+// lands exactly on planar surfaces without clamping the jittered endpoint.
 vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
         float previous_ray_depth, float ray_depth, bool toward_eye,
         int refine_steps) {
@@ -263,9 +246,9 @@ vec3 RefineSSRBisection(vec3 previous_pos, vec3 sample_pos,
     return mix(previous_pos, sample_pos, hit_frac);
 }
 
-// Known sky at the march end: reported at the chord's projected far-plane
-// exit rather than the jittered march endpoint, so the reflected sky sample
-// does not inherit the trace dither. The caller owns the far-plane decision.
+// Reported at the chord's projected far-plane exit rather than the jittered
+// march endpoint, so the sky sample does not inherit the trace dither.
+// The caller owns the far-plane decision.
 SSRHit SkyEndpointHit(vec2 exit_uv) {
     SSRHit hit;
     hit.screen = vec3(exit_uv, 1.0);
@@ -274,8 +257,8 @@ SSRHit SkyEndpointHit(vec2 exit_uv) {
     return hit;
 }
 
-// Assemble the refined hit: a crossing that lands on sky keeps the far-plane
-// endpoint and reports sky so consumers can suppress their glint term there.
+// A crossing that lands on sky keeps the far-plane endpoint and reports sky
+// so consumers can suppress their glint term there.
 SSRHit ClassifyScreenHit(vec3 screen_pos) {
     bool hit_sky = DepthSampleIsSky(ReadDepthSample(screen_pos.xy));
     if (hit_sky && screen_pos.z < 1.0) return Miss();
@@ -286,19 +269,18 @@ SSRHit ClassifyScreenHit(vec3 screen_pos) {
     return hit;
 }
 
-// Opaque SSR (deferred3): reflected rays may point back toward the eye, so
-// the chord can leave through the near plane. Surface crossings use their
-// actual depth bracket. The march budget is owned by OPAQUE_SSR_STEPS; the shared
-// SSR_INTERPOLATION toggle owns first-crossing refinement.
+// Opaque SSR (deferred3): reflected rays may point back toward the eye, so the
+// chord can leave through the near plane; crossings use their actual depth bracket.
+// March budget: OPAQUE_SSR_STEPS; first-crossing refinement: the shared SSR_INTERPOLATION toggle.
 SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_dir, float jitter) {
     bool toward_eye = view_dir.z > 0.0;
     SSRChord chord = ComputeSSRChord(view_origin, view_dir, toward_eye);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
         OPAQUE_SSR_STEPS, true);
-    // The ray end is the chord's clipped exit unless a geometry crossing was
-    // accepted; a sky surface_sample at the final step is the ray passing the
-    // far plane, not geometry. The exit pixel owns the sky decision (the last
-    // march sample rides the trace jitter); edge exits are misses.
+    // The ray end is the chord's clipped exit unless a crossing was accepted; a
+    // sky surface_sample at the final step is the ray passing the far plane, not
+    // geometry. The exit pixel owns the sky decision (the last march sample rides
+    // the trace jitter); edge exits are misses.
     if (!bracket.hit_found || DepthSampleIsSky(bracket.surface_sample)) {
         if (chord.exit_on_far_plane) {
             vec2 exit_uv = chord.start_pos.xy + chord.span.xy;
@@ -314,17 +296,12 @@ SSRHit TraceOpaqueSSR(vec3 view_origin, vec3 view_dir, float jitter) {
 
 // Translucent SSR (water and glass gbuffers): reflections always travel away
 // from the eye, so the chord exits through the far plane and only surfaces in
-// front of the ray point count as crossings. The march budget is owned by
-// WATER_SSR_STEPS; the shared SSR_INTERPOLATION toggle owns first-crossing
-// refinement.
+// front of the ray count as crossings.
+// March budget: WATER_SSR_STEPS; first-crossing refinement: the shared SSR_INTERPOLATION toggle.
 SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_dir, float jitter) {
     SSRChord chord = ComputeSSRChord(view_origin, view_dir, false);
     SSRBracket bracket = MarchSSRChord(view_origin, chord, jitter,
         WATER_SSR_STEPS, false);
-    // The ray end is the chord's clipped exit unless a geometry crossing was
-    // accepted; a sky surface_sample at the final step is the ray passing the
-    // far plane, not geometry. The exit pixel owns the sky decision (the last
-    // march sample rides the trace jitter); edge exits are misses.
     if (!bracket.hit_found || DepthSampleIsSky(bracket.surface_sample)) {
         if (chord.exit_on_far_plane) {
             vec2 exit_uv = chord.start_pos.xy + chord.span.xy;
@@ -341,7 +318,6 @@ SSRHit TraceTranslucentSSR(vec3 view_origin, vec3 view_dir, float jitter) {
         false, WATER_SSR_BISECT_STEPS);
     return ClassifyScreenHit(hit_pos);
 #else
-    // Raw trace: report the accepted march sample without refinement.
     return ClassifyScreenHit(bracket.sample_pos);
 #endif
 }

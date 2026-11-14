@@ -3,9 +3,8 @@
 
 #include "/lib/core/math_scalar.glsl"
 
-// Vanilla lightmap (blockLight, skyLight) in 0..1 -> lighting weights, shared
-// by deferred shading (colortex4.zw) and the forward translucent passes
-// (v_texcoord.zw).
+// Input: vanilla lightmap components in 0..1. Consumed via colortex4.zw
+// (deferred) and v_texcoord.zw (forward translucent).
 
 float BlockLightFalloff(float lm_block) {
     float d = (1.0 - lm_block) * 15.0 + 1.0;

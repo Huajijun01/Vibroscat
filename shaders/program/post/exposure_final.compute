@@ -1,5 +1,4 @@
-// Phase 2: log-average/key-value exposure from the phase-1 statistics
-// (Reinhard et al., "Photographic Tone Reproduction for Digital Images", 2002).
+// Phase 2: log-average/key-value exposure from the phase-1 statistics (Reinhard et al. 2002).
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
@@ -33,8 +32,7 @@ float HistogramPercentile(float fraction, uint total_weight) {
 
 void main() {
 #ifndef AE
-    // BLOOM can enable this pass too; compile the body out (barrier() may not
-    // follow a return) so BLOOM-only never touches ExposureData.
+    // BLOOM can enable this pass too; barrier() may not follow a return, so the body compiles out for BLOOM-only.
     return;
 #else
 
@@ -63,8 +61,6 @@ void main() {
         float median_ev = HistogramPercentile(0.50, histogram_weight);
         float p90_ev = HistogramPercentile(0.90, histogram_weight);
         float key_ev = mix(log_average - log2(AE_REFERENCE_LUMINANCE), median_ev, 0.35);
-        // log2(max(exp2(key_ev) * L, floor) / L) == max(key_ev, log2(floor/L)):
-        // the exp2/log2 round trip collapses to the saturation max.
         float scene_ev = max(key_ev, log2(1.0e-4 / AE_REFERENCE_LUMINANCE));
         float target_exposure = (AE_TARGET_LUMINANCE / AE_REFERENCE_LUMINANCE)
             * exp2(-AE_ADAPTATION_STRENGTH * scene_ev);
@@ -73,14 +69,12 @@ void main() {
         target_exposure = clamp(target_exposure, AE_MIN_EXPOSURE, AE_MAX_EXPOSURE);
         float target_exposure_ev = log2(target_exposure);
 
-        // Bright adaptation is quick; dark adaptation is deliberately slower,
-        // matching the asymmetric cone/rod response of the human eye.
+        // Asymmetric adaptation: bright is quick, dark deliberately slower (cone/rod response).
         if (frameCounter < 2) {
             adapted_exposure_ev = target_exposure_ev;
         } else {
             float rate_per_sec = target_exposure_ev < adapted_exposure_ev ? 4.0 : 0.8;
-            // A paused or stalled frame reports a large frameTime; capping it
-            // keeps one hitch from snapping the exposure in a single step.
+            // A stalled frame reports a large frameTime; the cap keeps one hitch from snapping exposure.
             float step_seconds = clamp(frameTime, 0.0, 0.1);
             float w = 1.0 - exp(-step_seconds * rate_per_sec);
             adapted_exposure_ev = mix(adapted_exposure_ev, target_exposure_ev, saturate(w));

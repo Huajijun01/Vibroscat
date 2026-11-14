@@ -1,6 +1,5 @@
-// Explicit out variables get no Iris-injected alpha test: USE_DISCARD casters
-// apply alphaTestRef here. shadowcolor0 carries the RSM payload; Iris writes
-// depth to shadowtex0.
+// Explicit out variables get no Iris-injected alpha test: USE_DISCARD casters apply alphaTestRef here.
+// shadowcolor0 carries the RSM payload; Iris writes depth to shadowtex0.
 
 /* RENDERTARGETS: 0 */
 
@@ -27,12 +26,8 @@ layout(early_fragment_tests) in;
 #endif
 
 void main() {
-    // shadowcolor0 carries the RSM payload, and its only reader
-    // (lib/shadow/reflective_shadow_map.glsl) compiles in only when
-    // GI_MODE == 2. Every other configuration needs the atlas fetch for the
-    // cutout alpha test alone, so solid and water casters skip both the fetch
-    // and the RGBA8 write; shadow.vertex still owns the depth that
-    // shadowtex0/shadowtex1 store, and no consumer input changes.
+    // shadowcolor0's only reader (lib/shadow/reflective_shadow_map.glsl) compiles in only at GI_MODE == 2;
+    // other configurations keep the atlas fetch only for the cutout alpha test and skip the RGBA8 write.
 #if defined(SHADOW_TEXCOORD_ACTIVE)
     vec4 albedo = texture(gtexture, v_texcoord);
 #endif
@@ -57,13 +52,10 @@ void main() {
     reflectance *= float(dot(normal_shadow, u_shadow_light_dir) > 0.0);
     out_color = EncodeRSMSource(reflectance, normal_shadow);
 #elif defined(PROGRAM_SHADOW_WATER) && GI_MODE == 2
-    // GI_MODE == 2 water: the payload stays a constant zero; no material
-    // texture is fetched and no user varying crosses the stage.
     out_color = vec4(0.0);
 #else
     // No RSM payload consumer: shadowcolor0 stays unwritten.
 #endif
 
-    // Depth protection lives in shadow.vertex (clip-z scale); no fragment
-    // depth write here (early-Z).
+    // Depth protection lives in shadow.vertex (clip-z scale); no fragment depth write here (early-Z).
 }

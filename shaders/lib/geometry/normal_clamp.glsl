@@ -3,15 +3,8 @@
 
 #include "/lib/core/math_scalar.glsl"
 
-// Soft-clamps a shading normal against the view ray: ndotv below
-// SHADING_NORMAL_CLAMP_KNEE is remapped through a C1 quadratic knee (slope 1
-// at the knee, slope 0 at the floor), so the view-facing component of the
-// returned normal never drops below SHADING_NORMAL_MIN_NDOTV while the
-// component perpendicular to the view ray keeps its direction. The remap is
-// active for ndotv in
-// [2 * SHADING_NORMAL_MIN_NDOTV - SHADING_NORMAL_CLAMP_KNEE,
-//  SHADING_NORMAL_CLAMP_KNEE] and the identity outside it. shading_normal
-// and view_to_eye are unit vectors in one shared space.
+// C1 quadratic knee (slope 1 at the knee, 0 at the floor): ndotv never drops below
+// SHADING_NORMAL_MIN_NDOTV, identity outside the knee interval. Inputs are unit vectors, one space.
 const float SHADING_NORMAL_CLAMP_KNEE = 0.375;
 const float SHADING_NORMAL_MIN_NDOTV = 1.0 / 64.0;
 

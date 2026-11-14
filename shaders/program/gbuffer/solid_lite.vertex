@@ -34,9 +34,7 @@ void main() {
     lmcoord = saturate(lmcoord * 1.103449 - 0.0689656);
     v_texcoord.z = lmcoord.x;
 
-    // Particles shade as world-up surfaces: ambient must not use the
-    // billboard normal, which points at the eye and swaps zenith/ground sky
-    // ambient with camera pitch.
+    // Particles shade as world-up: the billboard normal points at the eye and swaps zenith/ground sky ambient with camera pitch.
     vec3 normal_world = vec3(0.0, 1.0, 0.0);
     v_ambient_col = AmbientLight(normal_world, vec3(1.0), lmcoord.y);
 }

@@ -18,8 +18,7 @@ void main() {
 #ifdef CAS
     vec3 ldr = CASSharpen(colortex0, uv, u_view_pixel_size, CAS_SHARPNESS);
 #else
-    // composite21 is CAS-gated in shaders.properties; without it the display
-    // tonemap runs here over the routed HDR scene, with no LDR round trip.
+    // composite21 is CAS-gated in shaders.properties; without it the display tonemap runs here, with no LDR round trip.
     vec3 ldr = ApplyDisplayTonemap(uv);
 #endif
 

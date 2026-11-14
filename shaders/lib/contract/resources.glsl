@@ -3,19 +3,13 @@
 
 #include "/lib/contract/settings.glsl"
 
-// ============================================================================
-// Buffer declarations: this file carries the Iris format and clear directives
-// for every colortex and shadowcolor attachment. shaders.properties carries
-// the customTexture formats and the blend state, not these.
-// ============================================================================
+// Buffer map plus the Iris format/clear directives for every attachment.
+// shaders.properties carries the customTexture formats and blend state, not these.
 //
-// Buffer map (deferred pipeline):
-//   colortex0   R11F_G11F_B10F   deferred1 fragment writes direct RGB + emission
-//                                to the non-selected side (geometry texels only;
-//                                sky discards); the pass flip promotes it; deferred5
-//                                writes completed color to the opposite side;
-//                                with CAS, composite21 writes the tonemapped
-//                                display color that final sharpens
+//   colortex0   R11F_G11F_B10F   deferred1 writes direct RGB + emission to the
+//                                non-selected side (sky discards); the pass flip
+//                                promotes it; deferred5 writes completed color;
+//                                with CAS, composite21 writes the tonemapped display color
 //   colortex1   RGBA8            GBuffer: albedo sRGB / materialID
 //   colortex2   RGBA8            deferred2_a half-res AO workspace on alt;
 //                                later translucent RGB UNORM16 low bytes/flag,
@@ -23,11 +17,9 @@
 //   colortex3   R11F_G11F_B10F   Unblurred demodulated reflection mean, direct RGB
 //   colortex4   RGBA8            Main: geometric world normal RG + lightmap BA;
 //                                alt: weather sheet, selected after deferred5
-//   colortex5   R11F_G11F_B10F   Persistent scene history H; the deferred1 direct
-//                                fragment writes the caustic BRDF to W (suppressed
-//                                flip, geometry texels only); composite flips
-//                                expose W then H. Optional SSR mips are generated
-//                                only on H.
+//   colortex5   R11F_G11F_B10F   Persistent scene history H; deferred1 writes the
+//                                caustic BRDF to W (suppressed flip, geometry texels
+//                                only); composite flips expose W then H; optional SSR mips only on H.
 //   colortex6   RGBA16UI         SSR depth16/rough8/selector8/unused8/age5/state3/
 //                                log-variance16; no historical normal or M
 //   colortex8   RGBA16F          Cloud history frame (primary, sky, T, distance);
@@ -54,12 +46,9 @@
 // composite4 restores display-sized colortex0/5.
 
 /*
-// Format declarations. Iris reads them as raw source text
-// (ConstDirectiveParser.findDirectives matches any line that starts with
-// "const"), so they stay effective inside a block comment. The format names
-// are not GLSL identifiers, which is why the lines cannot be live code; the
-// block also keeps every line at column zero, and a trailing comment after
-// the semicolon is tolerated by the parser.
+// Format declarations. Iris reads them as raw source text even inside a block
+// comment (the format names are not GLSL identifiers), so every line stays at
+// column zero.
 const int colortex0Format  = R11F_G11F_B10F;
 const int colortex1Format  = RGBA8;
 const int colortex2Format  = RGBA8;
@@ -77,24 +66,19 @@ const int shadowcolor0Format = RGBA8;
 
 // -- Clear flags --
 // true = cleared each frame before shader writes. false = carry data across frames.
-const bool colortex0Clear  = false;   // scene output
-const bool colortex1Clear  = false;   // GBuffer albedo
-const bool colortex2Clear  = false;   // AO scratch, then translucent low bytes/flag
-const bool colortex3Clear  = false;   // unblurred opaque reflection history
+const bool colortex0Clear  = false;
+const bool colortex1Clear  = false;
+const bool colortex2Clear  = false;
+const bool colortex3Clear  = false;
 const bool colortex4Clear  = true;    // weather alt must start transparent
-const bool colortex5Clear  = false;  // TAA history
-const bool colortex6Clear  = false;  // SSR metadata history
-const bool colortex8Clear  = false;   // cloud history frame (persistent; GTAO history merged on geometry pixels)
-const bool colortex9Clear  = false;   // unblurred temporal GI history
-const bool colortex10Clear = false;   // actual previous GI receiver geometry/age
-const bool colortex11Clear = false;  // opaque geometry overwrites before depth-valid reads
-// colortex12 hands one buffer forward through the frame: clouds use alt,
-// deferred5 zero-fills the active scene before translucency,
-// optional DOF overwrites the active scene metadata before its gather,
-// and bloom rewrites each atlas tile before sampling it. TAAU's inactive
-// margin is never read, and Iris still clears on allocation and resize, so
-// the recurring clear only re-zeroes regions that every reader overwrites
-// first.
-const bool colortex12Clear = false;  // sequential workspace
+const bool colortex5Clear  = false;
+const bool colortex6Clear  = false;
+const bool colortex8Clear  = false;   // persistent cloud/AO history
+const bool colortex9Clear  = false;
+const bool colortex10Clear = false;
+const bool colortex11Clear = false;
+// colortex12 hands one buffer forward through the frame; every reader overwrites
+// its region first, and Iris still clears on allocation and resize.
+const bool colortex12Clear = false;
 
 #endif // LIB_CONTRACT_RESOURCES_GLSL

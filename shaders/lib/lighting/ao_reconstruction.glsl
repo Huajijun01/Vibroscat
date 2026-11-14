@@ -7,22 +7,16 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/packing.glsl"
 
-// Four-tap bilateral upsampling on the generator's fixed pixel lattice:
-// half texel h represents full texel 2*h, refreshed every frame.
-// Guide normals share the RGBA8 AO workspace; depth stays in depthtex2.
-// Spatial, receiver-plane distance and normal weights suppress foreign surfaces and sky.
+// Four-tap bilateral upsample of the half-res workspace: half texel h maps to
+// full texel 2*h; guide normals share the AO workspace, depth is depthtex2.
 vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
     ivec2 half_size = ivec2(u_ao_half_res);
     ivec2 full_max = ivec2(u_render_res) - 1;
     ivec2 base_texel = min(texel / 2, half_size - 1);
     ivec2 lower_pixel = min(base_texel * 2, full_max);
     ivec2 upper_pixel = min(min(base_texel + 1, half_size - 1) * 2, full_max);
-    // Clamp the final footprint to the actual scene, including odd sizes.
+    // Odd sizes: the +1 tap lands past the half-res lattice but inside full res.
     vec2 fraction = saturate(vec2(texel - lower_pixel) / vec2(max(upper_pixel - lower_pixel, 1)));
-    // These depth/workspace reads are independent of the rejection weights:
-    // all four taps are fetched unconditionally (the UNORM8 workspace holds
-    // only finite values) and every address stays bounded, zero-weight taps
-    // included.
     float fetched_depth[4];
     vec4 fetched_data[4];
     for (int i = 0; i < 4; ++i) {
@@ -42,8 +36,8 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
 #endif
     float receiver_ray_plane = dot(plane_xy, receiver_ndc) - normal_view.z;
     vec2 plane_pixel_step = plane_xy * (2.0 * u_render_pixel_size);
-    // Neighboring rays on a grazing plane have different view depths even
-    // when they hit the same surface. Compare displacement off that plane.
+    // Compare displacement off the receiver ray plane: grazing neighbors share
+    // the surface but differ in view depth.
     float inv_depth_window = 1.0 / (0.02 + receiver_depth_m * 0.01);
     vec2 ao_sum = vec2(0.0);
     float weight_sum = 0.0;
@@ -65,7 +59,7 @@ vec2 ReconstructAO(ivec2 texel, float scene_depth, vec2 normal_oct) {
             weight_sum += weight;
         }
     }
-    // Missing support resolves to open AO without a full-res history lookup.
+    // No support: resolve to open AO instead of a full-res history lookup.
     return weight_sum > 1.0e-5 ? ao_sum / weight_sum : vec2(1.0, 0.0);
 }
 

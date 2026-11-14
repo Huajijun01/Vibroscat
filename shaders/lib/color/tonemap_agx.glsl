@@ -6,11 +6,9 @@
 #include "/lib/color/spaces.glsl"
 
 
-// AgX-HSV (mode 0), ported from DRT Bench shaders/agx_hsv.wgsl,
-// `AgxParameters::hsv_default()` (GPL-3.0-only, modified;
-// licenses/THIRD_PARTY_NOTICES.md section 1). Display values are sRGB-OETF
-// encoded and anchored at OETF(0.18); the port decodes with ToLinear and
-// returns display-linear color (0.18 scene in -> 0.18 out).
+// AgX-HSV (mode 0), ported from DRT Bench agx_hsv.wgsl, AgxParameters::hsv_default()
+// (GPL-3.0-only, modified; licenses/THIRD_PARTY_NOTICES.md section 1).
+// Scene-linear in, display-linear out (0.18 scene -> 0.18).
 
 const float AGX_GAMUT_COMPRESSION = 0.05;
 const float AGX_MIN_LOG2 = -12.473931188332412333;    // log2(0.18) - 10 EV
@@ -33,8 +31,7 @@ vec3 AgXOutset(vec3 color) {
         / (1.0 - AGX_GAMUT_COMPRESSION);
 }
 
-// Piecewise degree-six fits over the normalized log shaper [0, 1].
-// Both segments preserve the pivot and their outer endpoint values.
+// Degree-6 toe/shoulder fits; both segments preserve the pivot and outer endpoint values.
 float AgXCurveComponent(float value) {
     bool toe = value <= AGX_INPUT_PIVOT;
     float t = (value - AGX_INPUT_PIVOT) * (toe ? -1.65 : 2.5384615384615385);
@@ -45,9 +42,7 @@ float AgXCurveComponent(float value) {
     return toe ? toe_value : shoulder_value;
 }
 
-// Hue repair: keep the original hue, faded by how bright the pixel became.
-// `original_linear` is the scene color and `mapped` the tone-scaled display
-// value; the comparison runs in a pure-2.2 signal domain.
+// Hue repair in a pure-2.2 domain: original_linear is scene color, mapped the tone-scaled display value.
 vec3 AgXRepairHue(vec3 original_linear, vec3 mapped) {
     vec3 original_hsv = RGBToHSV(pow(max(original_linear, 0.0), vec3(1.0 / 2.2)));
     vec3 mapped_hsv = RGBToHSV(mapped);
@@ -66,21 +61,16 @@ vec3 AgXRepairHue(vec3 original_linear, vec3 mapped) {
 vec3 TonemapAGX(vec3 linear_rgb) {
     vec3 original = max(linear_rgb, 0.0);
 
-    // Inset and the normalized log2 shaper (min EV -12.4739 .. max EV +4.0261).
     vec3 working = AgXInset(original);
     working = (log2(max(working, 2e-10)) - AGX_MIN_LOG2) * AGX_INVERSE_DYNAMIC_RANGE;
     working = saturate(working);
 
-    // Toe/shoulder curve, then back out of the working gamut.
     working = vec3(AgXCurveComponent(working.x), AgXCurveComponent(working.y),
         AgXCurveComponent(working.z));
     working = AgXOutset(working);
 
-    // Hue repair in the display-referred AgX Base domain.
     working = AgXRepairHue(original, working);
 
-    // Clamp the display signal, then decode for the shared display-linear
-    // sharpening / final sRGB output.
     return ToLinear(saturate(working));
 }
 

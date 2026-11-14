@@ -6,9 +6,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/lighting/ao_history.glsl"
 
-// Shared response for standalone AO and RSM's receiver-local estimate.
-// Accumulate the standalone raw field first; RSM filters AO-weighted sky
-// irradiance together with its bounce instead of filtering AO separately.
+// Shared by standalone AO and RSM; RSM filters AO-weighted irradiance, not AO
+// separately.
 vec3 ApplySurfaceAO(inout float screen_ao, vec3 albedo) {
     screen_ao = saturate(screen_ao);
     if (GTAO_STRENGTH != 1.0) screen_ao = pow(screen_ao, GTAO_STRENGTH);
@@ -22,8 +21,8 @@ vec3 ApplySurfaceAO(inout float screen_ao, vec3 albedo) {
     return vec3(screen_ao);
 }
 
-// GI owns diffuse visibility. Its lighting must not sample the standalone
-// AO history, apply vertex AO again, or attenuate the reconstructed bounce.
+// GI owns diffuse visibility; its lighting must not reapply this AO or the
+// standalone AO history.
 vec3 ResolveSurfaceAO(ivec2 texel, vec3 albedo, float vertex_ao, bool is_hand, out float screen_ao) {
     screen_ao = 1.0;
 #if GI_MODE != 0

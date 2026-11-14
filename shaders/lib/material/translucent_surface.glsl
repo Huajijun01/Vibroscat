@@ -3,9 +3,8 @@
 
 #include "/lib/core/math_scalar.glsl"
 
-// One RGB UNORM16 surface value split across two RGBA8 targets: colortex2
-// carries the low bytes and water flag; colortex1 carries the high
-// bytes with framebuffer blending preserving its opaque material-ID alpha.
+// One RGB UNORM16 value split across two RGBA8 targets: colortex2 holds the low bytes and
+// water flag, colortex1 the high bytes; blending must preserve colortex1's opaque material-ID alpha.
 void PackTranslucentSurface(vec3 encoded_surface, float water_flag,
         out vec4 surface_low, out vec4 surface_high) {
     vec3 unorm16 = floor(saturate(encoded_surface) * 65535.0 + 0.5);

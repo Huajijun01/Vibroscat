@@ -6,18 +6,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 
-// The trace's 32 equal-mass CDF sectors form eight four-bit direction groups.
-// On its visible arc, psi in [0, h], h = PI/2 - angle_normal, the density is
-// proportional to sin(psi)*sin(h-psi). The group conditional means use the
-// midpoint frame e0 = v*cos(h/2)+t*sin(h/2), e1 = -v*sin(h/2)+t*cos(h/2).
-// Walsh statistics q_i = bitCount(missing & mask_i)/16 - m are exact for
-// these group masses. Only the L1 reconstruction is approximated below:
-// three even modes share h^2*P1(x), four odd modes share h*Q2(x), where
-// x = 2*h^2/PI^2-1. Their weighted counts are collapsed before evaluation.
-// The constant mode keeps its original cubic; L0 mass m is unchanged.
-// Full visibility uses the conditional slice mean, not a hemisphere mean.
-// The returned moment is not a unit vector and must not be normalized.
-// D_view = view_dir*result.x + ray_direction*result.y.
+// occupied = the trace's 32 equal-mass CDF sectors as eight 4-bit direction
+// groups; result reconstructs D_view = view_dir*x + ray_direction*y. Not unit.
 vec2 SSGISkySliceMoment(uint occupied, float m, float angle_normal) {
     uint missing = ~occupied;
     if (missing == 0u) return vec2(0.0);
@@ -52,15 +42,9 @@ vec2 SSGISkySliceMoment(uint occupied, float m, float angle_normal) {
     return vec2(c * a - s * b, s * a + c * b);
 }
 
-// moment_world uses the normalized cosine measure and must not be normalized.
-// l2_band is EvalSkyLightL2(fallback_normal), hoisted ahead of the march; the
-// band depends only on the receiver normal and its SSBO reads are
-// placement-sensitive in the epilogue (same rule as sky_l2_blocked in gtao).
-// The ignored L2/visibility correlation is a model approximation.
-// The caller clamps the composed RGB once to >= 0 (per-band clamping would
-// break the signed L2 lobes) and adds no open-sky upper bound; the single
-// random slice's positive swings average out over frames.
-// No second AO multiplication; the ambient floor joins after, scaled by m.
+// l2_band: hoisted EvalSkyLightL2(fallback_normal); placement-sensitive in the
+// epilogue (same rule as sky_l2_blocked in gtao). Caller: clamp the composed
+// RGB once to >= 0, no per-band clamp, no upper bound, no extra AO multiply.
 vec3 EvalSSGISkyFromMoment(float m, vec3 moment_world, vec3 l2_band) {
     vec4 basis = vec4(SH_Y0 * m, SH_Y1 * moment_world.yzx);
     vec3 visible_l01 = PI * vec3(dot(sky_sh_r0, basis), dot(sky_sh_g0, basis),

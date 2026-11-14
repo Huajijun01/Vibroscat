@@ -4,18 +4,9 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// Reconstructs the current fragment's gbuffer view-space position from its
-// window coordinates alone; no depth texture is read. The pack's world
-// projection is the symmetric perspective form documented in
-// lib/core/coordinates.glsl with clip.w = -view.z, so gl_FragCoord.w (the
-// reciprocal clip w) recovers the view depth without a depth fetch:
-// view = (ndc * inverse projection diagonal, -1) / frag_coord.w.
-// u_render_pixel_size already maps the TAAU active scene rectangle onto
-// projection UVs, so render-pixel NDC needs no extra render-scale division.
-// The TAA jitter is subtracted once here because the vertex stage added it to
-// clip XY directly, never to the matrix. Valid for the world gbuffer
-// projection only: the hand keeps a full projection product and the shadow
-// pass is orthographic with warped XY.
+// No depth fetch: valid for the world gbuffer projection only (symmetric form, clip.w = -view.z,
+// so gl_FragCoord.w recovers view depth). u_render_pixel_size already handles TAAU scaling;
+// TAA jitter is subtracted here because the vertex stage added it to clip XY, not the matrix.
 vec3 ReconstructGbufferViewPosition(vec4 frag_coord) {
     vec2 ndc_xy = frag_coord.xy * u_render_pixel_size * 2.0 - 1.0;
 #ifdef TAA

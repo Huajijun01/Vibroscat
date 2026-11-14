@@ -4,24 +4,11 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/core/math_scalar.glsl"
 
-// ============================================================================
-// Material model - specular map decoding and the opaque PBR resolve
-// ============================================================================
-//
-// Specular map channels follow the user-selected MATERIAL_FORMAT convention
-// (contract/settings.glsl); both store smoothness in R and the F0/metalness
-// byte in G:
-//   LabPBR: R = perceptual smoothness (roughness = 1 - R), G = F0 or metal
-//           range byte, B = auxiliary, A = emission (255 = none)
-//   oldPBR: R = smoothness, G = continuous metalness, B = emission,
-//           A = reserved
-//
-// materialID ranges (see block.properties for per-block assignment):
-//   80-95   water
-//   96-111  metal   (iron, gold, anvil, etc.)
-//   112-127 emissive (glowstone, torch, lava, beacon, etc.)
-//   128-137 vegetation; 135 is rigid opaque, other classes are thin tissue
-//   160-191 translucent (glass, ice, slime, stained glass)
+// Specular channels follow MATERIAL_FORMAT (contract/settings.glsl): both store smoothness
+// in R and the F0/metalness byte in G. LabPBR: R perceptual (roughness = 1 - R), B auxiliary,
+// A emission (255 = none). oldPBR: R smoothness, G continuous metalness, B emission, A reserved.
+// materialID (assigned in block.properties): 80-95 water, 96-111 metal, 112-127 emissive,
+// 128-137 vegetation (135 rigid opaque), 160-191 translucent.
 
 struct OpaqueMaterial {
     float perceptual_roughness;
@@ -101,11 +88,8 @@ bool PlantUsesTiltedSheets(int id) {
     return id == 128 || id == 130 || id == 131 || id == 133 || id == 134 || id == 137;
 }
 
-// -- Normal-map decoding --
-// LabPBR (default since MC 1.14): X and Y channels store the 2D
-// tangent-space normal remapped from [0,1] to [-1,1]; Z is reconstructed
-// positive. oldPBR: the full RGB vector is stored, and bilinear filtering
-// can shorten it below unit length, so it is renormalized.
+// LabPBR normals: XY remapped [0,1] -> [-1,1], Z reconstructed positive. oldPBR: full RGB,
+// which bilinear filtering can shorten below unit length, hence the renormalize.
 vec3 DecodeMaterialNormal(vec3 packed_normal) {
 #if MATERIAL_FORMAT == 0
     vec2 xy = packed_normal.xy * 2.0 - 1.0;

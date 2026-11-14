@@ -3,8 +3,7 @@
 
 #define EPIPOLAR_POLE_VARYING
 
-// The pole varying this fragment stage owns; the shared epipolar library
-// reads it under this gate.
+// Read by the shared epipolar library under EPIPOLAR_POLE_VARYING.
 flat in vec2 v_epipolar_pole;
 flat in int v_epipolar_pole_in_screen;
 
@@ -24,9 +23,7 @@ flat in int v_epipolar_pole_in_screen;
 
 layout(location = 0) out vec3 out_color;
 
-// Boundary fog: fade near-boundary geometry into the cloud-free sky, masking
-// the loaded-area edge. Blends toward the sky color; sky pixels
-// (depth >= 1.0) are returned unchanged. Exists only under BOUNDARY_FOG.
+// Masks the loaded-area edge by fading geometry into the cloud-free sky.
 #ifdef BOUNDARY_FOG
 vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_depth, float radius) {
     if (scene_depth < 1.0) {
@@ -35,13 +32,11 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
         float boundary_edge = smoothstep(BOUNDARY_FOG_START, 1.0, boundary_ratio);
         boundary_edge *= boundary_edge;
         float boundary_up = smoothstep(0.0, 0.15, world_dir.y);
-        // The smoothstep product stays non-negative: STRENGTH's floor is 0.0
-        // and HEIGHT_FADE never exceeds 1.0.
         float boundary_amount = saturate(
             boundary_edge * BOUNDARY_FOG_STRENGTH *
                 (1.0 - boundary_up * BOUNDARY_FOG_HEIGHT_FADE));
         if (boundary_amount > 0.0) {
-            // Cloud-free sky LUT sampled along the actual view direction.
+            // Cloud-free sky LUT.
             vec2 sky_uv = SkyLUTUV(world_dir, u_world_sun_dir);
             vec3 boundary_color = texture(usam_skylut, sky_uv).rgb;
             scene = mix(scene, boundary_color, boundary_amount);
@@ -51,11 +46,7 @@ vec3 ApplyBoundaryFog(vec3 scene, vec3 world_pos, vec3 world_dir, float scene_de
 }
 #endif
 
-// Effective optical depth of the weather sheet. colortex4 carries the linear
-// sheet color premultiplied by coverage in RGB, and the coverage in A; the
-// weather pass writes neither depth nor the G-buffer, so the sheet owns no
-// normal, material, or depth of its own and is lit as a thin scattering layer
-// instead of a surface. This constant folds its path length into that color.
+// Weather sheet (colortex4): RGB = linear sheet color premultiplied by coverage, A = coverage.
 const float WEATHER_SHEET_OPTICAL_DEPTH = 4.0;
 
 void main() {
@@ -80,8 +71,7 @@ void main() {
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
     vec3 world_pos = ViewToWorldSpace(view_pos);
-    // Eye-accurate view direction: depth reconstruction is feet-space and
-    // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
+    // Depth reconstruction is feet-space; the eye sits ~1.62 m above it.
     vec3 world_dir = normalize(world_pos - EyePositionWorldSpace());
 
 #ifdef BOUNDARY_FOG
@@ -96,27 +86,18 @@ void main() {
     visibility = SampleEpipolarTerm(uv * 2.0 - 1.0, LinearDepthFromScreenDepth(scene_depth), vec3(1.0));
 #endif
     AirFogResult fog = AirFogRender(world_dir, length_m, AirFogProfile(), AirFogReferenceMedium(), visibility);
-    // Eye skylight suppresses the outdoor medium inside caves/interiors.
     scene = scene * mix(vec3(1.0), fog.transmittance, u_eye_sky_access) + fog.in_scattering * u_eye_sky_access;
 #endif
 
     out_color = scene;
 
-    // Weather sheet: rain and snow scatter the light around them rather than
-    // reflecting it, so the sheet gets no BRDF, no shadow map, and no specular
-    // term. Ambient is the up-facing sky irradiance (an airborne sheet is lit
-    // from the hemisphere above it) scattered isotropically, the same 1/(4 pi)
-    // phase shared by the medium lighting helpers.
-    // Direct light arrives through a Mie lobe, which is what makes streaks
-    // glow when the light sits behind them. The sheet is composited after
-    // boundary fog because it hangs within a few blocks of the camera.
+    // Rain/snow scatter light rather than reflecting it: isotropic ambient
+    // plus a Mie direct lobe, no BRDF or shadow term.
     vec4 weather = texelFetch(colortex4, tx, 0);
     if (weather.a > 0.0) {
         float weather_cos_theta = dot(world_dir, u_world_light_dir);
-        // EvalSkyLight(vec3(0,1,0)) with the constant up direction folded:
-        // only L0 and the y L1 basis survive here, plus the L2 y^2 self term
-        // (2 * Y20); z/x L1 and the mixed L2 monomials vanish on the axis.
-        // Dropping the self term keeps the sheet's ambient at the two-dot cost.
+        // Approximates EvalSkyLight(up): the axis kills x/z L1 and the mixed
+        // L2 terms; the y^2 self term is dropped for cost.
         vec3 weather_scattering = max(
                 vec3(sky_sh_r0.x, sky_sh_g0.x, sky_sh_b0.x) * (SH_Y0 * SH_A0)
               + vec3(sky_sh_r0.y, sky_sh_g0.y, sky_sh_b0.y) * (SH_Y1 * SH_A1),
@@ -124,11 +105,7 @@ void main() {
             + ground_light.rgb * PhaseHenyeyGreenstein(weather_cos_theta, 0.5);
         vec3 weather_radiance = weather.rgb * weather_scattering
             * WEATHER_SHEET_OPTICAL_DEPTH;
-        // colortex4 stores the premultiplied sheet color in linear space: the
-        // gbuffers SRC_ALPHA blend already scaled RGB by coverage on write, and
-        // gbuffers_weather decoded before writing so that blend stays linear.
-        // Composite premultiplied-over; multiplying by weather.a again would
-        // scale the contribution by coverage squared.
+        // Premultiplied-over composite: another weather.a factor would square the coverage.
         out_color = out_color * (1.0 - weather.a) + weather_radiance;
     }
 }

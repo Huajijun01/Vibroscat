@@ -5,11 +5,8 @@ vec4 CatmullRomTap(sampler2D tex, vec2 uv, bool base_level) {
     return base_level ? textureLod(tex, uv, 0.0) : texture(tex, uv);
 }
 
-// Fast 5-tap Catmull-Rom bicubic (sharpness=0.5 typical). Uses bilinear taps and
-// explicit weight-sum normalization. Optional bounds clamp each tap to an
-// active texture rectangle, allowing cropped scene inputs to reuse this filter.
-// texel_size is the reciprocal texture resolution; every caller derives it
-// from uniforms or constants, so the resolution itself is never queried.
+// Fast 5-tap Catmull-Rom bicubic; sharpness 0.5 is typical. The optional bounds clamp
+// lets cropped scene inputs reuse the filter.
 vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness,
         vec2 uv_min, vec2 uv_max, bool base_level) {
     vec2 res = 1.0 / texel_size;
@@ -23,8 +20,7 @@ vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness
     vec2 w2 = (-2.0 + sharpness) * f3 + (3.0 - 2.0 * sharpness) * f2 + sharpness * f;
     vec2 w3 = sharpness * f3 - sharpness * f2;
 
-    // w1 + w2 cancels its cubic term exactly into 1 + sharpness*f*(1 - f),
-    // and w1 feeds nothing else, so the cubic weight list loses one entry.
+    // h0 merges w1+w2; their cubic terms cancel exactly, so altering it breaks the weights.
     vec2 h0 = 1.0 + sharpness * f * (1.0 - f);
     vec2 p0 = (center + w2 / h0) * texel_size;
     vec2 p1 = (center - 1.0) * texel_size;
@@ -66,8 +62,7 @@ vec4 FastCatmullRom5Tap(sampler2D tex, vec2 uv, vec2 texel_size, float sharpness
     return FastCatmullRom5Tap(tex, uv, texel_size, sharpness, vec2(-1.0e30), vec2(1.0e30));
 }
 
-// Cubic B-spline basis weights for a fractional texel offset in [0, 1].
-// Shared by the shadow-map PCF filter and the caustics sampler.
+// f is a fractional texel offset in [0, 1]; shared by the shadow-map PCF filter and the caustics sampler.
 void BsplineWeights(vec2 f, out vec2 w0, out vec2 w1, out vec2 w2, out vec2 w3) {
     vec2 f2 = f * f;
     vec2 f3 = f2 * f;

@@ -5,18 +5,16 @@
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 
-// -- Solar irradiance (W/m2/nm at TOA) --
+// TOA solar irradiance (W/m2/nm).
 const vec4 ATM_SOLAR = vec4(2.01085377, 1.92558253, 1.85678685, 1.56775546);
 
-// -- Moonlight irradiance (W/m2/nm) --
+// Moonlight irradiance (W/m2/nm).
 const vec4 ATM_MOON_IRR = vec4(3.0, 2.0, 1.0, 1.0) * 0.002;
 
-// Shared linear radiance calibration for sky, direct light and ambient.
-// It precedes the separate display exposure and tonemap.
+// Linear radiance calibration, separate from the display exposure and tonemap.
 const float ATM_EXPOSURE = 0.05;
 
-// Direct irradiance at a planet-centered radius in km. Horizon visibility
-// and any artistic sun/moon handover remain the caller's policy.
+// Radius in km; horizon visibility and sun/moon handover are the caller's policy.
 vec3 AtmosphereDirectIrradianceAt(float radius_km, float radius_squared_km, float light_mu,
     vec4 irradiance
 ) {

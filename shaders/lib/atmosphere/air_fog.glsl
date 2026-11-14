@@ -18,7 +18,6 @@ const HenyeyGreensteinTripleLobe AIRFOG_MIE_PHASE = HenyeyGreensteinTripleLobe(
 
 const float AIR_FOG_MAX_HEIGHT_MULTIPLIER = 2.0;
 
-// Bounded exponential-height density with day/night and weather response.
 struct AirFogDensityProfile {
     float clear_density;
     float rain_density;
@@ -35,24 +34,16 @@ struct AirFogMedium {
 AirFogDensityProfile AirFogProfile() {
     float dark_density = mix(AIR_FOG_DENSITY_NIGHT, AIR_FOG_DENSITY_DUSK, u_airfog_twilight_weight);
     float clear_density = mix(dark_density, AIR_FOG_DENSITY_DAY, u_airfog_day_weight);
-    // Absolute camera coordinates avoid the wrapped cameraPosition altitude.
-    // World space offsets feet-player space by cameraPosition (Iris contract).
+    // Absolute camera altitude avoids cameraPosition's feet-player offset (Iris contract).
     return AirFogDensityProfile(clear_density,
         AIR_FOG_DENSITY_RAIN * saturate(rainStrength * u_rain_biome), u_eye_height_m);
 }
 
 AirFogMedium AirFogReferenceMedium() {
-    // Clear air uses RGB coefficients derived from the reference atmosphere.
-    // Rain is a separate neutral,
-    // conservative droplet medium: it adds only Mie scattering/extinction.
-    // Its reference coefficient is fixed, independent of world/camera height.
     AtmosphereMedia reference = AtmosphereMediaAt(ATM_PLANET_R + 0.2 + AIR_FOG_REFERENCE_HEIGHT_M * 0.001);
-    // The compositor transports RGB radiance by channel. Convert reference
-    // COEFFICIENTS once, before Beer-Lambert; fitting exp(-tau) with a signed
-    // radiance matrix is not a multiplicative RGB transmission operator.
+    // Convert coefficients to RGB before Beer-Lambert, never exp(-tau): the radiance matrix is not multiplicative.
     vec3 white = SpectralToLinearSRGB(vec4(1.0));
-    // Converted clear-air coefficients sit orders of magnitude below 1, so the
-    // saturates only scrub signed-conversion artifacts.
+    // Coefficients sit far below 1, so the saturates only scrub signed-conversion artifacts.
     vec3 ray = saturate(SpectralToLinearSRGB(reference.sigma_s_ray * 0.001) / white);
     vec3 mie = saturate(SpectralToLinearSRGB(reference.sigma_s_mie * 0.001) / white);
     vec4 absorption_spectral = reference.sigma_t - reference.sigma_s_ray - reference.sigma_s_mie;
@@ -61,11 +52,7 @@ AirFogMedium AirFogReferenceMedium() {
         dot(reference.sigma_s_mie, vec4(0.25)) * 0.001);
 }
 
-// Integrate one portion entirely above or below the reference height, with
-// ordered absolute endpoint heights. The upper profile is exp(-u); the lower
-// is C-(C-1)*exp(u/(C-1)), u=(y-y_ref)/H. Their value and slope match at u=0.
-// C>1 bounds the height gain while retaining denser lowland air. Every exp
-// argument is nonpositive.
+// Profiles meet the reference height with matching value and slope; all exp arguments are nonpositive.
 float AirFogHeightColumn(float lower_height_m, float upper_height_m, float length_m) {
     bool above_reference = lower_height_m >= AIR_FOG_REFERENCE_HEIGHT_M;
     float lower_density_span = AIR_FOG_MAX_HEIGHT_MULTIPLIER - 1.0;
@@ -84,9 +71,7 @@ float AirFogHeightColumn(float lower_height_m, float upper_height_m, float lengt
     return length_m * mean_density;
 }
 
-// The whole-ray composite and every epipolar bin integrate this same medium.
-// Split crossing rays at the reference plane to preserve column additivity.
-// Rain's independent constant column R*L is added only to its own Mie coefficient.
+// Crossing rays split at the reference plane so the two halves stay additive.
 float AirFogColumnDensity(AirFogDensityProfile profile, float direction_y, float length_m) {
     float height_delta = direction_y * length_m;
     float lower_height_m = profile.eye_height_m + min(height_delta, 0.0);
@@ -129,8 +114,7 @@ struct AirFogSource {
     vec3 mie;
 };
 
-// The epipolar air-shadow ratio (lib/volume/air_epipolar.glsl) must reuse this
-// whole-ray source instead of recomputing proportions inside each bin.
+// The epipolar air-shadow ratio (lib/volume/air_epipolar.glsl) must reuse this whole-ray source.
 AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float rain_tau) {
     vec3 tau = medium.extinction * clear_column + vec3(rain_tau);
     vec3 inv_tau = 1.0 / max(tau, vec3(1e-20));
@@ -138,9 +122,7 @@ AirFogSource AirFogSourceFunction(AirFogMedium medium, float clear_column, float
         (medium.scattering_mie * clear_column + vec3(rain_tau)) * inv_tau);
 }
 
-// For a constant source S, integral S*sigma_t(s)*T(s) ds = S*(1-T(L)),
-// since dT/ds = -sigma_t(s)*T(s). T uses the full bounded-height column
-// plus the height-independent rain column. No numerical integration/cutoff.
+// Constant source: integral S*sigma_t(s)*T(s) ds = S*(1-T(L)), in closed form.
 AirFogIntegral IntegrateAirFogScattering(AirFogDensityProfile profile, AirFogMedium medium,
         float direction_y, float length_m) {
     float clear_column = AirFogColumnDensity(profile, direction_y, length_m);
@@ -152,9 +134,7 @@ AirFogIntegral IntegrateAirFogScattering(AirFogDensityProfile profile, AirFogMed
     return AirFogIntegral(transmittance, source.ray * removed, source.mie * removed);
 }
 
-// Convolve the incident sky RADIANCE SH with the normalized phase functions.
-// Rayleigh's moments are (1,0,0.1); HG's are (1,g,g^2). Surface irradiance
-// uses different moments (pi,2pi/3,pi/4) and is not a volume source.
+// SH phase moments: Rayleigh (1,0,0.1), HG (1,g,g^2); surface irradiance uses different moments.
 AirFogSource AirFogSkySource(vec3 world_dir) {
     vec3 basis_l1 = SH_Y1 * world_dir.yzx;
     vec4 basis_l2 = vec4(SH_Y20 * (3.0 * world_dir.y * world_dir.y - 1.0),
@@ -180,8 +160,6 @@ AirFogResult AirFogRender(vec3 world_dir, float length_m, AirFogDensityProfile p
     vec3 ray_rgb = integral.scattering_ray * AIR_FOG_INTENSITY;
     vec3 mie_rgb = integral.scattering_mie * AIR_FOG_INTENSITY;
     float cos_theta = dot(world_dir, u_world_light_dir);
-    // Use the existing ground sun/moon color as constant incident light;
-    // there is no light-directed transmittance integration in this medium.
     vec3 direct = (ray_rgb * PhaseRayleigh(cos_theta)
         + mie_rgb * PhaseHenyeyGreensteinTripleLobe(cos_theta, AIRFOG_MIE_PHASE)) * ground_light.rgb * visibility;
     AirFogSource sky = AirFogSkySource(world_dir);

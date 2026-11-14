@@ -10,10 +10,9 @@
 #include "/lib/lighting/lightmap.glsl"
 #include "/lib/raytrace/ssr.glsl"
 
-// The opaque-reflection STBN stream registration: the second scalar shifts
-// the spatial texel by (47, 83) and the time slice by 29 so the GGX lobe
-// sample and the trace jitter stay decorrelated. The clamp keeps the GGX
-// inverse-CDF finite at exact 0/1 texel values.
+// This pass's registered STBN stream: the pair keeps the GGX lobe sample and
+// the trace jitter decorrelated. The clamp keeps the GGX inverse-CDF finite
+// at exact 0/1 texel values.
 vec2 OpaqueSSRSTBNPair(ivec2 tx) {
     return clamp(SampleSTBNPair(tx, frameCounter, 29, ivec2(47, 83)),
         vec2(1e-6), vec2(1.0 - 1e-6));
@@ -27,9 +26,8 @@ mat3 BuildOrthonormalBasis(vec3 normal_world) {
     return mat3(tangent, cross(normal_world, tangent), normal_world);
 }
 
-// VNDF sampling (Heitz 2018, "Sampling the GGX Distribution of Visible
-// Normals"). wi_std/wm_std live in the standard (alpha-stretched) space;
-// the return maps the sampled normal back to roughness space.
+// VNDF sampling (Heitz 2018, "Sampling the GGX Distribution of Visible Normals");
+// wi_std/wm_std live in the alpha-stretched space, the return maps back to roughness space.
 vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
     vec3 wi_std = normalize(vec3(local_v.xy * alpha, local_v.z));
     float phi = TAU * u.x;
@@ -40,17 +38,13 @@ vec3 SampleVisibleGGX(vec3 local_v, float alpha, vec2 u) {
     return normalize(vec3(wm_std.xy * alpha, wm_std.z));
 }
 
-// stbn_random is the OpaqueSSRSTBNPair pair sampled by the pass main; it
-// seeds the visible-normal GGX sample.
+// stbn_random is the OpaqueSSRSTBNPair pair from the pass main, seeding the GGX sample.
 vec3 OpaqueReflectionDirection(vec3 normal_world, vec3 view_dir,
         float perceptual_roughness, vec2 stbn_random, out vec3 half_dir) {
     float alpha = max(perceptual_roughness * perceptual_roughness, 0.002);
     mat3 frame = BuildOrthonormalBasis(normal_world);
     vec3 local_v = transpose(frame) * view_dir;
     vec3 local_h = SampleVisibleGGX(local_v, alpha, stbn_random);
-    // The orthonormal frame preserves the sampled unit vector, and reflect()
-    // keeps unit inputs unit; the trace-side normalize still guards the
-    // zero-vector sentinel below.
     half_dir = frame * local_h;
     vec3 light_dir = reflect(-view_dir, half_dir);
     return dot(normal_world, light_dir) > 1e-5 ? light_dir : vec3(0.0);
@@ -62,10 +56,9 @@ vec3 SampleOpaqueEnvironment(vec3 direction, float sky_light) {
         * texture(usam_sky_radiance, SkyRadianceUV(direction)).rgb;
 }
 
-// Projected footprint heuristic for extra filtering of a GGX/VNDF ray.
-// Widening its color sample is biased; this is not a GGX convolution.
-// Full-display history dimensions remain correct under TAAU; the scene render
-// scale must not enter this footprint.
+// Projected footprint heuristic, not a GGX convolution (widening the color
+// sample is biased). History dimensions are full-display under TAAU; the
+// scene render scale must not enter this footprint.
 float OpaqueHistoryLod(SSRHit hit, vec3 previous_hit, vec3 trace_origin,
         float roughness) {
 #if OPAQUE_SSR_COLOR_MIPS == 2
@@ -106,8 +99,7 @@ bool SampleOpaqueHistory(SSRHit hit, vec3 trace_origin, float roughness,
         return false;
     }
     history = max(history, vec3(0.0));
-    // Screen-space hits can sample the sun disk or other extreme pixels in
-    // the history color; bound them so a single texel cannot spawn fireflies.
+    // History can sample the sun disk or other extreme pixels; bound them so one texel cannot spawn fireflies.
     history = min(history, vec3(OPAQUE_SSR_RADIANCE_LIMIT));
     return true;
 }

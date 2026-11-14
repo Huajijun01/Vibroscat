@@ -9,7 +9,7 @@ vec3 FresnelSchlick(float vdoth, vec3 f0) {
     return f0 + (vec3(1.0) - f0) * Pow5(1.0 - vdoth);
 }
 
-// Isotropic Trowbridge-Reitz GGX. Alpha is the squared perceptual roughness.
+// Isotropic Trowbridge-Reitz GGX; alpha is squared perceptual roughness.
 float DistributionGGX(float ndot_h, float alpha) {
     float alpha2 = alpha * alpha;
     float denominator = max(ndot_h * ndot_h * (alpha2 - 1.0) + 1.0, alpha2);
@@ -96,8 +96,7 @@ float VisibleGGXVisibility(float ndotv, float ndotl, float alpha) {
     if (ndotv <= 0.0 || ndotl <= 0.0) {
         return 0.0;
     }
-    // G2/G1 cancels into (1 + lambda_v) / (1 + lambda_v + lambda_l);
-    // one quotient instead of the three the factored forms carry.
+    // G2/G1 simplifies to (1 + lambda_v) / (1 + lambda_v + lambda_l).
     float lambda_v = SmithGGXLambda(ndotv, alpha);
     float lambda_l = SmithGGXLambda(ndotl, alpha);
     return saturate((1.0 + lambda_v) / (1.0 + lambda_v + lambda_l));
@@ -110,8 +109,7 @@ vec3 VisibleGGXThroughput(vec3 f0, float vdoth, float ndotv,
 }
 
 // Small-disc approximation: shrink sin(angle(N,H)) by the fraction of the
-// reflection-to-light chord outside the light disc. Radius is in radians;
-// the sun/moon use r <= 0.005.
+// reflection-to-light chord outside the light disc. Radius in radians.
 float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius) {
     float ndoth = ndotl + ndotv;
     // Opposing light/view directions make H undefined at the grazing horizon.
@@ -121,32 +119,24 @@ float GetNdotHSquared(float ndotl, float ndotv, float ldotv, float light_radius)
     return 1.0 - (1.0 - ndoth2) * edge * edge;
 }
 
-// Same distribution as DistributionGGX, but takes (N.H)^2 directly so the
-// area-light path avoids a sqrt() round trip.
+// Same distribution as DistributionGGX, but takes (N.H)^2 directly.
 float DistributionGGXNdotH2(float ndoth2, float alpha) {
     float alpha2 = alpha * alpha;
     float denominator = max(ndoth2 * (alpha2 - 1.0) + 1.0, alpha2);
     return alpha2 / (PI * denominator * denominator);
 }
 
-// Forward-pass lighting over the legacy scalar-metalness material. The caller
-// owns the material read: it fetches the spec texel (or passes the zero
-// default where no PBR data exists) and decodes it with MaterialDefaults
-// before calling, so this stays pure BRDF math. N, V and L must arrive unit
-// and use the same space (view space in the gbuffer passes).
+// Caller owns the material read: fetch the spec texel (or zero default) and
+// decode with MaterialDefaults before calling. N, V, L must be unit, same space.
 void EvaluateBRDF(vec3 albedo, Material mat, vec3 normal_view, vec3 view_dir, vec3 light_dir, out vec3 direct_lighting,
     out vec3 lambert_brdf, out vec3 diffuse_reflectance
 ) {
     vec3 half_dir = normalize(view_dir + light_dir);
-    // N, V and L reach here unit and H is their normalized sum, so each cosine
-    // is at most 1: the [0,1] clamp is exact, and saturate() folds into the
-    // producing dot as .SAT where max(x, 0.0) costs a separate instruction.
     float ndotv = saturate(dot(normal_view, view_dir));
     float ndotl = saturate(dot(normal_view, light_dir));
     float ndoth = saturate(dot(normal_view, half_dir));
     float vdoth = saturate(dot(view_dir, half_dir));
-    // V and L are unit and H is their normalized sum, so V.H and L.H both
-    // equal (1 + V.L)/|V + L|: the ldoth argument reuses vdoth.
+    // H is the normalized V+L sum, so V.H == L.H and ldoth reuses vdoth.
     direct_lighting = EvaluateDirectBRDF(albedo, mat.roughness, mat.metalness, ndotv, ndotl, ndoth, vdoth, vdoth) * ndotl;
     lambert_brdf = EvaluateLambertBRDF(albedo, mat.metalness);
     diffuse_reflectance = EvaluateDiffuseReflectance(albedo, mat.metalness);

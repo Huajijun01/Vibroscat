@@ -19,7 +19,7 @@
 #include "/lib/raytrace/opaque_reflection_history.glsl"
 
 #if OPAQUE_SSR_COLOR_MIPS > 0
-// Generate only the physical history side read by this pass, before tracing.
+// Mips cover only the physical history side this pass reads, built before tracing.
 const bool colortex5MipmapEnabled = true;
 #endif
 
@@ -49,14 +49,9 @@ void main() {
     if (material_data.r >= OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD) return;
     vec3 normal_world = DecodeOctahedralNormal(surface.rg);
 
-    // Move the ray origin off the rasterized geometric surface before
-    // marching. Reflection direction and BRDF still use the material normal;
-    // this offset only prevents the first depth sample from re-hitting this
-    // surface at close range.
+    // Offset along the geometric normal prevents re-hitting this surface;
+    // direction and BRDF keep the material normal.
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
-    // colortex4 carries the world-space geometric normal; only the ray offset
-    // below needs it in view space. The octahedral decode returns a unit
-    // vector and the camera rotation preserves its length.
     vec3 geo_normal_world = DecodeOctahedralNormal(geometry_data.xy);
     vec3 geo_view_normal = mat3(gbufferModelView) * geo_normal_world;
 
@@ -70,24 +65,18 @@ void main() {
     vec3 world_pos = ViewToWorldSpace(view_pos);
     vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
 
-    // One STBN pair feeds both the GGX direction sample and the trace start
-    // jitter (the pair's y component).
     vec2 stbn_random = OpaqueSSRSTBNPair(tx);
     vec3 half_vector;
     vec3 reflection_direction = OpaqueReflectionDirection(
         normal_world, view_to_eye, material_data.r, stbn_random, half_vector);
-    // Below-surface VNDF samples are valid zero contributions, not invalid
-    // receivers. They must reach the temporal update with a zero sample.
+    // Below-surface VNDF samples are valid zero contributions and must reach
+    // the temporal update.
     bool valid_direction = dot(reflection_direction, reflection_direction) > 1e-10;
     vec3 view_dir = valid_direction
         ? normalize(mat3(gbufferModelView) * reflection_direction) : vec3(0.0);
-    // Keep the normal separation for self-intersection, but do not advance
-    // along the ray: nearby corner hits can be less than 5 cm away.
     vec3 trace_origin = view_pos + geo_view_normal * 0.03;
     SSRHit shared_hit = Miss();
     if (valid_direction) shared_hit = TraceOpaqueSSR(trace_origin, view_dir, stbn_random.y);
-    // History hits replace the sky-radiance environment sample entirely, so
-    // the environment fetch only runs when no history was accepted.
     vec3 reflection_radiance;
     vec3 history;
     bool history_accepted = shared_hit.valid && SampleOpaqueHistory(

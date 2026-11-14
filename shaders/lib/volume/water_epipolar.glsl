@@ -13,9 +13,8 @@
 // R8 stores linear irradiance / 2 so trilinear filtering preserves light.
 const float GODRAY_CAUSTIC_IRRADIANCE_SCALE = 2.0;
 
-// Authored additive radiance, separate from the analytic water medium. No
-// second attenuation is applied to scene color. The source is constant along
-// the unrefracted world sun direction, including its projection to the pole.
+// Additive authored radiance, separate from the analytic water medium; no second
+// attenuation is applied to scene color.
 vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, float ray_jitter) {
     if (u_water_sun_height <= 0.0 || u_water_skylight <= 0.0) return vec3(0.0);
 
@@ -29,19 +28,15 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
 
     vec3 shadow_start = ProjectToShadowClip(start_world);
     vec3 shadow_end = ProjectToShadowClip(start_world + ray_delta);
-    // Hoisted before the march: this SSBO read is loop-invariant, and its
-    // epilogue placement left the dependent product exposed after the godrays
-    // march (backend placement cliff; same rule as gtao.glsl's sky_l2_blocked).
+    // Hoisted: backend placement cliff on this SSBO read near the loop epilogue
+    // (same rule as gtao.glsl's sky_l2_blocked).
     vec3 incident = ground_light.rgb * u_water_ambient_transmittance;
     float inv_steps = 1.0 / float(WATER_GODRAYS_STEPS);
     vec3 transmittance = vec3(1.0);
     vec3 integral = vec3(0.0);
     for (int k = 0; k < WATER_GODRAYS_STEPS; ++k) {
-        // Stratified, equal-length bins matching the air march; exact
-        // exponential weights retain the constant-source integral. A shared
-        // STBN offset moves the origin within every bin, breaking coherent
-        // integration bands. TAA consumes the changing sequence; with TAA
-        // off STBNFrame fixes it to a spatial blue-noise pattern.
+        // STBN jitter breaks coherent integration bands; TAA consumes the frame-varying
+        // sequence, with TAA off STBNFrame pins it to a spatial pattern.
         float a = float(k) * inv_steps;
         float b = float(k + 1) * inv_steps;
         float u = mix(a, b, ray_jitter);
@@ -49,7 +44,6 @@ vec3 WaterRadiance(vec3 start_world, vec3 direction_world, float distance_m, flo
         vec3 weight = transmittance - next_transmittance;
         float irradiance = textureLod(utex_godray_caustics,
             vec3(source_uv + source_delta * u, u_caustic_source_time), 0.0).r * GODRAY_CAUSTIC_IRRADIANCE_SCALE;
-        // Positive caustic excess forms shafts without another uniform fog.
         float source = max(irradiance - 0.9, 0.0) * 4.0;
         float visibility = ShadowVisibility(shadow_start, shadow_end, u);
         integral += weight * (source * visibility);

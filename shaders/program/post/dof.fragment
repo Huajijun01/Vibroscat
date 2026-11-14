@@ -58,8 +58,6 @@ vec3 DepthOfField(ivec2 texel) {
         vec4 source_data = texelFetch(colortex12, source_texel, 0);
         vec2 separation_px = vec2(source_texel - texel) / sample_scale;
         float separation_squared = dot(separation_px, separation_px);
-        // Ordinary base samples do not evaluate the foreground disk's
-        // reciprocal-area weight or update its independent accumulator.
         if (source_data.a < center_data.a - 0.5) {
             float source_radius_squared = min(source_data.a * source_data.a, radius_limit_px * radius_limit_px);
             // Unit-energy source disk with a one-pixel reconstruction footprint.
@@ -76,8 +74,7 @@ vec3 DepthOfField(ivec2 texel) {
             -DOF_GOLDEN_ROTATION.y, DOF_GOLDEN_ROTATION.x) * direction;
     }
 
-    // Zero base coverage is routine at a sharp receiver under a large
-    // incoming disk. Its unblurred center is the base layer in that case.
+    // Zero base coverage is routine at a sharp receiver under a large incoming disk; use the unblurred center.
     vec3 base_color = base_weight > 0.0 ? base_sum / base_weight : center_color;
     if (foreground_weight == 0.0) return base_color;
     float foreground_alpha = min(foreground_weight * gather_radius_px * gather_radius_px

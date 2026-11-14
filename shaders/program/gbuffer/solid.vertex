@@ -5,10 +5,8 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/geometry/plant_wind.glsl"
 
-// GBuffer vertex interface and the shared setup for this pass. Terrain N/T/B
-// are per-face constants from the chunk vertex writer, so they travel flat;
-// entity and block models keep smooth normals. Particles carry no normal and
-// no alpha: the fragment stage shades them world-up with combined AO 1.
+// GBuffer vertex interface and shared setup. Terrain N/T/B are per-face constants from the chunk
+// vertex writer (travel flat); particles carry no normal and no alpha, shaded world-up with AO 1.
 out vec2 v_texcoord;
 out vec2 v_lmcoord;
 #ifdef PROGRAM_GBUFFERS_PARTICLES
@@ -75,16 +73,11 @@ void SetupGbufferVertex() {
     v_color = gl_Color;
 #endif
 #if !defined(PROGRAM_GBUFFERS_PARTICLES) && !defined(TERRAIN_DERIVATIVE_TBN_ACTIVE)
-    // With the derivative terrain basis on, the vertex stage must reference
-    // neither gl_Normal nor at_tangent: the host keeps the normal attribute
-    // decode alive while either is referenced, so an unused declaration alone
-    // would forfeit the input-side saving.
+    // With the derivative terrain basis on, the vertex stage must reference neither gl_Normal nor
+    // at_tangent: the host keeps the attribute decode alive while either is referenced.
 #if defined(GBUFFER_TERRAIN_ACTIVE)
-    // Chunk draws use a translation-only model-view: the camera view times
-    // the section offset. The host's gl_NormalMatrix is therefore exactly the
-    // camera rotation, so mat3(gbufferModelViewInverse) * gl_NormalMatrix is
-    // the identity and the world basis is the attributes themselves. The
-    // normalize stays so the outputs remain unit for any writer-side input.
+    // Chunk draws use a translation-only model-view, so gl_NormalMatrix is exactly the camera rotation:
+    // mat3(gbufferModelViewInverse) * gl_NormalMatrix is the identity and the world basis is the attributes.
     vec3 normal_world = normalize(gl_Normal);
     v_world_normal = normal_world;
 

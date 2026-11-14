@@ -1,24 +1,20 @@
-// Phase 1: log-luminance statistic and 64-bin histogram for exposure_final.
-// The 64 workgroup count and the ExposureData arrays are one contract: wid
-// indexes log_lum_sums, weight_sums and a 64-bin slice of luminance_histogram,
-// and bufferObject.0 is sized for exactly 64 of each.
+// Phase 1: log-luminance statistic and 64-bin histogram for exposure_final. wid indexes log_lum_sums,
+// weight_sums and a 64-bin slice of luminance_histogram; bufferObject.0 is sized for exactly 64 of each.
 
 #include "/lib/contract/exposure_data.glsl"
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 #include "/lib/color/spaces.glsl"
 
-// 1024 threads per group: the dispatch is only 64 blocks, so wider groups
-// are the only way to raise in-flight warps. The 64-group count stays fixed -
-// it is the ExposureData contract below.
+// Only 64 blocks are dispatched, so wide groups are the way to raise in-flight warps;
+// the 64-group count is fixed by the ExposureData contract.
 layout(local_size_x = 1024) in;
 const ivec3 workGroups = ivec3(8, 8, 1);
 
-// Per-axis sampling stride. 1 = every pixel, 2 = every other pixel per axis.
+// Per-axis sampling stride (1 = every pixel, 2 = every other pixel).
 const uint AE_SAMPLE_STRIDE = 2u;
 
-// Match taa's output routing: colortex0 holds the blur/velocity result only
-// with motion blur; otherwise the color is only in colortex5.
+// Matches taa's output routing: colortex0 holds color only with motion blur, else it is only in colortex5.
 #ifdef MOTION_BLUR
 layout(r11f_g11f_b10f) readonly uniform image2D colorimg0;
 #define SCENE_HDR_IMAGE colorimg0
@@ -33,8 +29,7 @@ shared uint histogram_cache[64];
 
 void main() {
 #ifndef AE
-    // BLOOM can enable this pass too; compile the body out (barrier() may not
-    // follow a return) so BLOOM-only never writes ExposureData.
+    // BLOOM can enable this pass too; barrier() may not follow a return, so the body compiles out for BLOOM-only.
     return;
 #else
     uint wid = uint(gl_WorkGroupID.y * 8 + gl_WorkGroupID.x);
@@ -62,7 +57,6 @@ void main() {
     if (gl_LocalInvocationIndex < 64u) histogram_cache[gl_LocalInvocationIndex] = 0u;
     barrier();
 
-    // Row-major walk over the sampled grid with an incremental column index.
     uint sample_index = start + gl_LocalInvocationIndex;
     uint row = sample_index / grid_w;
     uint col = sample_index - row * grid_w;
@@ -77,8 +71,7 @@ void main() {
         log_sum += log_luminance * float(sample_weight);
         weight_sum += float(sample_weight);
 
-        // One clamp: the positive affine histogram map commutes with the EV
-        // clamp, and its endpoints land on the same bins (0 and 63).
+        // One clamp: the affine histogram map commutes with the EV clamp and its endpoints land on the same bins (0 and 63).
         uint bin = uint(clamp((log_luminance + (AE_REF_LOG2_INV + 12.0)) * (64.0 / 20.0),
             0.0, 63.0));
         atomicAdd(histogram_cache[bin], sample_weight);

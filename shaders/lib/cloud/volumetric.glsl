@@ -10,13 +10,10 @@
 #include "/lib/cloud/multiple_scattering.glsl"
 #include "/lib/cloud/signal.glsl"
 
-// Integrate primary/sky scattering weights and true view transmittance.
-// Incident light colors are applied by RelightClouds.
+// Returns unlit primary/sky weights and true transmittance; RelightClouds applies the light colors.
 CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec2 stbn_jitter,
     float march_start, float march_end, int step_count, out vec3 surface_position, out bool hit
 ) {
-    // One traced direction: the antisolar fold. The sun keeps its color through
-    // the handover, see CloudTwilightWeight at the relight.
     float moonlight_factor = CloudMoonlightFactor(u_world_sun_dir.y);
     vec3 light_dir = CloudLightDirection(u_world_sun_dir, moonlight_factor);
     float light_cos_theta = clamp(dot(view_dir, light_dir), -1.0, 1.0);
@@ -31,13 +28,9 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
         }
     }
 
-    // stbn_jitter is sampled by the pass main: the screen pass seeds it with
-    // (view texel, frameCounter), the skybox with (skybox texel,
-    // frameCounter / 4). x = view march jitter, y = light march base; the two
-    // streams are decorrelated by the STBN stream offset (STBN_STREAM_3).
+    // stbn_jitter is seeded by the pass main: screen pass (view texel, frameCounter), skybox (skybox
+    // texel, frameCounter / 4). x = view march jitter, y = light march base; the stream offset decorrelates them.
     float interval_length = march_end - march_start;
-    // Coverage folds rainStrength, which no sample of this ray changes, so the
-    // layer constants are built once per ray and read by both density calls.
     CloudDensityFrame layer_frame = CloudDensityFrameForRay();
     float light_scattering = 0.0;
     float sky_scattering = 0.0;
@@ -48,13 +41,8 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
     float step_length = interval_length * inverse_step_count;
     float extinction_per_step = CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * step_length;
 
-    // One-deep prefetch of the distribution read: the next sample's position
-    // is the pure step recurrence (the whole sequence shares one jittered
-    // step, so independent per-segment offsets cannot line up with height
-    // bands), so its 2D read issues before this sample's density decode and
-    // light trace. Reads prefetched past a break, the altitude-band skip, or
-    // the final step are discarded; the height profile still decodes only
-    // for in-band samples.
+    // Distribution read is prefetched one sample ahead; the loop tail rotates sample_* from
+    // next_*, so that pairing must stay intact.
     float sample_distance = march_start + stbn_jitter.x * step_length;
     vec3 sample_position = camera_atmosphere_pos + view_dir * sample_distance;
     float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
@@ -68,19 +56,13 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
         float next_distribution = texture(utex_cloud_distribution_tex,
             CloudDistributionUV(next_position.xz, layer_frame)).r;
 
-        // The band test and the two height ramps are evaluated once per sample
-        // here and shared by whichever density path runs.
         if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
             CloudHeightProfile sample_height = CloudHeightProfileFor(sample_altitude_km);
             float sample_density = DecodeCloudDensity(sample_position, layer_frame,
                 sample_height, sample_distribution);
             if (sample_density >= 1.0e-4) {
-                // Only PlanetHorizonOccluded consumes the squared radius below;
-                // keep it off the erased-sample path.
                 float sample_r2 = dot(sample_position, sample_position);
 
-                // Per-sample scattering material for the directional light. The
-                // three constants are folded into one per-sample multiply.
                 float reference_optical_depth = sample_density
                     * (CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_EXTINCTION_PER_KM_TO_PER_M
                         * CLOUD_MS_REFERENCE_LENGTH_M);
@@ -88,8 +70,6 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
                     reference_optical_depth, CLOUD_MS_SAT_ALBEDO, CLOUD_MS_ISOTROPIC);
 
                 float sample_light = 0.0;
-                // The jitter only feeds the light trace, so compute it after the
-                // horizon test has skipped erased samples.
                 if (!PlanetHorizonOccluded(sample_position, sample_r2, light_dir, ATM_PLANET_R2)) {
                     float light_jitter = fract(stbn_jitter.y + (float(i) + 0.5) * GOLDEN_RATIO_CONJUGATE);
                     float light_optical_depth = CloudLightOpticalDepth(
@@ -97,8 +77,6 @@ CloudSignal MarchVolumetricClouds(vec3 camera_atmosphere_pos, vec3 view_dir, vec
                     sample_light = CloudDirectionalScattering(light_phase_weight,
                         octave_attenuation, light_optical_depth, isotropic_orders);
                 }
-                // Same coverage remap as the density decode; the sky-access
-                // term consumes it below.
                 float distribution_density = saturate((sample_distribution
                     - layer_frame.distribution_floor) * layer_frame.inv_coverage);
                 float optical_depth = sample_density * extinction_per_step;

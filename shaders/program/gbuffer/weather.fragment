@@ -6,11 +6,8 @@
 
 /* RENDERTARGETS: 4 */
 
-// Coverage fraction from u_rain_particle_opacity = mix(1.0, 0.4, u_rain_biome):
-// u_rain_biome is the smoothed camera-biome precipitation weight (1 in a rain
-// biome, 0 in a snow or dry one), so a biome edge fades the opacity over that
-// uniform's half-life. The pass writes with the SRC_ALPHA blend, so scaling
-// coverage fades the sheet's radiance, occlusion and accumulation together.
+// u_rain_biome is the smoothed camera-biome precipitation weight, so a biome edge fades the opacity over
+// the uniform's half-life; with the SRC_ALPHA blend, scaling coverage fades radiance, occlusion and accumulation together.
 
 in vec2 v_texcoord;
 in vec4 v_color;
@@ -24,10 +21,7 @@ void main() {
     vec4 tex = texture(gtexture, v_texcoord);
     DiscardBelowAlphaTest(tex.a, 0.1);
     float alpha = tex.a * v_color.a * u_rain_particle_opacity;
-    // Decode before the blend. The attachment holds one value per pixel and the
-    // fixed-function blend accumulates into it, so the sheet must enter that
-    // blend already linear: premultiplying in sRGB and decoding afterwards
-    // pushes coverage through an sRGB curve and darkens the sheet far more
-    // than the coverage itself.
+    // Decode before the blend: the fixed-function blend accumulates the stored value per pixel, so the
+    // sheet must enter it linear (premultiplying in sRGB would push coverage through the sRGB curve).
     out_weather = vec4(ToLinear(tex.rgb * v_color.rgb), alpha);
 }

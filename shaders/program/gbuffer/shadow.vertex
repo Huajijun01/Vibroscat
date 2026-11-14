@@ -3,12 +3,9 @@
 #include "/lib/core/coordinates.glsl"
 #include "/lib/geometry/plant_wind.glsl"
 
-// During the shadow pass Iris sets gl_ModelViewMatrix = model->shadow-view
-// and gl_ProjectionMatrix = orthographic shadow projection (no explicit
-// shadowModelView/shadowProjection needed). Water blocks (mc_Entity 80)
-// are culled before distortion.
+// During the shadow pass Iris sets gl_ModelViewMatrix = model->shadow-view and gl_ProjectionMatrix
+// = orthographic shadow projection (no explicit shadowModelView/shadowProjection needed).
 
-// -- Outputs --
 #if defined(SHADOW_TEXCOORD_ACTIVE)
 out vec2 v_texcoord;
 #endif
@@ -17,7 +14,6 @@ out vec3 v_color;
 out vec3 v_normal_shadow;
 #endif
 
-// -- Inputs --
 in vec4 mc_Entity;
 #if defined(PLANT_WIND_SHADOW_ACTIVE)
 in vec4 at_midBlock;
@@ -48,9 +44,8 @@ void main() {
     gl_Position.z = gl_ProjectionMatrix[2].z * shadow_view_pos.z + gl_ProjectionMatrix[3].z;
     gl_Position.w = 1.0;
 
-    // Depth protection in clip space: with w = 1.0, window depth =
-    // 0.5 + 0.5*z_clip, so scaling z_clip by SHADOW_DEPTH_SCALE equals the
-    // fragment remap without disabling early-Z.
+    // Depth protection in clip space: with w = 1.0, window depth = 0.5 + 0.5*z_clip, so scaling
+    // z_clip by SHADOW_DEPTH_SCALE equals the fragment remap without disabling early-Z.
     gl_Position.z *= SHADOW_DEPTH_SCALE;
 
 #if !defined(PROGRAM_SHADOW_ENTITIES)

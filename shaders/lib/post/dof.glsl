@@ -5,20 +5,16 @@
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// Signed thin-lens-inspired radius, in display pixels. The 80 px*m scale
-// and 8 px cap are specified at 1080p; axial depth gives a planar focus.
-// Sources are ordered by an uncapped affine inverse-depth coordinate,
-// independent of the blur cap and support spread.
+// Radius scale and cap in display pixels, specified at 1080p; sources order by an
+// uncapped affine inverse-depth coordinate, independent of the blur cap.
 const float DOF_LENS_SCALE = 80.0;
 const float DOF_RADIUS_LIMIT = 8.0;
 const float DOF_FOCUS_HALFLIFE_SECONDS = 0.15;
-// Largest finite half: distinct from the scene's uncapped CoC at supported
-// settings/resolutions, exactly preserved by the RGBA16F workspace.
+// Largest finite half: distinct from any scene CoC, exactly preserved by the RGBA16F workspace.
 const float DOF_HAND_COC = 65504.0;
 const vec2 DOF_GOLDEN_ROTATION = vec2(-0.737368878, -0.675490294);
 
-// Area-stratum midpoints sqrt((i + 0.5) / N). Frame-varying STBN rotation
-// remains; constant radii remove per-pixel square roots and a second noise read.
+// Area-stratum midpoints sqrt((i + 0.5) / N).
 #if DOF_QUALITY == 0
 const int DOF_SEARCH_SAMPLES = 6;
 const int DOF_GATHER_SAMPLES = 8;
@@ -37,15 +33,13 @@ const float DOF_GATHER_RADII[24] = float[](0.144337567, 0.250000000, 0.322748612
 #endif
 
 float DofInverseDepth(float screen_depth) {
-    // Native sky has no finite object distance. Hand is tagged separately
-    // before this conversion, so its compressed projection is never decoded.
+    // Sky has no finite distance; hand depth is tagged by the caller, never decoded here.
     return screen_depth == 1.0 ? 0.0
         : (2.0 * screen_depth - 1.0) * gbufferProjectionInverse[2][3]
             + gbufferProjectionInverse[3][3];
 }
 
-// Point-fetch depth and material together. Negative inverse depth is the
-// sharp-hand tag; zero is sky; positive values are physical axial 1/meters.
+// Encoding: negative = sharp-hand tag, zero = sky, positive = axial 1/m.
 float DofSceneInverseDepth(ivec2 texel) {
     float screen_depth = texelFetch(depthtex0, texel, 0).r;
     bool hand = screen_depth < 1.0

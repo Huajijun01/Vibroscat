@@ -19,12 +19,7 @@
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
 
-// Unidirectional visibility-bitmask screen-space GI: cosine-weighted slice
-// samplers trace the hemisphere and accumulate occupancy into a 32-sector
-// bitmask per slice. Normal rendering reads current direct RGB from colortex0.
-// This pass fuses the current estimate with unblurred GI history in colortex9.
-// Metadata in colortex10 records the selected receiver; deferred5 reconstructs
-// spatially. Trace budget knobs (SSGI_*) live in lib/contract/settings.glsl.
+// colortex10 metadata records the selected receiver; deferred5 reconstructs spatially.
 
 layout(location = 0) out vec3 out_gi;
 layout(location = 1) out vec4 out_gi_metadata;
@@ -45,8 +40,7 @@ float RemapPartialSlice(float x, float sin_view_normal) {
     float d1 = 1.0 - slope1;
     float f0 = d0 * (PI * x - (0.5 * PI - FastAcos(x)));
     float f1 = d1 * (x - 1.0);
-    // Rational-fit join: kk = k^2; h0/h1 smooth-clip the two branch values
-    // (sqrt(f^2 + k^2) - k); hh joins them by harmonic mean.
+    // Rational-fit join: smooth-clip each branch with sqrt(f^2 + k^2) - k, then a harmonic mean.
     float kk = k * k;
     float h0 = sqrt(f0 * f0 + kk) - k;
     float h1 = sqrt(f1 * f1 + kk) - k;
@@ -71,7 +65,7 @@ vec2 SampleSliceDirection(vec3 normal_view, float random_value) {
 vec4 QuaternionFromViewDirection(vec3 view_dir) {
     vec3 xyz = vec3(view_dir.y, -view_dir.x, 0.0);
     float scalar = -view_dir.z;
-    // view_dir is unit at the caller, so scalar * 0.5 + 0.5 stays in [0, 1].
+    // view_dir is unit at the caller, keeping the saturate exact.
     float inverse_scale = inversesqrt(saturate(scalar * 0.5 + 0.5));
     return vec4(xyz * inverse_scale * 0.5, 1.0 / inverse_scale);
 }
@@ -94,10 +88,7 @@ vec3 RotateSliceDirectionByQuaternion(vec2 slice_direction, vec4 quaternion) {
 }
 
 // Slice-relative CDF of the cosine-weighted distribution over the active
-// slice's usable span. Endpoint inputs pass through unchanged.
-// sin_normal and the reciprocal denominator are per-pixel
-// constants hoisted by the caller: this CDF runs twice per march step and
-// recomputing both here cost 64 redundant sin per pixel at 16 steps.
+// slice's usable span; endpoint inputs pass through unchanged.
 float SliceRelativeCDF(float x, float angle_normal, float cos_normal,
         float sin_normal, float cdf_inv_denominator) {
     float result = x;
@@ -110,8 +101,7 @@ float SliceRelativeCDF(float x, float angle_normal, float cos_normal,
     return result;
 }
 
-// Quantize the remapped arc into 32 sectors and mask the covered span; the
-// range-end masks keep fully covered spans exact.
+// Range-end guards keep fully covered spans exact (shift-by-32 is undefined).
 uint VisibilityMaskFromRange(vec2 range01) {
     uvec2 range_bits = uvec2(floor(range01 * 32.0));
     uint left = range_bits.x < 32u ? 0xFFFFFFFFu << range_bits.x : 0u;
@@ -127,17 +117,15 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         ) {
     second_moment = 0.0;
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
-    // Degenerate early exits below report zero coverage, so the directional
-    // moment starts at the full-visibility hemisphere mean (2/3)*n; the
-    // normal path overwrites it after the march.
+    // Early exits keep this initializer: zero coverage must yield the
+    // full-visibility hemisphere mean (2/3)*n.
     sky_direction_moment_view = (2.0 / 3.0) * origin_normal_view;
 #endif
     vec3 view_dir = -normalize(origin_view_position);
     vec4 q_to_view = QuaternionFromViewDirection(view_dir);
     vec4 q_from_view = q_to_view * vec4(vec3(-1.0), 1.0);
     vec3 normal_view = RotateVectorByQuaternion(origin_normal_view, q_from_view);
-    // stbn_noise comes from the pass main (streams 0/3/1): x samples the
-    // slice direction, y jitters the first march step, z jitters the arcs.
+    // gi_noise streams: x = slice direction, y = first-step jitter, z = arc jitter.
     vec2 slice_direction = SampleSliceDirection(normal_view, stbn_noise.x);
     vec3 ray_direction = RotateSliceDirectionByQuaternion(slice_direction, q_to_view);
 
@@ -148,8 +136,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
 #endif
     vec4 projected_direction = vec4(projection_diag * ray_direction, -ray_direction.z);
     projected_direction.xy += gbufferProjection[2].xy * ray_direction.z;
-    // Shared homogeneous clip-ray screen-edge solver; far + 32.0 bounds the
-    // trace when the ray never crosses a screen edge forward.
+    // far + 32.0 bounds rays that never cross a screen edge forward.
     float trace_length = ClipRayScreenExitT(origin_proj, projected_direction, far + 32.0);
     vec2 origin_coord = origin_proj.xy * (0.5 / origin_proj.w) + 0.5;
     vec4 target_proj = origin_proj + projected_direction * trace_length;
@@ -157,12 +144,7 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     vec2 sample_range = (target_coord - origin_coord) * u_render_res;
     float inv_range = inversesqrt(dot(sample_range, sample_range));
     vec2 step_dir = sample_range * inv_range * u_render_pixel_size;
-    // March schedule: SSGI_STEPS geometric steps that grow to the
-    // clamped march width, with the first step jittered by stbn_noise.y.
     float march_width = min(SSGI_MARCH_PIXELS, 1.0 / max(saturate(inv_range), 1.0e-6));
-    // (m^(1/n))^y == m^(y/n): the jittered start is the y-th element of the
-    // geometric progression; the loop below multiplies step_size by
-    // step_scale.
     float step_scale = pow(march_width, 1.0 / float(SSGI_STEPS));
     float step_size = pow(march_width, stbn_noise.y / float(SSGI_STEPS));
     vec2 inverse_projection_scale = vec2(gbufferProjectionInverse[0].x, gbufferProjectionInverse[1].y);
@@ -177,24 +159,16 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     if (projected_normal_sq < 1.0e-10) { coverage = 0.0; return vec3(0.0); }
     projected_normal *= inversesqrt(projected_normal_sq);
     vec3 tangent = cross(slice_normal, projected_normal);
-    // The slice CDF and w0 assume a front-facing projected normal. A
-    // back-facing one (silhouette, thin surface) pushes the CDF denominator
-    // through zero and inverts the sector order, so clamp it at the horizon.
+    // Back-facing projected normals (silhouettes, thin surfaces) invert the
+    // sector order and zero the CDF denominator; clamp at the horizon.
     float cos_normal = saturate(dot(projected_normal, view_dir));
     float angle_normal = (dot(view_dir, tangent) < 0.0 ? -1.0 : 1.0) * FastAcos(cos_normal);
     float sin_normal = sin(angle_normal);
-    // The slice CDF denominator is a per-pixel constant: hoist it and its
-    // reciprocal so the per-step CDF calls neither recompute sin(angle_normal)
-    // nor redivide.
     float cdf_denominator = cos_normal + angle_normal * sin_normal;
-    // One reciprocal feeds both the w0 share and the [w0, 1] remap scale.
     float cdf_rcp = 1.0 / cdf_denominator;
-    // Share of the cosine-weighted slice below the usable horizon, and the
-    // [w0, 1] remap scale of the slice-relative CDF.
+    // w0: cosine mass below the usable horizon; drives the [w0, 1] CDF remap.
     float w0 = saturate((sin_normal * cdf_rcp) * (PI * 0.25) + 0.5);
-    // A horizon-edge-on normal leaves the whole slice below the surface
-    // horizon (w0 == 1): no usable cosine mass, so no hit can occlude SH and
-    // the [w0, 1] remap would divide by zero.
+    // w0 == 1 leaves no usable cosine mass and a zero remap denominator.
     if (w0 >= 1.0) { coverage = 0.0; return vec3(0.0); }
     float cdf_inv_denominator = 0.25 * cdf_rcp;
     float remap_mul = 1.0 / (1.0 - w0);
@@ -203,12 +177,8 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     uint occupied = 0u;
     vec3 gi = vec3(0.0);
     float hit_coverage = 0.0;
-    // One-deep prefetch: the next step's coordinate is the pure size
-    // recurrence one step ahead, never a function of the sampled depth, so
-    // its read issues before this step's unprojection/CDF work. Reads
-    // prefetched past a break, the sky skip, full coverage, or the final
-    // step are discarded; depthtex2 is single-level, so the read is
-    // well-defined wherever it lands.
+    // next_uv must stay a pure size recurrence: the depth read is prefetched
+    // one step ahead of the sampled depth.
     vec2 sample_uv = origin_coord + step_dir * step_size;
     step_size *= step_scale;
 #if defined(TAAU_ACTIVE)
@@ -240,17 +210,12 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         sample_view /= inverse_projection_depth_scale * (sample_depth * 2.0 - 1.0)
             + inverse_projection_depth_bias;
         vec3 delta_front = sample_view - origin_view_position;
-        // Back face: the same pixel's ray reprojected SSGI_THICKNESS farther
-        // along the camera-to-sample ray.
         vec3 delta_back = delta_front + normalize(sample_view) * SSGI_THICKNESS;
         float front_dd = max(dot(delta_front, delta_front), 1.0e-6);
         float front_inv_len = inversesqrt(front_dd);
         float front_cos = dot(delta_front, view_dir) * front_inv_len;
         float back_cos = dot(delta_back, view_dir) * inversesqrt(max(dot(delta_back, delta_back), 1.0e-6));
         vec2 horizontal = vec2(FastAcos(front_cos), FastAcos(back_cos));
-        // Shift the horizon angles from V to N, evaluate the slice-relative
-        // cosine CDF, keep only the [w0, 1] share, then jitter both arc ends
-        // by one sector.
         vec2 horizontal01 = saturate((horizontal + angle_normal) / PI + 0.5);
         horizontal01 = vec2(
             SliceRelativeCDF(horizontal01.x, angle_normal, cos_normal, sin_normal, cdf_inv_denominator),
@@ -261,25 +226,18 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
         uint visible = sample_mask & (~occupied);
         if (visible != 0u) {
             float visible_weight = float(bitCount(visible)) * (1.0 / 32.0);
-            // A covered sector always removes its share of the SH fallback,
-            // whether or not its radiance can be read back. Unavailable source
-            // data still occludes, so covered directions gain no sky fallback.
+            // Covered sectors occlude even when their radiance cannot be read back.
             hit_coverage += visible_weight;
             ivec2 source_texel = min(ivec2(sample_uv * u_render_res), ivec2(u_render_res) - 1);
             int source_id = int(texelFetch(colortex1, source_texel, 0).a * 255.0 + 0.5);
-            // depthtex2 sees the world behind the hand; its visible RGB is unavailable.
+            // depthtex2 renders behind the hand, so its RGB is unavailable here.
             if (source_id != 64) {
-                // The visibility mask estimates a normalized cosine-weighted
-                // hemisphere average (E / PI). Store irradiance so deferred5
-                // consumes it with the same unit as AmbientLight().
+                // Radiance x PI = irradiance, matching the unit AmbientLight() consumers read in deferred5.
                 vec3 incident_irradiance = texelFetch(colortex0, source_texel, 0).rgb * PI;
                 gi += incident_irradiance * visible_weight;
 #if !defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
-                // Only the non-directional caller consumes the march second
-                // moment; the directional-sky main overwrites sample_sigma
-                // with 0.0. Keeping the accumulation compiled there anyway
-                // made the driver carry a loop-dependent value through the
-                // whole march.
+                // Directional-sky main overwrites sample_sigma with 0; keeping this
+                // live made the driver carry it through the whole march.
                 float sample_luminance = Luminance(incident_irradiance);
                 second_moment += sample_luminance * sample_luminance * visible_weight;
 #endif
@@ -291,18 +249,13 @@ vec3 TraceGI(vec3 origin_view_position, vec3 origin_normal_view, vec3 stbn_noise
     }
     coverage = saturate(hit_coverage);
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
-    // Directional moment of the visible sectors, in the slice frame the
-    // march already built: v = view_dir, t = ray_direction. Only computed
-    // once the occupancy mask is final; nothing here feeds back into the
-    // march or its CDF.
     vec2 moment_cs = SSGISkySliceMoment(occupied, 1.0 - coverage, angle_normal);
     sky_direction_moment_view = view_dir * moment_cs.x + ray_direction * moment_cs.y;
 #endif
     return gi;
 }
 
-// Scale the complete bounce distribution uniformly, including its second moment.
-// The limit precedes artistic gain; sky/floor never enter this operation.
+// Radiance limit clamps before the artistic gain; sky/floor terms never enter this.
 void ApplySSGIBounceStrength(inout vec3 bounce, inout float second_moment) {
     float scale = SSGI_STRENGTH;
     float peak = max(max(bounce.r, bounce.g), bounce.b);
@@ -323,8 +276,7 @@ void main() {
     ivec2 tx = ivec2(0);
     float scene_depth = 1.0;
     int offset_code = 0;
-    // One actual receiver per block; hand remains a full-res SH path in
-    // deferred5 and never replaces world geometry in this history grid.
+    // One real receiver per block; hand pixels stay on deferred5's full-res SH path.
     for (int i = 0; i < 4; ++i) {
         ivec2 sample_texel = ivec2(RepresentativePixelUV(gi_texel, i) * u_render_res);
         float sample_depth = texelFetch(depthtex2, sample_texel, 0).r;
@@ -337,8 +289,7 @@ void main() {
     if (scene_depth >= 1.0) return;
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
     vec4 geometry_data = texelFetch(colortex4, tx, 0);
-    // colortex4 carries the world-space geometric normal, which the SH
-    // fallback consumes directly.
+    // colortex4: world-space geometric normal, consumed directly by the SH fallback.
     vec3 fallback_normal = DecodeOctahedralNormal(geometry_data.xy);
     vec3 fallback;
     vec2 reconstruction_uv = uv;
@@ -347,7 +298,6 @@ void main() {
 #endif
     vec3 receiver_view = NDCToView(vec3(reconstruction_uv * 2.0 - 1.0, scene_depth * 2.0 - 1.0));
 #if GI_MODE == 2
-    // RSM consumes the world receiver inside its gather, before the trace.
     vec3 receiver_world = ViewToWorldSpace(receiver_view);
 #endif
     vec3 raw_gi;
@@ -357,11 +307,9 @@ void main() {
     vec4 surface = texelFetch(colortex11, tx, 0);
     vec4 surface_data = UnpackOpaqueMaterial(surface);
     vec3 sky_normal = DecodeOctahedralNormal(surface.rg);
-    // Evaluate at the actual GI receiver. Both its AO-weighted sky and RSM
-    // bounce enter the same temporal history and guided reconstruction.
     vec2 ao_noise = SampleSTBNPair(tx / 2, frameCounter, STBN_STREAM_3, ivec2(0));
 #if defined(RSM_DIRECTIONAL_SKY_ACTIVE)
-    // GI consumes geometric visibility directly, without artistic AO response.
+    // GI takes raw geometric sky visibility, not the artistic AO response.
     GTAOSkyResult sky_visibility = ComputeGTAOSkyFromGeometry(
         uv, scene_depth, geometry_data.xy, ao_noise, sky_normal);
     vec3 ambient_ao = vec3(sky_visibility.ao);
@@ -382,29 +330,15 @@ void main() {
 #else
     float coverage;
     float second_moment;
-    // x samples the slice, y jitters march steps, z jitters sector arcs.
-    // The screen-space trace builds its slice basis in view space.
     vec3 normal_view = normalize(mat3(gbufferModelView) * fallback_normal);
 #if defined(SSGI_DIRECTIONAL_SKY_ACTIVE)
     vec3 sky_direction_moment_view;
-    // Hoisted before the trace: the L2 band depends only on the receiver
-    // normal, and evaluating it after the march left its SSBO reads exposed
-    // in the epilogue, where the driver's backend allocation is placement
-    // sensitive (same rule as the sky_l2_blocked hoist in gtao.glsl).
     vec3 sky_l2_band = EvalSkyLightL2(fallback_normal);
     raw_gi = TraceGI(receiver_view + normal_view * 0.003, normal_view, gi_noise,
         coverage, second_moment, sky_direction_moment_view);
     ApplySSGIBounceStrength(raw_gi, second_moment);
-    // Directional sky fallback: the trace's visible mass and directional
-    // moment replace the undirected AmbientLight share, so occluders tint
-    // the sky ambient by the directions they block. The L2 band joins
-    // scaled by the visible mass instead of being traced; all bands sum
-    // signed and the single max() below is the receiver's non-negative
-    // limit - there is no open-sky upper bound on this single-slice
-    // estimator. The ambient floor scales with the visible mass. The
-    // fallback response scale stays unused: its sigma has no consumer, and
-    // recomputing a full-sky fallback for it would double the sky
-    // evaluation this path exists to replace.
+    // Directional fallback: occluders tint the sky ambient by the directions they block.
+    // sample_sigma stays 0 here (no consumer; a full-sky fallback would double the sky evaluation).
     float visible_mass = 1.0 - coverage;
     vec3 moment_world = mat3(gbufferModelViewInverse) * sky_direction_moment_view;
     vec3 visible_sky = max(
@@ -419,8 +353,7 @@ void main() {
     ApplySSGIBounceStrength(raw_gi, second_moment);
     float miss_fraction = 1.0 - coverage;
     raw_gi += fallback * miss_fraction;
-    // Sectors share one random slice. Their radiance spread is a conservative
-    // response scale, not the variance of SSGI_STEPS independent samples.
+    // sample_sigma is a conservative spread scale, not the variance of independent samples.
     float fallback_luminance = Luminance(fallback);
     float mean_luminance = Luminance(raw_gi);
     sample_sigma = sqrt(max(second_moment + fallback_luminance * fallback_luminance * miss_fraction
@@ -428,9 +361,6 @@ void main() {
 #endif
 #endif
 #if GI_MODE != 2
-    // SSGI's only world-receiver consumer sits after the march: computing it
-    // here keeps the value from staying live across the whole screen-space
-    // trace.
     vec3 receiver_world = ViewToWorldSpace(receiver_view);
 #endif
     GIReprojectedHistory history = ReprojectGIHistory(receiver_world, fallback_normal);

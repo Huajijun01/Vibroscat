@@ -1,8 +1,7 @@
 #ifndef LIB_MATERIAL_LEGACY_GLSL
 #define LIB_MATERIAL_LEGACY_GLSL
 
-// Legacy scalar-metalness path; EvaluateBRDF consumes this Material. Opaque
-// geometry uses the PBR resolve in lib/material/model.glsl.
+// Legacy scalar-metalness path; opaque geometry uses the PBR resolve in lib/material/model.glsl.
 struct Material {
     float roughness;
     float metalness;

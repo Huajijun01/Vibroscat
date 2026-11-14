@@ -1,36 +1,29 @@
 #ifndef LIB_CONTRACT_SETTINGS_GLSL
 #define LIB_CONTRACT_SETTINGS_GLSL
 
-// Compile-time settings. Toggles are bare defines (`#define` on, `//#define`
-// off); sliders carry `// [values] description`; internal constants have no
-// value list. Iris recognizes a toggle through the registration block at the
-// end of this file, not through the call sites.
+// Toggles are bare defines, sliders carry `// [values] description`; Iris
+// recognizes toggles through the registration block at the end of this file.
 
-// ==========================================================================
 // 1. SKY - atmosphere and celestial
-// ==========================================================================
+
 #define ATM_HORIZON_DIP // Horizon below-dip; off keeps the ellipsoid ground line.
 #define ATM_HORIZON_DIP_SCALE 8.0 // [0.0 2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0] below-surface dip depth (km)
 
-// Night star map gain: linear multiplier applied after the LogLuv32
-// decode (celestial.glsl).
+// Linear gain after the LogLuv32 decode (celestial.glsl).
 #define STAR_MAP_INTENSITY 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] night star brightness
-// Night star map artistic grade, applied to the decoded map color before the
-// transmittance and night fades (celestial.glsl).
+// Artistic grade applied before the transmittance and night fades (celestial.glsl).
 #define STAR_MAP_CONTRAST 2.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 2.0] star map contrast exponent
 #define STAR_MAP_BRIGHT_BOOST 4.0 // [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0] luminance-keyed bright star gain
 
-// Angular radii of the rendered sun/moon discs, in radians. Shared by the
-// sky disc renderer (celestial.glsl) and the water/translucent GGX area
-// light so the specular glint uses the same disc size as the visible sky.
+// Disc radii (radians), shared by the sky renderer and the GGX area light so
+// the specular glint matches the visible sky.
 const float SUN_DISC_RADIUS  = 0.005;   // ~0.267 deg
 const float SUN_GLOW_RADIUS  = 0.03;    // ~1.0 deg soft falloff
 const float MOON_DISC_RADIUS = 0.00436; // ~0.25 deg
 const float MOON_GLOW_RADIUS = 0.012;
 
-// ==========================================================================
 // 2. CLOUDS - Cloud layers (volumetric + cirrus)
-// ==========================================================================
+
 #define VOLUMETRIC_CLOUDS
 //#define CLOUD_SHADOWS // Single-lookup cloud shadows on direct sunlight and its RSM bounce.
 #define CIRRUS // Independent of the volumetric layer.
@@ -67,9 +60,7 @@ const float MOON_GLOW_RADIUS = 0.012;
 
 #define CLOUD_RECONSTRUCTION_MODE 1 // [0 1] 0 = continuous reconstruction, 1 = checkerboard reconstruction
 #define CLOUD_TEMPORAL_UPSCALING 3   // [1 2 3 4] low-res render divisor (1 = full resolution)
-// Continuous reconstruction truncates u_render_res * CLOUD_CURRENT_SCALE.
-// Checkerboard reconstruction uses integer ceil division for partial blocks.
-// Both use colortex12 alt inside its display-sized allocation, including TAAU.
+// Both modes use colortex12 alt inside its display-sized allocation, including TAAU.
 #if CLOUD_TEMPORAL_UPSCALING == 1
 const vec2 CLOUD_CURRENT_SCALE = vec2(1.0);
 #elif CLOUD_TEMPORAL_UPSCALING == 2
@@ -83,9 +74,8 @@ const vec2 CLOUD_CURRENT_SCALE = vec2(0.25);
 #define CLOUD_NO_CLOUD_DISTANCE 1e4  // no-cloud distance sentinel (km, half-float safe)
 #define HISTORY_NO_CLOUD_DATA uintBitsToFloat(0x7fc00000u)  // NaN marker: history slot has no data
 
-// ==========================================================================
 // 3. FOG - Air and boundary fog
-// ==========================================================================
+
 const float eyeBrightnessHalflife = 3.0;
 
 #define AIR_FOG
@@ -110,38 +100,28 @@ const float eyeBrightnessHalflife = 3.0;
 #define WATER_GODRAYS_STEPS 32 // [8 12 16 24 32]
 #define WATER_GODRAYS_DISTANCE_M 16.0 // [2.0 4.0 6.0 8.0 12.0 16.0 24.0 32.0]
 
-// Fade near-boundary geometry into the cloud-free sky in composite2.
-// Overworld only; independent of the always-on analytic water fog.
+// Overworld only; independent of the analytic water fog.
 #define BOUNDARY_FOG
 #define BOUNDARY_FOG_START 0.7 // [0.25 0.4 0.5 0.6 0.7 0.8 0.9] render-distance fraction where the fade begins
 #define BOUNDARY_FOG_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define BOUNDARY_FOG_HEIGHT_FADE 0.8 // [0.0 0.25 0.5 0.75 0.8 1.0] sky-facing dampening
 
-// ==========================================================================
 // 4. SHADOWS - Shadows / PCSS / SSS
-// ==========================================================================
+
 const int shadowMapResolution = 1536; // [1024 1536 2048 3072 4096 6144 8192]
 const bool shadowHardwareFiltering = true;
 const float sunPathRotation = -15.0; // [-60.0 -45.0 -30.0 -15.0 0.0 15.0 30.0 45.0 60.0]
 const float shadowIntervalSize = 2.0;
 const float real_shadow_map_resolution = float(shadowMapResolution);
 const float shadowDistance = 128.0; // [64.0 96.0 128.0 192.0 256.0 384.0 512.0]
-// Iris culls shadow-pass terrain beyond shadowDistance * shadowDistanceRenderMul
-// only when this value is positive; the host default -1 leaves shadow terrain
-// unculled, so chunks out to the game render distance are rendered into a map
-// whose projection only covers shadowDistance. 1.0 culls exactly at
-// shadowDistance.
+// Positive: cull shadow terrain at shadowDistance * mul; host default -1 leaves it unculled.
 const float shadowDistanceRenderMul = 1.0;
 
-// Shadow depth protection: the shadow map depth is
-// remapped from [0,1] into [0.5-0.5*SCALE, 0.5+0.5*SCALE] so depth never
-// approaches the near/far planes, preserving precision and leaving headroom
-// for bias. Every producer/consumer of shadow depth must use the same map.
+// Shadow depth remapped into [0.5-0.5*SCALE, 0.5+0.5*SCALE]; every producer/consumer
+// of shadow depth must use the same map.
 const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 
-// PCSS shadows (Fernando 2005 framework, custom implementation). The LOW
-// profile disables the penumbra estimation + radius PCF and falls back to
-// one hardware-PCF lookup; plant screen attenuation remains available.
+// Fernando 2005 blocker search + penumbra PCF; LOW falls back to one hardware-PCF lookup.
 #define SHADOW_PCSS
 #define SHADOW_BLOCKER_SAMPLES 4 // [2 3 4 5 6 8 10 12]
 #define SHADOW_BLOCKER_SEARCH_RADIUS 0.15 // [0.05 0.075 0.1 0.125 0.15 0.2 0.25 0.3] World-space search radius (m).
@@ -160,26 +140,19 @@ const float SHADOW_DEPTH_SCALE = 1.0 / 6.0;
 #define SHADOW_SSS_SCREEN_DISTANCE 48.0 // [16.0 32.0 48.0 64.0 96.0] Meters; at most 12 depth-only reads.
 #define SHADOW_SSS_FADE_START 0.75 // [0.5 0.6 0.7 0.75 0.8 0.9 0.95]
 
-// Screen-space contact shadows (short-range, alongside the shadow map):
-// deferred1's direct fragment marches a screen-projected ray toward the active directional
-// light against depthtex1 per receiver pixel and applies the result as an
-// upper bound (min) on the shadow-map result, so it fills PCF contact seams
-// and keeps directional occlusion past the shadow map boundary. Overworld and
-// End only (the Nether has no directional light).
+// Screen-projected ray toward the light; applied as a min() upper bound on the
+// shadow-map result (Overworld only).
 #define CONTACT_SHADOW // Screen-space contact shadows alongside the shadow map.
 #define CONTACT_SHADOW_STEPS 12 // [4 6 8 12 16 24] depth samples per receiver pixel.
 #define CONTACT_SHADOW_MAX_DISTANCE 24.0 // [4.0 6.0 8.0 10.0 12.0 16.0 24.0] world-space march reach cap (m); the reach scales with view distance.
 #define CONTACT_SHADOW_THICKNESS 0.02 // [0.02 0.05 0.1 0.25 0.5 1.0] near-field occluder thickness slab (m); it also widens with view distance.
 const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion guard (m)
 
-// ==========================================================================
 // 5. GLOBAL ILLUMINATION - Diffuse indirect (SSGI / RSM)
-// ==========================================================================
 
-// Diffuse indirect source: both SSGI and RSM supply SH for uncovered directions.
+// Both SSGI and RSM supply SH for uncovered directions.
 #define GI_MODE 0 // [0 1 2] 0=None 1=SSGI 2=ReflectiveShadowMap
-// Screen-space GI trace budget (GI_MODE 1); the trace implementation lives
-// in recursive_gi.fragment.
+// Trace implementation (GI_MODE 1): recursive_gi.fragment.
 #define SSGI_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0 4.0] Bounce gain after the bounce-only radiance limit; does not scale sky ambient.
 #define SSGI_STEPS 16 // [4 8 12 16 24 32 48 64] Geometric march steps per pixel; higher = smoother distant bounce light, linear cost.
 #define SSGI_MARCH_PIXELS 512.0 // [128.0 256.0 384.0 512.0 768.0 1024.0] March width cap in screen pixels.
@@ -191,9 +164,8 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 #define RSM_DIRECTIONAL_SKY // Directional sky visibility for RSM with GTAO; extra shading cost.
 #define SSGI_DIRECTIONAL_SKY // Directional sky visibility for SSGI; extra GPU cost.
 
-// ==========================================================================
 // 6. AO - Ambient occlusion
-// ==========================================================================
+
 const float ambientOcclusionLevel = 1.0;
 
 #define AO_MODE 0 // [0 1] 0=vanilla AO 1=GTAO
@@ -209,47 +181,29 @@ const float ambientOcclusionLevel = 1.0;
 #define AO_HISTORY_DISTANCE_LIMIT 0.2 // [0.1 0.2 0.25 0.5 1.0 2.0] history rejection: max receiver-plane distance (m)
 #define AO_HISTORY_NORMAL_DOT_FLOOR 0.866 // [0.5 0.71 0.82 0.866 0.91 0.94] history rejection: min normal dot (cos 30 deg)
 
-// ==========================================================================
 // 7. LIGHTING - Lighting constants
-// ==========================================================================
 
-// Material map convention the specular and normal atlases follow. Picked by
-// the user instead of the host MC_TEXTURE_FORMAT_LAB_PBR macro, which only
-// exists when the active resource pack declares format=lab-pbr in
-// texture.properties, so a pack shipping LabPBR data without that
-// declaration would silently decode as oldPBR. Host-side PBR mipmap
-// generation and sampler filtering still follow the resource pack
-// declaration.
-// 0 = LabPBR: specular B=auxiliary, A=emission (255=none), G>=230 metal;
-//     normal XY with reconstructed Z and B=material AO.
-// 1 = oldPBR (seusPBR): specular G=continuous metalness, B=emission; RGB
-//     tangent-space normals.
+// User-picked because MC_TEXTURE_FORMAT_LAB_PBR only exists when the resource
+// pack declares format=lab-pbr; host mipmapping still follows the pack.
+// 0 = LabPBR: specular B=aux, A=emission, G>=230 metal; normal XY+Z, B=AO.
+// 1 = oldPBR: specular G=metalness, B=emission; RGB tangent normals.
 #define MATERIAL_FORMAT 0 // [0 1] 0=LabPBR 1=oldPBR
 
-// Warm artificial-light palette, shared by deferred5 and the forward
-// translucent passes. TORCH_BRIGHTNESS scales the light intensity only;
-// the warm tint stays fixed.
+// Shared by deferred5 and the forward translucent passes; brightness scales intensity only.
 #define TORCH_BRIGHTNESS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 2.0] torch light intensity multiplier
 const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
-// Scales the SH sky irradiance ambient_light.glsl feeds into every surface;
-// direct sun, AMBIENT_FLOOR and the SH environment reflection are outside it.
+// Scales the SH sky ambient; direct sun, AMBIENT_FLOOR and SH reflections are outside it.
 #define SKY_AMBIENT_STRENGTH 0.75 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0 1.05 1.1 1.15 1.2 1.25 1.3 1.35 1.4 1.45 1.5 1.55 1.6 1.65 1.7 1.75 1.8 1.85 1.9 1.95 2.0] sky SH ambient light intensity multiplier
 
-// Minimum ambient light floor added to every surface's sky ambient, so caves
-// and deep shadows never render fully black (see AmbientLight in
-// lib/lighting/ambient_light.glsl).
+// Ambient floor so caves never render fully black (lib/lighting/ambient_light.glsl).
 #define AMBIENT_FLOOR 0.005 // [0.0 0.005 0.03 0.06 0.1 0.15 0.2] minimum ambient light floor
 
-// Forward-lit opaque particles: moves quad particles to solid_lite and out of the
-// GBuffer, AO and GI. Some Iris builds ignore particles.ordering and keep the order.
+// Forward-lit opaque particles; some Iris builds ignore particles.ordering and keep the order.
 //#define PARTICLE_FORWARD
 
-// ==========================================================================
 // 8. WATER - Water surface
-// ==========================================================================
 
-// Rain uses the existing opaque material/normal payload and reflection path.
 #define RAIN_WETNESS
 #define RAIN_PUDDLES
 #define RAIN_RIPPLES
@@ -257,8 +211,6 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define RAIN_PUDDLE_SCALE_M 64 // [16 32 64 128 256] world-space wrap of the puddle pattern (m)
 #define RAIN_RIPPLE_STRENGTH 4.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0 3.5 4.0] slope strength on wet ground and water
 
-// Opaque recursive screen-space indirect specular. This budget is separate
-// from the forward water/glass SSR path below.
 // #define OPAQUE_REFLECTION // opaque screen-space reflection toggle; off = sky SH only
 #define OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD 0.5 // [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 1.0] roughness at which opaque reflections become SH-only and dielectric reflection fades out
 #define OPAQUE_REFLECTION_ROUGHNESS_TRANSITION 0.1 // [0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.4 0.5] roughness span used to blend SSR into SH
@@ -266,21 +218,17 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 #define OPAQUE_SSR_FILTER 1 // [0 1]
 #define OPAQUE_SSR_DEMODULATION
 
-// Experimental history-color filtering: 0 = base level, 1 = generate only
-// (cost control), 2 = roughness/distance footprint. This is a biased noise
-// filter on the existing VNDF sample, not a second GGX convolution.
+// History-color filtering: 0 = base, 1 = generate only, 2 = roughness/distance
+// footprint; a biased filter on the VNDF sample, not a second GGX convolution.
 #define OPAQUE_SSR_COLOR_MIPS 2 // [0 1 2]
 #define OPAQUE_SSR_COLOR_MIP_SCALE 1.0 // [0.125 0.25 0.5 1.0]
 #define OPAQUE_SSR_COLOR_MIP_MAX 5 // [2 3 4 5]
-// Firefly clamp on the scene color read at opaque SSR hits: the sun disk or
-// other extreme screen pixels would otherwise flicker as single bright
-// sparkles through the temporal filter.
+// Firefly clamp: the sun disk would otherwise flicker as bright sparkles through the filter.
 #define OPAQUE_SSR_RADIANCE_LIMIT 12.0 // [2.0 4.0 8.0 12.0 16.0 24.0 32.0 64.0 128.0] cap on radiance sampled from the reflected scene
 
 // Opaque SSR march budget (McGuire & Mara 2014); more steps extend reach, not hit accuracy.
 #define OPAQUE_SSR_STEPS 12 // [8 12 16 20 24 32 40 48 64] opaque SSR march samples
-// Bisection iterations refining the accepted crossing; each halves the
-// march-step bracket, so 4 steps keep the hit within step/16 of the flip.
+// Each iteration halves the march bracket; 4 keeps the hit within step/16 of the flip.
 #define OPAQUE_SSR_BISECT_STEPS 4
 #define OPAQUE_SSR_RECURSION_DECAY 1.0
 #define OPAQUE_PBR_EMISSION_SCALE 1.0
@@ -289,10 +237,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 #define SSR_QUARTER_DEPTH // trace both SSR paths with width/4, height/4 R16F depth
 
-// Shared SSR first-crossing refinement: bisect inside the accepted march
-// bracket to localize the depth flip (planar faces and silhouette steps
-// alike), then correct once against the bisected position's surface depth.
-// Off reports the raw march sample at the crossing.
+// Bisect inside the accepted march bracket, then correct once against the surface depth.
 #define SSR_INTERPOLATION
 
 // Water SSR march budget (McGuire & Mara 2014).
@@ -300,33 +245,23 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // Same step/16 bound as the opaque path.
 #define WATER_SSR_BISECT_STEPS 4
 
-// Water parallax occlusion mapping (ocean.glsl): normal evaluated at the
-// parallax-corrected position. LOW profile disables it (normal at the plane
-// position) to save cost.
+// LOW profile disables POM (normal evaluated at the plane position).
 #define WATER_POM
 
-
-// Water surface quality: 0 = small waves (3 normal / 2 POM layers),
-// 1 = medium-large waves (5 normal / 3 POM layers).
+// 0 = small waves, 1 = medium-large (more normal / POM layers).
 #define WATER_SURFACE_QUALITY 0 // [0 1]
 
 // Normal gain for both sea states; also controls small-wave POM height.
-// At 1.0 height sigma is ~1.9 cm (small) or ~18 cm (medium-large).
 #define WATER_RIVER_GAIN 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 3.69 5.0]
 
-// Independent medium-large POM height scale. 1.0 uses the baked height;
-// normal strength and the small-wave mode do not change with this option.
+// 1.0 uses the baked height; normal strength is unaffected.
 #define WATER_LARGE_POM_HEIGHT 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 
-// Water parallax search budget: coarse fixed-step height-chase samples and
-// bisection refinement iterations (mode selected by POM_BISECTION_ENABLED in
-// ocean.glsl). LOW profile disables POM entirely, so these stay at defaults.
+// LOW profile disables POM entirely, so these stay at defaults.
 #define WATER_POM_COARSE_STEPS 4 // [2 3 4 5 6 8] coarse POM height-chase steps
 #define WATER_POM_BISECT_STEPS 2 // [0 1 2 3 4] POM bisection refinement iterations
 
-// ==========================================================================
 // 9. POST - Exposure, tonemapping, and screen effects
-// ==========================================================================
 
 #define AE
 #define AE_TARGET_LUMINANCE 0.18 // [0.08 0.10 0.12 0.15 0.18 0.21 0.24 0.28 0.32 0.40] Auto-exposure reference display key; 0.18 is middle gray
@@ -337,8 +272,7 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 
 // #define PURKINJE_EFFECT // Requires AE: rod-vision night grading driven by the exposure state.
 #define PURKINJE_STRENGTH 0.8 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0] Night vision strength
-// Exposure-derived key: 2x exposure starts the transition; 16x reaches full
-// rod adaptation within AE's 32x limit, independently of its target luminance.
+// Exposure-derived keys: full rod adaptation at 16x exposure, within AE's 32x limit.
 const float PURKINJE_SCOTOPIC_KEY = AE_TARGET_LUMINANCE / 16.0;
 const float PURKINJE_PHOTOPIC_KEY = AE_TARGET_LUMINANCE / 2.0;
 const float PURKINJE_CONE_LUMINANCE = 0.35;
@@ -346,10 +280,7 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 
 #define BLOOM
 #define BLOOM_STRENGTH 0.1 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0]
-// Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
-// gradients. Its pattern is a fixed function of the screen position, so a
-// still camera accumulates it instead of averaging it out, and it stays as a
-// regular hatch over sky, clouds and fog.
+// IGN grain hides R11G11B10F/8-bit banding; screen-fixed, so a still camera accumulates it.
 #define COLOR_DITHER
 #define COLOR_DITHER_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Color dither strength: 0.5=conservative, 1.0=default, 2.0=aggressive
 
@@ -371,39 +302,28 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define TAA_MOTION_REJECTION 0.50 // [0.00 0.25 0.50 0.75 1.00]
 #define TAA_REACTIVE_STRENGTH 0.50 // [0.00 0.25 0.50 0.75 1.00]
 
-// ==========================================================================
 // 10. UI-ONLY - display-only pseudo options, never read by shader code
-// ==========================================================================
 
-// Iris renders each single-value option as an inert settings button; the
-// visible text comes from the lang files (option.<NAME> / value.<NAME>.0).
-// Keep every name listed in the shaders.properties screen lists and present
-// in both lang files.
+// Inert settings buttons; text comes from the lang files. Keep every name in
+// the shaders.properties screen lists and both lang files.
 #define ABOUT 0 //[0]
 #define INFO_LICENSE 0 //[0]
 #define INFO_PROFILE 0 //[0]
 #define INFO_TOOLTIPS 0 //[0]
 
-// ==========================================================================
 // Plant wind - precomputed turbulent drag and damped elastic response.
-// ============================================================================
 #define PLANT_WIND
 #define PLANT_WIND_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Wind load multiplier.
 #define PLANT_WIND_GRASS 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Rooted-plant compliance.
 #define PLANT_WIND_LEAVES 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0] Canopy compliance.
 
-// Rebuild the terrain TBN from derivatives so normals follow wind deformation;
-// off keeps the flat per-face basis. Chunk terrain only.
+// Rebuild the terrain TBN from derivatives; off keeps the flat per-face basis.
 #define TERRAIN_DERIVATIVE_TBN
 
-// ==========================================================================
 // 11. DERIVED STATE - internal pass toggles computed from the options above
-// ==========================================================================
 
-// These macros never appear on a screen. They are computed in one place so
-// every consumer can test them with `#if defined(...)`. None of them may be
-// referenced by a plain `#ifdef NAME` outside the registration block below,
-// or Iris would register it as a hidden user option (default on).
+// Internal toggles; a plain `#ifdef NAME` outside the registration block below
+// would register one as a hidden user option (default on).
 
 #if defined(PLANT_WIND) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT))
 #define PLANT_WIND_TERRAIN_ACTIVE
@@ -412,10 +332,7 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define PLANT_WIND_SHADOW_ACTIVE
 #endif
 
-// Opaque gbuffer programs whose vertex stage carries a real per-primitive
-// material id: chunk terrain block ids, block-entity ids, and host entity ids.
-// Every other opaque class (hand, beaconbeam, spidereyes, particles, generic)
-// writes a compile-time fragment constant instead.
+// Opaque programs whose vertex stage carries a real per-primitive material id.
 #if defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT)
 #define GBUFFER_TERRAIN_ACTIVE
 #endif
@@ -428,9 +345,7 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define TERRAIN_DERIVATIVE_TBN_ACTIVE
 #endif
 
-// Water normal evaluation: 0 = geometry normal only (no POM, no wave field,
-// no surface position/tangent). Internal, not a user option; the shipped
-// value is 1, and 0 serves to isolate the gated consumers.
+// Internal gate, not a user option; 0 isolates the gated consumers.
 #define WATER_NORMAL_ENABLED 1
 #if defined(PROGRAM_GBUFFERS_WATER) && WATER_NORMAL_ENABLED != 0
 #define WATER_SURFACE_POSITION_ACTIVE
@@ -439,11 +354,8 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define WATER_SURFACE_TANGENT_ACTIVE
 #endif
 
-// Shadow payload consumers: the reflective shadow map reads reflectance and
-// shadow-view normals for every non-water caster; water writes a constant.
-// Without RSM, only the cutout alpha test needs the atlas, so texture
-// coordinates exist solely for USE_DISCARD casters then, and depth-only
-// solid/water casters carry no user varyings at all.
+// RSM reads reflectance + shadow-view normals from every non-water caster;
+// without RSM only the cutout alpha test needs the atlas.
 #if GI_MODE == 2 && !defined(PROGRAM_SHADOW_WATER)
 #define SHADOW_RSM_PAYLOAD_ACTIVE
 #endif
@@ -455,31 +367,22 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define TAAU_ACTIVE
 #endif
 
-// Rain wetness tracking runs only in the Overworld opaque terrain and block
-// programs that carry the wet material payload.
 #if defined(RAIN_WETNESS) && defined(WORLD_OVERWORLD) && (defined(PROGRAM_GBUFFERS_TERRAIN) || defined(PROGRAM_GBUFFERS_TERRAIN_SOLID) || defined(PROGRAM_GBUFFERS_TERRAIN_CUTOUT) || defined(PROGRAM_GBUFFERS_BLOCK))
 #define RAIN_WETNESS_ACTIVE
 #endif
 
-// Puddles and ripples are the only wetness consumers that need a world
-// position; with both off the uniform wet material layer stays position-free.
 #if defined(RAIN_WETNESS_ACTIVE) && (defined(RAIN_PUDDLES) || defined(RAIN_RIPPLES))
 #define RAIN_WETNESS_POSITION_ACTIVE
 #endif
 
-// Opaque SSR compiles the full recursive trace; off leaves the sky-SH
-// environment reflection only.
 #if defined(OPAQUE_REFLECTION)
 #define OPAQUE_SSR
 #endif
 
-// Quarter-depth SSR workspace exists only while at least one SSR path runs.
 #if defined(SSR_QUARTER_DEPTH) && (defined(WATER_SSR) || defined(OPAQUE_SSR))
 #define SSR_QUARTER_DEPTH_ACTIVE
 #endif
 
-// Epipolar air-fog shadowing is Overworld-only; the Nether has no directional
-// light and the End skips the air-fog shadow pass.
 #if defined(WORLD_OVERWORLD) && defined(AIR_FOG) && defined(AIR_FOG_SHADOWS) && defined(EPIPOLAR_VOLUMETRICS)
 #define AIR_EPIPOLAR_ACTIVE
 #endif
@@ -491,26 +394,18 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define EPIPOLAR_ACTIVE
 #endif
 
-// Standalone AO exists only without GI. RSM selects its local kernel directly
-// by AO_MODE; SSGI owns visibility through its trace.
-// The guards stay numeric because AO_MODE and GI_MODE are enum options.
+// Standalone AO exists only without GI; guards stay numeric because
+// AO_MODE/GI_MODE are enum options.
 #if AO_MODE == 1 && GI_MODE == 0
 #define GTAO
 #endif
 
-// Directional sky ambient for the RSM fallback integrates the raw sky SH
-// over the GTAO horizon arcs, so occluders tint the sky light by direction.
-// Applies only to Overworld RSM (GI_MODE=2) with GTAO (AO_MODE=1); vanilla
-// AO, SSGI, no-GI and other dimensions keep the undirected path.
+// Overworld RSM + GTAO only; occluders tint the sky light by direction.
 #if defined(RSM_DIRECTIONAL_SKY) && GI_MODE == 2 && AO_MODE == 1 && defined(WORLD_OVERWORLD)
 #define RSM_DIRECTIONAL_SKY_ACTIVE
 #endif
 
-// Directional sky ambient for the SSGI fallback reconstructs a directional
-// moment from the trace's own visibility bitmask, so the sky SH is weighted
-// by the directions that stay open instead of the undirected miss fraction.
-// Applies only to Overworld SSGI (GI_MODE=1), independently of AO_MODE;
-// RSM, no-GI and other dimensions keep the undirected path.
+// Overworld SSGI only; weights the sky SH by the directions that stay open.
 #if defined(SSGI_DIRECTIONAL_SKY) && GI_MODE == 1 && defined(WORLD_OVERWORLD)
 #define SSGI_DIRECTIONAL_SKY_ACTIVE
 #endif
@@ -519,18 +414,12 @@ const vec3 PURKINJE_TINT = vec3(0.45, 0.65, 1.0);
 #define AO_TEMPORAL_ENABLED
 #endif
 
-// ==========================================================================
 // 12. IRIS OPTION REGISTRATION - canonical recognition references
-// ==========================================================================
 
-// A bare boolean define becomes a user option only when its name appears in
-// a plain `#ifdef NAME` / `#ifndef NAME` line - name only, no trailing
-// comment - somewhere in the include component. `#if defined(NAME)` and
-// friends are not counted, and an unconfirmed candidate is silently dropped
-// from the settings screen. Keep the canonical reference for every user
-// toggle here so recognition never depends on how consumer code happens to
-// test the macro. Derived internal state is intentionally not registered;
-// shaders.properties uses the numeric AO_MODE/GI_MODE preprocessor gates.
+// A bare define becomes a user option only via a plain, comment-free
+// `#ifdef NAME` / `#ifndef NAME` line in the include component; `#if
+// defined(NAME)` does not count and an unregistered candidate silently drops
+// from the settings screen. shaders.properties uses the numeric AO_MODE/GI_MODE gates.
 
 // Post
 #ifdef TAA

@@ -8,23 +8,17 @@ const float ATM_PLANET_R = 6360.0;
 const float ATM_ATMO_R = 6480.0;
 const float ATM_PLANET_R2 = ATM_PLANET_R * ATM_PLANET_R;
 const float ATM_ATMO_R2 = ATM_ATMO_R * ATM_ATMO_R;
-// Shell thickness and derived reciprocals used by the density and LUT's geometry.
 const float ATM_H = sqrt(ATM_ATMO_R2 - ATM_PLANET_R2);
 const float ATM_RCP_H = 1.0 / ATM_H;
 const float ATM_ATMO_MINUS_P = ATM_ATMO_R - ATM_PLANET_R;
 
-// Camera position in atmosphere kilometer space (planet-centered, +Y up):
-// the camera sits at ATM_PLANET_R + camera altitude above the planet center.
+// Atmosphere kilometer space: planet-centered, +Y up, |pos| = ATM_PLANET_R + camera altitude.
 vec3 AtmosphereCameraPosition() {
     return u_atmosphere_camera_pos;
 }
 
-// Half-discriminant quadratic form: b = dot(o,d), disc = b*b - c, roots
-// -b +/- sqrt(disc). Every eliminated factor is an exact power of two, and
-// scaling by powers of two commutes with IEEE rounding and sqrt exactly
-// (RN(4x) = 4*RN(x), sqrt(4x) = 2*sqrt(x)), so t0/t1 and the disc <= 0
-// predicate are bit-identical to the doubled form. Comparisons keep the
-// unscaled thresholds, which the half-form roots equal.
+// Half-discriminant form: bit-identical to the doubled form because every eliminated factor is a
+// power of two (RN(4x)=4*RN(x), sqrt(4x)=2*sqrt(x)); keep the unscaled comparison thresholds.
 bool RayIntersectSphere(vec3 origin, vec3 dir, float radius, out float t0, out float t1) {
     float b = dot(origin, dir);
     float c = dot(origin, origin) - radius * radius;
@@ -37,11 +31,7 @@ bool RayIntersectSphere(vec3 origin, vec3 dir, float radius, out float t0, out f
     return true;
 }
 
-// True when `dir` from `origin` (planet-centered, r2 = dot(origin, origin))
-// dips below the planet of radius squared `planet_r2`: light from that
-// direction is planet-occluded. Near root only (no far root), in the same
-// half-discriminant form as RayIntersectSphere; the 1.0e-5 epsilon tests
-// the near root itself.
+// Caller passes r2 = dot(origin, origin); occluded when the near root exceeds its epsilon.
 bool PlanetHorizonOccluded(vec3 origin, float origin_r2, vec3 dir, float planet_r2) {
     float b = dot(origin, dir);
     float c = origin_r2 - planet_r2;

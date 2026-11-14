@@ -3,9 +3,8 @@
 
 #include "/lib/core/noise.glsl"
 
-// Digitally shifted three-dimensional Sobol net. GI must keep exploring
-// after the 64-frame STBN volume repeats. Fixed
-// STBN slices supply spatial shifts; they do not determine the temporal period.
+// Digitally shifted 3D Sobol net: GI must keep exploring after the 64-frame
+// STBN volume repeats. STBN slices only supply spatial shifts.
 vec3 SampleGINoise(ivec2 pixel, int frame) {
     uint index = uint(frame) ^ (uint(frame) >> 1);
     uint sequence_x = bitfieldReverse(index);

@@ -9,8 +9,8 @@
 #include "/lib/color/spaces.glsl"
 #include "/lib/material/opaque_surface.glsl"
 
-// RGB is the unblurred mean of Z = (Li * sampled throughput) / material factor.
-// RGB is stored directly in colortex3; metadata carries no color bits.
+// RGB is the unblurred mean of Z = (Li * sampled throughput) / material factor,
+// stored directly in colortex3; metadata carries no color bits.
 // RGBA16UI: depth half | rough8/selector8 | unused8/age5/state3 | log2(1+v_Z) half.
 // No historical normal: each previous tap is projected into the current GBuffer.
 const float OPAQUE_HISTORY_MAX = 31.0;
@@ -41,8 +41,8 @@ uvec4 PackOpaqueHistory(float depth_view, vec2 material,
     uint selector = uint(round(saturate(material.y) * 255.0));
     uint state = change_state < 0 ? uint(3 - change_state) : uint(change_state);
     uint variance_bits = packHalf2x16(vec2(log2(1.0 + max(variance, 0.0)), 0.0)) & 65535u;
-    // A nonzero age certifies finite RGB and a finite decoded variance.
-    // Half log values >= 128 would overflow exp2 on the next frame.
+    // Nonzero age certifies finite RGB and a finite decoded variance; half log
+    // values >= 128 would overflow exp2 on the next frame.
     if (variance_bits >= 0x5800u) return uvec4(0u);
     return uvec4(depth_bits, roughness | (selector << 8),
         (uint(round(clamp(age, 1.0, OPAQUE_HISTORY_MAX))) << 8) | (state << 13),
@@ -70,8 +70,8 @@ struct OpaqueHistoryGuide {
     float normal_floor;
 };
 
-// A previous tap is reconstructed at its OWN texel center and stored depth.
-// History addressing follows camera motion only, independently of TAA jitter.
+// Taps are reconstructed at their own texel center and stored depth; history
+// addressing follows camera motion only, independently of TAA jitter.
 vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
     vec2 uv = (vec2(texel) + 0.5) * u_render_pixel_size;
     vec2 ray = (uv * 2.0 - 1.0 + gbufferPreviousProjection[2].xy)
@@ -79,18 +79,17 @@ vec3 OpaquePreviousPosition(ivec2 texel, float depth_view) {
     return vec3(ray, -1.0) * depth_view;
 }
 
-// Visibility and normal proxy at a historical tap's CURRENT projected location.
+// Visibility and normal proxy evaluated at the tap's current projected location.
 float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 data,
         OpaqueHistoryGuide guide) {
-    // Nonzero age certifies a positive finite depth from PackOpaqueHistory.
     if (OpaqueHistoryAge(data) < 1.0) return 0.0;
     float depth_view = OpaqueHistoryDepth(data);
     if (abs(OpaqueHistoryRoughness(data) - guide.material.x) > 0.025) return 0.0;
     if (abs(float(data.g >> 8) / 255.0 - guide.material.y) > 1.5 / 255.0) return 0.0;
     if (u_ssr_history_static) {
-        // Identical camera frames have one tap at this receiver. Its
-        // stored depth scales the same view ray, so the plane residual is
-        // a scalar depth difference; no projection or normal proxy is needed.
+        // Identical camera frames have one tap at this receiver: its stored
+        // depth scales the same view ray, so the plane residual is a scalar
+        // depth difference and no projection or normal proxy is needed.
         float plane_tolerance = 0.015 + 0.0006 * depth_view;
         float plane_error = abs((depth_view + guide.receiver_view.z)
             * (dot(guide.geo_view, guide.receiver_view) / guide.receiver_view.z));
@@ -111,8 +110,8 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     if (any(lessThan(current_uv, vec2(0.0))) || any(greaterThanEqual(current_uv, vec2(1.0)))) return 0.0;
     ivec2 current_texel = ivec2(current_uv * u_render_res);
     float plane_weight = 1.0 - smoothstep(plane_tolerance, plane_tolerance * 2.0, plane_error);
-    // The caller already decoded this texel's visible depth, material and
-    // normal. The same proxy needs no additional GBuffer reads or transforms.
+    // Tap == receiver: the caller already decoded this texel's depth, material
+    // and normal; reuse the same proxy with no additional GBuffer reads.
     if (all(equal(current_texel, receiver_texel))) return plane_weight;
     float current_depth = texelFetch(depthtex0, current_texel, 0).r;
     if (current_depth >= 1.0) return 0.0;
@@ -129,9 +128,6 @@ float OpaqueHistoryTapWeight(ivec2 receiver_texel, ivec2 history_texel, uvec4 da
     float ray_plane_rate = dot(guide.geo_view.xy, ray_xy) - guide.geo_view.z;
     float ray_plane = -visible_z * ray_plane_rate;
     if (abs(ray_plane) < 1e-6) return 0.0;
-    // Both original 3D tests share the same plane residual. The ray/plane
-    // depth error is residual / ray_plane_rate; compare after multiplying
-    // the tolerance so neither an intersection vector nor a division is needed.
     float plane_residual = abs(ray_plane - dot(guide.geo_view, predicted_view));
     float footprint = -predicted_view.z * 2.0 * u_render_pixel_size.y
         / abs(gbufferProjection[1][1]);
@@ -150,8 +146,8 @@ void GatherOpaqueHistoryTap(ivec2 receiver_texel, ivec2 tap, float weight,
     if (weight <= 0.0) return;
     vec3 history_z = texelFetch(colortex3, tap, 0).rgb;
     float history_variance = OpaqueHistoryVariance(data);
-    // Both MRT outputs are written and flipped together. PackOpaqueHistory
-    // and the export check validate them once, rather than at every read.
+    // Both MRT outputs are written and flipped together; PackOpaqueHistory and
+    // the export check validate them once, not at every read.
     float y = Luminance(history_z);
     gather.sum_z += weight * history_z;
     gather.sum_second += weight * (history_variance + y * y);
@@ -177,16 +173,16 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
         int change_state = 0;
         vec3 mean_z = sample_z;
         float sample_y = Luminance(sample_z);
-        // Resizing/reloading recreates and clears both sides. Abrupt translation,
+        // Resizing/reloading recreates and clears both sides; abrupt translation,
         // view rotation, or projection discontinuities must not reuse old samples.
         vec3 current_forward = gbufferModelViewInverse[2].xyz;
         vec3 previous_forward = transpose(mat3(gbufferPreviousModelView)) * vec3(0.0, 0.0, 1.0);
         bool camera_valid = u_camera_delta_sq < 16.0 && dot(current_forward, previous_forward) > 0.85
             && abs(gbufferPreviousProjection[1][1] / gbufferProjection[1][1] - 1.0) < 0.15;
         if (frameCounter > 1 && camera_valid) {
-            // Reproject a displacement, not a view -> world -> view round trip.
-            // This preserves exact zero pixel motion for identical camera frames;
-            // round-off must not activate three almost-zero bilinear taps.
+            // Reproject a displacement, not a view -> world -> view round trip:
+            // identical camera frames keep exact zero pixel motion, and round-off
+            // must not activate three almost-zero bilinear taps.
             vec3 previous_view = receiver_view;
             vec2 ndc_delta = vec2(0.0);
             if (!u_ssr_history_static) {
@@ -223,8 +219,6 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                 guide.normal_world = normal_world;
                 guide.material = material;
                 guide.normal_floor = mix(0.999, 0.92, material.x * material.x);
-                // Four fixed bilinear taps in the original order. Explicit calls
-                // specialize offsets without changing visibility or response.
                 GatherOpaqueHistoryTap(texel, base, inverse_fraction.x * inverse_fraction.y,
                     guide, gather);
                 GatherOpaqueHistoryTap(texel, base + ivec2(1, 0), fraction.x * inverse_fraction.y,
@@ -243,17 +237,17 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                         vec3 old_eye_world = transpose(mat3(gbufferPreviousModelView)) * normalize(-previous_view);
                         angle_motion = length(view_to_eye - old_eye_world);
                     }
-                    // Valid reprojection still carries useful samples in motion.
-                    // Reserve fast replacement for sustained radiance changes;
-                    // a receiver moving on screen does not invalidate its history.
+                    // Valid reprojection still carries useful samples in motion;
+                    // reserve fast replacement for sustained radiance changes.
+                    // A receiver moving on screen does not invalidate its history.
                     float rough_history = smoothstep(0.08, 0.4, material.x);
                     float responsive_frames = mix(2.0, 8.0, rough_history);
                     float motion_risk = angle_motion / max(material.x * material.x, 0.002);
                     float angular_response = smoothstep(0.1, 1.0, motion_risk);
-                    // A fixed world receiver can keep the same eye direction
-                    // during camera rotation while its reflection moves on screen.
-                    // Account for that resampling/visibility change independently
-                    // of angular parallax. Only camera motion enters this velocity.
+                    // A fixed world receiver can keep the same eye direction during
+                    // camera rotation while its reflection moves on screen; account
+                    // for that resampling/visibility change independently of angular
+                    // parallax. Only camera motion enters this velocity.
                     float screen_speed = length(ndc_delta * (0.5 * u_render_res));
                     float motion_response = max(angular_response, smoothstep(0.25, 2.0, screen_speed));
                     float moving_frames = mix(8.0, 20.0, rough_history);
@@ -262,10 +256,10 @@ vec3 AccumulateOpaqueHistory(ivec2 texel, vec3 sample_z, vec3 world_pos,
                     float history_limit = 1.0 / mix(1.0 / OPAQUE_HISTORY_MAX,
                         1.0 / moving_frames, motion_response);
                     // Random VNDF hit/miss changes at reflection silhouettes are
-                    // estimator noise. Geometry, camera motion and sustained
-                    // radiance changes govern validity and temporal response.
-                    // Generic entities share class zero with unclassified terrain.
-                    // Keep that class conservative; no exact entity motion is available.
+                    // estimator noise; geometry, camera motion and sustained radiance
+                    // changes govern validity and temporal response. Generic entities
+                    // share class zero with unclassified terrain: keep that class
+                    // conservative, no exact entity motion is available.
                     if (material_id == 0) {
                         history_limit = min(history_limit, 16.0);
                     }

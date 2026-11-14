@@ -1,7 +1,5 @@
 /* RENDERTARGETS: 12,2,1 */
 
-// -- Water shading switches --
-// Skip SSR for skyward reflections (view-space z > 0).
 #define WATER_SSR_SKY_SKIP 1
 
 #include "/lib/contract/settings.glsl"
@@ -55,8 +53,7 @@ void main() {
 #if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
 #endif
-    // The surface position crosses the stage nowhere: every view-direction
-    // consumer below uses this reconstruction from the window coordinates.
+    // View position crosses no varying: reconstructed per fragment from window coords.
     vec3 view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
     vec4 diffuse = texture(gtexture, v_texcoord.xy);
 
@@ -66,14 +63,10 @@ void main() {
 #if defined(PROGRAM_GBUFFERS_WATER)
     bool is_water = (v_surface_flags & 1) != 0;
     bool is_glass = (v_surface_flags & 2) != 0;
-    // Non-glass/non-water translucent objects (slime, honey, ...) shade inline
-    // with the full direct BRDF: no SSR/Fresnel/water data.
     if (!is_water && !is_glass) {
 #endif
     DiscardBelowAlphaTest(diffuse.a, 0.001);
-    // Material from the specular map. A resource pack without a _s atlas
-    // leaves Iris's 1x1 placeholder bound, so the fetch stays guarded and the
-    // zero default (rough, non-metallic, non-emissive) holds.
+    // No _s atlas: Iris binds a 1x1 placeholder, so the fetch is guarded and the zero defaults hold.
     vec4 spec_tex = vec4(0.0);
     if (any(notEqual(textureSize(specular, 0), ivec2(1)))) spec_tex = texture(specular, v_texcoord.xy);
     Material mat = MaterialDefaults(spec_tex);
@@ -98,21 +91,12 @@ void main() {
 
     vec3 surface_normal = vec3(0.0, 0.0, 1.0);
     vec3 current_normal = v_normal;
-    // Flat geometry normal in world space: owns the vertical-face wave
-    // domain below and the refraction perturbation stored for blend. Only
-    // the water branch consumes it, so non-water translucent geometry never
-    // pays the transform.
     vec3 geo_n_world = vec3(0.0);
     if (is_water) {
         geo_n_world = normalize(mat3(gbufferModelViewInverse) * v_normal);
 #if WATER_NORMAL_ENABLED
-        // Water surface field (ocean.glsl: river texture basis); normal at
-        // the parallax-corrected position, shared by lighting, reflections,
-        // and refraction. Horizontal faces keep the POM path over absolute
-        // XZ; vertical faces re-parameterize the same wave field on the face
-        // plane through the geometry TBN (no POM: its march displaces along
-        // world vertical). The world position exists only while the wave
-        // field consumes it; every other consumer stays in view space.
+        // One wave field shared by lighting, reflections, and refraction; horizontal faces take POM
+        // over absolute XZ, vertical faces re-parameterize it on the face plane (POM's march is world-vertical only).
         vec3 world_pos = ViewToWorldSpace(view_pos);
         vec3 world_n;
         if (abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y) {
@@ -123,8 +107,6 @@ void main() {
 #endif
         } else {
 #if defined(WATER_SURFACE_TANGENT_ACTIVE)
-            // The side-face path that consumes it rebuilds the same handed
-            // bitangent from the flat tangent plus the flags' handedness bit.
             float tangent_handedness = (v_surface_flags & 4) != 0 ? -1.0 : 1.0;
             vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
             vec3 world_bitangent = cross(v_world_tangent, normal_world) * tangent_handedness;
@@ -138,11 +120,9 @@ void main() {
 #endif
         }
 #if defined(WORLD_OVERWORLD) && defined(RAIN_WETNESS) && defined(RAIN_RIPPLES)
-        // Add world-space slopes before the existing underwater inversion,
-        // grazing clamp, SSR, glint and refraction all consume the normal.
+        // Slopes are added before the underwater inversion, grazing clamp, SSR, glint, and refraction consume the normal.
         if (u_rain_weight > 0.001 && RAIN_RIPPLE_STRENGTH > 0.0
                 && geo_n_world.y > WATER_HORIZONTAL_FACE_MIN_Y) {
-            // v_texcoord.w arrives normalized from the vertex stage.
             float ripple_weight = u_rain_weight * RAIN_RIPPLE_STRENGTH
                 * smoothstep(15.0 / 16.0, 1.0, v_texcoord.w);
             if (ripple_weight > 0.001) {
@@ -155,21 +135,17 @@ void main() {
         current_normal = normalize(mat3(gbufferModelView) * world_n);
 #endif
         if (isEyeInWater == 1) {
-            // Viewed from below the visible side has the inverted normal
-            // (refraction tilt + Snell-window alpha depend on it).
+            // From below, the visible side carries the inverted normal (refraction tilt and Snell alpha depend on it).
             surface_normal = -surface_normal;
             current_normal = -current_normal;
         }
     }
 
-    // Shared by the normal clamp below and the ray trace.
     vec3 view_dir = normalize(view_pos);
     current_normal = normalize(mix(current_normal, v_normal, (1.0 - Pow4(dot(-view_dir, v_normal))) * 0.7));
 
     if (is_water) {
-        // Only back-facing water normals are projected to the view horizon.
-        // A small positive component keeps the projection finite and prevents
-        // roundoff from crossing the horizon; front-facing normals stay intact.
+        // Back-facing normals are kept just above the view horizon: finite projection, roundoff must not cross it.
         float water_ndotv = dot(current_normal, -view_dir);
         if (water_ndotv < 0.0) {
             const float horizon_ndotv = 1.0e-4;
@@ -177,11 +153,8 @@ void main() {
                 - view_dir * (horizon_ndotv - water_ndotv));
         }
         vec3 world_n_clamped = normalize(mat3(gbufferModelViewInverse) * current_normal);
-        // Refraction perturbation stored for blend: the clamped normal minus
-        // the flat-surface reference in the wave field's frame: world up
-        // for horizontal faces (either side: the up-frame wave normal and
-        // its underwater negation both referenced +up), the face normal
-        // itself for vertical faces. Flat faces give no offset.
+        // Refraction delta stored for blend: clamped normal minus flat reference, in the wave field's
+        // frame (world up for horizontal faces on either side, the face normal for vertical ones).
         vec3 flat_ref = abs(geo_n_world.y) > WATER_HORIZONTAL_FACE_MIN_Y
             ? vec3(0.0, sign(geo_n_world.y), 0.0)
             : geo_n_world;
@@ -189,8 +162,7 @@ void main() {
         surface_normal = vec3(world_delta.x, world_delta.z, world_delta.y);
     }
 
-    // STBN dither for the translucent ray trace: spatial blue noise; the
-    // time slice stays 0 without TAA (no temporal accumulation).
+    // STBN dither for the ray trace; the time slice stays 0 without TAA (nothing accumulates temporally).
 #ifdef TAA
     float dither = SampleSTBN(ivec2(gl_FragCoord.xy), STBNFrame());
 #else
@@ -200,10 +172,7 @@ void main() {
     vec2 screen_texcoord = gl_FragCoord.xy * u_render_pixel_size;
 
     vec2 trace_coord = screen_texcoord;
-    // trace_pos is written by every traced hit below and only read behind the
-    // trace_hit guard, so the zero fill is never consumed; NVIDIA's flow
-    // analysis cannot prove that correlation and warns C7050 ("might be used
-    // before being initialized") on every pipeline link without it.
+    // Zero fill is never consumed (read only behind trace_hit); it silences NVIDIA C7050 at pipeline link.
     vec3 trace_pos = vec3(0.0);
     bool trace_hit = false;
     bool trace_hit_sky = false;
@@ -225,9 +194,7 @@ void main() {
     bool history_hit = false;
     if (frameCounter > 0 && trace_hit && ScreenUVInside(trace_pos.xy)) {
         trace_coord = trace_pos.xy;
-        // Sky hits reproject at their reported far-plane depth: the current
-        // frame can carry nearer translucent water over that pixel, which
-        // would turn the sky reflection into a water-surface history sample.
+        // Sky hits reproject at their reported far-plane depth: nearer current-frame water over that pixel must not become the history sample.
 #if defined(TAAU_ACTIVE)
         float trace_scene_depth = trace_hit_sky ? trace_pos.z
             : texture(depthtex0, SceneTextureUV(trace_coord)).x;
@@ -251,12 +218,10 @@ void main() {
         }
     }
 
-    // Sun glint = direct solar reflection; masked off exactly when a history
-    // ray hit geometry (history_hit && !trace_hit_sky) - that hit already
-    // reflects the ground, with no extra depth fetch.
+    // Glint is masked exactly when the history hit already reflects geometry (no double ground term).
     float sun_spec_mask = (history_hit && !trace_hit_sky) ? 0.0 : 1.0;
 
-    // Single hardware-PCF shadow sample (no PCSS needed on water).
+    // Single hardware-PCF shadow sample (no PCSS on water).
     float shadow = texture(shadowtex1, v_shadow_proj_pos);
     shadow *= CloudShadowTransmittance(ViewToWorldSpace(view_pos));
 
@@ -265,8 +230,6 @@ void main() {
     float ndotv = saturate(dot(current_normal, view_to_eye));
     float ndotl = saturate(dot(current_normal, u_view_light_dir));
     float ldotv = dot(u_view_light_dir, view_to_eye);
-    // For unit V and L, H = normalize(V + L) gives ldoth == sqrt((1 + ldotv) / 2);
-    // the half vector has no other consumer on this path.
     float ldoth = sqrt(max(1.0 + ldotv, 0.0) * 0.5);
     vec3 sun_light = ground_light.rgb * shadow;
     vec3 base_color = is_water ? ToLinear(0.2 * normalize(v_color)) : diffuse.rgb;
@@ -275,24 +238,13 @@ void main() {
     const float water_f0 = 0.02;
     const float sun_roughness = 0.02;
 
-    // Sun/moon glint: small-disc area light GGX plus Schlick Fresnel.
-    // Schlick meets the exact unpolarized dielectric solve at normal incidence
-    // and at grazing, for one Pow5 instead of two sqrts and three divisions.
-    // Its deviation peaks at 0.06 absolute reflectance near cos_theta 0.1 (a
-    // nearly grazing reflection) and stays under 1% relative above cos_theta
-    // 0.93, which covers the ordinary glint geometry; the highlight is the only
-    // consumer, so the exact solve does not earn its cost here. The disc radii
-    // come from contract/settings.glsl (same constants as the rendered sky
-    // discs); the active light is the sun when it is above the horizon (world
-    // light direction y > 0), otherwise the moon.
+    // Schlick matches the exact unpolarized dielectric solve at normal incidence and grazing (<1%
+    // relative above cos 0.93); disc radii reuse the rendered sky-disc constants from contract/settings.glsl.
 
     float sun_f0 = is_water ? water_f0 : f0;
     vec3 sun_fresnel = FresnelSchlick(ldoth, vec3(sun_f0));
 
     vec3 sun_specular = vec3(0.0);
-    // Fresnel reflectance is at least f0 (0.02 water, 0.1 glass) at every
-    // angle in both models, so a positive N.L is the only gate the area-light
-    // math needs.
     if (ndotl > 1e-4) {
         float ndoth2 = GetNdotHSquared(ndotl, ndotv, ldotv, u_light_disc_radius);
         sun_specular = DistributionGGXNdotH2(ndoth2, sun_roughness)
@@ -306,8 +258,6 @@ void main() {
         if(isEyeInWater == 0) {
             out_alpha = Pow5(1.0 - ndotv) * 0.98 + 0.02;
         } else {
-            // (1.33*s)^2 == 1.33^2 * s: fold the refracted-angle squash into
-            // one scaled term and keep a single sqrt round trip.
             float refracted_sq = saturate(1.7689 * (1.0 - ndotv * ndotv));
             float new_ndotv = sqrt(1.0 - refracted_sq);
             out_alpha = Pow5(1.0 - new_ndotv);
@@ -318,19 +268,13 @@ void main() {
 
     vec3 sun_reflect = sun_light * (sun_specular) * ndotl * sun_spec_mask;
     vec3 sky_reflect = reflect_color * out_alpha * v_texcoord.w;
-    // v_ambient_col is cosine-convolved sky irradiance; this diffuse ambient
-    // term needs the same Lambert E/pi conversion the plain path's
-    // lambert_brdf already carries, or it reads pi times too bright.
+    // v_ambient_col is cosine-convolved sky irradiance: the 1/PI is its Lambert E/pi conversion, else it reads pi times too bright.
     vec3 env_reflect = is_water ? vec3(0.0) : v_ambient_col * base_color * (1.0 / PI);
 
-    // The sun glint stays at full strength; the sky and environment
-    // reflections are weighted by out_alpha, which is also the layer alpha
-    // written for the blend.
     vec3 comp_light = sun_reflect + sky_reflect + env_reflect * saturate(out_alpha);
     out_layer_color = vec4(comp_light, saturate(out_alpha));
 
-    // Split the original UNORM16 perturbation across colortex1/2 RGB; both
-    // use nearest-fragment replacement. colortex1 alpha retains the opaque ID.
+    // Perturbation split across colortex1/2 RGB (nearest replacement); colortex1 alpha keeps the opaque ID.
     PackTranslucentSurface(surface_normal * 0.25 + 0.5, is_water ? 1.0 : 0.0,
         out_surface_data, out_surface_high);
 #endif

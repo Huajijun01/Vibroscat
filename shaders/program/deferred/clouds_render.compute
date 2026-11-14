@@ -9,9 +9,8 @@
 #include "/lib/cloud/volumetric.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
-// Iris ceil-divides screen-scaled invocations into 8x8 groups. The active
-// continuous grid truncates its extent; checkerboard retains partial blocks.
-// main() bounds both against scene resolution, including cropped TAAU.
+// Iris ceil-divides the dispatch into 8x8 groups; the checkerboard grid keeps
+// partial blocks. main() bounds both against scene resolution.
 #if CLOUD_TEMPORAL_UPSCALING == 1
 const vec2 workGroupsRender = vec2(1.0, 1.0);
 #elif CLOUD_TEMPORAL_UPSCALING == 2
@@ -26,14 +25,12 @@ const vec2 workGroupsRender = vec2(0.333333, 0.333333);
 const vec2 workGroupsRender = vec2(0.25, 0.25);
 #endif
 
-// deferred_pre selects the existing alt workspace; opaque surface inputs
-// remain independently readable in colortex11.
+// Writes the alt workspace deferred_pre selected; opaque inputs stay readable in colortex11.
 layout(rgba16f) uniform restrict writeonly image2D colorimg12;
 
 void main() {
 #ifndef VOLUMETRIC_CLOUDS
-    // deferred2 is shared with GTAO (VOLUMETRIC_CLOUDS || GTAO):
-    // nothing to do without clouds.
+    // deferred2 is shared with GTAO, so this pass still dispatches without clouds.
     return;
 #endif
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
@@ -56,8 +53,7 @@ void main() {
 #else
     vec2 r2_offset = R2Offset();
 #endif
-    // The R2 offset moves the complete low-res lattice continuously inside
-    // each full-res cell. This is the only ray per low-res texel per frame.
+    // R2 offset slides the low-res lattice continuously within each full-res cell.
     vec2 sample_pos = (vec2(id) + r2_offset) * cell_size;
     ivec2 sample_pos_i = clamp(
         ivec2(floor(sample_pos)),
@@ -70,11 +66,8 @@ void main() {
         mat3(gbufferModelViewInverse) * NDCToView(vec3(uv * 2.0 - 1.0, 1.0))
     );
 
-    // Stop the interval at the opaque surface depth (no tracing behind
-    // terrain). A sky pixel has no opaque surface, so the cloud shell is the
-    // only bound and the no-cloud sentinel stands in for the far plane.
-    // sample_pos_i is already clamped to ivec2(full_resolution) - 1 above and
-    // full_resolution == u_render_res, so it is a valid fetch coordinate as-is.
+    // Sky pixels keep the no-cloud sentinel as the interval end: no opaque
+    // surface to trace up to.
     float terrain_end_km = CLOUD_NO_CLOUD_DISTANCE;
     float sample_depth = texelFetch(depthtex0, sample_pos_i, 0).r;
     if (sample_depth < 1.0) {
@@ -92,9 +85,8 @@ void main() {
         march_end = min(march_end, terrain_end_km);
         cloud_visible = march_end > march_start + 1.0e-5;
         if (cloud_visible) {
-            // min()/max() keep the clamp defined when the two sliders are
-            // ordered the other way round (GLSL clamp is undefined for
-            // minVal > maxVal).
+            // min()/max() keep the clamp defined when the two step sliders are
+            // inverted (GLSL clamp is undefined for min > max).
             step_count = clamp(int(ceil((march_end - march_start) / CLOUD_VIEW_TARGET_STEP_KM)),
                 min(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS),
                 max(CLOUD_VIEW_MIN_STEPS, CLOUD_VIEW_MAX_STEPS));
@@ -109,17 +101,13 @@ void main() {
     CloudSignal cloud_signal = CloudSignal(vec2(0.0), 1.0);
     if (cloud_visible) {
 #if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
-        // Checkerboard traces a scene pixel once per N*N frames, so the STBN
-        // slice must advance once per cycle, not once per frame: a per-frame
-        // index strides each pixel N*N slices between observations, which
-        // collapses the 64-slice set (N=4 keeps 4, N=2 keeps 16) and drops
-        // the consecutive-slice temporal integration. The skybox follows the
-        // same epoch rule for its own accumulation period.
+        // STBN slice advances once per checkerboard cycle, not per frame, or the
+        // 64-slice set per pixel collapses and temporal integration drops. The
+        // skybox uses the same epoch rule.
         int noise_frame = frameCounter / CLOUD_CHECKERBOARD_AREA;
 #else
-        // x = view march jitter, y = light march base; the slice offset
-        // decorrelates the two streams. The march advances every frame (its
-        // temporal accumulator runs with or without TAA).
+        // x = view march jitter, y = light march base. frameCounter, not
+        // STBNFrame(): the march accumulator runs with or without TAA.
         int noise_frame = frameCounter;
 #endif
         vec2 stbn_jitter = vec2(
@@ -140,8 +128,7 @@ void main() {
     }
 
 #if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
-    // A ray that never reached the cloud interval cannot anchor sky history.
-    // A traced but clear interval keeps its positive shell distance.
+    // cloud_top_distance = 0 marks an untraced ray so sky history cannot anchor on it.
     if (!cloud_visible) cloud_top_distance = 0.0;
 #endif
     CloudFrame frame;

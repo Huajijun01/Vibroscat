@@ -5,14 +5,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/atmosphere/sky_light.glsl"
 
-// Raw sky L0/L1 is affine in direction: L(omega) = C + G dot omega.
-// Accumulate geometric moments first, then contract with the RGB SH once.
-// On a positive half-slice omega = v*cos(theta)+t*sin(theta), theta in [0,PI],
-// a = n dot v, b = n dot t and w = max(a*cos(theta)+b*sin(theta),0)*sin(theta).
-// This helper integrates (w, cos(theta)*w, sin(theta)*w) over the blocked arc.
-// Primitives: Jcs=s^2/2, Jss=theta/2-s*c/2, Jccs=-c^3/3,
-// Jcss=s^3/3, Jsss=c^3/3-c. The interval/guards match the positive band of
-// the weight w.
+// Integrates (w, cos(theta)*w, sin(theta)*w) for w = max(a*cos+b*sin,0)*sin over
+// the blocked arc of the sky's affine SH L(omega) = C + G . omega.
 vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         float beta, float horizon_cos) {
     vec3 result = vec3(0.0);
@@ -24,8 +18,7 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
     float sin_hi;
     float cos_hi;
     if (a >= 0.0) {
-        // The positive-cosine band starts at or below zero; its upper end is
-        // beta + pi/2 and its trigonometry is (a/R, -b/R).
+        // Positive band: upper end beta + pi/2 with trig (a/R, -b/R).
         theta_hi = beta + 0.5 * PI;
         sin_hi = cos_beta;
         cos_hi = -sin_beta;
@@ -34,8 +27,7 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
         cos_lo = horizon_cos;
         valid = !(theta_hi <= theta_lo);
     } else {
-        // The band wraps past pi: the upper end is pi and the lower end is
-        // the horizon or beta - pi/2, whichever is larger.
+        // Band wraps past pi: upper end pi; lower end max(horizon, beta - pi/2).
         theta_hi = PI;
         sin_hi = 0.0;
         cos_hi = -1.0;
@@ -68,9 +60,8 @@ vec3 SkySideArcMoments(float a, float b, float sin_beta, float cos_beta,
     return result;
 }
 
-// Returns (blocked mass, view-axis moment, signed tangent moment).
-// The negative half-slice uses -t: its normal projection AND directional
-// tangent coefficient change sign. Do not clamp or normalize these moments.
+// Returns (blocked mass, view-axis moment, signed tangent moment); the negative
+// half-slice negates both its tangent terms. Do not clamp or normalize.
 vec3 IntegrateSkyBlockedArcPairMoments(float ndotv, float ndott, vec2 horizon_cos) {
     if (horizon_cos.x <= -1.0 && horizon_cos.y <= -1.0) {
         return vec3(0.0);
@@ -93,9 +84,8 @@ vec3 IntegrateSkyBlockedArcPairMoments(float ndotv, float ndott, vec2 horizon_co
     return vec3(positive.xy + negative.xy, positive.z - negative.z);
 }
 
-// Moments are the UNNORMALIZED slice sum, in world axes (+Y up).
-// Caller applies PI/GTAO_SLICES exactly once; no SH_A convolution here.
-// L2 stays in the caller's existing signed blocked-fraction approximation.
+// Input is the unnormalized slice sum in world axes (+Y up); the caller applies
+// PI/GTAO_SLICES exactly once. No SH_A convolution here.
 vec3 EvalSkyBlockedMoments(float blocked_mass, vec3 blocked_direction_world) {
     vec4 basis = vec4(SH_Y0 * blocked_mass, SH_Y1 * blocked_direction_world.yzx);
     return vec3(dot(sky_sh_r0, basis), dot(sky_sh_g0, basis), dot(sky_sh_b0, basis));

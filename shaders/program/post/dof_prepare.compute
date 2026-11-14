@@ -15,8 +15,7 @@ void main() {
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(texel, ivec2(u_render_res)))) return;
 
-    // Previous/current slots are disjoint throughout this dispatch. Every
-    // invocation derives the same focus; only (0,0) publishes current state.
+    // Previous/current slots stay disjoint in this dispatch; every invocation derives the same focus, only (0,0) publishes.
     int focus_slot = frameCounter & 1;
     float target_inverse_m = DofInverseDepth(texelFetch(depthtex2, ivec2(u_render_res * 0.5), 0).r);
     float previous_inverse_m = dof_focus_inverse_m[focus_slot ^ 1];
@@ -30,8 +29,7 @@ void main() {
         dof_focus_frame = uint(frameCounter);
     }
     float inverse_m = DofSceneInverseDepth(texel);
-    // Convert once, before FP16 storage. Keeping this coordinate uncapped
-    // preserves source ordering even when both optical disks reach the cap.
+    // Converted once before FP16 storage; leaving the coordinate uncapped preserves source ordering when both disks reach the cap.
     float coc_px = inverse_m < 0.0 ? DOF_HAND_COC : (focus_inverse_m - inverse_m) * lens_scale;
     imageStore(colorimg12, texel, vec4(texelFetch(colortex0, texel, 0).rgb, coc_px));
 }

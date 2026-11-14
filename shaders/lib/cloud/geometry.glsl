@@ -8,9 +8,8 @@ bool CloudShellInterval(vec3 origin_km, vec3 direction_world, out float march_st
 ) {
     float inner_radius = ATM_PLANET_R + CLOUD_BASE_ALTITUDE;
     float outer_radius = ATM_PLANET_R + CLOUD_TOP_ALTITUDE;
-    // The three RayIntersectSphere solves below share b and dot(origin_km,
-    // origin_km); each solve keeps that function's exact operation sequence, so
-    // every output stays bit-identical while both dot products run once.
+    // Shares b and origin_r2 across the solves but keeps RayIntersectSphere's exact
+    // per-solve operation sequence; outputs stay bit-identical.
     float b = 2.0 * dot(origin_km, direction_world);
     float origin_r2 = dot(origin_km, origin_km);
 
@@ -32,8 +31,6 @@ bool CloudShellInterval(vec3 origin_km, vec3 direction_world, out float march_st
         float inner_root = sqrt(inner_discriminant);
         float inner_near = 0.5 * (-b - inner_root);
         float inner_far = 0.5 * (-b + inner_root);
-        // Non-negative radii: the squared form selects identically and the
-        // side comparison is not part of the root sequence above.
         if (origin_r2 < inner_r2) {
             march_start_km = max(march_start_km, inner_far);
         } else if (inner_near > march_start_km) {
@@ -56,10 +53,6 @@ bool CloudShellInterval(vec3 origin_km, vec3 direction_world, out float march_st
 }
 
 float CloudDistanceToShellExit(vec3 position_km, vec3 direction_world) {
-    // The two shell solves share b and dot(position_km, position_km); per-sphere
-    // operations match RayIntersectSphere exactly, so the sweep is
-    // bit-identical to the separate calls (the fused form does not compute
-    // the unused inner far root).
     float b = 2.0 * dot(position_km, direction_world);
     float origin_r2 = dot(position_km, position_km);
     float outer_radius = ATM_PLANET_R + CLOUD_TOP_ALTITUDE;

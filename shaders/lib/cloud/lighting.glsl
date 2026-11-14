@@ -12,47 +12,31 @@
 #include "/lib/cloud/signal.glsl"
 #include "/lib/scattering/phase.glsl"
 
-// Multiple-scattering reference length for the volumetric water-cloud model.
-// Extinction is authored in km^-1; this conversion gives reference optical depth.
+// Extinction (km^-1) times this length (m) gives the dimensionless reference optical depth.
 const float CLOUD_MS_REFERENCE_LENGTH_M = 200.0;
-// Directional octaves: each step widens the phase, weakens its contribution
-// and softens the optical-depth falloff of the next order.
 const int CLOUD_MS_OCTAVES = 6;
-// Sine-of-elevation window across which the traced direction hands over from the
-// sun to the antisolar point. The layer sits 1.4 to 2.7 km up, so its own
-// horizon dips 0.021 to 0.029 below the sea-level one; the handover starts just
-// past that, where the layer stops seeing the sun.
+// Sun-to-antisolar handover window; the 1.4-2.7 km layer's own horizon dips 0.021-0.029,
+// so the fade starts just past where the layer stops seeing the sun.
 const float CLOUD_MOON_FADE_LOW = -0.07;
 const float CLOUD_MOON_FADE_HIGH = -0.02;
-// The sun's color is held through the band below the sea-level horizon where
-// the layer still catches it over its dipped horizon, which is what makes the
-// fire clouds, and is only released once the antisolar side has taken over.
+// Holds the sun's color through the below-horizon band where the layer still catches it (fire clouds).
 const float CLOUD_TWILIGHT_FADE_START = 0.03;
 const float CLOUD_TWILIGHT_FADE_END = 0.08;
-// Extinction in m^-1 for an extinction authored per kilometer.
 const float CLOUD_EXTINCTION_PER_KM_TO_PER_M = 0.001;
 
-// 0 while the sun is up, 1 once it is past the fade window. Written in the
-// argument order smoothstep requires; a reversed pair is undefined by the spec.
 float CloudMoonlightFactor(float sun_dir_y) {
     return 1.0 - smoothstep(CLOUD_MOON_FADE_LOW, CLOUD_MOON_FADE_HIGH, sun_dir_y);
 }
 
-// The folded light direction: the sun while it is up, the antisolar point once
-// it has set. Flipping at the midpoint avoids normalizing a vector that reaches
-// zero there. This pack's moon is the exact antipode of the sun, so the flip
-// lands on it.
+// Sun while up, else its antipode: this pack's moon is the exact antipode of the sun.
 vec3 CloudLightDirection(vec3 sun_dir, float moonlight_factor) {
     return moonlight_factor < 0.5 ? sun_dir : -sun_dir;
 }
 
-// 1 while the sun is up and through the fire-cloud band below the horizon,
-// fading to 0 by CLOUD_TWILIGHT_FADE_END below it.
 float CloudTwilightWeight(float sun_dir_y) {
     return 1.0 - smoothstep(CLOUD_TWILIGHT_FADE_START, CLOUD_TWILIGHT_FADE_END, -sun_dir_y);
 }
 
-// Directional octaves for one light direction, evaluated once per light per ray.
 void CloudPhaseOctaves(float cos_theta, out float phase_weight[CLOUD_MS_OCTAVES]) {
     float contribution_factor = 1.0;
     float eccentricity_factor = 1.0;
@@ -66,9 +50,7 @@ void CloudPhaseOctaves(float cos_theta, out float phase_weight[CLOUD_MS_OCTAVES]
     }
 }
 
-// 1 / (1 + optical depth) approximates the falloff of the additional scattering
-// orders; each octave softens it further. The isotropic series rides the same
-// transmittance.
+// 1 / (1 + optical depth) approximates the per-octave falloff of the higher scattering orders.
 float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     float octave_attenuation[CLOUD_MS_OCTAVES], float light_optical_depth,
     float isotropic_orders
@@ -81,8 +63,6 @@ float CloudDirectionalScattering(float phase_weight[CLOUD_MS_OCTAVES],
     return scattering + isotropic_orders / (1.0 + light_optical_depth);
 }
 
-// Light samples use the low-quality density path; every accepted view sample
-// retraces it.
 float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float light_jitter,
     CloudDensityFrame frame
 ) {
@@ -98,13 +78,11 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
     float sample_distance = CLOUD_LIGHT_START_OFFSET_KM + light_jitter * base_step_length;
     float optical_depth = 0.0;
     for (int i = 0; i < CLOUD_LIGHT_STEPS; ++i) {
-        // (i + 1)^2 - i^2 = 2i + 1: the lengths sum to trace_distance,
-        // and the shared origin offset keeps every sample before light_distance.
+        // Lengths (2i + 1) * base sum to trace_distance and keep every sample before light_distance.
         float step_length = base_step_length * float(2 * i + 1);
         vec3 sample_position = atmosphere_position + light_dir * sample_distance;
         float sample_altitude_km = length(sample_position) - ATM_PLANET_R;
         float sample_density = 0.0;
-        // Same cheap altitude-band rejection the density functions open with.
         if (sample_altitude_km > CLOUD_BASE_ALTITUDE && sample_altitude_km < CLOUD_TOP_ALTITUDE) {
             sample_density = SampleCloudDensityLowQuality(sample_position, frame,
                 CloudHeightProfileFor(sample_altitude_km));
@@ -117,35 +95,25 @@ float CloudLightOpticalDepth(vec3 atmosphere_position, vec3 light_dir, float lig
     return optical_depth;
 }
 
-// Convert primary/sky weights into RGB with the current sun/moon and ambient
-// illumination. Light colors share the sky LUT's sRGB-domain white balance.
-// The compositor adds the background scaled by the signal's true transmittance.
+// Light colors share the sky LUT's sRGB-domain white balance; the compositor adds
+// the background scaled by the signal's true transmittance.
 vec3 RelightClouds(CloudSignal signal, vec3 surface_position, float surface_r,
     vec3 background_sky_color) {
     float surface_r2 = surface_r * surface_r;
     float sun_mu = dot(surface_position, u_world_sun_dir) / surface_r;
-    // moon_mu is just -sun_mu; the host's moon_dir is the antipode of sun_dir.
     float moon_mu = -sun_mu;
     vec3 sun_color = AtmosphereDirectIrradianceAt(surface_r, surface_r2, sun_mu, ATM_SOLAR);
     vec3 moon_color = AtmosphereDirectIrradianceAt(surface_r, surface_r2, moon_mu, ATM_MOON_IRR);
-    // The integrated sky weight already includes view absorption; only its
-    // incident color is evaluated here. L0 irradiance / PI is the camera
-    // probe's spherical-average radiance, independent of the cloud surface.
-    // The skybox bake reads the previous frame's SH before prepare2 updates
-    // it; the first frame seeds from clear sky while that probe is unavailable.
+    // The integrated sky weight already includes view absorption; only its incident color is evaluated here.
+    // EvalSkyLightAverage reads the previous frame's SH bake (prepare2 updates it after); frame 0 seeds from clear sky.
     vec3 ambient_sky_color = frameCounter == 0
         ? background_sky_color
         : EvalSkyLightAverage() / PI;
-    // Thin edges receive the background color the compositor blends over.
     vec3 ambient_cloud_radiance = mix(
         ambient_sky_color * CLOUD_AMBIENT_STRENGTH,
         background_sky_color,
         signal.transmittance) * signal.scattering.y;
-    // One trace means one directional channel, so the light color carries both
-    // illuminants. The sun keeps its color through the fire-cloud band, where
-    // it has crossed the sea-level horizon but the layer still catches it over
-    // its own dipped one, and is released once the antisolar side has taken
-    // over.
+    // One traced direction, so the light color sums both illuminants.
     vec3 light_color = sun_color * CloudTwilightWeight(u_world_sun_dir.y)
         + moon_color * CloudMoonlightFactor(u_world_sun_dir.y);
     return signal.scattering.x * light_color + ambient_cloud_radiance;

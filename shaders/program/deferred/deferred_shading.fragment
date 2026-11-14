@@ -1,5 +1,3 @@
-// Deferred shading: GBuffer decode, directional light, sky/GI ambient and
-// indirect specular.
 
 #include "/lib/contract/settings.glsl"
 /* RENDERTARGETS: 0,2,12 */
@@ -45,22 +43,19 @@ void main() {
 #endif
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
-    // Last opaque-gbuffer consumer: clear the next sides before translucency.
-    // Opaque inputs remain in colortex11; clear the next 2/12 sides.
+    // Last opaque-gbuffer consumer: clear colortex2/12 for the translucent side;
+    // opaque inputs stay in colortex11.
     out_gbuf_clear = vec4(0.0);
     out_translucent_clear = vec4(0.0);
 
-    // -- Sky (far plane) --
-    // Depth 1.0 = far plane -> Sky View LUT (baked by sky.compute; elevation/sun-angle/altitude).
+    // Far plane: Sky View LUT baked by sky.compute.
     if (scene_depth >= 1.0) {
         vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
         vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
             * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
         vec2 sky_uv = SkyLUTUV(view_dir, u_world_sun_dir);
         vec3 sky_color = texture(usam_skylut, sky_uv).rgb;
-        // Discs stay out of the LUT so clouds attenuate them by real
-        // transmittance. view_transmittance is computed at its two consumers
-        // below: behind an opaque cloud column it is never read.
+        // Celestial discs stay out of the LUT so clouds attenuate them by real transmittance.
         vec3 celestial = vec3(0.0);
 #if defined(VOLUMETRIC_CLOUDS) || defined(CIRRUS)
         vec3 cloud_transmittance = vec3(1.0);
@@ -76,13 +71,11 @@ void main() {
         bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, cloud_entry, cloud_exit);
         if (cloud_visible
                 && length(camera_atmosphere_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
-            // Only render when the ray rises into the layer (not skimming beneath).
+            // entry > 0: the ray rises into the layer rather than skimming beneath it.
             cloud_visible = cloud_entry > 0.0;
         }
         if (cloud_visible) {
-            // Cloud transport weights and distance from the deferred2
-            // colortex8 history flip. Distance is never EMA-mixed; feeds relight and
-            // the distance fade.
+            // colortex8 cloud history (deferred2); the distance is never EMA-mixed.
             CloudFrame accumulated = DecodeCloudFrame(texelFetch(colortex8, tx, 0));
             volumetric_surface_pos = camera_atmosphere_pos + view_dir * accumulated.distance_km;
             accumulated.signal.transmittance = smoothstep(0.001, 0.999, accumulated.signal.transmittance);
@@ -93,9 +86,6 @@ void main() {
         sky_color = RenderCloudLayers(view_dir, sky_color, volumetric_signal,
             volumetric_surface_pos, volumetric_entry,
             cloud_transmittance, view_transmittance, view_transmittance_cached);
-        // Sun/moon occluded by real cloud transmittance: an opaque column
-        // leaves nothing of either term, so the star field and the discs are
-        // skipped entirely.
         if (!all(equal(cloud_transmittance, vec3(0.0)))) {
             if (!view_transmittance_cached) {
                 vec3 camera_pos = AtmosphereCameraPosition();
@@ -128,7 +118,6 @@ void main() {
         return;
     }
 
-    // -- GBuffer decode --
     vec4 g1 = texelFetch(colortex1, tx, 0);
     vec4 surface = texelFetch(colortex11, tx, 0);
     vec4 g2 = UnpackOpaqueMaterial(surface);
@@ -147,21 +136,16 @@ void main() {
     // colortex4 carries the world-space geometric normal (octahedral RG).
     vec3 geo_normal = DecodeOctahedralNormal(geometry_data.xy);
     // geometry_data.zw: (blockLight, skyLight).
-    // -- World position (for shadow) --
     vec2 uv = (vec2(tx) + 0.5) * u_render_pixel_size;
 #ifdef TAA
     uv -= u_taa_offset * 0.5;
 #endif
-    // Iris scales hand clip Z by MC_HAND_DEPTH through gl_ProjectionMatrix;
-    // gbufferProjectionInverse is the world inverse. Undo the scale in NDC
-    // before reconstructing the receiver used by lighting and both shadows.
+    // Iris scales hand clip Z by MC_HAND_DEPTH; undo it in NDC before reconstructing the receiver.
     float ndc_depth = scene_depth * 2.0 - 1.0;
     if (is_opaque_hand) ndc_depth /= MC_HAND_DEPTH;
     vec3 view_pos = NDCToView(vec3(uv * 2.0 - 1.0, ndc_depth));
     vec3 world_pos = ViewToWorldSpace(view_pos);
 #if GI_MODE == 2
-    // Resolve GI before direct-light BRDF/shadow temporaries become live.
-    // The unblurred history is read-only throughout this lighting pass.
     vec3 gi_ambient;
     if (is_opaque_hand) {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
@@ -169,15 +153,10 @@ void main() {
         gi_ambient = AmbientLight(normal_world, ao_effective, geometry_data.w);
     }
 #endif
-    // Eye-space receiver position: distance responses and the view vector
-    // use the eye, not the feet-space origin.
     vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
 
-    // -- Lightmap remapping (shared curves, see lib/lighting/lightmap.glsl) --
     float block_light = BlockLightFromLm(geometry_data.z);
 
-    // -- Directional light (sun or moon) --
-    // Unit normal/view/light inputs bound these cosines to [0,1].
     float ndotv = saturate(dot(normal_world, view_to_eye));
     vec3 diffuse_reflectance;
     vec3 color;
@@ -185,18 +164,11 @@ void main() {
     diffuse_reflectance = EvaluateDiffuseReflectance(
         albedo, material.f0, material.diffuse_weight);
 
-    // Lambertian (no incident direction from SH/lightmap); metals have no
-    // diffuse lobe. AO multiplies indirect terms only. Block light uses AO
-    // cubed, blended toward 1 by falloff (occlusion visible in torchlit caves).
-    // Same-argument reflectance as the SSS term above: EvaluateLambertBRDF is
-    // exactly EvaluateDiffuseReflectance * (1/PI), so reuse the shared value.
+    // AO scales indirect terms only; metals have no diffuse lobe.
     vec3 lambert_brdf = diffuse_reflectance * (1.0 / PI);
 #if GI_MODE != 0
-    // Reconstruct irradiance before receiver BRDF. Spatial filtering stays
-    // local to this pass; only deferred3's unblurred temporal result persists.
+    // Spatial filtering is local to this pass; only deferred3's unblurred temporal result persists.
 #if GI_MODE == 1
-    // Keep the SSGI evaluation order; moving this work earlier adds GPU cost
-    // even in the SSGI-only branch.
     vec3 gi_ambient;
     if (is_opaque_hand) {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
@@ -204,22 +176,15 @@ void main() {
         gi_ambient = AmbientLight(geo_normal, vec3(1.0), geometry_data.w);
     }
 #endif
-    // SSGI supplies visibility itself; RSM has already multiplied AO into
-    // its sky fallback before denoising. Neither bounce is darkened again.
+    // GI supplies its own visibility/AO; neither term is darkened again here.
     color += lambert_brdf * gi_ambient;
 #else
-    // Sky ambient: remapped sky light x AO-aware blend + AMBIENT_FLOOR floor
-    // (AmbientLight). The no-GI term owns this call; the GI paths keep it as
-    // a fallback.
     vec3 sky_ambient = AmbientLight(normal_world, ao_effective, geometry_data.w);
     color += lambert_brdf * sky_ambient * ao_effective;
 #endif
     color += diffuse_reflectance * TORCH_LIGHT_COLOR * block_light * screen_ao;
 
-    // -- Indirect specular --
-    // Rough-material gate: dielectric reflection reaches zero at the
-    // configured roughness cutoff, while metalness moves that cutoff toward
-    // rougher materials. The same weight applies to SH and SSR.
+    // Dielectric gate zeroes at the roughness cutoff; metalness shifts the cutoff rougher.
     float reflection_smoothness = 1.0 - material.perceptual_roughness;
     float reflection_threshold = clamp(
         OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD, 1e-3, 1.0);
@@ -232,13 +197,8 @@ void main() {
     float reflection_strength = (1.0 - Pow5(material.perceptual_roughness))
         * sqrt(saturate(reflection_gate));
 
-    // Zero-strength materials contribute no environment reflection.
-    // Keep their SH, visibility and SSR work outside the executed path.
     vec3 indirect_specular = vec3(0.0);
     if (reflection_strength > 0.0) {
-        // Rough opaque surfaces use the SH environment exclusively. The transition
-        // span keeps the SSR-to-SH change gradual while avoiding SSR work at the
-        // high-roughness end of the range.
         float sh_weight = smoothstep(
             OPAQUE_REFLECTION_ROUGHNESS_THRESHOLD
                 - OPAQUE_REFLECTION_ROUGHNESS_TRANSITION,
@@ -246,9 +206,6 @@ void main() {
             material.perceptual_roughness);
         float ssr_weight = 1.0 - sh_weight;
 
-        // Same geometric term as ndotv above; nothing rewrites `normal` between.
-        // specular_occlusion is hoisted ahead of the reflection branches because
-        // both of them consume it.
         float mean_ao = dot(ao_effective, vec3(1.0 / 3.0));
         float specular_occlusion = SpecularOcclusion(
             ndotv, mean_ao, material.perceptual_roughness);
@@ -259,18 +216,13 @@ void main() {
 #endif
         if (need_sh) {
             vec3 sh_reflection_direction = reflect(-view_to_eye, normal_world);
-            // reflect() of two unit vectors stays unit, so the [0,1] clamp is
-            // exact and folds into the dot as .SAT.
             float sh_reflection_ndotl = saturate(
                 dot(normal_world, sh_reflection_direction));
-            // SH-only reflections are a low-cost environment fallback. Gate them
-            // by sky light visibility and AO so occluded surfaces do not retain a
-            // uniform plastic specular sheen.
+            // SH fallback is gated by sky light visibility so occluded surfaces keep no uniform sheen.
             vec3 sh_environment = EvalSkyRadiance(
                 sh_reflection_direction, material.perceptual_roughness)
                 * SkyLightFromLm(geometry_data.w);
-            // Broad SH reflections retain Fresnel lift at grazing angles. The
-            // environment has already been roughness-convolved in SH space.
+            // SH environment is already roughness-convolved; Fresnel lift stays at grazing angles.
             vec3 sh_fresnel = FresnelSchlick(
                 ndotv, material.f0);
             sh_specular = sh_environment * sh_fresnel

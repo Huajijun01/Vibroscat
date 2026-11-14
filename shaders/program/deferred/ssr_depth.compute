@@ -15,9 +15,9 @@ void main() {
     ivec2 depth_size = max(ivec2(u_render_res * 0.25), ivec2(1));
     if (any(greaterThanEqual(depth_texel, depth_size))) return;
 
-    // Iris truncates relative image dimensions, including odd viewports.
-    // Sample the cell center, using matching sizes so odd viewports cover the
-    // whole source. No min reduction: it would expand foreground silhouettes.
+    // Iris truncates relative image dimensions (odd viewports); cell-center
+    // sampling with matching sizes covers the whole source. No min reduction:
+    // it would expand foreground silhouettes.
     ivec2 source_size = ivec2(u_render_res);
     ivec2 source_texel = ivec2((vec2(depth_texel) + 0.5)
         * vec2(source_size) / vec2(depth_size));

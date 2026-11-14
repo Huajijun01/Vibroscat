@@ -1,17 +1,14 @@
 #ifndef LIB_CORE_NOISE_GLSL
 #define LIB_CORE_NOISE_GLSL
 
-// STBN volume: 128x128x64 spatiotemporal blue-noise masks, baked offline
-// with a void-and-cluster generator.
+// STBN volume, baked offline with a void-and-cluster generator.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// Decorrelation slice offsets into the 64-slice STBN volume: a consumer that
-// needs an independent stream on the same spatial seed advances the time
-// slice by one of these. The values form the pack-wide stream registry;
-// within one pass, every STBN consumer must use a distinct stream. A pair
-// consumer additionally passes a spatial shift so its two scalars decorrelate.
+// Decorrelation slice offsets into the STBN volume; together they form the
+// pack-wide stream registry: within one pass, every STBN consumer must use a
+// distinct stream. Pair consumers add a spatial shift to decorrelate their scalars.
 const int STBN_STREAM_0 = 0;
 const int STBN_STREAM_1 = 16;
 const int STBN_STREAM_2 = 23;
@@ -25,14 +22,8 @@ float SampleSTBN(ivec2 pixel, int frame) {
         frame & (STBN_SCALAR_SIZE.z - 1)), 0).r;
 }
 
-// Two decorrelated STBN scalars from one texel: the second stream advances
-// the time slice by slice_offset and the spatial texel by spatial_shift.
-// Callers pass their registered registry offsets. Value order is stable:
-// .x is the unshifted stream, .y the shifted one.
-// Wrapping uses bit masks like SampleSTBN: the volume sizes are powers of
-// two, and x & (size - 1) equals the floor modulo for every int32 input,
-// including negatives (the plain % form is undefined for negative operands
-// in GLSL and would emit out-of-range texel coordinates).
+// .x is the unshifted stream, .y the one advanced by slice_offset and spatial_shift;
+// callers pass registered registry offsets. Bit-mask wrap: GLSL % is undefined for negatives.
 vec2 SampleSTBNPair(ivec2 texel, int frame, int slice_offset, ivec2 spatial_shift) {
     ivec2 p0 = texel & (STBN_SCALAR_SIZE.xy - ivec2(1));
     int z = frame & (STBN_SCALAR_SIZE.z - 1);
@@ -42,11 +33,9 @@ vec2 SampleSTBNPair(ivec2 texel, int frame, int slice_offset, ivec2 spatial_shif
         texelFetch(utex_stbn_scalar, ivec3(p1, (z + slice_offset) & (STBN_SCALAR_SIZE.z - 1)), 0).r);
 }
 
-// Shared STBN time slice for effects without their own temporal accumulation.
-// Exists only with TAA: without temporal accumulation an advancing slice would
-// shimmer, so consumers pass 0 and keep a static spatial pattern. Effects with
-// a dedicated accumulator (AO, GI) keep advancing with frameCounter and must
-// not use this.
+// Exists only with TAA; effects without temporal accumulation pass slice 0
+// instead, since an advancing slice would shimmer without accumulation.
+// Effects with a dedicated accumulator (AO, GI) keep advancing with frameCounter and must not use this.
 #ifdef TAA
 int STBNFrame() {
     return frameCounter;
@@ -59,9 +48,8 @@ float InterleavedGradientNoise(vec2 pixel) {
         * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
 }
 
-// 32-bit avalanche hash (Wellons' lowbias32 constants). Interleaved gradient
-// noise is a dither pattern, not a hash: over cell indices its values are far
-// from uniform and correlate across draws that need per-cell randoms.
+// Wellons' lowbias32 avalanche hash; IGN is a dither pattern, not a hash, and
+// correlates across draws that need per-cell randoms.
 uint LowBias32Hash(uint x) {
     x ^= x >> 16;
     x *= 0x7feb352du;
@@ -71,9 +59,8 @@ uint LowBias32Hash(uint x) {
     return x;
 }
 
-// Continuous R2 offset for sub-resolution grids. The first frame starts at
-// the cell center; subsequent frames cover the cell without a finite phase
-// table.
+// Continuous R2 offset for sub-resolution grids: starts at the cell center, then
+// covers it without a finite phase table.
 vec2 R2Offset() {
     // Frame-uniform: shaders.properties derives it from frameCounter.
     return u_r2_offset;

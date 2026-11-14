@@ -1,10 +1,7 @@
 #include "/lib/contract/settings.glsl"
 
-// Motion blur encodes velocity into colortex0 and blurs the color from
-// colortex5. Without it, the display color exists only in colortex5 (which
-// doubles as the TAA history side), and colortex0 stays unwritten between
-// blend and final. tonemap, the exposure sweep, and bloom extract read
-// colortex5 in that case.
+// With MOTION_BLUR, velocity goes to colortex0 and color is read from colortex5; without it the
+// display color lives only in colortex5 (also the TAA history), which tonemap/exposure/bloom then read.
 #ifdef MOTION_BLUR
 /* RENDERTARGETS: 0,5 */
 #else
@@ -45,7 +42,6 @@ vec3 FetchColorClamped(sampler2D color, ivec2 texel) {
 }
 
 vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
-    // One reciprocal feeds the five depth fetches below.
     vec2 inv_depth_size = 1.0 / vec2(ivec2(u_render_res));
     vec3 center     = FetchDepthPosition(depth, tx, inv_depth_size);
     vec3 down_left  = FetchDepthPosition(depth, tx + ivec2(-2, -2), inv_depth_size);
@@ -60,17 +56,14 @@ vec3 GetClosestToCamera(sampler2D depth, ivec2 tx) {
 }
 
 float GetBlendWeight(vec3 previous_color, vec3 clipped_color, vec3 color_extent, vec2 velocity) {
-    // Returns current-frame contribution; the history contribution is its complement.
-    // Symmetric RGB scales avoid signed-luminance cancellation and dark-history
-    // division. The floor bounds sensitivity in near-black, quantized history.
+    // Returns the current-frame contribution; history gets the complement. Symmetric RGB scales avoid
+    // signed-luminance cancellation and dark-history division; the floor bounds near-black quantized history.
     vec3 color_scale = max(color_extent, max(0.1 * max(previous_color, clipped_color), vec3(0.002)));
     vec3 outside = abs(previous_color - clipped_color) / color_scale;
     float rejection = saturate(2.0 * TAA_REACTIVE_STRENGTH * max(outside.r, max(outside.g, outside.b)));
-    // A valid jittered sample inside the bounds keeps its history. Motion is a
-    // gentle ceiling in display pixels/frame, independent of render scale.
+    // Motion acts as a gentle ceiling in display pixels/frame, independent of render scale.
     float speed = length(velocity * u_screen_res);
     float movement = speed / (1.0 + speed);
-    // HISTORY_WEIGHT (at most 0.97) minus at most 0.2 stays within [0, 1].
     float history_weight = saturate(TAA_HISTORY_WEIGHT - 0.2 * TAA_MOTION_REJECTION * movement);
     return 1.0 - history_weight * (1.0 - rejection);
 }
@@ -92,13 +85,12 @@ void main() {
     ivec2 tx = ClampTexel(ivec2(unjitter_uv * u_render_res), ivec2(u_render_res));
 
     vec3 closest_to_camera = GetClosestToCamera(depthtex0, tx);
-    // Current depth is jittered on the scene grid; history UVs cover the display.
+    // Current depth is jittered on the scene grid; history UVs live on the display grid.
     ivec2 closest_texel = ClampTexel(ivec2(closest_to_camera.xy * u_render_res), ivec2(u_render_res));
     bool hand = int(texelFetch(colortex1, closest_texel, 0).a * 255.0 + 0.5) == 64
         && closest_to_camera.z < 1.0;
     closest_to_camera.xy -= 0.5 * u_taa_offset;
-    // Hand motion is zeroed below, so its unused reprojection need not wait on
-    // the material-ID fetch. Sky still suppresses the camera-position delta.
+    // Reprojection runs unconditionally so the hand path need not wait on the material-ID fetch; sky still suppresses the camera delta.
     vec3 position = ToPrevious(closest_to_camera, closest_to_camera.z < 1.0);
 
     vec2 velocity = position.xy - closest_to_camera.xy;
@@ -117,19 +109,15 @@ void main() {
     vec3 history;
     bool valid = all(greaterThanEqual(history_uv, vec2(0.0))) && all(lessThanEqual(history_uv, vec2(1.0)));
     valid = valid && v_history_frame_valid != 0 && (hand || (position.z >= 0.0 && position.z <= 1.0));
-    // Keep implicit-derivative history sampling outside divergent validity
-    // branches. Invalid reprojection samples a safe UV and contributes zero.
+    // History sampling stays outside divergent validity branches (implicit derivatives).
     history_uv = valid ? clamp(history_uv, 2.0 * u_view_pixel_size, 1.0 - 2.0 * u_view_pixel_size) : texcoord;
     // History sharpening is independent of the current-frame reconstruction option.
     history = FastCatmullRom5TapLod0(colortex5, history_uv, u_view_pixel_size, 0.75).rgb;
-    // Exact zero is legitimate black history. Sanitize nonfinite data before
-    // compression even when its eventual contribution will be zero.
+    // Exact zero is legitimate black history; only nonfinite data is sanitized, before HDR compression.
     bool finite_history = !any(isnan(history)) && !any(isinf(history));
     valid = valid && finite_history;
     history = finite_history ? max(history, 0.0) : current_color;
 
-    // Eight neighboring texels plus the reconstructed center share the current
-    // sample's support without an extra center fetch.
     vec3 clip_min, clip_max;
     {
         vec3 a = FetchColorClamped(colortex0, tx + ivec2(-1,  1));
@@ -157,8 +145,7 @@ void main() {
     vec3 jittered_result = result;
 #endif
 #ifdef MOTION_BLUR
-    // Unsigned R11G11B10F cannot store negative values: RG keep the motion
-    // magnitude (small values stay precise near zero) and B holds two sign
+    // Unsigned R11G11B10F cannot store negatives: RG keep the motion magnitude, B holds two sign
     // bits, matching the motion-blur decode at every scene resolution.
     int motion_sign = (velocity.x < 0.0 ? 1 : 0)
         + (velocity.y < 0.0 ? 2 : 0);

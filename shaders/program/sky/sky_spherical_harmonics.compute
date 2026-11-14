@@ -7,9 +7,8 @@
 #include "/lib/atmosphere/spectral.glsl"
 #include "/lib/atmosphere/transmittance.glsl"
 
-// Each workgroup owns one RGB SH coefficient, with no cross-group reads.
-// Project the upper sky and analytically close the lower hemisphere with a
-// uniform Lambertian ground at SKY_GROUND_REFLECTANCE.
+// Upper sky projected per group; the lower hemisphere closes analytically with a
+// Lambertian ground at SKY_GROUND_REFLECTANCE.
 #define SH_ROW_STRIPES 2
 #define SH_WORKGROUP_THREADS (SKY_RADIANCE_LUT_SIZE * SH_ROW_STRIPES)
 #define SH_SKY_ROWS (SKY_RADIANCE_LUT_SIZE / 2)
@@ -30,10 +29,8 @@ void main() {
         float sy = SKY_RADIANCE_LUT_ROW_CENTER(gl_LocalInvocationIndex + uint(SH_SKY_ROWS));
         float cy = sqrt(saturate(1.0 - sy * sy));
         float weight;
-        // E_up = integral(L_sky * sy); L_ground = rho * E_up / PI.
-        // Its raw SH increments are 2*PI*Y0*L_ground and -PI*Y1*L_ground.
-        // Linearity folds both into these sky weights, without reading other
-        // groups' results or sampling the synthetic ground hemisphere.
+        // Ground closure: L_ground = rho * E_up / PI with raw SH increments
+        // 2*PI*Y0*L and -PI*Y1*L, folded into the sky weights by linearity.
         if (gl_WorkGroupID.x == 0u) weight = SH_Y0 * (1.0 + 2.0 * SKY_GROUND_REFLECTANCE * sy);
         else if (gl_WorkGroupID.x == 1u) weight = SH_Y1 * sy * (1.0 - SKY_GROUND_REFLECTANCE);
         else if (gl_WorkGroupID.x == 2u || gl_WorkGroupID.x == 3u) weight = SH_Y1 * cy;
@@ -83,9 +80,8 @@ void main() {
         }
     }
     if (gl_LocalInvocationIndex == 0u && gl_WorkGroupID.x == 0u) {
-        // Direct sun/moon light arrives at the camera, not at a fixed sea-level
-        // plane: use the actual camera altitude, so the air mass above the eye
-        // shrinks as the player climbs and the direct color reddens less.
+        // ground_light uses the camera altitude, not a sea-level plane: direct
+        // color reddens less as the player climbs.
         vec4 trans = SampleTransmittance(utex_tslut, u_camera_radius_km, u_camera_radius_sq, abs(u_world_sun_dir.y));
         vec3 ground_color;
         ground_color = SpectralToLinearSRGBWhiteBalanced(trans * (u_world_sun_dir.y > 0.0 ? ATM_SOLAR : ATM_MOON_IRR)) * ATM_EXPOSURE;

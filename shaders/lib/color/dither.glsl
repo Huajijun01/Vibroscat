@@ -5,12 +5,8 @@
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/core/noise.glsl"
 
-// Ordered IGN grain that hides R11G11B10F and 8-bit banding in smooth
-// gradients. Its pattern is a fixed function of the screen position, so a
-// still camera accumulates it instead of averaging it out, and it stays as a
-// regular hatch over sky, clouds and fog. Callers use these helpers only while
-// COLOR_DITHER is enabled and compile their own pass-through otherwise.
-// Every caller already passes a non-negative color, so no clamp is owed back.
+// Screen-fixed pattern: a still camera accumulates it as a hatch instead of
+// averaging it out. Callers gate on COLOR_DITHER and compile their own pass-through.
 
 float ColorDitherNoise(vec2 pixel, float seed) {
     vec2 seed_offset = vec2(seed * 17.0, seed * 47.0);

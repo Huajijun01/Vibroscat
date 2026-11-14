@@ -7,15 +7,12 @@
 #include "/lib/volume/epipolar_core.glsl"
 #include "/lib/volume/water_epipolar.glsl"
 
-// Two slices per workgroup (local_size_x = 2): a warp then holds two rays
-// x 16 consecutive samples, which keeps the per-warp shadow-map footprint
-// coherent. The sample columns stay 128 tall.
+// Two slices per group: a warp holds two rays x 16 consecutive samples, keeping
+// the per-warp shadow-map footprint coherent.
 layout(local_size_x = 2, local_size_y = 128) in;
-// Iris scans these consts after option defines and full preprocessing, so
-// the dispatch count follows EPIPOLAR_SLICES branch-wise (slices / 2 groups
-// because each group owns two slices). The in-shader guard stays: underwater
-// SliceCount() caps at min(slices, 512), which no compile-time dispatch can
-// express.
+// Iris scans workGroups after option defines: the dispatch count follows
+// EPIPOLAR_SLICES branch-wise. Underwater SliceCount() caps at
+// min(slices, 512), which no compile-time dispatch can express.
 #if EPIPOLAR_SLICES == 256
 const ivec3 workGroups = ivec3(128, 1, 1);
 #elif EPIPOLAR_SLICES == 512

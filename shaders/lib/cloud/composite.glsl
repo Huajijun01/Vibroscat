@@ -1,9 +1,7 @@
 #ifndef LIB_CLOUD_COMPOSITE_GLSL
 #define LIB_CLOUD_COMPOSITE_GLSL
 
-// High-level cloud compositor: final sky color with volumetric clouds +
-// cirrus. Each layer fades toward the sky by the atmospheric transmittance
-// to its surface position (linear RGB).
+// Final cloud compositor: volumetric + cirrus over the sky (linear RGB).
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -18,30 +16,24 @@
 // Match the volumetric march cutoff: at most 0.01% of a hidden layer remains.
 const float CLOUD_LAYER_OPAQUE_TRANSMITTANCE = 1.0e-4;
 
-// Compose volumetric + cirrus over the sky. Layer order follows the ray:
-// the first-entered layer draws in front (correct occlusion from below,
-// between layers, above the cirrus shell).
 vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
-    CloudSignal volumetric_signal, // unlit primary/sky weights and true cloud T
-    vec3 volumetric_surface_pos, // km planet-centered volumetric cloud surface
-    float volumetric_entry_km,   // ray entry distance into the volumetric shell
-    out vec3 cloud_transmittance, // combined REAL transmittance of the cloud layers
+    CloudSignal volumetric_signal,
+    vec3 volumetric_surface_pos,
+    float volumetric_entry_km,
+    out vec3 cloud_transmittance,
     inout vec4 view_transmittance,
     inout bool view_transmittance_cached
 ) {
     bool volumetric_hit = volumetric_signal.transmittance < 0.99999;
     float volumetric_transmittance = volumetric_hit ? volumetric_signal.transmittance : 1.0;
 
-    // Each cloud owns its integrated radiance and true transmittance.
-    // The compositor owns the background and atmospheric propagation.
     vec3 cirrus_surface_pos = vec3(0.0);
     float cirrus_entry_km = 1.0e9;
     vec3 cirrus_transmittance = vec3(1.0);
     vec3 cirrus_scattering = vec3(0.0);
     bool cirrus_hit = false;
 #ifdef CIRRUS
-    // Below the cirrus shell, the lower volumetric shell is encountered first.
-    // Above cirrus the order reverses, so an opaque volumetric layer cannot cull it.
+    // Only from below can an opaque volumetric layer cull cirrus; above the shell the ray order reverses.
     bool cirrus_occluded = volumetric_transmittance <= CLOUD_LAYER_OPAQUE_TRANSMITTANCE
         && u_camera_radius_km < CIRRUS_BOTTOM_RADIUS_KM
         && ATM_PLANET_R + CLOUD_TOP_ALTITUDE < CIRRUS_BOTTOM_RADIUS_KM;
@@ -66,24 +58,9 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
             volumetric_surface_pos, volumetric_surface_r, sky_color);
     }
 
-    // Transmitted Milky Way glow, evaluated once and shared by both layers:
-    // it is a function of the view ray and the background map alone, so both
-    // layer composites evaluate the identical call. Isotropic single
-    // scattering of a constant background integrates to source * (1 - T) over
-    // the marched column, and the deck's scattering albedo is 1. The
-    // volumetric layer weighs its (1 - T) share by the march's integrated sky
-    // weight, the same sky-access-attenuated share RelightClouds converts, so
-    // the glow follows the column the background actually reaches and a fully
-    // accessed column keeps the exact source * (1 - T) total; the cirrus
-    // sheet is a thin slab with no column model and keeps the raw (1 - T)
-    // share. A missed layer keeps its transmittance at 1 and its sky weight
-    // at 0, so the adds below carry no per-layer runtime gate. vec4(1.0)
-    // transmittance: the fades below carry camera-to-cloud propagation for
-    // this term as for the rest of the composite. The layer toggles compile
-    // each share away entirely.
+    // Volumetric share weighs (1 - T) by the march's integrated sky weight (scattering.y); cirrus keeps
+    // the raw (1 - T). vec4(1.0) transmittance: the fades below already carry camera-to-cloud propagation.
 #if defined(CLOUD_MILKYWAY_GLOW) || defined(CIRRUS_MILKYWAY_GLOW)
-    // The glow call runs only where a compiled-in layer actually holds
-    // cloud along the ray.
 #if defined(CLOUD_MILKYWAY_GLOW) && defined(CIRRUS_MILKYWAY_GLOW)
     bool milkyway_scattered = volumetric_hit || cirrus_hit;
 #elif defined(CLOUD_MILKYWAY_GLOW)
@@ -116,9 +93,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     // Ground-hit paths use the reciprocal direction, unsuitable for celestial light.
     view_transmittance_cached = !ground_hit;
 
-    // Atmospheric fades blend each composite toward the sky but must NOT
-    // touch the true transmittance (a faded far cloud would otherwise let
-    // the layer behind show through).
+    // Fades blend composites toward the sky but must not touch true transmittance, or the layer behind shows through.
     vec3 volumetric_faded = sky_color;
     if (volumetric_hit) {
         vec3 volumetric_composite = volumetric_scattering + sky_color * volumetric_transmittance;
@@ -136,8 +111,7 @@ vec3 RenderCloudLayers(vec3 view_dir, vec3 sky_color,
     if (!cirrus_present) return volumetric_faded;
     if (!volumetric_hit) return cirrus_faded;
 
-    // Depth sort by ray entry: nearer layer drawn last (from the ground the
-    // volumetric layer occludes cirrus behind; from above the order flips).
+    // Ray-entry depth sort: the nearer layer composites in front.
     bool volumetric_in_front = volumetric_entry_km < cirrus_entry_km;
     if (volumetric_in_front) {
         return volumetric_faded + (cirrus_faded - sky_color) * volumetric_transmittance;

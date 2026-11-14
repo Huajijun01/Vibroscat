@@ -27,9 +27,8 @@ in vec3 v_texcoord;
 layout(location = 0) out vec4 out_layer_color;
 layout(location = 1) out vec4 out_surface_data;
 
-// Lightweight forward translucent for hand-held items, translucent entities
-// and particles: deferred5-compatible BRDF (shared BRDF helper), alpha passes
-// straight through. No Fresnel, SSR, water waves or water-column fog.
+// Lightweight forward translucent for hand-held items, translucent entities and particles:
+// deferred5-compatible BRDF (shared BRDF helper), alpha passes straight through.
 void main() {
 #if defined(TAAU_ACTIVE)
     if (OutsideSceneRender(gl_FragCoord.xy)) discard;
@@ -40,29 +39,22 @@ void main() {
     vec3 base_color = ToLinear(albedo.rgb);
 
 #if defined(PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT)
-    // World up expressed in view space: a literal (0,1,0) here would be
-    // screen up and flip particle lighting with camera pitch. mat3(M) times
-    // the y axis is exactly the second matrix column.
+    // World up in view space: a literal (0,1,0) would be screen up and flip lighting with camera pitch.
     vec3 surface_normal_view = normalize(gbufferModelView[1].xyz);
 #else
     // Same BRDF configuration as deferred5 (shared BRDF helper).
-    // v_normal is flat and already unit length at the vertex; interpolation
-    // of a per-primitive constant keeps those bits, so no renormalization.
+    // v_normal is flat and unit from the vertex stage; per-primitive interpolation preserves that, so no renormalize.
     vec3 surface_normal_view = v_normal;
 #endif
 
-    // Compile-time branch, no runtime if: the hand reads its passed-in view
-    // position, everything else reconstructs from the window coordinates.
 #if defined(PROGRAM_GBUFFERS_HAND_WATER)
     vec3 view_pos = v_view_pos;
 #else
     vec3 view_pos = ReconstructGbufferViewPosition(gl_FragCoord);
 #endif
     vec3 view_to_eye = -normalize(view_pos);
-    // Translucent particles carry no PBR data: fixed dielectric defaults,
-    // never the specular atlas. Hand and translucent entities keep the map;
-    // a resource pack without a _s atlas leaves Iris's 1x1 placeholder
-    // bound, so the fetch stays guarded and the zero default holds.
+    // Translucent particles carry no PBR data: fixed dielectric defaults, never the specular atlas.
+    // No _s atlas: Iris binds a 1x1 placeholder, so the fetch stays guarded and the zero default holds.
 #ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
     Material mat = MaterialDefaults(vec4(0.0));
 #else
@@ -82,9 +74,8 @@ void main() {
              + diffuse_reflectance * TORCH_LIGHT_COLOR * torch_light;
 
     out_layer_color = vec4(lit * albedo.a, albedo.a);
-    // Non-water normal/flag: (0,0,1) packed, water flag 0. Particles write
-    // the dummy view normal; their lighting normal is world up, not a
-    // gbuffer surface normal.
+    // Packed view-space normal, water flag 0. Particles write the dummy view normal; their
+    // lighting normal is world up, not a gbuffer surface normal.
 #ifdef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
     out_surface_data = vec4(0.5, 0.5, 1.0, 0.0);
 #else

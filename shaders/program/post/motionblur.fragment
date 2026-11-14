@@ -28,8 +28,7 @@ vec3 PassthroughColor() {
 }
 
 void main() {
-    // composite5 is MOTION_BLUR-gated in shaders.properties; TAA off is the
-    // only reachable fallback.
+    // composite5 is MOTION_BLUR-gated in shaders.properties; TAA off is the only reachable fallback.
 #ifndef TAA
     out_color = PassthroughColor();
     return;
@@ -38,8 +37,7 @@ void main() {
     vec2 texcoord = (vec2(tx) + 0.5) * u_view_pixel_size;
 
     vec3 encoded_motion = texelFetch(colortex0, tx, 0).rgb;
-    // RG hold the motion magnitude, B two sign bits (bit 0 = X, bit 1 = Y);
-    // both TAA paths share this encoding.
+    // RG hold the motion magnitude, B two sign bits (bit 0 = X, bit 1 = Y); both TAA paths share this encoding.
     int motion_sign = int(encoded_motion.b + 0.5);
     vec2 velocity = encoded_motion.rg
         * vec2((motion_sign & 1) != 0 ? -1.0 : 1.0, (motion_sign & 2) != 0 ? -1.0 : 1.0);

@@ -7,8 +7,7 @@
 #include "/lib/atmosphere/sky_radiance.glsl"
 #include "/lib/atmosphere/spectral.glsl"
 
-// 8x4 workgroups spread the 128x128 bake over 512 blocks instead of 64, so
-// every SM receives work on this small dispatch.
+// 8x4 groups spread the small 128x128 bake over 512 blocks so every SM gets work.
 layout(local_size_x = 8, local_size_y = 4) in;
 const ivec3 workGroups = ivec3(16, 32, 1);
 
@@ -39,7 +38,7 @@ void main() {
     vec4 spectral_radiance = ComputeSkyRadiance(view_dir);
     vec3 rgb = SpectralToLinearSRGBWhiteBalanced(spectral_radiance) * ATM_EXPOSURE;
 
-    // Static interleaved gradient noise dither - no temporal component to avoid flicker
+    // Static IGN dither: no temporal component, the LUT must not flicker.
     float d_noise = InterleavedGradientNoise(vec2(id));
     rgb += (d_noise - 0.5) * max(rgb, 1e-4) / 1024.0;
 

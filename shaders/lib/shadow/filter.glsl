@@ -3,9 +3,8 @@
 
 #include "/lib/core/filters.glsl"
 
-// Separable cubic B-spline over a sampler2DShadow (Sigg-style 4 taps/axis);
-// each tap uses hardware PCF, so the 16-tap result is smoother than a single
-// lookup.
+// Separable cubic B-spline over sampler2DShadow (Sigg-style, 4 taps/axis);
+// taps use hardware PCF.
 float Shadow2DFastBspline(sampler2DShadow tex0, vec3 sp, float res, float texel) {
     vec2 uv = sp.xy;
 

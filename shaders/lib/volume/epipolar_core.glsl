@@ -1,13 +1,11 @@
 #ifndef LIB_VOLUME_EPIPOLAR_CORE_GLSL
 #define LIB_VOLUME_EPIPOLAR_CORE_GLSL
-// Epipolar parametrization: rays are sampled along slices through the light
-// direction, integrated at per-slice depth breakpoints and unwarped per pixel.
+// Epipolar parametrization: rays sampled along light-direction slices, unwarped per pixel.
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
 
-// Shared epipolar geometry and depth-aware unwarp. Air stores normalized E;
-// underwater stores additive radiance. Only the active medium owns the images.
-// composite1 -> composite2 compute -> composite2 fragment use Iris barriers.
+// Air stores normalized E in the shared images, underwater additive radiance; only the
+// active medium owns them. composite1 -> composite2 compute -> composite2 fragment.
 
 #include "/lib/core/coordinates.glsl"
 #include "/lib/core/math_scalar.glsl"
@@ -15,8 +13,8 @@
 
 #if defined(EPIPOLAR_ACTIVE)
 
-// Underwater occupies a bounded lower-left rectangle of the existing images.
-// Every active texel is rewritten each frame; neither medium consumes history.
+// Underwater occupies a bounded lower-left rectangle of the images; every active texel
+// is rewritten each frame, neither medium consumes history.
 int SliceCount() {
 #if defined(WATER_EPIPOLAR_ACTIVE)
     if (isEyeInWater == 1) return min(EPIPOLAR_SLICES, 512);
@@ -31,14 +29,13 @@ int SampleCount() {
     return EPIPOLAR_SAMPLES;
 }
 
-// Quantize a screen UV to the texel holding its center, shared by every
-// epipolar depth/key fetch: clamping to texel centers keeps truncation inside
-// the viewport at both edges.
+// Shared by every epipolar depth/key fetch; clamping to texel centers keeps truncation
+// inside the viewport at both edges.
 ivec2 ScreenTexel(vec2 uv01) {
     return ivec2(clamp(uv01 * u_render_res, vec2(0.5), u_render_res - vec2(0.5)));
 }
 
-// Shadow visibility on the undistorted segment; apply distortion at each step.
+// Undistorted shadow-clip endpoints; distortion is applied inside, per step.
 float ShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
     float result = 1.0;
     vec3 clip = mix(shadow_clip_start, shadow_clip_end, u);
@@ -50,10 +47,8 @@ float ShadowVisibility(vec3 shadow_clip_start, vec3 shadow_clip_end, float u) {
     return result;
 }
 
-// Project the active light into NDC. The pole is the light's projective
-// screen position: behind the camera it mirrors (lines stay valid); at
-// clip.w ~ 0 it is at infinity (lines become parallel). pole_in_screen =
-// inside the rect.
+// Pole = the light's projective screen position: behind the camera it mirrors (lines
+// stay valid); at clip.w ~ 0 it is at infinity (lines become parallel).
 vec2 LightNDC(out bool pole_in_screen) {
     vec3 light_dir_view = u_view_light_dir;
 #if defined(WATER_EPIPOLAR_ACTIVE)
@@ -65,8 +60,7 @@ vec2 LightNDC(out bool pole_in_screen) {
     return clip.xy / max(abs(clip.w), 1e-6) * side;
 }
 
-// Exit point on the rect for slice i: uniform perimeter placement keeps
-// coverage even with a far/infinite pole.
+// Uniform perimeter placement keeps slice coverage even with a far/infinite pole.
 vec2 SliceExit(int slice) {
     float f = (float(slice) + 0.5) / float(SliceCount());
     int sector = clamp(int(f * 4.0), 0, 3);
@@ -77,13 +71,10 @@ vec2 SliceExit(int slice) {
     return vec2(1.0 - 2.0 * s, 1.0);
 }
 
-// Other rect crossing of the line through origin and dir (origin = one
-// boundary crossing; the ray enters forward or leaves backward; zero dir
-// components -> +/-inf, tolerated by the slab test).
+// Other rect crossing of the line through origin and dir (origin is itself a
+// boundary crossing; zero dir components degrade to +/-inf, tolerated by the slab test).
 vec2 BoundaryHit(vec2 origin, vec2 dir) {
-    // Avoid 0 * inf when a line starts on an edge and is parallel to it:
-    // a NaN here would leak into an endpoint line near horizontal/vertical
-    // light directions and invalidate the whole slice.
+    // A 0 * inf NaN here would invalidate the whole slice near axis-parallel light directions.
     vec2 tmin = vec2(-1e30);
     vec2 tmax = vec2( 1e30);
     if (abs(dir.x) > 1e-6) {
@@ -103,15 +94,13 @@ vec2 BoundaryHit(vec2 origin, vec2 dir) {
     return origin + dir * t_other;
 }
 
-// Camera-relative world point from UV+depth; do NOT add cameraPosition
-// (shadowModelView maps this space).
+// Camera-relative world point; do NOT add cameraPosition (shadowModelView maps this space).
 vec3 WorldPosFromScreenUV(vec2 uv01, float depth01) {
     vec3 view_pos = NDCToView(vec3(uv01 * 2.0 - 1.0, depth01 * 2.0 - 1.0));
     return ViewToWorldSpace(view_pos);
 }
 
-// Gather order: lower/upper sample on slice0, then on slice1. Iris uses
-// linear filtering and clamp-to-edge for these noninteger custom images.
+// Gather order: lower/upper on slice0 then slice1; linear filtering, clamp-to-edge.
 vec4 GatherKeys(int slice0, int row) {
     vec2 uv = vec2(float(slice0 + 1) / float(EPIPOLAR_SLICES),
         float(row + 1) / float(EPIPOLAR_SAMPLES));
@@ -122,8 +111,8 @@ vec4 GatherKeys(int slice0, int row) {
     return vec4(left.w, left.x, right.w, right.x);
 }
 
-// Compare relative errors by cross multiplication, without four reciprocals
-// per search footprint. Settings expose power-of-two slice counts.
+// Relative errors compared by cross multiplication; slice counts are power-of-two
+// (settings), enabling the wrap masks.
 void SelectKey(vec4 keys, float pixel_key, int slice0, int row,
         inout float closest_distance, inout float closest_scale, inout ivec2 closest_texel) {
     vec4 distance_z = abs(vec4(pixel_key) - keys);
@@ -182,10 +171,8 @@ vec3 SampleEpipolarTerm(vec2 ndc, float pixel_key, vec3 fallback) {
     float slice_f = fract(perimeter * 0.25 - 0.5 / float(SliceCount())) * float(SliceCount());
     int slice0 = int(slice_f);
     int slice1 = (slice0 + 1) & (SliceCount() - 1);
-    // Progress on the continuous pole->pixel line. Inside one exit sector
-    // this inverts the producer grid exactly for an in-screen pole. Outside
-    // the screen it follows the continuous entry/exit ray; interpolation of
-    // neighboring stored lines remains a finite-grid approximation.
+    // For an in-screen pole this exactly inverts the producer grid; outside the screen
+    // it follows the continuous entry/exit ray (finite-grid approximation).
     float t;
     if (pole_in_screen) {
         float pole_bound = exit_x ? (negative.x ? 1.0 + pole.x : 1.0 - pole.x)

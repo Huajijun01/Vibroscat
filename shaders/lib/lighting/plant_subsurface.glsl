@@ -9,7 +9,7 @@
 // Reference distance in empirical transport-depth units.
 const float PLANT_TRANSPORT_DISTANCE = 0.25;
 
-// Linear color sets scattering color and complementary absorption.
+// color must be linear; it sets scattering, its complement the absorption.
 void PlantScatteringCoefficients(vec3 color, float amount,
         out vec3 sigma_a, out vec3 sigma_s) {
     sigma_a = (vec3(1.0) - color) / PLANT_TRANSPORT_DISTANCE;
@@ -18,8 +18,7 @@ void PlantScatteringCoefficients(vec3 color, float amount,
 
 #else
 
-// Effective thin-layer reflection/transmission, anchored to linear biome-tinted
-// texture color. R + T <= 1 per channel; absorption is the remainder.
+// Thin-layer model anchored to linear biome-tinted color; R + T <= 1 per channel.
 vec3 PlantTransmission(vec3 color, float transmission_prior) {
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
     float dark_gate = luminance / (luminance + 0.04);
@@ -31,9 +30,8 @@ float PlantFresnelComplement(float cosine) {
     return 1.0 - Pow5(1.0 - cosine);
 }
 
-// Smoothly tilted micro sheets for vertical cards, collapsing onto the real
-// normal at the horizontal poles. Projected view weights vanish continuously
-// when crossing a sheet. GGX continues to use the original surface normal.
+// Tilted micro-sheet model for vertical cards, collapsing onto the real normal
+// at the horizontal poles; GGX keeps using the original surface normal.
 vec2 PlantAngularWeights(vec3 normal_world, vec3 light_world,
         vec3 view_to_eye, bool tilted_sheets) {
     float normal_view = dot(normal_world, view_to_eye);

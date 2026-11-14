@@ -6,9 +6,6 @@
 #include "/lib/core/render_scale.glsl"
 #include "/lib/lighting/ambient_light.glsl"
 
-// Only gbuffers_water classifies its geometry; mc_Entity and at_tangent are
-// declared when the water surface actually consumes them, not whenever the
-// host could supply them.
 #if defined(PROGRAM_GBUFFERS_WATER) && defined(HAS_MC_ENTITY)
 in vec4 mc_Entity;
 #endif
@@ -17,9 +14,7 @@ in vec4 at_tangent;
 #endif
 
 #if defined(PROGRAM_GBUFFERS_WATER)
-// bit 0 = water block, bit 1 = glass/ice class, bit 2 = negative tangent
-// handedness (present only while the tangent interface is active). Non-water
-// translucent programs are the ordinary transparent class and carry no flags.
+// bit 0 = water block, bit 1 = glass/ice, bit 2 = negative tangent handedness; non-water translucent programs carry no flags.
 flat out int v_surface_flags;
 #endif
 flat out vec3 v_normal;
@@ -56,31 +51,24 @@ void main() {
     v_normal = normalize(gl_NormalMatrix * gl_Normal);
 
 #if defined(PROGRAM_GBUFFERS_WATER)
-    // Water is chunk geometry behind a translation-only model-view, so
-    // mat3(gbufferModelViewInverse) * gl_NormalMatrix is the identity (see
-    // the terrain branch in solid.vertex): the world basis is the attributes
-    // themselves, and only the view-space normal above needs the rotation.
+    // Chunk geometry sits behind a translation-only model-view, so mat3(gbufferModelViewInverse) * gl_NormalMatrix
+    // is the identity (see the terrain branch in solid.vertex): the world basis is the attributes themselves.
     vec3 normal_world = normalize(gl_Normal);
 #if defined(WATER_SURFACE_TANGENT_ACTIVE)
     v_world_tangent = normalize(at_tangent.xyz);
 #endif
 #else
-    // v_normal is unit and the camera rotation preserves its length.
     vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
 #if defined(WATER_SURFACE_TANGENT_ACTIVE)
-    // Same world tangent construction as solid.vertex; the handedness bit
-    // travels with the classification flags and the bitangent is rebuilt in
-    // the fragment stage where it is consumed.
+    // Same construction as solid.vertex; the handedness bit rides the flags, the bitangent is rebuilt in the fragment stage.
     v_world_tangent = normalize(mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz));
 #endif
 #endif
 
 #if defined(PROGRAM_GBUFFERS_WATER)
-    // gbuffers_water also receives glass/ice: the water flag must come from
-    // block.properties (block.80), not the program.
+    // gbuffers_water also receives glass/ice: the water flag comes from block.properties (block.80), not the program.
     int surface_flags = mc_Entity.x == 80.0 ? 1 : 0;
-    // Glass/ice classes from block.properties: 160 = glass/panes,
-    // 161 = ice, 163-167 = stained glass; slime/honey (162) is not glass.
+    // block.properties: 160 = glass/panes, 161 = ice, 163-167 = stained glass; 162 (slime/honey) is not glass.
     if (mc_Entity.x == 160.0 || mc_Entity.x == 161.0
             || (mc_Entity.x >= 163.0 && mc_Entity.x <= 167.0)) {
         surface_flags |= 2;
@@ -91,7 +79,6 @@ void main() {
     v_surface_flags = surface_flags;
 #endif
 
-    // Same sky ambient + lightmap remap as deferred5 (no AO in the gbuffer
-    // stage).
+    // Same sky ambient + lightmap remap as deferred5 (no AO in the gbuffer stage).
     v_ambient_col = AmbientLight(normal_world, vec3(1.0), v_texcoord.w);
 }

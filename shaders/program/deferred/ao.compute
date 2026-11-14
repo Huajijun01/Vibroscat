@@ -1,7 +1,6 @@
-// Half-res AO generation and accumulation; borrows colortex2 alt.
-// Storage: R = raw accumulated AO, GB = receiver oct8 geometric normal,
-// A = history age / 255. Multibounce and strength run in the lighting consumer
-// after the temporal blend, so the accumulated field stays linear.
+// Half-res AO accumulation in colortex2 alt: R = accumulated AO, GB = oct8 receiver
+// normal, A = age/255. The lighting consumer applies multibounce/strength after the
+// temporal blend, so this stays linear.
 
 #include "/lib/contract/settings.glsl"
 #include "/lib/contract/uniforms.glsl"
@@ -11,9 +10,6 @@
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/lighting/temporal_ao.glsl"
 
-// Each invocation covers one 2x2 full-res block regardless of the group
-// shape, so the pixel mapping and sample coordinates below are independent
-// of this size. All half-resolution texels still update every frame.
 layout(local_size_x = 16, local_size_y = 32) in;
 const vec2 workGroupsRender = vec2(0.5, 0.5);
 
@@ -25,8 +21,6 @@ void main() {
     if (any(greaterThanEqual(half_texel, half_size))) {
         return;
     }
-    // Depth, normal and ray origin use the same actual full-res pixel. The
-    // last row/column clamps to the cropped scene when its size is odd.
     ivec2 sample_pixel = min(half_texel * 2, ivec2(u_render_res) - 1);
     vec2 uv = (vec2(sample_pixel) + vec2(0.5)) * u_render_pixel_size;
     vec2 normal_oct = texelFetch(colortex4, sample_pixel, 0).xy;
@@ -35,16 +29,9 @@ void main() {
         imageStore(colorimg2, half_texel, vec4(1.0, normal_oct, 1.0 / 255.0));
         return;
     }
-    // The AO temporal accumulator runs with or without TAA, so the STBN pair
-    // keeps advancing with frameCounter (no STBNFrame() pinning here). The
-    // evaluation point is half-res: shift nothing spatially, offset the
-    // second stream by the registry's STBN_STREAM_3.
+    // Accumulator runs without TAA too, so frameCounter (not STBNFrame()) drives the pair.
     vec2 stbn_noise = SampleSTBNPair(
         half_texel, frameCounter, STBN_STREAM_3, ivec2(0));
-    // The history reprojection depends only on the receiver texel, depth and
-    // normal - none of the kernel's work - so its read issues before the AO
-    // kernel and the kernel hides its latency; the accumulation below
-    // consumes the fetched value.
     vec3 ao_history = ReprojectAOHistory(sample_pixel, scene_depth, normal_oct);
     float ao = ComputeGTAOFromGeometry(uv, scene_depth, normal_oct, stbn_noise);
     vec2 accumulated = ResolveTemporalAO(ao_history, ao);

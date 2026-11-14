@@ -1,7 +1,5 @@
-// Current directional response (BRDF, visibility, plant transmission, emission)
-// once per opaque pixel. colortex0 receives direct RGB + emission; colortex5 W
-// receives the caustic BRDF with flip.deferred1.colortex5=false, which keeps the
-// history side selected for SSR and TAA. Sky texels discard from both targets.
+// colortex5 carries the caustic BRDF for SSR; flip.deferred1.colortex5=false
+// keeps the history side selected for SSR and TAA.
 
 /* RENDERTARGETS: 0,5 */
 
@@ -25,8 +23,6 @@ void main() {
 #endif
     ivec2 tx = ivec2(gl_FragCoord.xy);
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
-    // Sky texels stay unwritten on both targets (see header); discarding also
-    // skips the color export work for the sky share of the frame.
     if (scene_depth >= 1.0) {
         discard;
     }
@@ -50,9 +46,7 @@ void main() {
     vec3 world_pos = ViewToWorldSpace(view_pos);
     vec3 view_to_eye = normalize(EyePositionWorldSpace() - world_pos);
     float ndotv = saturate(dot(normal_world, view_to_eye));
-    // Both out-params are initialized at evaluator entry; the reflectance
-    // out-param is a write-only sink here (deferred5 recomputes it for its own
-    // consumers).
+    // diffuse_reflectance is a write-only sink; deferred5 recomputes it.
     vec3 caustic_brdf;
     vec3 diffuse_reflectance;
     vec3 direct_rgb = EvaluateOpaqueDirectLight(tx, albedo, material, material_id,

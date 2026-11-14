@@ -1,8 +1,6 @@
-// Cloud temporal upsampling and guided AO reconstruction; writes one merged
-// colortex8 history frame.
-// Sky: RG scattering weights, B transmittance, A distance (km).
-// Geometry: R EncodeAOHistory(AO), G age, B encoded view depth
-// (EncodeSquaredDepth, see lib/raytrace/ssr_depth.glsl), A NaN ("not cloud").
+// Writes one merged colortex8 history frame.
+// Sky: RG scattering weights, B transmittance, A distance (km). Geometry:
+// R EncodeAOHistory(AO), G age, B EncodeSquaredDepth, A NaN = "not cloud".
 
 /* RENDERTARGETS: 8 */
 
@@ -35,7 +33,6 @@ void main() {
     float scene_depth = texelFetch(depthtex0, tx, 0).r;
 
     if (scene_depth >= 1.0) {
-        // -- Sky: cloud temporal upsampling + accumulation --
 #ifdef VOLUMETRIC_CLOUDS
         vec3 view_dir = normalize(mat3(gbufferModelViewInverse)
             * NDCToView(vec3(uv * 2.0 - 1.0, 1.0)));
@@ -45,7 +42,7 @@ void main() {
         bool cloud_visible = CloudShellInterval(camera_atmosphere_pos, view_dir, cloud_entry, cloud_exit);
         if (cloud_visible
                 && length(camera_atmosphere_pos) < ATM_PLANET_R + CLOUD_BASE_ALTITUDE) {
-            // Only render when the ray rises into the layer (not skimming beneath).
+            // entry > 0: the ray rises into the layer rather than skimming beneath it.
             cloud_visible = cloud_entry > 0.0;
         }
         if (cloud_visible) {
@@ -54,8 +51,6 @@ void main() {
 #if CLOUD_RECONSTRUCTION_MODE == 1 && CLOUD_TEMPORAL_UPSCALING > 1
             float shell_distance = (view_dir.y < 0.0 && cloud_entry > 0.0) ? cloud_entry : cloud_exit;
             ivec2 phase_offset = CloudCheckerboardOffset();
-            // One integer division serves both the phase test and the fetch:
-            // tx % N is exactly tx - (tx / N) * N.
             ivec2 cell = tx / CLOUD_TEMPORAL_UPSCALING;
             bool has_fresh = all(equal(tx - cell * CLOUD_TEMPORAL_UPSCALING, phase_offset));
             vec4 raw_sample = texelFetch(colortex12, cell, 0);
@@ -71,8 +66,6 @@ void main() {
                 if (!has_fresh && !CloudHistoryInvalid(held)) {
                     anchor_distance = held.distance_km;
                 } else {
-                    // An invalid held distance needs current spatial support
-                    // to place the reprojection ray, even if history survives.
                     if (!current_ready) {
                         current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
                         current_ready = true;
@@ -83,13 +76,11 @@ void main() {
                 if (CloudProjectToPrevious(view_dir, anchor_distance, previous_uv)) {
                     CloudFrame history = CloudCheckerboardHistory(previous_uv);
                     if (!CloudHistoryInvalid(history)) {
-                        // Reprojection already follows camera rotation. Valid
-                        // history keeps its warmup age regardless of screen motion.
+                        // History age keeps counting across camera motion; reprojection handles rotation.
                         if (has_fresh) {
                             accumulated = CloudCheckerboardAccumulate(current_frame, history, pixel_age);
                         } else {
-                            // Sparse current neighbors can miss detail retained
-                            // in history; only a fresh ray updates this signal.
+                            // Non-fresh texels keep history: sparse checkerboard neighbors lose retained detail.
                             accumulated = history;
                         }
                         history_accepted = true;
@@ -98,8 +89,6 @@ void main() {
                 }
             }
             if (!history_accepted) {
-                // Spatial fill contributes only when history cannot supply
-                // the output; reuse it if it already supplied the anchor.
                 if (!current_ready) {
                     current_frame = CloudCheckerboardCurrent(tx, phase_offset, shell_distance);
                 }
@@ -112,12 +101,10 @@ void main() {
                 vec2 previous_uv;
                 if (!CloudProjectToPrevious(view_dir, current_frame.distance_km, previous_uv
                 )) {
-                    // UV out of range / behind previous camera: reject history.
                     accumulated = current_frame;
                 } else {
                     CloudFrame reprojected_history = CloudHistorySample(previous_uv);
                     if (CloudHistoryInvalid(reprojected_history)) {
-                        // Reprojected slot has no data: seed from current.
                         accumulated = current_frame;
                     } else {
                         accumulated = CloudAccumulate(current_frame, reprojected_history, pixel_age);
@@ -129,8 +116,7 @@ void main() {
             imageStore(uimg_clouds_age, tx, vec4(float(new_age) * (1.0 / 255.0), 0.0, 0.0, 0.0));
             out_history = EncodeCloudFrame(accumulated);
         } else {
-            // Ray misses the layer: keep the invalid marker, reset age
-            // (entering rays reseed immediately).
+            // Miss: invalid marker + age reset, so entering rays reseed immediately.
             imageStore(uimg_clouds_age, tx, vec4(0.0, 0.0, 0.0, 0.0));
             out_history = vec4(0.0, 0.0, 1.0, HISTORY_NO_CLOUD_DATA);
         }
@@ -140,11 +126,9 @@ void main() {
         return;
     }
 
-    // -- Geometry: guided AO reconstruction; cloud history invalid --
 #if defined(GTAO)
     vec2 geo_normal_oct = texelFetch(colortex4, tx, 0).xy;
-    // AO history was validated and accumulated at half resolution by the
-    // preceding compute. Full-res output uses depth/normal bilateral weights.
+    // Half-res AO input was accumulated by the preceding compute; this is the full-res upfilter.
     vec2 resolved_ao = ReconstructAO(tx, scene_depth, geo_normal_oct);
     out_history = vec4(EncodeAOHistory(resolved_ao.x), resolved_ao.y,
         EncodeSquaredDepth(scene_depth), HISTORY_NO_CLOUD_DATA);
@@ -152,7 +136,6 @@ void main() {
     imageStore(uimg_clouds_age, tx, vec4(0.0));
 #endif
 #else
-    // No standalone AO (clouds on): geometry pixels invalidate the cloud history.
 #ifdef VOLUMETRIC_CLOUDS
     out_history = vec4(0.0, 0.0, 1.0, HISTORY_NO_CLOUD_DATA);
     imageStore(uimg_clouds_age, tx, vec4(0.0, 0.0, 0.0, 0.0));

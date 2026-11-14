@@ -3,10 +3,8 @@
 
 #include "/lib/contract/uniforms.glsl"
 
-// TAAU renders the scene into the lower-left rectangle of the display-sized
-// allocations while projection UVs stay [0, 1]. Without TAAU the scene fills
-// the whole allocation, so every consumer skips the call and uses its
-// coordinate directly.
+// With TAAU the scene occupies the lower-left rectangle of the display-sized
+// allocations and projection UVs stay [0, 1]; without it, consumers skip these calls.
 
 vec2 SceneTextureUV(vec2 screen_uv) {
     return clamp(screen_uv * u_render_scale, 0.5 * u_view_pixel_size,

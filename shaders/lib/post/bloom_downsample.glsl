@@ -1,8 +1,7 @@
 #ifndef LIB_POST_BLOOM_DOWNSAMPLE_GLSL
 #define LIB_POST_BLOOM_DOWNSAMPLE_GLSL
 
-// Alternating sample rows contain the four interleaved 2x2 boxes of a
-// symmetric 13-tap downsample. The cache stores filtered FP16 RGB samples.
+// Alternating rows hold the four interleaved 2x2 boxes of a symmetric 13-tap downsample.
 shared uvec2 bloom_down_tile[35][18];
 
 vec3 LoadBloomDownTile(ivec2 coord) {

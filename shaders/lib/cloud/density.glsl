@@ -28,13 +28,11 @@ float CloudRemapErosion(float density, float threshold) {
     return saturate((density - threshold) / max(1.0 - threshold, 1.0e-5));
 }
 
-// Local planet-space XZ is camera-relative. The frame offset already
-// contains camera XZ / scale and wind advection, so translation is applied once.
+// local_xz_km is camera-relative; the frame offset already carries camera XZ and wind advection.
 vec2 CloudDistributionUV(vec2 local_xz_km, CloudDensityFrame frame) {
     return local_xz_km * (1.0 / CLOUD_DISTRIBUTION_SCALE_KM) + frame.distribution_uv_offset;
 }
 
-// Coverage and absolute/wind offsets are constant across view and light samples.
 CloudDensityFrame CloudDensityFrameForRay() {
     CloudDensityFrame frame;
     frame.coverage = CLOUD_COVERAGE * (1.0 - rainStrength) + rainStrength;
@@ -46,7 +44,6 @@ CloudDensityFrame CloudDensityFrameForRay() {
     return frame;
 }
 
-// Normalized height and density-independent ramps, evaluated once per sample.
 CloudHeightProfile CloudHeightProfileFor(float altitude_km) {
     CloudHeightProfile profile;
     profile.height_fraction = saturate((altitude_km - CLOUD_BASE_ALTITUDE)
@@ -56,19 +53,13 @@ CloudHeightProfile CloudHeightProfileFor(float altitude_km) {
     return profile;
 }
 
-// Shared base field for view and light samples. With coverage in [0, 1],
-// the upper edge exceeds the lower edge by 0.5 + 0.1 * distribution_density.
 float CloudBaseDensity(float distribution_density, CloudHeightProfile profile) {
     float top_fade = 1.0 - smoothstep(distribution_density * 0.4,
         distribution_density * 0.5 + 0.5, profile.height_fraction);
     return distribution_density * profile.bottom_ramp * top_fade;
 }
 
-// Eroded density in [0, 1] at one point in the cloud layer. The caller owns
-// the altitude band test (it needs the raw altitude for CloudHeightProfileFor
-// anyway) and the distribution read: the view march issues that 2D fetch one
-// sample ahead, so this decode consumes it from a register and only the
-// fine-detail volume read happens here, behind the density gates.
+// Caller owns the altitude-band test and the distribution fetch (the view march prefetches it one sample ahead).
 float DecodeCloudDensity(vec3 atmosphere_position, CloudDensityFrame frame, CloudHeightProfile profile,
     float distribution_fetch
 ) {
@@ -89,15 +80,12 @@ float DecodeCloudDensity(vec3 atmosphere_position, CloudDensityFrame frame, Clou
     return result;
 }
 
-// Mean-erosion density for the directional light transport.
 float CloudDensityLowQuality(float distribution_density, CloudHeightProfile profile) {
     return CloudRemapErosion(CloudBaseDensity(distribution_density, profile),
         CLOUD_VORONOISE_MEAN * CLOUD_FINE_EROSION_STRENGTH * profile.fine_exposure);
 }
 
-// Fitted upward column integral of the mean-erosion field at strength 0.7.
-// A squared affine root with a smooth base correction gives zero slope at
-// the cloud base. Extinction (km^-1) and thickness (km) remain explicit.
+// Fitted upward column integral of the mean-erosion field at erosion strength 0.7.
 float CloudVerticalOpticalDepth(float distribution_density, float height_fraction) {
     float base_correction = max(0.3625 - height_fraction, 0.0);
     float column_root = max(0.0637 + 0.8728 * distribution_density
@@ -106,8 +94,6 @@ float CloudVerticalOpticalDepth(float distribution_density, float height_fractio
     return CLOUD_ALPHA_EXTINCTION_SRGB_GRAY * CLOUD_THICKNESS_KM * column_root * column_root;
 }
 
-// Directional transport reads the distribution at each light sample. The
-// erosion threshold uses the texture mean, saving one 3D read per light step.
 float SampleCloudDensityLowQuality(vec3 atmosphere_position, CloudDensityFrame frame, CloudHeightProfile profile
 ) {
     float result = 0.0;

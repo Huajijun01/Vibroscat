@@ -16,8 +16,8 @@ ivec2 GIHistorySize() {
     return max(ivec2(floor(u_render_res * 0.5)), ivec2(1));
 }
 
-// Two endpoint samples per axis also cover odd-size blocks (occasionally
-// three pixels wide). The two-bit selector records the exact receiver ray.
+// offset_code selects one block endpoint per axis; two endpoints also cover
+// odd-size blocks.
 vec2 RepresentativePixel(ivec2 gi_texel, int offset_code, vec2 block_scale) {
     vec2 selector = vec2(offset_code & 1, (offset_code >> 1) & 1);
     return floor((vec2(gi_texel) + selector) * block_scale) - selector + 0.5;
@@ -27,9 +27,8 @@ vec2 RepresentativePixelUV(ivec2 gi_texel, int offset_code) {
     return RepresentativePixel(gi_texel, offset_code, u_render_res / vec2(GIHistorySize())) / u_render_res;
 }
 
-// Oct6 geometry and fifteen signed change states fit in the 61440 normal,
-// finite half bit patterns. Keep age independent: a noisy estimate must not
-// round age down or repeatedly stall convergence at a sixteen-frame boundary.
+// Fits oct6 normal + 15 signed change states into finite half bit patterns so
+// age stays independent of a noisy estimate.
 float PackGIHistoryNormal(vec3 normal_world, float change_count) {
     uvec2 oct = uvec2(round(saturate(EncodeOctahedralNormal(normal_world)) * 63.0));
     uint count = uint(clamp(round(abs(change_count)), 0.0, GI_RESPONSE_FRAMES - 1.0));
@@ -49,8 +48,8 @@ vec3 GIHistoryNormal(vec4 metadata) {
     return DecodeOctahedralNormal(vec2(payload & 63u, (payload >> 6) & 63u) * (1.0 / 63.0));
 }
 
-// RGBA16F: packed oct6 normal/change count, temporal second moment, view depth,
-// and exact real age[0:7]/representative[8:9]/source[10]. Age zero is invalid.
+// RGBA16F: oct6 normal/change count, second moment, view depth, and exact age
+// code age[0:7]/representative[8:9]/source[10]. Age zero is invalid.
 vec4 EncodeGIHistory(vec3 normal_world, float depth_view, float age, int offset_code,
         float second_moment, float change_count) {
     int code = int(clamp(age, 1.0, GI_HISTORY_LIMIT))
@@ -94,8 +93,8 @@ struct GIReprojectedHistory {
     float second_moment;
 };
 
-// Barycentric coordinates at the origin. Affine interpolation has zero
-// spatial first moment, so repeated reprojection cannot advect a light ramp.
+// Barycentric at the origin: affine interpolation has zero spatial first
+// moment, so repeated reprojection cannot advect a light ramp.
 vec3 GIHistoryTriangleWeights(vec2 a, vec2 b, vec2 c) {
     vec3 result = vec3(-1.0);
     vec2 ab = b - a;
@@ -108,10 +107,8 @@ vec3 GIHistoryTriangleWeights(vec2 a, vec2 b, vec2 c) {
     return result;
 }
 
-// Neighboring rays on a grazing plane can meet meters apart. Reject the
-// depth error from that ray's intersection with the receiver plane, rather
-// than the legitimate displacement along the plane. Cross multiplication
-// avoids a divide near the horizon; opposite-side intersections stay invalid.
+// Depth error is measured along the ray to its receiver-plane intersection,
+// not the legitimate displacement along a grazing plane; opposite sides are invalid.
 bool GIHistoryMatchesPlane(vec3 sample_view, vec3 receiver_view, vec3 normal_view,
         float plane_tolerance_m, float depth_tolerance_m) {
     float receiver_plane = dot(receiver_view, normal_view);
@@ -123,9 +120,8 @@ bool GIHistoryMatchesPlane(vec3 sample_view, vec3 receiver_view, vec3 normal_vie
             <= depth_tolerance_m * depth_tolerance_m * sample_plane * sample_plane;
 }
 
-// Disocclusion has no receiver history. Use only nearby, converged samples
-// of the same plane as a bounded prior, worth at most 16 temporal samples.
-// Its confidence is deliberately lower than the donor's true history age.
+// Disocclusion prior: nearby converged same-plane samples, capped at age 16,
+// deliberately below the donor's true history age.
 GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
         vec3 normal_previous_view, vec3 normal_world) {
     GIReprojectedHistory result;
@@ -175,8 +171,8 @@ GIReprojectedHistory BootstrapGIHistory(vec2 previous_uv, vec3 previous_view,
     return result;
 }
 
-// Validate each actual previous geometry tap before reading its irradiance.
-// Camera-only reprojection cannot track arbitrary moving objects.
+// Camera-only reprojection cannot track arbitrary moving objects; every tap
+// is validated before its irradiance is read.
 GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) {
     GIReprojectedHistory result;
     result.irradiance = vec3(0.0);
@@ -185,8 +181,7 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
     result.change_count = 0.0;
     result.second_moment = 0.0;
     if (frameCounter < 2 || dot(u_camera_delta, u_camera_delta) > 64.0) return result;
-    // Sprint/flight FOV changes do not invalidate world-space history. Use
-    // the actual previous projection and validate each previous surface;
+    // FOV changes (sprint/flight) do not invalidate world-space history;
     // rejecting a projection-scale change would reset the whole screen.
     vec3 previous_view = (gbufferPreviousModelView * vec4(receiver_world + u_camera_delta, 1.0)).xyz;
     vec4 previous_clip = gbufferPreviousProjection * vec4(previous_view, 1.0);
@@ -200,26 +195,23 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
             || any(greaterThanEqual(previous_uv, vec2(1.0) + support_margin))) return result;
 
     ivec2 history_size = GIHistorySize();
-    // Rounded block endpoints can lie before the normalized block boundary
-    // at odd resolutions. The half-pixel correction keeps that endpoint in
-    // the search fan, including motion smaller than the rounding discrepancy.
+    // At odd resolutions rounded endpoints can land past the block boundary;
+    // the half-pixel correction keeps them in the search fan.
     vec2 block_scale = u_render_res / vec2(history_size);
     ivec2 owner_texel = clamp(ivec2(ceil((previous_uv * u_render_res + 0.5) / block_scale)) - 1,
         ivec2(0), history_size - 1);
     vec4 owner_metadata = texelFetch(colortex10, owner_texel, 0);
     vec2 owner_delta = RepresentativePixelUV(owner_texel, GIHistoryOffset(owner_metadata)) - previous_uv;
     ivec2 primary_corner = ivec2(greaterThan(owner_delta, vec2(0.0)));
-    // RGBA8 octahedral storage cannot represent 0.5 exactly. Restore block
-    // axes within its quantization cell before predicting plane depth: the
-    // tiny decoded tilt otherwise becomes a large error at grazing angles.
+    // RGBA8 octahedral storage cannot represent 0.5 exactly; restoring block
+    // axes within its quantization cell avoids large grazing-angle depth error.
     vec3 axis_normal = vec3(greaterThan(abs(normal_world), vec3(0.99998))) * sign(normal_world);
     vec3 plane_normal_world = dot(axis_normal, axis_normal) > 0.5 ? axis_normal : normal_world;
     vec3 normal_previous_view = normalize(mat3(gbufferPreviousModelView) * plane_normal_world);
     float plane_tolerance_m = 0.015 + abs(previous_view.z) * 0.0015;
     float footprint_m = abs(previous_view.z) * 6.0 / u_pixel_world_scale_prev;
     float reject_radius_m = 0.05 + footprint_m;
-    // A stationary receiver needs no quad search or interpolation. This also
-    // covers the two block endpoints when their normalized boundary is exact.
+    // Stationary receiver (or exact endpoint match): skip the quad search.
     if (dot(owner_delta * u_render_res, owner_delta * u_render_res) < 1.0e-6) {
         float age = GIHistoryAge(owner_metadata);
         vec3 sample_view = ReceiverViewFromUV(previous_uv, owner_metadata.b, true);
@@ -238,9 +230,8 @@ GIReprojectedHistory ReprojectGIHistory(vec3 receiver_world, vec3 normal_world) 
         }
     }
     float weight_sum = 0.0;
-    // Representatives lie at block endpoints, not grid centers. First use
-    // the quad toward the target from its owning representative. Only mixed
-    // endpoint selections can require another adjacent quad (four at most).
+    // Representatives sit at block endpoints, not centers; the loop visits
+    // quads toward the target from the owning representative (4 candidates).
     for (int candidate = 0; candidate < 4; ++candidate) {
         ivec2 corner = primary_corner ^ ivec2(candidate & 1, candidate >> 1);
         ivec2 base_texel = owner_texel - corner;

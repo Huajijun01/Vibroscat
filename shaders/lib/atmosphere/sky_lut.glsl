@@ -12,7 +12,6 @@
 #define SKY_LUT_RCP_W (1.0 / float(SKY_LUT_W))
 #define SKY_LUT_RCP_H (1.0 / float(SKY_LUT_H))
 
-// -- Sampling: view_dir + sun_dir -> LUT UV --
 vec2 SkyLUTUV(vec3 view_dir, vec3 sun_dir) {
     // The frame's camera altitude is already encoded in the CPU-derived horizon angle.
     float theta = asin(view_dir.y);

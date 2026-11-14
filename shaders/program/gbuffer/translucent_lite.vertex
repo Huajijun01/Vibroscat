@@ -11,9 +11,7 @@
 flat out vec3 v_normal;
 #endif
 #if defined(PROGRAM_GBUFFERS_HAND_WATER)
-// The hand keeps its view position across the stage: it has few vertices, a
-// large screen footprint, and its own projection product, so the fragment
-// reconstruction below does not apply to it.
+// The hand keeps its view position across the stage; the fragment reconstruction does not apply to it.
 out vec3 v_view_pos;
 #endif
 out vec3 v_ambient_col;
@@ -52,17 +50,13 @@ void main() {
 
 #ifndef PROGRAM_GBUFFERS_PARTICLES_TRANSLUCENT
     vec3 normal_view = gl_NormalMatrix * gl_Normal;
-    // Squared-length normalize with a degenerate-normal guard.
     float normal_view_sq = dot(normal_view, normal_view);
     v_normal = normal_view_sq < 1.0e-8
         ? vec3(0.0, 0.0, 1.0)
         : normal_view * inversesqrt(normal_view_sq);
-    // v_normal is unit and the camera rotation preserves its length.
     vec3 normal_world = mat3(gbufferModelViewInverse) * v_normal;
 #else
-    // Translucent particles shade as world-up surfaces: ambient must not use
-    // the billboard normal, which points at the eye and swaps zenith/ground
-    // sky ambient with camera pitch. No surface normal crosses the stage.
+    // Translucent particles shade as world-up: the billboard normal points at the eye and swaps zenith/ground sky ambient with camera pitch.
     vec3 normal_world = vec3(0.0, 1.0, 0.0);
 #endif
     v_ambient_col = AmbientLight(normal_world, vec3(1.0), lmcoord.y);

@@ -17,21 +17,15 @@ const float COLOR_JITTER_SEED = 83.0;
 
 layout(location = 0) out vec3 out_color;
 
-// Independent dense Phillips water shared by both water-surface modes.
-// Random phases and a 0.16 m short-wave tail enrich the 1/4/9/16 m caustics.
-// The 8 m cell moves with river layer 2; relative mode rates round to whole
-// cycles per 4 s. Runtime crest phases and position warp are not reproduced.
-// 3928 modes, 4096^2 source, 16384 photons/output pixel; analytic normals.
-// Matrix, carrier and filtered-light reference are generated with the asset.
+// utex_caustics is baked offline: independent dense Phillips water (3928 modes, 4096^2 source,
+// analytic normals) that does not reproduce the runtime crest phases or position warp.
 #define CAUSTIC_REFERENCE vec4(0.23626302, 0.05689574, 0.05039564, 0.08794941) // filtered mean light
 #define CAUSTIC_GAIN 1.0
 #define CAUSTIC_FADE_DEPTH 1.0 // m of in-water light path for full caustics
-// Spatial resolution and time slices of customTexture.utex_caustics.
 const float CAUSTIC_TEXTURE_SIZE = 256.0;
 const float CAUSTIC_FRAME_COUNT = 128.0;
 
-// Four spatial B-spline taps; hardware filtering blends adjacent time slices
-// before decoding sqrt intensity. RGBA = 1/4/9/16 m.
+// utex_caustics: RGBA = 1/4/9/16 m layers, sqrt-encoded intensity; hardware filtering blends adjacent time slices.
 vec4 CausticSampleBspline(vec2 uv, float time) {
     vec2 size = vec2(CAUSTIC_TEXTURE_SIZE);
     vec2 p = uv * size - 0.5;
@@ -64,7 +58,6 @@ vec4 CausticSampleBspline(vec2 uv, float time) {
 }
 
 float CausticDepthBlend(vec4 lin, float path) {
-    // Depth layers at 1 / 4 / 9 / 16 m of water column.
     const float d1 = 1.0, d2 = 4.0, d3 = 9.0, d4 = 16.0;
     if (path <= d1) return lin.r;
     if (path <= d2) return mix(lin.r, lin.g, (path - d1) / (d2 - d1));
@@ -72,12 +65,8 @@ float CausticDepthBlend(vec4 lin, float path) {
     return mix(lin.b, lin.a, saturate((path - d3) / (d4 - d3)));
 }
 
-// Shared sampler: trace the light back to the surface plane, un-map, return
-// the signed delta scaled by the surface BRDF. Caller supplies the surface
-// height (water fragment above water; sky-lightmap estimate underwater) and
-// the shared per-metre sunlight path (identical for every column: eta < 1
-// refraction cannot TIR, so WaterLightPathPerMetre's 1e-3 clamp never moves
-// the value away from the unclamped one).
+// Caller supplies the surface height (water fragment above water; sky-lightmap estimate underwater)
+// and the per-metre path; eta < 1 refraction cannot TIR, so the 1e-3 clamp never moves the value.
 vec3 CausticLightContribution(vec3 world_pos, vec3 brdf, vec3 transmission, float surface_y,
     float sample_y, vec3 light_dir, float path_per_metre
 ) {
@@ -85,21 +74,14 @@ vec3 CausticLightContribution(vec3 world_pos, vec3 brdf, vec3 transmission, floa
     vec3 entry_pos = world_pos + light_dir * max(reach, 0.0);
     vec2 uv = CAUSTIC_ABSOLUTE_TO_UV
         * (entry_pos.xz - u_caustic_advection);
-    // Refraction bends the path toward vertical: path = vertical drop * path
-    // per metre of drop.
     float path_m = max(surface_y - world_pos.y, 0.0) * path_per_metre;
-    // Decode -> normalize by reference -> blend bracketing 1/4/9/16 m layers
-    // by path length.
     vec4 rel_lut = CausticSampleBspline(uv, u_caustic_time) / CAUSTIC_REFERENCE;
     float blended = CausticDepthBlend(rel_lut, path_m);
     float delta = (blended - 1.0) * CAUSTIC_GAIN;
 
-    // Direct light is column-attenuated; the caustic delta modulates it
-    // (caller removes the unattenuated component). Underwater path =
-    // (1 - lmcoord.y) * 15 * pathPerMetre.
+    // Caller removes the unattenuated direct term first; the underwater path arrives as (1 - lm_sky) * 15 * per-metre.
     vec3 attenuation = WaterAbsorptionTransmittance(path_m);
-    // Fade only the delta in with the column; base direct light must not
-    // black out at zero path.
+    // Fade gates only the delta: the base direct light must not black out at zero path.
     float fade = smoothstep(0.0, CAUSTIC_FADE_DEPTH, path_m);
     return brdf * ground_light.rgb * attenuation
         * (1.0 + delta * fade)
@@ -133,13 +115,9 @@ void main() {
     if (water_shading) {
         view_pos0 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth * 2.0 - 1.0));
         view_len0 = length(view_pos0);
-        // ViewToWorldSpace() is camera-relative; absolute positions add cameraPosition.
         vec3 world_pos = ViewToWorldSpace(view_pos0);
-        // Eye-accurate view direction: depth reconstruction is feet-space and
-        // the eye sits at gbufferModelViewInverse[3] (~1.62 m up standing).
+        // Depth reconstruction is feet-space and the eye sits ~1.62 m up, so the direction needs EyePositionWorldSpace().
         vec3 world_dir = normalize(world_pos - EyePositionWorldSpace());
-        // One refraction path per fragment: every consumer below (phases,
-        // caustics, water columns) shares it and u_world_light_dir.
         water_path_per_metre = WaterLightPathPerMetre();
         fast_fog_radiance = FastWaterFogRadiance(ground_light.rgb, EvalSkyLightAverage(),
             dot(world_dir, u_world_light_dir));
@@ -149,14 +127,12 @@ void main() {
     if (!is_sky) {
         vec3 comp_color = scene_color;
         vec2 refract_coord = texcoord;
-        // Only the water-surface branch reads the opaque depth behind it.
         vec3 view_pos1 = vec3(0.0);
 
         if (is_water) {
             float frag_depth1 = texelFetch(depthtex1, tx, 0).x;
             view_pos1 = NDCToView(vec3(texcoord * 2.0 - 1.0, frag_depth1 * 2.0 - 1.0));
-            // Reconstruct the original UNORM16 perturbation from its low/high
-            // bytes before the xzy swizzle and 0.25-scale decode.
+            // Rebuild the UNORM16 perturbation from its low/high bytes before the swizzle and 0.25-scale decode.
             vec3 surface_data = UnpackTranslucentSurface(refraction_data.rgb,
                 texelFetch(colortex1, tx, 0).rgb);
             vec3 waves_delta = (surface_data.xzy * 2.0 - 1.0) * 4.0;
@@ -173,19 +149,13 @@ void main() {
 #endif
             comp_color = texture(colortex0, refract_scene_uv).rgb;
 
-            // Caustics modulate the refracted opaque receiver. Seen from
-            // below the surface the refracted background is above-water
-            // scenery or sky, which keeps its own direct light. A refraction
-            // lookup landing on sky has no receiver either, and colortex5
-            // stays unwritten at sky texels, so the replace is skipped too.
+            // Caustics need an opaque receiver: refracted sky texels are skipped (no receiver, colortex5 unwritten at sky).
             float refract_d = texture(depthtex1, refract_scene_uv).x;
             vec3 view_pos_refr = NDCToView(vec3(refract_coord * 2.0 - 1.0, refract_d * 2.0 - 1.0));
             if (isEyeInWater == 0 && refract_d < 1.0) {
                 vec3 caustic_absolute_pos = ViewToWorldSpace(view_pos_refr) + cameraPosition;
                 vec3 caustic_brdf = textureLod(colortex5, refract_scene_uv, 0.0).rgb;
                 vec3 caustic_surface_absolute_pos = ViewToWorldSpace(view_pos0) + cameraPosition;
-                // Replace unattenuated direct light with the column-attenuated,
-                // caustic-modulated version.
                 comp_color -= caustic_brdf * ground_light.rgb;
                 comp_color += CausticLightContribution(caustic_absolute_pos, caustic_brdf, vec3(1.0),
                     caustic_surface_absolute_pos.y, caustic_surface_absolute_pos.y,
@@ -196,13 +166,10 @@ void main() {
         }
 
         if (is_water && isEyeInWater == 0) {
-            // Column fog on the refracted background, then composite the
-            // premultiplied layer once.
             FastWaterFogRender(comp_color, max(length(view_pos1) - view_len0, 0.0), fast_fog_radiance);
             comp_color = comp_color * (1.0 - trans_color.a) + trans_color.rgb;
         } else if (isEyeInWater == 1) {
             if (!is_water) {
-                // Caustics land on opaque surfaces through the volume.
                 vec3 caustic_absolute_pos = ViewToWorldSpace(view_pos0) + cameraPosition;
                 vec3 caustic_brdf = texelFetch(colortex5, tx, 0).rgb;
                 float caustic_lm_sky = texelFetch(colortex4, tx, 0).w;

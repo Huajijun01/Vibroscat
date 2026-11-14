@@ -6,7 +6,7 @@ This file declares only the third-party code and assets distributed with this pa
 
 ## 1. DRT Bench — AgX-HSV (GPL-3.0)
 
-`shaders/lib/color/tonemap_agx.glsl` is ported from [DRT Bench](https://github.com/bWFuanVzYWth/DRT), file `shaders/agx_hsv.wgsl` (GPL-3.0-only). Per GPL-3.0 section 5(a), this pack modified it: input is scene-linear Rec.709, output is display-linear Rec.709, and the sRGB OETF is applied once by the final pass.
+`shaders/lib/color/tonemap_agx.glsl` is ported from [DRT Bench](https://github.com/bWFuanVzYWth/DRT), file `shaders/agx_hsv.wgsl` (GPL-3.0-only); this pack modified it.
 
 ## 2. AMD FidelityFX CAS (MIT)
 
@@ -42,7 +42,7 @@ Source: <https://blog.selfshadow.com/publications/s2025-shading-course/pdi/suppl
 
 ## 4. OpenDRT (GPL-3.0)
 
-`shaders/lib/color/tonemap_opendrt.glsl` is ported from Jed Smith's [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl` (GPLv3), with the official Standard Look parameters fixed as immutable constants in that file. Per GPL-3.0 section 5(a), this pack modified it: the SDR display target is fixed at 100 nits, the output is display-linear Rec.709, and the sRGB OETF is applied once by the final pass.
+`shaders/lib/color/tonemap_opendrt.glsl` is ported from Jed Smith's [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl` (GPL-3.0); this pack modified it.
 
 ## 5. UE SkyAtmosphere transmittance LUT (MIT)
 
@@ -82,11 +82,3 @@ The transmittance LUT sampling scheme and UV parameterization (`GetTransmittance
 `shaders/lib/color/tonemap_aces_fitted.glsl` is adapted from Stephen Hill's ACES fit in
 [BakingLab/ACES.hlsl](https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl).
 Copyright (c) 2016 MJP. The full MIT license is retained in that file.
-
-## 8. glsl-tone-map (MIT)
-
-`shaders/lib/color/tonemap_hable.glsl`, `shaders/lib/color/tonemap_aces_filmic.glsl`,
-`shaders/lib/color/tonemap_lottes.glsl`, and `shaders/lib/color/tonemap_hejl2015.glsl`
-adapt `uncharted2.glsl`, `aces.glsl`, `lottes.glsl`, and `hejl.glsl` from
-[glsl-tone-map](https://github.com/dmnsgn/shaders-tone-map/tree/main/packages/glsl-tone-map).
-Copyright (C) 2019 Damien Seguin. The full MIT license is retained in each file.

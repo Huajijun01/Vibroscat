@@ -6,7 +6,7 @@
 
 ## 1. DRT Bench — AgX-HSV（GPL-3.0）
 
-`shaders/lib/color/tonemap_agx.glsl` 移植自 [DRT Bench](https://github.com/bWFuanVzYWth/DRT) 的 `shaders/agx_hsv.wgsl`（GPL-3.0-only）。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——输入为场景线性 Rec.709，输出为显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
+`shaders/lib/color/tonemap_agx.glsl` 移植自 [DRT Bench](https://github.com/bWFuanVzYWth/DRT) 的 `shaders/agx_hsv.wgsl`（GPL-3.0-only），本包对其做了修改。
 
 ## 2. AMD FidelityFX CAS（MIT）
 
@@ -42,7 +42,7 @@
 
 ## 4. OpenDRT（GPL-3.0）
 
-`shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPLv3），官方 Standard Look 参数固定为该文件内的不可变常量。依据 GPL-3.0 第 5(a) 条声明：本包对其做了修改——固定 SDR 100 尼特显示目标，输出显示线性 Rec.709，sRGB OETF 由最终 pass 统一执行。
+`shaders/lib/color/tonemap_opendrt.glsl` 移植自 Jed Smith 的 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 `display-transforms/opendrt/OpenDRT.dctl`（GPL-3.0），本包对其做了修改。
 
 ## 5. UE SkyAtmosphere 透射率 LUT（MIT）
 
@@ -82,11 +82,3 @@
 `shaders/lib/color/tonemap_aces_fitted.glsl` is adapted from Stephen Hill's ACES fit in
 [BakingLab/ACES.hlsl](https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl).
 Copyright (c) 2016 MJP. The full MIT license is retained in that file.
-
-## 8. glsl-tone-map (MIT)
-
-`shaders/lib/color/tonemap_hable.glsl`, `shaders/lib/color/tonemap_aces_filmic.glsl`,
-`shaders/lib/color/tonemap_lottes.glsl`, and `shaders/lib/color/tonemap_hejl2015.glsl`
-adapt `uncharted2.glsl`, `aces.glsl`, `lottes.glsl`, and `hejl.glsl` from
-[glsl-tone-map](https://github.com/dmnsgn/shaders-tone-map/tree/main/packages/glsl-tone-map).
-Copyright (C) 2019 Damien Seguin. The full MIT license is retained in each file.

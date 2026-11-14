@@ -22,18 +22,14 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //------------------------------------------------------------------------------------------------------------------------------
 //
-// This is a stripped-down GLSL fragment shader adaptation of the official AMD FidelityFX CAS.
-// Original: https://github.com/GPUOpen-Effects/FidelityFX-CAS
-//
-// Sharpen-only mode (no scaling). Designed for post-tonemap application in a fullscreen quad FS.
+// Stripped-down sharpen-only GLSL adaptation of AMD FidelityFX CAS (MIT):
+// https://github.com/GPUOpen-Effects/FidelityFX-CAS
+// Applied post-tonemap in a fullscreen quad (no scaling).
 //
 #ifndef VIBROSCAT_FIDELITYFX_CAS_GLSL
 #define VIBROSCAT_FIDELITYFX_CAS_GLSL
 
-// FidelityFX CAS - Contrast Adaptive Sharpening.
-// Sharpen-only GLSL adaptation used after tonemapping. The luma helper uses
-// the pack-wide Rec.709 Luminance from color/spaces.glsl (identical to the
-// original CAS dot product).
+// The luma helper uses the pack-wide Rec.709 Luminance from color/spaces.glsl.
 #include "/lib/core/math_scalar.glsl"
 #include "/lib/color/spaces.glsl"
 

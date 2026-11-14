@@ -138,7 +138,7 @@ uniform sampler2D shadowcolor0;    // RSM: RGB565 diffuse reflectance + oct8 sha
 
 // -- Custom textures (customTexture bindings, shaders.properties) --
 uniform sampler2D utex_plant_wind;            // 64x64 RGBA16F: grass/canopy XZ drag response
-uniform sampler2D utex_starmap;               // NASA star map (LogLuv32 RGBA8)
+uniform sampler2D utex_starmap;               // star map (LogLuv32 RGBA8)
 uniform sampler2D utex_starmap_lowres;        // box-filtered Milky Way glow map (LogLuv32 RGBA8)
 uniform sampler2D utex_tslut;                 // atmosphere transmittance LUT (dip/no-dip pair per ATM_HORIZON_DIP)
 uniform sampler2D utex_mslut;                 // atmosphere multiscatter LUT (dip/no-dip pair per ATM_HORIZON_DIP)

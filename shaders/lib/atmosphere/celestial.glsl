@@ -14,13 +14,9 @@
 // horizon). Runs BEFORE the cloud compositor (clouds occlude the discs).
 const float BRIGHTNESS_FACT = 0.03;
 
-// Night star map: NASA Deep Star Maps 2020 4K (SVS #4851), Public Domain.
-// Image credit: NASA's Scientific Visualization Studio / ESA-ESO-Sky-Survey.
-// Baked from the linear EXR into a LogLuv32 RGBA8 PNG so the HDR range
-// survives the 8-bit texture. Plate carree equirectangular, centered on RA 0h.
+// Star map texture: plate carree equirectangular, centered on RA 0h; LogLuv32
+// RGBA8 keeps the source HDR range inside an 8-bit texture.
 
-// STAR_MAP_INTENSITY (linear gain after LogLuv32 decode) is a user
-// option declared in contract/settings.glsl.
 // LogLuv32 -> linear sRGB: R = u', G = v', B = int(Le), A = frac(Le),
 // Le = 2*log2(Y) + 127. Decodes the star map's RGBA8 HDR encoding.
 const mat3 LOGLUV32_INVERSE_M = mat3(6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268);

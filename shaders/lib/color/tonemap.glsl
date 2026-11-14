@@ -8,11 +8,10 @@
 #include "/lib/color/tonemap_gt7.glsl"
 #include "/lib/color/tonemap_hable.glsl"
 #include "/lib/color/tonemap_hejl2015.glsl"
-#include "/lib/color/tonemap_lottes.glsl"
 #include "/lib/color/tonemap_opendrt.glsl"
 
 
-// Modes 6-10 key scene 0.18 gray near 0.14-0.18 display-linear.
+// Modes 6-8 and 10 key scene 0.18 gray near 0.14-0.18 display-linear.
 vec3 Tonemap(vec3 linear_rgb) {
 #if TONEMAP_MODE == 0
     return TonemapAGX(linear_rgb);
@@ -24,8 +23,6 @@ vec3 Tonemap(vec3 linear_rgb) {
     return TonemapHable(linear_rgb * 1.25);
 #elif TONEMAP_MODE == 8
     return TonemapACESFilmic(linear_rgb * 0.6);
-#elif TONEMAP_MODE == 9
-    return TonemapLottes(linear_rgb * 0.6);
 #elif TONEMAP_MODE == 10
     return TonemapHejl2015(linear_rgb * 0.7);
 #else

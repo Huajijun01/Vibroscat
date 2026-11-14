@@ -7,13 +7,11 @@
 
 
 // AgX-HSV (mode 0), ported from DRT Bench shaders/agx_hsv.wgsl,
-// `AgxParameters::hsv_default()` (GPL-3.0-only; licenses/THIRD_PARTY_NOTICES.md
-// section 1). The display value is sRGB-OETF encoded and anchored at
-// OETF(0.18), so the port decodes with ToLinear and returns display-linear
-// color (0.18 scene in -> 0.18 out). The hue repair compares the tone-scaled
-// and original hues in the reference's pure-2.2 signal domain.
+// `AgxParameters::hsv_default()` (GPL-3.0-only, modified;
+// licenses/THIRD_PARTY_NOTICES.md section 1). Display values are sRGB-OETF
+// encoded and anchored at OETF(0.18); the port decodes with ToLinear and
+// returns display-linear color (0.18 scene in -> 0.18 out).
 
-// AgX-HSV curve parameters (DRT Bench `AgxParameters::hsv_default()`).
 const float AGX_GAMUT_COMPRESSION = 0.05;
 const float AGX_MIN_LOG2 = -12.473931188332412333;    // log2(0.18) - 10 EV
 const float AGX_INVERSE_DYNAMIC_RANGE = 0.060606060606060606; // 1 / 16.5 EV
@@ -22,8 +20,6 @@ const float AGX_OUTPUT_PIVOT = 0.4613561300;          // sRGB OETF(0.18)
 const vec3 AGX_NEUTRAL_WEIGHTS = vec3(0.2120053547549465, 0.3921825078090138, 0.3958121374360396);
 
 const float AGX_WHITE_HUE_RETENTION = 0.5;
-// Reference `AgxParameters` hue retention at black; the highlight end is the
-// fixed AGX_WHITE_HUE_RETENTION constant.
 const float AGX_BLACK_HUE_RETENTION = 1.0;
 
 vec3 AgXInset(vec3 color) {
@@ -51,7 +47,7 @@ float AgXCurveComponent(float value) {
 
 // Hue repair: keep the original hue, faded by how bright the pixel became.
 // `original_linear` is the scene color and `mapped` the tone-scaled display
-// value; the comparison runs in the reference's pure-2.2 signal domain.
+// value; the comparison runs in a pure-2.2 signal domain.
 vec3 AgXRepairHue(vec3 original_linear, vec3 mapped) {
     vec3 original_hsv = RGBToHSV(pow(max(original_linear, 0.0), vec3(1.0 / 2.2)));
     vec3 mapped_hsv = RGBToHSV(mapped);
@@ -80,11 +76,11 @@ vec3 TonemapAGX(vec3 linear_rgb) {
         AgXCurveComponent(working.z));
     working = AgXOutset(working);
 
-    // The variant's hue repair, in the display-referred AgX Base domain.
+    // Hue repair in the display-referred AgX Base domain.
     working = AgXRepairHue(original, working);
 
-    // The reference clamps its final display signal, then the pack decodes
-    // it for the shared display-linear sharpening / final sRGB output.
+    // Clamp the display signal, then decode for the shared display-linear
+    // sharpening / final sRGB output.
     return ToLinear(saturate(working));
 }
 

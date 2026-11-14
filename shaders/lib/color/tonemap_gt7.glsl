@@ -5,22 +5,12 @@
 #include "/lib/core/math_scalar.glsl"
 
 
-// ===========================================================================
-// GT7 Tone Mapping (mode 5): Polyphony Digital's color-volume mapping
-// operator, "Driving Toward Reality: Physically Based Tone Mapping and
-// Perceptual Fidelity in Gran Turismo 7" [PDI25], SIGGRAPH 2025 courses.
-// Ported from the official sample implementation shipped with the course
-// material (gt7_tone_mapping.cpp, MIT; licenses/THIRD_PARTY_NOTICES.md
-// section 3). A per-channel pass of the GT Tone Mapping Curve V2 (linear
-// midtones, contrast toe, converging shoulder) is blended with an ICtCp
-// path that keeps the original chroma but fades it toward white across the
-// highlight, so saturated highlights roll off without the per-channel hue
-// twist. The sample's frame-buffer domain (1.0 = 100 nits, linear
-// Rec.2020, SDR paper white 250 nits) is entered and left through the
-// BT.709 <-> BT.2020 matrices below. The pack's SDR adaptation keys scene
-// 18% gray at about 0.14 display-linear and approaches paper white
-// smoothly; see GT7_MID_GREY_SCALE and the alpha-0 shoulder below.
-// ===========================================================================
+// GT7 tone mapping (mode 5), ported from the SIGGRAPH 2025 course sample
+// gt7_tone_mapping.cpp (MIT; licenses/THIRD_PARTY_NOTICES.md section 3).
+// Per-channel GT Tone Mapping Curve V2 pass blended with an ICtCp path whose
+// chroma fades toward white across the highlight. The frame-buffer domain
+// (1.0 = 100 nits, linear Rec.2020, SDR paper white 250 nits) is entered and
+// left through the BT.709 <-> BT.2020 matrices below.
 
 const mat3 SRGB_TO_BT2020 = mat3(
     vec3(0.6274039, 0.0690973, 0.0163914),
@@ -32,7 +22,7 @@ const mat3 BT2020_TO_SRGB = mat3(
     vec3(-0.0728499, -0.0083494, 1.1187297));
 
 // ICtCp (ITU-R BT.2124) on Rec.2020 primaries; the GLSL columns hold the
-// transposed ITU rows, so M * v matches the reference row-major multiply.
+// transposed ITU rows, so M * v matches the ITU row-major form.
 const mat3 GT7_BT2020_TO_LMS = mat3(
     vec3(1688.0, 683.0, 99.0),
     vec3(2146.0, 2951.0, 309.0),
@@ -42,15 +32,15 @@ const mat3 GT7_LMS_TO_BT2020 = mat3(
     vec3(-2.5064521187, 1.9836004518, -0.0989137147),
     vec3(0.0698454243, -0.1922708962, 1.1248636144));
 // Each vec3 below is one COLUMN, so these arrays read as the transpose of the
-// sample's row-major formulas:
+// ITU row-major formulas:
 //   I  = 0.5*L + 0.5*M          Ct = (6610L - 13613M + 7003S) / 4096
 //   Cp = (17933L - 17390M - 543S) / 4096
 // and its exact inverse (round-trips within 2e-16) is
 //   L = I + 0.0086090370*Ct + 0.1110296250*Cp
 //   M = I - 0.0086090370*Ct - 0.1110296250*Cp
 //   S = I + 0.5600313357*Ct - 0.3206271750*Cp
-// The forward constant keeps S out of I: the sample's I is luma, and both the
-// chroma-fade pivot and the faded path's luminance read it.
+// The forward constant keeps S out of I: I is luma, and both the chroma-fade
+// pivot and the faded path's luminance read it.
 const mat3 GT7_LMS_TO_ICTCP = mat3(
     vec3(2048.0, 6610.0, 17933.0),
     vec3(2048.0, -13613.0, -17390.0),
@@ -93,8 +83,8 @@ vec3 ICtCpToRGB(vec3 ictcp) {
     return max(GT7_LMS_TO_BT2020 * lms, 0.0);
 }
 
-// GT Tone Mapping Curve V2: the official SDR toe and linear section, with
-// the pack's alpha = 0 shoulder (official sample: 0.25).
+// GT Tone Mapping Curve V2: SDR toe and linear section, with the pack's
+// alpha = 0 shoulder.
 // Its asymptote is paper white, preserving highlight gradation in SDR
 // instead of overshooting white and relying on the final hard clamp.
 const float GT7_PEAK = 2.5;
@@ -102,7 +92,7 @@ const float GT7_SDR_CORRECTION = 0.4;
 const float GT7_GRAY_POINT = 0.538;
 const float GT7_LINEAR_SECTION = 0.444;
 const float GT7_TOE_STRENGTH = 1.280;
-// Precomputed from alpha = 0, using the sample's initializeCurve().
+// Precomputed shoulder coefficients for alpha = 0.
 const float GT7_SHOULDER_A = 2.5;
 const float GT7_SHOULDER_B = -3.089054009429425;
 const float GT7_SHOULDER_C = -0.719424460431655;
@@ -110,8 +100,7 @@ const float GT7_BLEND = 0.6;
 const float GT7_CHROMA_FADE_START = 0.98;
 const float GT7_CHROMA_FADE_END = 1.16;
 // UCS luma I of the paper-white gray (2.5, 2.5, 2.5): chroma-fade pivot.
-// I is luma, so it is 0.5 * (L + M) and excludes S; the sample's equivalent
-// value is 0.602561.
+// I is luma, so it is 0.5 * (L + M) and excludes S.
 const float GT7_TARGET_LUMA_UCS = 0.6025591550;
 // Scene exposure key: folds the input scale into the primaries matrix, so
 // scene 18% gray enters the curve at 0.36 and keys at
@@ -141,7 +130,7 @@ vec3 TonemapGT7(vec3 linear_rgb) {
     // Step 2: UCS pass - twisted luma, original chroma faded toward white
     // as the scene luminance approaches paper white.
     vec3 skewed_ucs = RGBToICtCp(skewed);
-    // The official thresholds are fixed and strictly ordered.
+    // The thresholds are fixed and strictly ordered.
     float relative_luma = ucs.x / GT7_TARGET_LUMA_UCS;
     float chroma_scale = 1.0 - smoothstep(GT7_CHROMA_FADE_START, GT7_CHROMA_FADE_END, relative_luma);
     vec3 faded = ICtCpToRGB(vec3(skewed_ucs.x, ucs.y * chroma_scale, ucs.z * chroma_scale));

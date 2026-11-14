@@ -8,17 +8,11 @@
 
 
 // OpenDRT (mode 3), ported from github.com/jedypod/open-display-transform,
-// display-transforms/opendrt/OpenDRT.dctl (GPL-3.0;
-// licenses/THIRD_PARTY_NOTICES.md section 4). Fixed official Standard look,
-// SDR only (100 nits).
-// Deviations from the reference: degree-six hue-window fits; the SDR peak
-// collapses the HDR purity and gray-boost terms; output is display-linear (the
-// pack applies its sRGB OETF) using the "sRGB Display" bright-surround preset;
-// display gray stays at 10 nits.
+// display-transforms/opendrt/OpenDRT.dctl (GPL-3.0, modified;
+// licenses/THIRD_PARTY_NOTICES.md section 4).
 
-// Rec.709 <-> P3D65, folded from the reference's XYZ D65 intermediate
-// matrices. Each vec3 is one column, so the GLSL mat3 holds the transpose of
-// the row-major products of the DCTL's matrix pair.
+// Rec.709 <-> P3D65. Each vec3 is one column, so the GLSL mat3 holds the
+// transpose of the row-major product.
 const mat3 ODT_SRGB_TO_P3D65 = mat3(
     vec3(0.8224619687, 0.0331941989, 0.0170826307),
     vec3(0.1775380313, 0.9668058011, 0.0723974407),
@@ -28,11 +22,7 @@ const mat3 ODT_P3D65_TO_SRGB = mat3(
     vec3(-0.2249401763, 1.0420569547, -0.0786360456),
     vec3(0.0000000000, 0.0000000000, 1.0982736001));
 
-// The official Standard look preset of OpenDRT v1.1.0 (the DCTL's "Standard"
-// LOOK PRESETS row), fixed as immutable constants. Both optional contrast
-// modules are disabled in this preset, the creative white is the plain
-// P3D65 -> Rec.709 matrix, and the hue/purity/brilliance trims use the
-// reference's shipped defaults.
+// The official Standard look preset of OpenDRT v1.1.0.
 const float ODT_CONTRAST = 1.66;
 const float ODT_SHOULDER_CLIP = 0.5;
 const float ODT_TOE = 0.003;
@@ -96,20 +86,18 @@ const float ODT_CREATIVE_WHITE_NORMALIZATION = 1.000000000000;
 
 const float ODT_PI = 3.14159265358979323846;
 const float ODT_SQRT3_INVERSE = 0.57735026918962576;
-// SDR paper white in nits, the reference's fixed SDR peak luminance.
+// SDR paper white in nits.
 const float ODT_PEAK_LUMINANCE = 100.0;
-// Reference "sRGB Display" display-encoding preset: bright surround, which
-// flattens the curve exponent by 2 * 5%.
+// Bright-surround display encoding: flattens the curve exponent by 2 * 5%.
 const float ODT_SURROUND = 2.0;
-// Scene-linear middle gray, fixed by the reference.
 const float ODT_SCENE_GREY = 0.18;
 const float ODT_GREY_LUMINANCE = 10.0;
 const float ODT_ACHROMATIC_TOE = 0.25;
 
 // Hue angles, rotated so that red sits at 0. The RGB windows are wider than
 // the CMY ones; the hue-shift variants move red towards orange and blue
-// towards cyan, and the secondary angles are the reference's creative
-// offsets from the exact cyan/magenta/yellow positions.
+// towards cyan, and the secondary angles offset from the exact
+// cyan/magenta/yellow positions.
 const float ODT_HUE_ORIGIN = 1.10714931;
 const float ODT_HUE_ANGLE_R = 0.1;
 const float ODT_HUE_ANGLE_G = 4.3;
@@ -122,7 +110,7 @@ const float ODT_HUE_ANGLE_Y = -1.15;
 const float ODT_HUE_WINDOW_RGB = 0.66;
 const float ODT_HUE_WINDOW_CMY = 0.5;
 
-// Quadratic toe compression (reference compress_toe_quadratic); the inverse
+// Quadratic toe compression; the inverse
 // solves the same curve for its input and is only used by the tone-scale
 // constraint solve below.
 float ODTToeQuadratic(float x, float toe) {
@@ -133,7 +121,6 @@ float ODTToeQuadraticInverse(float x, float toe) {
     return toe == 0.0 ? x : 0.5 * (x + sqrt(x * (4.0 * toe + x)));
 }
 
-// Reference compress_toe_cubic, including its constraint inverse.
 float ODTToeCubic(float x, float multiplier, float width, bool inverse_curve) {
     if (multiplier == 1.0) return x;
     float x2 = x * x;
@@ -144,7 +131,7 @@ float ODTToeCubic(float x, float multiplier, float width, bool inverse_curve) {
     return p0 / (3.0 * p2) + p2 / 3.0 + x / 3.0;
 }
 
-// Reference contrast_high forward curve and its linear extension.
+// High-contrast forward curve and its linear extension.
 float ODTHighContrast(float x) {
     float power = exp2(ODT_HIGH_CONTRAST);
     float pivot = 0.18 * exp2(ODT_HIGH_CONTRAST_PIVOT);
@@ -164,8 +151,8 @@ float ODTHyperbolicCompression(float x, float scale, float power) {
     return pow(x / (x + scale), power);
 }
 
-// The reference's cyan-yellow / green-magenta opponent pair, used for both
-// the achromatic distance and the hue angle.
+// Cyan-yellow / green-magenta opponent pair, used for both the achromatic
+// distance and the hue angle.
 vec2 ODTOpponent(vec3 rgb) {
     return vec2(rgb.r - rgb.b, rgb.g - (rgb.r + rgb.b) * 0.5);
 }
@@ -184,19 +171,17 @@ float ODTWindow(vec2 direction, float center, float width) {
     return max(width == ODT_HUE_WINDOW_RGB ? rgb_window : cmy_window, 0.0);
 }
 
-// Softplus with the reference's early-out; the per-channel purity softclip
-// that keeps extremely pure primaries inside the display gamut volume.
+// Per-channel purity softclip: softplus that keeps extremely pure primaries
+// inside the display gamut volume.
 float ODTSoftplus(float x, float scale) {
     if (x > 10.0 * scale || scale < 1.0e-4) return x;
     return scale * log(max(0.0, 1.0 + exp(x / scale)));
 }
 
 vec3 TonemapOpenDRT(vec3 linear_rgb) {
-    // --- Tone-scale constraint solve (reference "Tonescale Constraint
-    // Calculations") -- maps scene middle gray onto the display gray
-    // luminance and the shoulder-clip scene value onto paper white. The
-    // reference solves these per pixel for lack of a constant-folding path
-    // in DCTL; they depend only on settings here as well.
+    // --- Tone-scale constraint solve -- maps scene middle gray onto the
+    // display gray luminance and the shoulder-clip scene value onto paper
+    // white.
     float ts_y1 = ODT_PEAK_LUMINANCE * 0.01;
     float ts_x0 = ODT_SCENE_GREY + ODT_OFFSET;
     float ts_y0 = ODT_GREY_LUMINANCE * 0.01;
@@ -207,15 +192,15 @@ vec3 TonemapOpenDRT(vec3 linear_rgb) {
     float ts_m1 = ts_y1 / pow(ts_x1 / (ts_x1 + ts_s10), ODT_CONTRAST);
     float ts_m2 = ODTToeQuadraticInverse(ts_m1, ODT_TOE);
     float ts_s = ts_x0 * (pow(ts_s0 / ts_m2, -1.0 / ODT_CONTRAST) - 1.0);
-    // The SDR purity lerp has zero weight at the fixed 100-nit peak, so the
-    // reference's s_Lp100 scale is used for both of its tone-scale reads.
+    // The SDR purity lerp has zero weight at the fixed 100-nit peak, so ts_s1
+    // serves both tone-scale reads.
     float ts_s1 = ts_x0 * (pow(ts_y0, -1.0 / ODT_CONTRAST) - 1.0);
 
     // --- Rendering space ---
     vec3 render_weights = vec3(ODT_RENDER_WEIGHT_R,
         1.0 - ODT_RENDER_WEIGHT_R - ODT_RENDER_WEIGHT_B, ODT_RENDER_WEIGHT_B);
-    // The reference carries signed scene RGB through the rendering space;
-    // clipping before conversion distorts signed out-of-gamut hues.
+    // Signed scene RGB passes through the rendering space unclipped: clipping
+    // before conversion distorts signed out-of-gamut hues.
     vec3 rgb = ODT_SRGB_TO_P3D65 * linear_rgb;
     float render_level = dot(rgb, render_weights);
     rgb = render_level * ODT_RENDER_SATURATION + rgb * (1.0 - ODT_RENDER_SATURATION);
@@ -251,7 +236,7 @@ vec3 TonemapOpenDRT(vec3 linear_rgb) {
         * pow(ach_d, 1.0 / ODT_BRILLIANCE_STRENGTH);
     tsn *= exp2(brilliance * (brilliance < 0.0 ? brilliance_ramp : 1.0 - brilliance_ramp));
 
-    // --- Official low/high contrast modules, before hyperbolic compression ---
+    // --- Low/high contrast modules, before hyperbolic compression ---
     if (ODT_LOW_CONTRAST_ENABLE != 0) {
         float multiplier = exp2(-ODT_LOW_CONTRAST);
         float width = ODT_LOW_CONTRAST_WIDTH * 0.25;
@@ -267,7 +252,7 @@ vec3 TonemapOpenDRT(vec3 linear_rgb) {
     float tsn_purity = ODTHyperbolicCompression(tsn, ts_s1, ts_p);
     tsn = ODTHyperbolicCompression(tsn, ts_s, ts_p);
 
-    // --- Hue contrast (red angle only, as in the reference) ---
+    // --- Hue contrast (red angle only) ---
     float hue_contrast_scale = 1.0 - tsn_purity;
     float hue_contrast_center = (hue_contrast_scale * (1.0 - ach_d) + ach_d * (1.0 - hue_contrast_scale))
         * ach_d * hue_rgb.r;

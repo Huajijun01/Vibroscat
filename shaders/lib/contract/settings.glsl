@@ -196,7 +196,7 @@ const float CONTACT_SHADOW_GAP_MIN_METERS = 0.005; // receiver self-occlusion gu
 // ==========================================================================
 const float ambientOcclusionLevel = 1.0;
 
-#define AO_MODE 1 // [0 1] 0=vanilla AO 1=GTAO
+#define AO_MODE 0 // [0 1] 0=vanilla AO 1=GTAO
 #define GTAO_SLICES 2 // [2 3 4 6 8 10 12] horizon slices per pixel
 #define GTAO_RADIUS 1.5 // [0.5 1.0 1.5 2.0 3.0 4.0] view-space search radius (m)
 #define GTAO_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0] AO contrast (exponent)

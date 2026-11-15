@@ -2,15 +2,15 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Vibroscat is a high-end Minecraft shaderpack for Iris. It gives the world
-natural daylight, deep cloud cover, clear water, soft shadows, and a restrained
-cinematic finish while preserving Minecraft's block-shaped character.
+Vibroscat is a shaderpack for Iris. It renders natural daylight, layered
+volumetric clouds, clear water, and soft shadows with a restrained filmic
+finish, while keeping Minecraft's block-shaped look.
 
 ## Development status
 
-Vibroscat is in early development. Many effects are not implemented yet, and
-parts of the code may have quality or maintainability issues. Expect visual
-defects, incomplete settings, and breaking changes between versions.
+Vibroscat is in early development; the current release is Alpha V0.4.0. Many
+effects are unfinished, settings are incomplete, and versions may break
+compatibility with each other.
 
 ## Screenshots
 
@@ -25,95 +25,50 @@ Vibroscat profile.
 
 ## Effects
 
-- Layered volumetric clouds with changing density, soft edges, sunlight, and
-  cloud shadows
-- Cloud shadows are off by default under Environment / Clouds; when enabled
-  they follow the moving cloud cover, affect RSM bounce, and fade away near
-  sunrise and sunset.
-- Selectable continuous or checkerboard cloud reconstruction under Environment /
-  Clouds / Quality; both support every cloud resolution setting and work with
-  TAA disabled. Checkerboard is the default.
-- Daylight, sunsets, moonlight, stars, Milky Way glow through clouds and in
-  reflections, horizon haze, and boundary fog
-- Exponential height air fog with shadow-map light shafts, smooth low-altitude
-  density saturation at twice the reference density, thinner daytime haze,
-  denser twilight/night haze, and additional rain density
-- Clear water with waves, reflections, refraction, always-on analytic
-  underwater fog, and moving caustics
-- Selectable Water Surface Quality under Environment / Water: Low keeps the
-  small waves by default; High uses larger waves with more surface detail
-- Additive underwater sun shafts driven by a filtered bake of the same caustics,
-  with jittered epipolar sampling; adjustable under Environment / Water,
-  including a maximum march distance of 12 m by default
-- Reflective rain wetness on exposed ground, with optional puddle patterns,
-  adjustable raindrop ripples on ground and water, and drying after rain
-- Soft sun shadows, contact detail, ambient shading, and light passing through
-  foliage
-- Wind-driven grass, flowers, crops, saplings and leaf blocks with matching
-  shadows; adjustable under Environment / Plants. Connected cane/bamboo and
-  attached or aquatic foliage remain still.
-- Fragment Terrain TBN under Environment / Terrain, on by default: rebuilds the
-  terrain surface basis per pixel so normals follow wind deformation; it saves
-  terrain vertex work at long view distances for a marginal cost at short ones.
-- Selectable no GI, SSGI, or reflective shadow map GI, rendered at half resolution with
-  its own temporal denoising and guided upsampling, including with TAA disabled
-- Directional sky light for RSM GI, on by default: nearby walls and overhangs
-  tint the sky ambient by the directions they block; requires RSM GI with GTAO
-  in the Overworld
-- Directional sky light for SSGI, on by default: nearby occluders tint the
-  screen-space GI sky ambient by the directions they block (an approximation:
-  directional L0/L1 visibility with the L2 band scaled by open visibility, at
-  extra GPU cost); requires SSGI in the Overworld
-- Stable antialiasing, automatic exposure, bloom, depth of field, motion blur,
-  sharpening, and filmic color
-- Optional temporal upscaling (TAAU), with 50-85% render scale and the same
-  reconstruction, history, motion response, color clipping, and sharpening
-  controls as native TAA
+- Layered volumetric clouds with wind, sunlight, and optional cloud shadows
+  that track the moving cloud cover
+- Day/night sky with sunsets, moonlight, stars, and a Milky Way that shows
+  through clouds and in reflections, plus horizon haze
+- Exponential height fog with light shafts; density varies with day, twilight,
+  night, and rain
+- Clear water with waves, reflections, refraction, caustics, underwater fog,
+  and underwater sun shafts
+- Rain that wets exposed ground, with optional puddles and ripples, then dries
+- Soft sun shadows with contact detail, ambient occlusion, and light passing
+  through foliage
+- Wind-swayed grass and foliage with matching shadows
+- Selectable global illumination: none, screen-space (SSGI), or reflective
+  shadow map (RSM) GI
+- Reflections on solid surfaces; LabPBR (default) and oldPBR material maps
+- TAA antialiasing, plus optional temporal upscaling (TAAU) at a 50-85% render
+  scale
+- Automatic exposure, bloom, depth of field, motion blur, sharpening, and
+  selectable tone mapping
 
-## GPU support
-
-Vibroscat targets modern desktop and laptop GPUs with current drivers.
-
-| Vendor | Supported range | Practical starting point |
-| --- | --- | --- |
-| NVIDIA | GeForce GTX 900 series and newer | GTX 1060 6 GB at 1080p Low |
-| AMD | Radeon RX 400 series and newer | RX 580 8 GB at 1080p Low |
-| Intel | Arc A-series and newer | Arc A380 at 1080p Low |
-
-GeForce RTX, Radeon RX 5000/6000/7000, and Intel Arc GPUs are the main target.
-Integrated Intel UHD, Iris Xe, Radeon Vega, and Radeon 700M graphics are below
-the intended performance range.
+Vibroscat shades the Overworld only; the Nether and the End currently render
+with vanilla visuals.
 
 ## Requirements
 
-- Minecraft Java Edition 26.2
-- Fabric Loader 0.19.x
-- Iris and Sodium builds made for Minecraft 26.2
+- Minecraft Java Edition 26.2 with Fabric Loader 0.19.x, and matching Iris and
+  Sodium builds
 - Java 21
-- Windows or Linux with an up-to-date GPU driver
-- 8 GB system memory minimum; 16 GB recommended
-- 4 GB VRAM for Low; 6 GB for Medium or High; 10 GB for Ultra at 4K
-- 4 GB of Java heap and a 12 to 16 chunk render distance as a starting setup
+- A GPU with an up-to-date driver supporting OpenGL 4.3 or newer (the pack
+  uses compute shaders and SSBOs)
 
-## Quality profiles
+## Performance
 
-| Profile | Suggested hardware and resolution |
-| --- | --- |
-| Low | GTX 1060 6 GB, RX 580 8 GB, or Arc A380 at 1080p |
-| Medium | RTX 2060/3060, RX 6600/7600, or Arc A580/A750 at 1080p or 1440p |
-| High | RTX 3070/4070, RX 6800/7800 XT, or Arc A770 at 1440p |
-| Ultra | RTX 4080/4090, RX 7900 XT/XTX, or newer high-end GPUs at 4K |
-
-Start with Medium at 1080p. Lower cloud and shadow quality first when more
-performance is needed. Ultra renders clouds at full resolution and is intended
-for high-end GPUs.
+Vibroscat is developed and tested on an NVIDIA GeForce RTX 5070 Ti Laptop GPU
+(Windows). Four quality profiles (Low, Medium, High, Ultra) are built into
+the settings, and the defaults equal Medium. If the frame rate is too low,
+pick a lower profile.
 
 ## Installation
 
 Download the release archive and place it in the `shaderpacks` directory. Keep
 the archive intact, or extract it so that `shaders` is directly inside the
-Vibroscat folder. Select Vibroscat from the Iris shader-pack menu, then choose a
-quality profile in Shader Pack Settings.
+Vibroscat folder. Select Vibroscat from the Iris shader-pack menu, then choose
+a quality profile in Shader Pack Settings.
 
 ## License
 

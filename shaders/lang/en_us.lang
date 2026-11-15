@@ -364,11 +364,11 @@ option.WATER_POM_COARSE_STEPS = POM Coarse Steps
 option.WATER_POM_COARSE_STEPS.comment = Quality of the wave-depth search: higher = more accurate relief, slower.
 option.WATER_POM_BISECT_STEPS = POM Bisection Steps
 option.WATER_POM_BISECT_STEPS.comment = Refinement passes that sharpen the relief: higher = crisper crests, slower.
-option.WATER_RIVER_GAIN = Water Wave Height
-option.WATER_RIVER_GAIN.comment = Wave strength for both modes, and parallax height on Low. High has its own parallax height control.
-option.WATER_LARGE_POM_HEIGHT = Large Wave Parallax Height
+option.WATER_RIVER_GAIN = Small Wave Height
+option.WATER_RIVER_GAIN.comment = Low quality only: scales wave height and normal strength together.
+option.WATER_LARGE_POM_HEIGHT = Large Wave Height
 suffix.WATER_LARGE_POM_HEIGHT = x
-option.WATER_LARGE_POM_HEIGHT.comment = High quality only: scales the parallax relief. 1.0 = default, 0 = flat. Does not change normal strength.
+option.WATER_LARGE_POM_HEIGHT.comment = High quality only: scales wave height and normal strength together. 1.0 = default, 0 = flat.
 
 #Fog
 option.BOUNDARY_FOG = Boundary Fog

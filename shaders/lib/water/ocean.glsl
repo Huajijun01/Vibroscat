@@ -10,7 +10,7 @@
 const float WATER_HORIZONTAL_FACE_MIN_Y = 0.5;
 
 // Bounds both extrema of the selected POM field at every supported gain.
-const float OCEAN_POM_MAX_DEPTH = RIVER_TEX_POM_AMPLITUDE * RIVER_TEX_POM_GAIN
+const float OCEAN_POM_MAX_DEPTH = RIVER_TEX_POM_AMPLITUDE * RIVER_TEX_GAIN
                               * max(RIVER_TEX_CENTER, 1.0 - RIVER_TEX_CENTER);
 const float OCEAN_POM_MAX_OFFSET = 2.0; // m, clamp grazing offsets
 const float OCEAN_POM_MIN_SHIFT = 0.05; // m, skip invisible shifts

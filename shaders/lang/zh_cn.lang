@@ -364,11 +364,11 @@ option.WATER_POM_COARSE_STEPS = 视差粗搜索步数
 option.WATER_POM_COARSE_STEPS.comment = 波浪深度搜索的精度：越高浪形越准确，速度越慢。
 option.WATER_POM_BISECT_STEPS = 视差二分细化次数
 option.WATER_POM_BISECT_STEPS.comment = 细化浪形的迭代次数：越高波峰越锐利，速度越慢。
-option.WATER_RIVER_GAIN = 水面波高
-option.WATER_RIVER_GAIN.comment = 两种水面的波幅，以及低档的视差波高；高档的视差波高单独控制。
-option.WATER_LARGE_POM_HEIGHT = 大波视差高度
+option.WATER_RIVER_GAIN = 小波波高
+option.WATER_RIVER_GAIN.comment = 仅低档生效：同步缩放波高与法线强度。
+option.WATER_LARGE_POM_HEIGHT = 大波波高
 suffix.WATER_LARGE_POM_HEIGHT = 倍
-option.WATER_LARGE_POM_HEIGHT.comment = 仅高档生效：缩放视差起伏，1.0 = 默认，0 = 无起伏，不影响法线波幅。
+option.WATER_LARGE_POM_HEIGHT.comment = 仅高档生效：同步缩放波高与法线强度，1.0 = 默认，0 = 平面。
 
 #Fog
 option.BOUNDARY_FOG = 边界雾

@@ -251,10 +251,10 @@ const vec3 TORCH_LIGHT_COLOR = vec3(1.00, 0.70, 0.35) * 12.0 * TORCH_BRIGHTNESS;
 // 0 = small waves, 1 = medium-large (more normal / POM layers).
 #define WATER_SURFACE_QUALITY 0 // [0 1]
 
-// Normal gain for both sea states; also controls small-wave POM height.
+// Small-wave height and slope gain.
 #define WATER_RIVER_GAIN 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 3.69 5.0]
 
-// 1.0 uses the baked height; normal strength is unaffected.
+// Large-wave height and slope gain; 1.0 uses the baked amplitude.
 #define WATER_LARGE_POM_HEIGHT 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 
 // LOW profile disables POM entirely, so these stay at defaults.

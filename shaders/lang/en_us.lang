@@ -85,7 +85,7 @@ screen.INFORMATION = Information
 screen.INFORMATION.comment = Pack info: license, performance presets and setting help.
 
 #About / information (display-only pseudo options)
-option.ABOUT = Vibroscat Alpha v0.3.2
+option.ABOUT = Vibroscat Alpha V0.4.0
 option.ABOUT.comment = Vibroscat shaderpack by Huajijun, free open-source software under GPL-3.0.
 value.ABOUT.0 = by Huajijun
 option.INFO_LICENSE = License

@@ -85,7 +85,7 @@ screen.INFORMATION = 信息
 screen.INFORMATION.comment = 光影包信息：开源许可证、性能预设与设置说明。
 
 #About / information (display-only pseudo options)
-option.ABOUT = Vibroscat Alpha v0.3.2
+option.ABOUT = Vibroscat Alpha V0.4.0
 option.ABOUT.comment = Vibroscat 光影，作者 Huajijun，以 GPL-3.0 协议开源。
 value.ABOUT.0 = 作者：Huajijun
 option.INFO_LICENSE = 开源许可证

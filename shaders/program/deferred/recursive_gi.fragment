@@ -19,6 +19,7 @@
 #include "/lib/lighting/gtao.glsl"
 #include "/lib/shadow/reflective_shadow_map.glsl"
 
+// Ported from Mirko Salm's GT-VBGI (CC0 1.0; licenses/THIRD_PARTY_NOTICES.md section 8).
 // colortex10 metadata records the selected receiver; deferred5 reconstructs spatially.
 
 layout(location = 0) out vec3 out_gi;

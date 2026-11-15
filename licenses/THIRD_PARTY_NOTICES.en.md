@@ -82,3 +82,7 @@ The transmittance LUT sampling scheme and UV parameterization (`GetTransmittance
 `shaders/lib/color/tonemap_aces_fitted.glsl` is adapted from Stephen Hill's ACES fit in
 [BakingLab/ACES.hlsl](https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl).
 Copyright (c) 2016 MJP. The full MIT license is retained in that file.
+
+## 8. GT-VBGI screen-space GI (CC0 1.0)
+
+The screen-space visibility-bitmask GI in `shaders/program/deferred/recursive_gi.fragment` is ported from Mirko Salm's GT-VBGI reference implementation (Shadertoy: <https://www.shadertoy.com/view/XcdBWf>). That source is dual-licensed under CC0 1.0 Universal and the MIT License; this pack uses it under CC0 1.0 Universal: <https://creativecommons.org/publicdomain/zero/1.0/>

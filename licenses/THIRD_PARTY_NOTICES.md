@@ -82,3 +82,7 @@
 `shaders/lib/color/tonemap_aces_fitted.glsl` is adapted from Stephen Hill's ACES fit in
 [BakingLab/ACES.hlsl](https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl).
 Copyright (c) 2016 MJP. The full MIT license is retained in that file.
+
+## 8. GT-VBGI 屏幕空间 GI（CC0 1.0）
+
+`shaders/program/deferred/recursive_gi.fragment` 的屏幕空间可见性位掩码 GI 移植自 Mirko Salm 的 GT-VBGI 参考实现（Shadertoy：<https://www.shadertoy.com/view/XcdBWf>）。该源码以 CC0 1.0 Universal 与 MIT 双许可发布，本包依据 CC0 1.0 Universal 使用：<https://creativecommons.org/publicdomain/zero/1.0/>

@@ -16,7 +16,7 @@ defects, incomplete settings, and breaking changes between versions.
 
 ![Savanna landscape with volumetric clouds, clear water, and soft daylight](screenshots/scene1-sky.jpg)
 
-![Underwater scene from an earlier development build](screenshots/scene3-water.jpg)
+![Underwater seabed with caustics, underwater fog, and sun shafts](screenshots/scene3-water.jpg)
 
 ![Layered volumetric clouds and atmospheric sky](screenshots/scene4-clouds.jpg)
 

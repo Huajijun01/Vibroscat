@@ -12,7 +12,7 @@ Vibroscat 还处于早期开发阶段。不少效果尚未完成，部分代码�
 
 ![金合欢树草原，体积云、清澈水面与柔和的日光](screenshots/scene1-sky.jpg)
 
-![早期开发版本的水下场景](screenshots/scene3-water.jpg)
+![水下海床：焦散、水下雾与光柱](screenshots/scene3-water.jpg)
 
 ![分层体积云与大气天空](screenshots/scene4-clouds.jpg)
 
